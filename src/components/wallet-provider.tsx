@@ -150,36 +150,6 @@ const WalletProvider = ({ children }: Props) => {
     toast.error(message || "Something went wrong"); // Show a generic error message
   };
 
-  const getAllInvoiceData = async () => {
-    try {
-      const { data, error } = await client(chainId)
-        .query(GET_ALL_INVOICES, {})
-        .toPromise();
-
-      if (error) {
-        console.log(error.message);
-      }
-
-      const allInvoice: AllUsersInvoice[] = data?.invoices || [];
-
-      const allInvoiceData: AllUsersInvoice[] = allInvoice.map(
-        (invoice: any) => ({
-          id: invoice.id,
-          contract: invoice.contract,
-          creator: invoice.creator.id,
-          paymentTxHash: invoice.paymentTxHash,
-          payer: invoice.payer,
-          releaseDate: invoice.releasedAt,
-          fee: invoice.fee,
-        })
-      );
-
-      console.log("DATA", allInvoiceData);
-    } catch (error) {
-      console.error("Error fetching invoice data:", error);
-    }
-  };
-
   // Fetch invoice data for the connected user
   const getInvoiceData = async () => {
     try {
