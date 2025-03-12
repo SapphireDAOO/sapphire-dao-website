@@ -4,11 +4,28 @@ export type Invoice = {
   amountPaid?: string | null;
   createdAt?: string | null;
   paidAt?: string;
+  releasedAt?: string;
   price?: string | null;
   status?: string;
   type?: "Payer" | "Creator";
   holdPeriod?: string | null;
+  paymentTxHash?: string;
+  releaseHash?: string;
+  contract?: string;
+  fee?: string;
+  payer?: string;
+  creator?: string;
 };
+
+export interface AllUsersInvoice {
+  id: string;
+  contract: string;
+  creator: string;
+  paymentTxHash: string;
+  payer: string;
+  releaseDate: string;
+  fee: string;
+}
 
 // Specialized invoice type for invoices created by the user
 export interface UserCreatedInvoice extends Invoice {

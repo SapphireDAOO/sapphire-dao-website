@@ -43,16 +43,21 @@ const RecentPayment = () => {
 
   return (
     <div className="container mx-auto">
-      <Tabs defaultValue="creator" onValueChange={(value) => setCurrentTab(value)}>
+      <Tabs
+        defaultValue="creator"
+        onValueChange={(value) => setCurrentTab(value)}
+      >
         <TabsList>
-          <TabsTrigger value="creator">Created Invoice</TabsTrigger>
-          <TabsTrigger value="payer">Paid Invoice</TabsTrigger>
+          <TabsTrigger value="all">All</TabsTrigger>
+          <TabsTrigger value="creator">Created by me</TabsTrigger>
+          <TabsTrigger value="payer">Paid by me</TabsTrigger>
         </TabsList>
         <TabsContent value="creator">
           <DataTable
             columns={columns}
             data={filteredCreatedInvoices}
             statuses={dropdownStatuses}
+            currentTab={""}
           />
         </TabsContent>
         <TabsContent value="payer">
@@ -60,6 +65,15 @@ const RecentPayment = () => {
             columns={columns}
             data={filteredPaidInvoices}
             statuses={dropdownStatuses}
+            currentTab={"payer"}
+          />
+        </TabsContent>
+        <TabsContent value="all">
+          <DataTable
+            columns={columns}
+            data={filteredPaidInvoices.concat(filteredCreatedInvoices)}
+            statuses={dropdownStatuses}
+            currentTab={""}
           />
         </TabsContent>
       </Tabs>

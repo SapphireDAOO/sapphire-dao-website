@@ -8,13 +8,19 @@ import { PaymentProcessor__factory } from "@/typechain";
 import { Address, encodeFunctionData } from "viem";
 import { createClient } from "urql";
 import { ContractContext } from "@/context/contract-context";
+import { format } from "date-fns";
 import {
   INVOICE_ADDRESS,
   POLYGON_AMOY,
   THE_GRAPH_API_URL,
   errorMessages,
 } from "@/constants";
-import { UserCreatedInvoice, Invoice, UserPaidInvoice } from "@/model/model";
+import {
+  UserCreatedInvoice,
+  Invoice,
+  UserPaidInvoice,
+  AllUsersInvoice,
+} from "@/model/model";
 import { polygonAmoy } from "viem/chains";
 
 // Props type for the WalletProvider component
@@ -28,6 +34,25 @@ const client = (chainId: number) =>
     url: THE_GRAPH_API_URL[chainId], // Fetch the API URL from constants using the chainId
   });
 
+const GET_ALL_INVOICES = `
+  query {
+    invoices {
+      id
+      releasedAt
+      paidAt
+      paymentTxHash
+      contract
+      fee
+      creator {
+        id
+      }
+      payer {
+        id
+      }
+    }
+  }
+`;
+
 // GraphQL query to fetch invoices for a specific user
 const invoiceQuery = `query ($address: String!) {
   user (id: $address) {
@@ -39,6 +64,12 @@ const invoiceQuery = `query ($address: String!) {
       price
       status
       holdPeriod
+      contract
+      paymentTxHash
+      releaseHash
+      payer {
+        id
+      }
     }
     paidInvoices {
       amountPaid
@@ -48,6 +79,12 @@ const invoiceQuery = `query ($address: String!) {
       price
       status
       holdPeriod
+      contract
+      fee
+      paymentTxHash
+      creator {
+        id
+      }
     }
   }
 }`;
@@ -74,6 +111,7 @@ const WalletProvider = ({ children }: Props) => {
   // State variables for loading and invoice data
   const [isLoading, setIsLoading] = useState<string>();
   const [invoiceData, setInvoiceData] = useState<Invoice[]>([]);
+  const [allInvoiceData, setAllInvoiceData] = useState<AllUsersInvoice[]>([]);
 
   // Fetch invoice data when user address or chain changes
   useEffect(() => {
@@ -82,6 +120,7 @@ const WalletProvider = ({ children }: Props) => {
     };
 
     if (!address || !chain) {
+      setAllInvoiceData([]);
       setInvoiceData([]); // Clear data if no address or chain is available
     } else {
       onAddress(); // Fetch invoice data for the connected account
@@ -113,6 +152,38 @@ const WalletProvider = ({ children }: Props) => {
     toast.error(message || "Something went wrong"); // Show a generic error message
   };
 
+  const getAllInvoiceData = async () => {
+    try {
+      const { data, error } = await client(chainId)
+        .query(GET_ALL_INVOICES, {})
+        .toPromise();
+
+      if (error) {
+        console.log(error.message);
+      }
+
+      const allInvoice: AllUsersInvoice[] = data?.invoices || [];
+
+      const allInvoiceData: AllUsersInvoice[] = allInvoice.map(
+        (invoice: any) => ({
+          id: invoice.id,
+          contract: invoice.contract,
+          creator: invoice.creator.id,
+          paymentTxHash: invoice.paymentTxHash,
+          payer: invoice.payer,
+          releaseDate: invoice.releasedAt,
+          fee: invoice.fee,
+        })
+      );
+
+      console.log("DATA", allInvoiceData);
+
+      setAllInvoiceData(allInvoiceData);
+    } catch (error) {
+      console.error("Error fetching invoice data:", error);
+    }
+  };
+
   // Fetch invoice data for the connected user
   const getInvoiceData = async () => {
     try {
@@ -127,6 +198,7 @@ const WalletProvider = ({ children }: Props) => {
       // Process created invoices
       const createdInvoice: UserCreatedInvoice[] =
         data?.user?.createdInvoices || [];
+
       const paidInvoices: UserPaidInvoice[] = data?.user?.paidInvoices || [];
 
       // Format created invoices to fit with out model
@@ -134,7 +206,7 @@ const WalletProvider = ({ children }: Props) => {
         (invoice: any) => ({
           id: invoice?.id,
           createdAt: invoice.createdAt
-            ? new Date(invoice.createdAt * 1000).toDateString()
+            ? format(new Date(invoice.createdAt * 1000), "d/MMM/yy")
             : null,
           paidAt: invoice.paidAt || "Not Paid",
           status: invoice.status || "Unknown",
@@ -144,6 +216,10 @@ const WalletProvider = ({ children }: Props) => {
             : null,
           type: "Creator",
           holdPeriod: invoice.holdPeriod,
+          contract: invoice.contract,
+          paymentTxHash: invoice.paymentTxHash,
+          payer: invoice.payer === null ? "" : invoice.payer.id,
+          releaseHash: invoice.releaseHash,
         })
       );
 
@@ -152,7 +228,7 @@ const WalletProvider = ({ children }: Props) => {
         (invoice: any) => ({
           id: invoice.id,
           createdAt: invoice.createdAt
-            ? new Date(invoice.createdAt * 1000).toDateString()
+            ? format(new Date(invoice.createdAt * 1000), "d/MMM/yy")
             : null,
           paidAt: invoice.paidAt || "Not Paid",
           status: invoice.status || "Unknown",
@@ -162,6 +238,9 @@ const WalletProvider = ({ children }: Props) => {
             : null,
           type: "Payer",
           holdPeriod: invoice.holdPeriod,
+          creator: invoice.creator.id,
+          contract: invoice.contract,
+          paymentTxHash: invoice.paymentTxHash,
         })
       );
 

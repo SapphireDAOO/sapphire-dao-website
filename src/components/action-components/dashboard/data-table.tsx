@@ -24,13 +24,22 @@ const DataTable = <TData,>({
   columns,
   data,
   statuses,
+  currentTab,
 }: {
   columns: any[];
   data: TData[];
   statuses: { label: string; value: string }[];
+  currentTab?: string; // "creator" or "payer"
 }) => {
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [searchQuery, setSearchQuery] = useState<string>("");
+
+  const filteredColumns = useMemo(() => {
+    if (currentTab === "payer") {
+      return columns.filter((column) => column.accessorKey !== "releaseHash");
+    }
+    return columns;
+  }, [columns, currentTab]);
 
   const filteredData = useMemo(() => {
     let result = data;
@@ -47,7 +56,7 @@ const DataTable = <TData,>({
 
   const table = useReactTable({
     data: filteredData,
-    columns,
+    columns: filteredColumns, // ✅ Use dynamically filtered columns
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
@@ -111,7 +120,10 @@ const DataTable = <TData,>({
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={columns.length} className="text-center">
+                <TableCell
+                  colSpan={filteredColumns.length}
+                  className="text-center"
+                >
                   No results found.
                 </TableCell>
               </TableRow>

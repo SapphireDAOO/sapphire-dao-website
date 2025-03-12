@@ -35,3 +35,7 @@ export const timeLeft = (paidAtTimestamp: any, extra: number = 0) => {
     "0"
   )}s`;
 };
+
+export const formatAddress = (address: string) => {
+  return `${address.slice(0, 4)}..${address.slice(-3)}`;
+};

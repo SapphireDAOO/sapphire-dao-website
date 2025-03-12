@@ -18,7 +18,7 @@ import CreatorsAction from "./creators-action";
 import CancelInvoice from "./cancel-payment";
 import ReleaseInvoice from "./release-invoice";
 import RefundPayer from "./refund-payer";
-import { timeLeft } from "@/utils";
+import { formatAddress, timeLeft } from "@/utils";
 import generateSecureLink from "@/lib/generate-link";
 import React from "react";
 
@@ -39,9 +39,109 @@ const columns: ColumnDef<Invoice>[] = [
     cell: ({ row }) => <div className="text-center">{row.getValue("id")}</div>,
   },
   {
+    accessorKey: "contract",
+    header: () => <div className="text-center">Contract</div>,
+    cell: ({ row }) => {
+      const contractAddress = row.getValue("contract");
+      return (
+        <div className="text-center">
+          {contractAddress ? (
+            <a
+              href={`https://amoy.polygonscan.com/address/${contractAddress}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-500 underline"
+            >
+              {formatAddress(contractAddress as string)}
+            </a>
+          ) : (
+            "-"
+          )}
+        </div>
+      );
+    },
+  },
+  {
+    accessorKey: "creator",
+    header: () => <div className="text-center">Creator</div>,
+    cell: ({ row }) => {
+      const payment = row.original;
+      const creatorsAddress = row.getValue("creator");
+      return (
+        <div className="text-center">
+          {payment.type === "Creator" ? (
+            "me"
+          ) : creatorsAddress ? (
+            <a
+              href={`https://amoy.polygonscan.com/address/${creatorsAddress}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-500 underline"
+            >
+              {formatAddress(creatorsAddress as string)}
+            </a>
+          ) : (
+            "-"
+          )}
+        </div>
+      );
+    },
+  },
+  {
+    accessorKey: "payer",
+    header: () => <div className="text-center">By</div>,
+    cell: ({ row }) => {
+      const payment = row.original;
+      const payersAddress = row.getValue("payer");
+      return (
+        <div className="text-center">
+          {!payersAddress ? (
+            "-"
+          ) : payment.type === "Payer" ? (
+            "me"
+          ) : (
+            <a
+              href={`https://amoy.polygonscan.com/address/${payersAddress}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-500 underline"
+            >
+              {formatAddress(payersAddress as string)}
+            </a>
+          )}
+        </div>
+      );
+    },
+  },
+  {
     accessorKey: "createdAt",
-    header: "Time Created ",
-    cell: ({ row }) => <div className="bold">{row.getValue("createdAt")}</div>,
+    header: () => <div className="text-center">Time Created</div>,
+    cell: ({ row }) => (
+      <div className="text-center">{row.getValue("createdAt")}</div>
+    ),
+  },
+  {
+    accessorKey: "releaseHash",
+    header: () => <div className="text-center">Release</div>,
+    cell: ({ row }) => {
+      const releaseHash = row.getValue("releaseHash");
+      return (
+        <div className="text-center">
+          {releaseHash ? (
+            <a
+              href={`https://amoy.polygonscan.com/tx/${releaseHash}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-500 underline"
+            >
+              {formatAddress(releaseHash as string)}
+            </a>
+          ) : (
+            "-"
+          )}
+        </div>
+      );
+    },
   },
   {
     accessorKey: "paidAt",
@@ -77,39 +177,6 @@ const columns: ColumnDef<Invoice>[] = [
     },
   },
   {
-    accessorKey: "holdPeriod",
-    header: () => <div className="text-center">Hold Time</div>,
-    cell: ({ row }) => {
-      const t = row.getValue("holdPeriod");
-
-      const payment = row.original;
-
-      const [timeRemaining, setTimeRemaining] = React.useState(() =>
-        payment?.status === "ACCEPTED" ? timeLeft(t) : "-"
-      );
-
-      React.useEffect(() => {
-        if (payment?.status !== "ACCEPTED" || !t) {
-          return;
-        }
-
-        const interval = setInterval(() => {
-          const updatedTime = timeLeft(t);
-
-          setTimeRemaining(updatedTime);
-
-          if (updatedTime === "Time Elapsed") {
-            clearInterval(interval);
-          }
-        }, 1000);
-
-        return () => clearInterval(interval);
-      }, [t, payment?.status]);
-
-      return <div className="text-center">{timeRemaining}</div>;
-    },
-  },
-  {
     accessorKey: "status",
     header: () => <div className="text-center">Status</div>,
     cell: ({ row }) => (
@@ -119,11 +186,9 @@ const columns: ColumnDef<Invoice>[] = [
   {
     accessorKey: "price",
     header: () => <div className="text-center">Amount</div>,
-    cell: ({ row }) => {
-      return (
-        <div className="text-center">{row.getValue("price") + " POL"}</div>
-      );
-    },
+    cell: ({ row }) => (
+      <div className="text-center">{row.getValue("price") + " POL"}</div>
+    ),
   },
   {
     accessorKey: "amountPaid",
