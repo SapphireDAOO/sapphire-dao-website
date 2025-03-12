@@ -10,8 +10,8 @@ const HeroSection = () => {
           Welcome to Sapphire DAO
         </h1>
         <p className="text-lg sm:text-2xl mb-8">
-        Sapphire DAO is a platform on the polygon blockchain used for paying for
-          goods and services. <br />
+          Sapphire DAO is a platform on the polygon blockchain used for paying
+          for goods and services. <br />
           This payment system makes use of cryptocurrency as a medium of
           transaction; <br />
           specifically, it uses POL(matic) on the polygon blockchain

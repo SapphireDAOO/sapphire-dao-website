@@ -19,7 +19,6 @@ import {
   UserCreatedInvoice,
   Invoice,
   UserPaidInvoice,
-  AllUsersInvoice,
 } from "@/model/model";
 import { polygonAmoy } from "viem/chains";
 
@@ -34,24 +33,24 @@ const client = (chainId: number) =>
     url: THE_GRAPH_API_URL[chainId], // Fetch the API URL from constants using the chainId
   });
 
-const GET_ALL_INVOICES = `
-  query {
-    invoices {
-      id
-      releasedAt
-      paidAt
-      paymentTxHash
-      contract
-      fee
-      creator {
-        id
-      }
-      payer {
-        id
-      }
-    }
-  }
-`;
+// const GET_ALL_INVOICES = `
+//   query {
+//     invoices {
+//       id
+//       releasedAt
+//       paidAt
+//       paymentTxHash
+//       contract
+//       fee
+//       creator {
+//         id
+//       }
+//       payer {
+//         id
+//       }
+//     }
+//   }
+// `;
 
 // GraphQL query to fetch invoices for a specific user
 const invoiceQuery = `query ($address: String!) {

@@ -17,16 +17,6 @@ export type Invoice = {
   creator?: string;
 };
 
-export interface AllUsersInvoice {
-  id: string;
-  contract: string;
-  creator: string;
-  paymentTxHash: string;
-  payer: string;
-  releaseDate: string;
-  fee: string;
-}
-
 // Specialized invoice type for invoices created by the user
 export interface UserCreatedInvoice extends Invoice {
   type?: "Creator"; // Specifies that the invoice type is "Creator"
