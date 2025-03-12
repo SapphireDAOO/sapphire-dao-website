@@ -111,7 +111,6 @@ const WalletProvider = ({ children }: Props) => {
   // State variables for loading and invoice data
   const [isLoading, setIsLoading] = useState<string>();
   const [invoiceData, setInvoiceData] = useState<Invoice[]>([]);
-  const [allInvoiceData, setAllInvoiceData] = useState<AllUsersInvoice[]>([]);
 
   // Fetch invoice data when user address or chain changes
   useEffect(() => {
@@ -120,7 +119,6 @@ const WalletProvider = ({ children }: Props) => {
     };
 
     if (!address || !chain) {
-      setAllInvoiceData([]);
       setInvoiceData([]); // Clear data if no address or chain is available
     } else {
       onAddress(); // Fetch invoice data for the connected account
@@ -177,8 +175,6 @@ const WalletProvider = ({ children }: Props) => {
       );
 
       console.log("DATA", allInvoiceData);
-
-      setAllInvoiceData(allInvoiceData);
     } catch (error) {
       console.error("Error fetching invoice data:", error);
     }
