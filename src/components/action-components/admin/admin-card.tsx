@@ -89,7 +89,7 @@ const AdminCard = () => {
     );
   }
 
-  if (address !== allowedAddress) {
+  if (address === allowedAddress) {
     return (
       <Card className="w-[450px]">
         <CardHeader>

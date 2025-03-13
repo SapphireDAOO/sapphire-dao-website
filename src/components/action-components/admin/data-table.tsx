@@ -74,18 +74,6 @@ const DataTable = <TData,>({
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
         />
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          className="px-4 py-2 border rounded-md w-52"
-        >
-          <option value="ALL">All Statuses</option>
-          {statuses.map((status) => (
-            <option key={status.value} value={status.value}>
-              {status.label}
-            </option>
-          ))}
-        </select>
       </div>
 
       {/* Table */}
