@@ -17,6 +17,16 @@ export type Invoice = {
   creator?: string;
 };
 
+export type AllInvoice = {
+  id: string;
+  contract: string;
+  creator: string;
+  payment: string;
+  by: string;
+  release: string;
+  fee: string;
+};
+
 // Specialized invoice type for invoices created by the user
 export interface UserCreatedInvoice extends Invoice {
   type?: "Creator"; // Specifies that the invoice type is "Creator"

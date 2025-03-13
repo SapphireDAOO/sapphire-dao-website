@@ -1,4 +1,4 @@
-import { Invoice } from "@/model/model";
+import { Invoice, AllInvoice } from "@/model/model";
 import React from "react";
 import { Address } from "viem";
 
@@ -8,6 +8,7 @@ import { Address } from "viem";
 export interface ContractContextData {
   isLoading: string | undefined;
   invoiceData: Invoice[];
+  allInvoiceData: AllInvoice[];
   createInvoice: (invoicePrice: bigint) => Promise<number>;
   makeInvoicePayment: (amount: bigint, invoiceId: bigint) => Promise<boolean>;
   creatorsAction: (invoiceId: bigint, state: boolean) => Promise<boolean>;
@@ -24,10 +25,13 @@ export interface ContractContextData {
   setFee: (newFee: bigint) => Promise<boolean>;
   withdrawFees: () => Promise<boolean>;
   refetchInvoiceData?: () => Promise<void>;
+  refetchAllInvoiceData?: () => Promise<void>;
 }
+
 export const contractContextDefaults: ContractContextData = {
   isLoading: undefined,
   invoiceData: [],
+  allInvoiceData: [],
   transferOwnership: async () => Promise.resolve(false),
   createInvoice: async () => Promise.resolve(0),
   makeInvoicePayment: async () => Promise.resolve(false),
@@ -41,6 +45,7 @@ export const contractContextDefaults: ContractContextData = {
   setFee: async () => Promise.resolve(false),
   withdrawFees: async () => Promise.resolve(false),
   refetchInvoiceData: async () => Promise.resolve(),
+  refetchAllInvoiceData: async () => Promise.resolve(),
 };
 export const ContractContext = React.createContext<ContractContextData>(
   contractContextDefaults

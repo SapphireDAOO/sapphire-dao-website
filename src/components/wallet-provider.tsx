@@ -19,6 +19,7 @@ import {
   UserCreatedInvoice,
   Invoice,
   UserPaidInvoice,
+  AllInvoice,
 } from "@/model/model";
 import { polygonAmoy } from "viem/chains";
 
@@ -33,24 +34,24 @@ const client = (chainId: number) =>
     url: THE_GRAPH_API_URL[chainId], // Fetch the API URL from constants using the chainId
   });
 
-// const GET_ALL_INVOICES = `
-//   query {
-//     invoices {
-//       id
-//       releasedAt
-//       paidAt
-//       paymentTxHash
-//       contract
-//       fee
-//       creator {
-//         id
-//       }
-//       payer {
-//         id
-//       }
-//     }
-//   }
-// `;
+const GET_ALL_INVOICES = `
+  query {
+    invoices {
+      id
+      releasedAt
+      paidAt
+      paymentTxHash
+      contract
+      fee
+      creator {
+        id
+      }
+      payer {
+        id
+      }
+    }
+  }
+`;
 
 // GraphQL query to fetch invoices for a specific user
 const invoiceQuery = `query ($address: String!) {
@@ -110,6 +111,13 @@ const WalletProvider = ({ children }: Props) => {
   // State variables for loading and invoice data
   const [isLoading, setIsLoading] = useState<string>();
   const [invoiceData, setInvoiceData] = useState<Invoice[]>([]);
+  const [allInvoiceData, setAllInvoiceData] = useState<AllInvoice[]>([]);
+
+  const refetchAllInvoiceData = async () => {
+    console.log("🔄 Refreshing invoice data...");
+    const fetchedInvoices = await getAllInvoiceData();
+    setAllInvoiceData(fetchedInvoices);
+  };
 
   // Fetch invoice data when user address or chain changes
   useEffect(() => {
@@ -117,8 +125,10 @@ const WalletProvider = ({ children }: Props) => {
       await getInvoiceData();
     };
 
+    refetchAllInvoiceData();
     if (!address || !chain) {
       setInvoiceData([]); // Clear data if no address or chain is available
+      setAllInvoiceData([]);
     } else {
       onAddress(); // Fetch invoice data for the connected account
     }
@@ -147,6 +157,45 @@ const WalletProvider = ({ children }: Props) => {
 
     const message = error?.data?.message || error?.error?.data?.message;
     toast.error(message || "Something went wrong"); // Show a generic error message
+  };
+
+  const getAllInvoiceData = async () => {
+    try {
+      const { data, error } = await client(chainId)
+        .query(GET_ALL_INVOICES, {})
+        .toPromise();
+
+      if (error) {
+        console.error("GraphQL Error:", error.message);
+        return [];
+      }
+
+      if (!data?.invoices) {
+        console.warn("No invoice data found.");
+        return [];
+      }
+
+      // Map over invoices safely
+      const invoiceList: AllInvoice[] = data.invoices.map((list: any) => ({
+        id: list.id || "",
+        contract: list.contract || "",
+        creator: list.creator?.id || "",
+        payment: list.paymentTxHash || "",
+        by: list.payer?.id || "",
+        release:
+          list.releasedAt && !isNaN(list.releasedAt)
+            ? format(new Date(list.releasedAt * 1000), "d/MMM/yy")
+            : "Not Released",
+        fee: list.fee || "0",
+      }));
+
+      console.log("Fetched Invoices:", invoiceList);
+
+      return invoiceList;
+    } catch (error) {
+      console.error("❌ Error fetching invoice data:", error);
+      return [];
+    }
   };
 
   // Fetch invoice data for the connected user
@@ -757,6 +806,7 @@ const WalletProvider = ({ children }: Props) => {
       value={{
         isLoading,
         invoiceData,
+        allInvoiceData,
         createInvoice,
         makeInvoicePayment,
         creatorsAction,
@@ -769,6 +819,9 @@ const WalletProvider = ({ children }: Props) => {
         transferOwnership,
         setFee,
         withdrawFees,
+        refetchAllInvoiceData: async () => {
+          await getAllInvoiceData();
+        },
         refetchInvoiceData: async () => {
           await getInvoiceData();
         },
