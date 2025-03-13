@@ -89,9 +89,14 @@ const columns: ColumnDef<Invoice>[] = [
   },
   {
     accessorKey: "paymentTxHash",
-    header: "Payment",
+    header: () => <div className="text-center">Payment</div>,
     cell: ({ row }) => {
       const paymentHash = row.getValue("paymentTxHash");
+
+      if (!paymentHash) {
+        return <div className="text-center">-</div>;
+      }
+
       return (
         <div className="bold">
           {paymentHash ? (
