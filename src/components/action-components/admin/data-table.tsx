@@ -23,38 +23,30 @@ import {
 const DataTable = <TData,>({
   columns,
   data,
-  statuses,
 }: {
   columns: any[];
   data: TData[];
   statuses: { label: string; value: string }[];
 }) => {
-  console.log("COLUMN", columns);
-  const [statusFilter, setStatusFilter] = useState<string>("ALL");
+  // const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [filteredData, setFilteredData] = useState(data);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    console.log("📌 Raw Data Received in DataTable:", data);
-
     setLoading(true);
     // Apply filtering based on search & status
     const newFilteredData = data.filter((row: any) => {
-      const matchesStatus =
-        statusFilter === "ALL" ||
-        row.status?.toLowerCase() === statusFilter.toLowerCase();
       const matchesSearch =
         searchQuery.trim() === "" ||
         row.id?.toLowerCase().includes(searchQuery.toLowerCase());
 
-      return matchesStatus && matchesSearch;
+      return matchesSearch;
     });
 
-    console.log("✅ Filtered Data After Processing:", newFilteredData);
     setFilteredData(newFilteredData);
     setLoading(false);
-  }, [data, statusFilter, searchQuery]);
+  }, [data, searchQuery]);
 
   const table = useReactTable({
     data: filteredData,
@@ -112,7 +104,7 @@ const DataTable = <TData,>({
                     {row.getVisibleCells().map((cell) => (
                       <TableCell
                         key={cell.id}
-                        className="py-6 px-6 text-center"
+                        className="py-4 px-4 text-center"
                       >
                         {flexRender(
                           cell.column.columnDef.cell,

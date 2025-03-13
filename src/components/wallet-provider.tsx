@@ -114,7 +114,6 @@ const WalletProvider = ({ children }: Props) => {
   const [allInvoiceData, setAllInvoiceData] = useState<AllInvoice[]>([]);
 
   const refetchAllInvoiceData = async () => {
-    console.log("🔄 Refreshing invoice data...");
     const fetchedInvoices = await getAllInvoiceData();
     setAllInvoiceData(fetchedInvoices);
   };
@@ -188,8 +187,6 @@ const WalletProvider = ({ children }: Props) => {
             : "Not Released",
         fee: list.fee || "0",
       }));
-
-      console.log("Fetched Invoices:", invoiceList);
 
       return invoiceList;
     } catch (error) {

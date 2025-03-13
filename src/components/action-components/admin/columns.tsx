@@ -1,4 +1,4 @@
- 
+/* eslint-disable react-hooks/rules-of-hooks */
 "use client";
 import { ColumnDef } from "@tanstack/react-table";
 import { AllInvoice } from "@/model/model";
@@ -62,8 +62,6 @@ const columns: ColumnDef<AllInvoice>[] = [
     header: () => <div className="text-center">Payment</div>,
     cell: ({ row }) => {
       const paymentHash = row.getValue("payment");
-
-      console.log();
 
       if (!paymentHash) {
         return <div className="text-center">-</div>;
