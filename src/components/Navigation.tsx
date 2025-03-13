@@ -71,7 +71,7 @@ const Navbar = () => {
                   <div className="max-w-7xl mx-auto flex items-center justify-between">
                     <div className="flex gap-5">
                       <Link
-                        href="/admin/invoices"
+                        href="/invoices"
                         className={cn(
                           buttonVariants({ variant: "ghost" }),
                           "hover:text-blue-400"
