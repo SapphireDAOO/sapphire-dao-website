@@ -88,6 +88,29 @@ const columns: ColumnDef<Invoice>[] = [
     },
   },
   {
+    accessorKey: "paymentTxHash",
+    header: "Payment",
+    cell: ({ row }) => {
+      const paymentHash = row.getValue("paymentTxHash");
+      return (
+        <div className="bold">
+          {paymentHash ? (
+            <a
+              href={`https://amoy.polygonscan.com/tx/${paymentHash}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-500 underline"
+            >
+              {formatAddress(paymentHash as string)}
+            </a>
+          ) : (
+            "-"
+          )}
+        </div>
+      );
+    },
+  },
+  {
     accessorKey: "payer",
     header: () => <div className="text-center">By</div>,
     cell: ({ row }) => {
