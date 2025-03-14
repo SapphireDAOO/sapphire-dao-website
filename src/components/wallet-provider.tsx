@@ -22,6 +22,7 @@ import {
   AllInvoice,
 } from "@/model/model";
 import { polygonAmoy } from "viem/chains";
+import { unixToGMT } from "@/utils";
 
 // Props type for the WalletProvider component
 type Props = {
@@ -183,7 +184,7 @@ const WalletProvider = ({ children }: Props) => {
         by: list.payer?.id || "",
         release:
           list.releasedAt && !isNaN(list.releasedAt)
-            ? format(new Date(list.releasedAt * 1000), "d/MMM/yy")
+            ? unixToGMT(list.releasedAt)
             : "Not Released",
         fee: list.fee || "0",
       }));
@@ -216,9 +217,7 @@ const WalletProvider = ({ children }: Props) => {
       const createdInvoiceData: UserCreatedInvoice[] = createdInvoice.map(
         (invoice: any) => ({
           id: invoice?.id,
-          createdAt: invoice.createdAt
-            ? format(new Date(invoice.createdAt * 1000), "d/MMM/yy")
-            : null,
+          createdAt: invoice.createdAt ? unixToGMT(invoice.createdAt) : null,
           paidAt: invoice.paidAt || "Not Paid",
           status: invoice.status || "Unknown",
           price: invoice.price ? formatEther(invoice.price) : null,
@@ -238,9 +237,7 @@ const WalletProvider = ({ children }: Props) => {
       const paidInvoiceData: UserPaidInvoice[] = paidInvoices.map(
         (invoice: any) => ({
           id: invoice.id,
-          createdAt: invoice.createdAt
-            ? format(new Date(invoice.createdAt * 1000), "d/MMM/yy")
-            : null,
+          createdAt: invoice.createdAt ? unixToGMT(invoice.createdAt) : null,
           paidAt: invoice.paidAt || "Not Paid",
           status: invoice.status || "Unknown",
           price: invoice.price ? formatEther(invoice.price) : null,

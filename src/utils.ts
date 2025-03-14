@@ -39,3 +39,32 @@ export const timeLeft = (paidAtTimestamp: any, extra: number = 0) => {
 export const formatAddress = (address: string) => {
   return `${address.slice(0, 4)}..${address.slice(-3)}`;
 };
+
+export const unixToGMT = (unixTimestamp: any) => {
+  const date = new Date(unixTimestamp * 1000); // Convert Unix timestamp to milliseconds
+
+  // Define month abbreviations
+  const monthAbbr = [
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+  ];
+
+  // Extract parts in GMT
+  const day = String(date.getUTCDate()).padStart(2, "0");
+  const month = monthAbbr[date.getUTCMonth()];
+  const year = date.getUTCFullYear();
+  const hours = String(date.getUTCHours()).padStart(2, "0");
+  const minutes = String(date.getUTCMinutes()).padStart(2, "0");
+
+  return `${day}-${month}-${year} ${hours}:${minutes}`;
+};
