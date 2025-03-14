@@ -12,29 +12,6 @@ const columns: ColumnDef<AllInvoice>[] = [
     cell: ({ row }) => <div className="text-center">{row.getValue("id")}</div>,
   },
   {
-    accessorKey: "contract",
-    header: () => <div className="text-center">Contract</div>,
-    cell: ({ row }) => {
-      const contractAddress = row.getValue("contract");
-      return (
-        <div className="text-center">
-          {contractAddress ? (
-            <a
-              href={`https://amoy.polygonscan.com/address/${contractAddress}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-blue-500 underline"
-            >
-              {formatAddress(contractAddress as string)}
-            </a>
-          ) : (
-            "-"
-          )}
-        </div>
-      );
-    },
-  },
-  {
     accessorKey: "creator",
     header: () => <div className="text-center">Creator</div>,
     cell: ({ row }) => {
