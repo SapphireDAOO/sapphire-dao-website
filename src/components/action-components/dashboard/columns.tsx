@@ -153,9 +153,15 @@ const columns: ColumnDef<Invoice>[] = [
     header: () => <div className="text-center">Release</div>,
     cell: ({ row }) => {
       const releaseHash = row.getValue("releaseHash");
-      return (
-        <div className="text-center">
-          {releaseHash ? (
+      const status = row.original?.status; // Fetch invoice status
+      const releaseAt = row.original?.holdPeriod ?? null; // Ensure null safety
+
+      console.log(`Invoice ID: ${row.original.id}, ReleaseAt: ${releaseAt}`);
+
+      // If status is RELEASED, show hash
+      if (status === "RELEASED" && releaseHash) {
+        return (
+          <div className="text-center">
             <a
               href={`https://amoy.polygonscan.com/tx/${releaseHash}`}
               target="_blank"
@@ -164,11 +170,40 @@ const columns: ColumnDef<Invoice>[] = [
             >
               {formatAddress(releaseHash as string)}
             </a>
-          ) : (
-            "-"
-          )}
-        </div>
-      );
+          </div>
+        );
+      }
+
+      // If status is ACCEPTED, show time left
+      if (status === "ACCEPTED") {
+        if (!releaseAt) return <div className="text-center">-</div>;
+
+        const [timeRemaining, setTimeRemaining] = React.useState(
+          timeLeft(Number(releaseAt))
+        );
+
+        React.useEffect(() => {
+          if (!releaseAt) return;
+
+          const interval = setInterval(() => {
+            const updatedTime = timeLeft(Number(releaseAt));
+            setTimeRemaining(updatedTime);
+
+            if (updatedTime === "Time Elapsed") {
+              clearInterval(interval);
+            }
+          }, 1000);
+
+          return () => clearInterval(interval);
+        }, [releaseAt]);
+
+        return (
+          <div className="text-yellow-500 text-center">{timeRemaining}</div>
+        );
+      }
+
+      // Default case, return "-"
+      return <div className="text-center">-</div>;
     },
   },
   {

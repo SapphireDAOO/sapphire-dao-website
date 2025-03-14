@@ -67,6 +67,7 @@ const invoiceQuery = `query ($address: String!) {
       holdPeriod
       contract
       paymentTxHash
+      toBeReleasedAt
       releaseHash
       payer {
         id
@@ -82,6 +83,7 @@ const invoiceQuery = `query ($address: String!) {
       holdPeriod
       contract
       fee
+      toBeReleasedAt
       paymentTxHash
       creator {
         id
@@ -230,8 +232,11 @@ const WalletProvider = ({ children }: Props) => {
           paymentTxHash: invoice.paymentTxHash,
           payer: invoice.payer === null ? "" : invoice.payer.id,
           releaseHash: invoice.releaseHash,
+          releaseAt: invoice.toBeReleasedAt,
         })
       );
+
+      console.log(createdInvoiceData);
 
       // Format paid invoices
       const paidInvoiceData: UserPaidInvoice[] = paidInvoices.map(
@@ -249,6 +254,7 @@ const WalletProvider = ({ children }: Props) => {
           creator: invoice.creator.id,
           contract: invoice.contract,
           paymentTxHash: invoice.paymentTxHash,
+          releaseAt: invoice.toBeReleasedAt,
         })
       );
 
