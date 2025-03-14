@@ -47,23 +47,36 @@ const DataTable = <TData,>({
       return true;
     });
   }, [columns, currentTab]);
-  
+
   const filteredData = useMemo(() => {
     return data.filter((row: any) => {
       const matchesStatus =
-        statusFilter === "ALL" || row.status?.toLowerCase() === statusFilter.toLowerCase();
-  
+        statusFilter === "ALL" ||
+        row.status?.toLowerCase() === statusFilter.toLowerCase();
+
       const matchesSearch =
         searchQuery.trim() === "" ||
         row.id?.toLowerCase().includes(searchQuery.toLowerCase());
-  
+
       return matchesStatus && matchesSearch;
     });
   }, [data, statusFilter, searchQuery]);
 
+  const newData = useMemo(() => {
+    const allData = filteredData
+      .filter((i: any) => i.status === "PAID")
+      .reverse();
+
+    const otherData = filteredData.filter((i: any) => i.status !== "PAID");
+
+    return [...allData, ...otherData];
+  }, [filteredData]);
+
+  console.log(newData);
+
   const table = useReactTable({
-    data: filteredData,
-    columns: filteredColumns, // ✅ Use dynamically filtered columns
+    data: newData,
+    columns: filteredColumns,
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
