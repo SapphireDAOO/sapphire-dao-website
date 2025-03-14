@@ -35,23 +35,30 @@ const DataTable = <TData,>({
   const [searchQuery, setSearchQuery] = useState<string>("");
 
   const filteredColumns = useMemo(() => {
-    if (currentTab === "payer") {
-      return columns.filter((column) => column.accessorKey !== "releaseHash");
-    }
-    return columns;
+    return columns.filter((column) => {
+      // Hide "Release" column when on "Payer" tab
+      if (currentTab === "payer" && column.accessorKey === "releaseHash") {
+        return false;
+      }
+      // Show "Creator" column only when on "Payer" tab
+      if (currentTab !== "payer" && column.accessorKey === "creator") {
+        return false;
+      }
+      return true;
+    });
   }, [columns, currentTab]);
-
+  
   const filteredData = useMemo(() => {
-    let result = data;
-    if (statusFilter !== "ALL") {
-      result = result.filter((row: any) => row.status === statusFilter);
-    }
-    if (searchQuery.trim() !== "") {
-      result = result.filter((row: any) =>
-        row.id.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-    }
-    return result;
+    return data.filter((row: any) => {
+      const matchesStatus =
+        statusFilter === "ALL" || row.status?.toLowerCase() === statusFilter.toLowerCase();
+  
+      const matchesSearch =
+        searchQuery.trim() === "" ||
+        row.id?.toLowerCase().includes(searchQuery.toLowerCase());
+  
+      return matchesStatus && matchesSearch;
+    });
   }, [data, statusFilter, searchQuery]);
 
   const table = useReactTable({
