@@ -8,7 +8,6 @@ import { PaymentProcessor__factory } from "@/typechain";
 import { Address, encodeFunctionData } from "viem";
 import { createClient } from "urql";
 import { ContractContext } from "@/context/contract-context";
-import { format } from "date-fns";
 import {
   INVOICE_ADDRESS,
   POLYGON_AMOY,

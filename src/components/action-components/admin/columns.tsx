@@ -1,4 +1,4 @@
-/* eslint-disable react-hooks/rules-of-hooks */
+ 
 "use client";
 import { ColumnDef } from "@tanstack/react-table";
 import { AllInvoice } from "@/model/model";
