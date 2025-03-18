@@ -6,8 +6,8 @@ import { useGetOwner } from "./useGetOwner";
 
 const useWalletRestriction = () => {
   const { data } = useGetOwner();
-
   const [isAllowed, setIsAllowed] = useState(false);
+  const [walletConnected, setWalletConnected] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -18,11 +18,13 @@ const useWalletRestriction = () => {
             method: "eth_accounts",
           });
 
-          if (
-            accounts.length > 0 &&
-            accounts[0].toLowerCase() === data?.toLowerCase()
-          ) {
-            setIsAllowed(true);
+          if (accounts.length > 0) {
+            setWalletConnected(true);
+            if (accounts[0].toLowerCase() === data?.toLowerCase()) {
+              setIsAllowed(true);
+            }
+          } else {
+            setWalletConnected(false);
           }
         } catch (error) {
           console.error("Error fetching wallet address:", error);
@@ -35,7 +37,7 @@ const useWalletRestriction = () => {
     checkWallet();
   }, [router, data]);
 
-  return isAllowed;
+  return { isAllowed, walletConnected };
 };
 
 export default useWalletRestriction;
