@@ -119,24 +119,24 @@ const columns: ColumnDef<Invoice>[] = [
     accessorKey: "payer",
     header: () => <div className="text-center">By</div>,
     cell: ({ row }) => {
-      const payment = row.original;
-      const payersAddress = row.getValue("payer");
+      const { type } = row.original;
+      const payersAddress = row.getValue("payer") as string | undefined;
+
+      if (!payersAddress) return <div className="text-center">-</div>;
+
+      const displayText =
+        type === "Payer" ? "me" : formatAddress(payersAddress);
+
       return (
         <div className="text-center">
-          {!payersAddress ? (
-            "-"
-          ) : payment.type === "Payer" ? (
-            "me"
-          ) : (
-            <a
-              href={`https://amoy.polygonscan.com/address/${payersAddress}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-blue-500 underline"
-            >
-              {formatAddress(payersAddress as string)}
-            </a>
-          )}
+          <a
+            href={`https://amoy.polygonscan.com/address/${payersAddress}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-500 underline"
+          >
+            {displayText}
+          </a>
         </div>
       );
     },

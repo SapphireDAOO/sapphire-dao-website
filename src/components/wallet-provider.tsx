@@ -87,6 +87,9 @@ const invoiceQuery = `query ($address: String!) {
       creator {
         id
       }
+      payer {
+        id
+      }
     }
   }
 }`;
@@ -254,8 +257,11 @@ const WalletProvider = ({ children }: Props) => {
           contract: invoice.contract,
           paymentTxHash: invoice.paymentTxHash,
           releaseAt: invoice.toBeReleasedAt,
+          payer: invoice.payer === null ? "" : invoice.payer.id,
         })
       );
+
+      console.log(paidInvoiceData);
 
       // Combine created and paid invoices into a single list
       const allInvoiceData: (UserCreatedInvoice | UserPaidInvoice)[] = [

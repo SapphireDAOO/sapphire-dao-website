@@ -44,6 +44,10 @@ const DataTable = <TData,>({
       if (currentTab !== "payer" && column.accessorKey === "creator") {
         return false;
       }
+
+      if (currentTab === "payer" && column.accessorKey === "payer") {
+        return false;
+      }
       return true;
     });
   }, [columns, currentTab]);
