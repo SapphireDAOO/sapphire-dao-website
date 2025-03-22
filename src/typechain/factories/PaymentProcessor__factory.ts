@@ -18,7 +18,7 @@ const _abi = [
       },
       {
         internalType: "uint256",
-        name: "_fee",
+        name: "_feeRate",
         type: "uint256",
       },
       {
@@ -52,6 +52,11 @@ const _abi = [
   },
   {
     inputs: [],
+    name: "FeeTooHigh",
+    type: "error",
+  },
+  {
+    inputs: [],
     name: "FeeValueCanNotBeZero",
     type: "error",
   },
@@ -67,7 +72,7 @@ const _abi = [
   },
   {
     inputs: [],
-    name: "HoldPeriodShouldBeGreaterThanDefault",
+    name: "HoldPeriodShouldBeGreaterThanPrevious",
     type: "error",
   },
   {
@@ -88,12 +93,12 @@ const _abi = [
   },
   {
     inputs: [],
-    name: "InvoiceDoesNotExist",
+    name: "InvoiceHasAlreadyBeenReleased",
     type: "error",
   },
   {
     inputs: [],
-    name: "InvoiceHasAlreadyBeenReleased",
+    name: "InvoiceHasNotBeenAccepted",
     type: "error",
   },
   {
@@ -124,6 +129,11 @@ const _abi = [
   {
     inputs: [],
     name: "NoHandoverRequest",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "ReleaseTimeOverflow",
     type: "error",
   },
   {
@@ -326,6 +336,155 @@ const _abi = [
     type: "event",
   },
   {
+    inputs: [],
+    name: "ACCEPTANCE_WINDOW",
+    outputs: [
+      {
+        internalType: "uint256",
+        name: "",
+        type: "uint256",
+      },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "ACCEPTED",
+    outputs: [
+      {
+        internalType: "uint32",
+        name: "",
+        type: "uint32",
+      },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "BASIS_POINTS",
+    outputs: [
+      {
+        internalType: "uint256",
+        name: "",
+        type: "uint256",
+      },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "CANCELLED",
+    outputs: [
+      {
+        internalType: "uint32",
+        name: "",
+        type: "uint32",
+      },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "CREATED",
+    outputs: [
+      {
+        internalType: "uint32",
+        name: "",
+        type: "uint32",
+      },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "PAID",
+    outputs: [
+      {
+        internalType: "uint32",
+        name: "",
+        type: "uint32",
+      },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "REFUNDED",
+    outputs: [
+      {
+        internalType: "uint32",
+        name: "",
+        type: "uint32",
+      },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "REJECTED",
+    outputs: [
+      {
+        internalType: "uint32",
+        name: "",
+        type: "uint32",
+      },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "RELEASED",
+    outputs: [
+      {
+        internalType: "uint32",
+        name: "",
+        type: "uint32",
+      },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "VALID_PERIOD",
+    outputs: [
+      {
+        internalType: "uint256",
+        name: "",
+        type: "uint256",
+      },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [
+      {
+        internalType: "uint256",
+        name: "_amount",
+        type: "uint256",
+      },
+    ],
+    name: "calculateFee",
+    outputs: [
+      {
+        internalType: "uint256",
+        name: "",
+        type: "uint256",
+      },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
     inputs: [
       {
         internalType: "uint256",
@@ -410,7 +569,7 @@ const _abi = [
   },
   {
     inputs: [],
-    name: "getFee",
+    name: "getFeeRate",
     outputs: [
       {
         internalType: "uint256",
@@ -483,7 +642,7 @@ const _abi = [
           },
           {
             internalType: "uint32",
-            name: "holdPeriod",
+            name: "releaseAt",
             type: "uint32",
           },
           {
@@ -492,7 +651,7 @@ const _abi = [
             type: "uint32",
           },
         ],
-        internalType: "struct Invoice",
+        internalType: "struct IPaymentProcessorV1.Invoice",
         name: "",
         type: "tuple",
       },
@@ -621,11 +780,11 @@ const _abi = [
     inputs: [
       {
         internalType: "uint256",
-        name: "_newFee",
+        name: "_feeRate",
         type: "uint256",
       },
     ],
-    name: "setFee",
+    name: "setFeeRate",
     outputs: [],
     stateMutability: "nonpayable",
     type: "function",
@@ -656,7 +815,7 @@ const _abi = [
         type: "uint32",
       },
     ],
-    name: "setInvoiceHoldPeriod",
+    name: "setInvoiceReleaseTime",
     outputs: [],
     stateMutability: "nonpayable",
     type: "function",

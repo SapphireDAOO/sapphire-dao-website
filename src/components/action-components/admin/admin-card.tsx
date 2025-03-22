@@ -18,14 +18,14 @@ import { useAccount } from "wagmi";
 import { useGetOwner } from "@/hooks/useGetOwner";
 import { useGetFeeReceiver } from "@/hooks/useGetFeeReceiver";
 import { Address } from "viem";
-import { useGetFee } from "@/hooks/useGetFee";
+import { useGetFeeRate } from "@/hooks/useGetFeeRate";
 import { useGetDefaultHoldPeriod } from "@/hooks/useGetDefaultHoldPeriod";
 
 const AdminCard = () => {
   const { address } = useAccount();
   const { data: allowedAddress, isLoading: isAllowedAddressLoading } =
     useGetOwner();
-  const { data: fee } = useGetFee();
+  const { data: fee } = useGetFeeRate();
 
   const { data: defaultHoldPeriod } = useGetDefaultHoldPeriod();
 
@@ -68,8 +68,8 @@ const AdminCard = () => {
   };
 
   const handlesDaoFee = async () => {
-    const sDaoFeeInWei = parseEther(sDaoFee);
-    await setFee(sDaoFeeInWei);
+    const sDaoFeeInBps = BigInt(parseInt(sDaoFee) * 100);
+    await setFee(sDaoFeeInBps);
   };
 
   const handleWithdrawFee = async () => {
@@ -85,19 +85,6 @@ const AdminCard = () => {
           color="#4CAF50"
         />
         <p className="text-muted-foreground mt-4">Loading...</p>
-      </Card>
-    );
-  }
-
-  if (address === "0x" && allowedAddress == "0x") {
-    return (
-      <Card className="w-[450px]">
-        <CardHeader>
-          <CardTitle>Access Denied</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p>You are not authorized to view this page.</p>
-        </CardContent>
       </Card>
     );
   }
@@ -133,7 +120,7 @@ const AdminCard = () => {
           <p className="text-sm font-medium mt-2">
             <span className="text-muted-foreground">Current Fee: </span>
             <span className="font-mono text-primary">
-              {fee ? formatEther(fee!) + " POL" : "Loading..."}
+              {fee ? parseInt(fee.toString()) / 100 + "%" : "Loading..."}
             </span>
           </p>
         </div>
@@ -259,9 +246,20 @@ const AdminCard = () => {
               <Input
                 id="setFee"
                 type="number"
-                placeholder="amount of fee in POL"
+                placeholder="amount of fee in %"
                 value={sDaoFee}
-                onChange={(e) => setDaoFee(e.target.value)}
+                onChange={(e) => {
+                  const value = e.target.value;
+
+                  if (
+                    value === "" ||
+                    (Number(value) >= 0 && Number(value) < 30)
+                  ) {
+                    setDaoFee(value);
+                  }
+                }}
+                max={49.99}
+                min={0}
               />
               <Button onClick={handlesDaoFee}>
                 {isLoading === "setFee" ? (

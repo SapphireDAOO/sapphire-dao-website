@@ -11,7 +11,7 @@ import { useAccount, useChainId, useReadContract } from "wagmi";
  *   - `refetch`: A function to manually refetch the fee from the contract.
  *   - `isLoading`: A boolean indicating whether the fee data is still being fetched.
  */
-export const useGetFee = () => {
+export const useGetFeeRate = () => {
   // Get the connected user's wallet address using the wagmi `useAccount` hook
   const { address } = useAccount();
 
@@ -22,7 +22,7 @@ export const useGetFee = () => {
     abi: PaymentProcessor__factory.abi,
     chainId: polygonAmoy.id,
     address: INVOICE_ADDRESS[chainId],
-    functionName: "getFee",
+    functionName: "getFeeRate",
     account: address,
   });
 

@@ -1,7 +1,7 @@
 "use client";
 import { useAccount } from "wagmi";
 import { useRouter } from "next/navigation";
-import { useGetFee } from "@/hooks/useGetFee";
+import { useGetFeeRate } from "@/hooks/useGetFeeRate";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -18,7 +18,7 @@ import { CircleCheckBig, Loader2 } from "lucide-react";
 import { useContext, useState } from "react";
 import { ConnectKitButton } from "connectkit";
 import { PaymentCardProps } from "@/model/model";
-import { formatEther, parseEther } from "viem";
+import { parseEther } from "viem";
 import {
   Dialog,
   DialogContent,
@@ -31,14 +31,17 @@ import {
 const PaymentCard = ({ data }: PaymentCardProps) => {
   const router = useRouter();
   const { address } = useAccount();
-  const { data: fees } = useGetFee();
+  const { data: fees } = useGetFeeRate();
   const [amount, setAmount] = useState("");
   const [open, setOpen] = useState(false);
   const { makeInvoicePayment, isLoading } = useContext(ContractContext);
 
-  const formatedFee = fees ? formatEther(fees) : "0";
+  const getFee = () => {
+    if (!amount) return BigInt(0);
+    return (BigInt(amount) * fees!) / BigInt(10000);
+  };
   const isAmountValid =
-    parseFloat(amount) > parseFloat(formatedFee) &&
+    parseFloat(amount) > getFee() &&
     parseFloat(amount) <= parseFloat(data?.price || "0");
 
   const handleClick = async () => {
@@ -79,16 +82,13 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
                 id="amount"
                 type="number"
                 value={amount}
-                placeholder={`amount > ${formatedFee} and ≤ ${
-                  data?.price || "N/A"
-                }`}
                 onChange={(e) => setAmount(e.target.value)}
                 required
                 disabled={data?.status !== "CREATED"}
               />
               <p className="text-sm text-red-400">
                 *Invoice creator cannot make this payment, Additional fee of{" "}
-                {formatedFee} POL applies excluding gas fee*
+                {parseInt(fees?.toString()!) / 100}% applies excluding gas fee*
               </p>
             </div>
           </div>

@@ -23,50 +23,63 @@ import type {
   TypedContractMethod,
 } from "./common";
 
-export type InvoiceStruct = {
-  creator: AddressLike;
-  payer: AddressLike;
-  escrow: AddressLike;
-  price: BigNumberish;
-  amountPaid: BigNumberish;
-  createdAt: BigNumberish;
-  paymentTime: BigNumberish;
-  holdPeriod: BigNumberish;
-  status: BigNumberish;
-};
+export declare namespace IPaymentProcessorV1 {
+  export type InvoiceStruct = {
+    creator: AddressLike;
+    payer: AddressLike;
+    escrow: AddressLike;
+    price: BigNumberish;
+    amountPaid: BigNumberish;
+    createdAt: BigNumberish;
+    paymentTime: BigNumberish;
+    releaseAt: BigNumberish;
+    status: BigNumberish;
+  };
 
-export type InvoiceStructOutput = [
-  creator: string,
-  payer: string,
-  escrow: string,
-  price: bigint,
-  amountPaid: bigint,
-  createdAt: bigint,
-  paymentTime: bigint,
-  holdPeriod: bigint,
-  status: bigint
-] & {
-  creator: string;
-  payer: string;
-  escrow: string;
-  price: bigint;
-  amountPaid: bigint;
-  createdAt: bigint;
-  paymentTime: bigint;
-  holdPeriod: bigint;
-  status: bigint;
-};
+  export type InvoiceStructOutput = [
+    creator: string,
+    payer: string,
+    escrow: string,
+    price: bigint,
+    amountPaid: bigint,
+    createdAt: bigint,
+    paymentTime: bigint,
+    releaseAt: bigint,
+    status: bigint
+  ] & {
+    creator: string;
+    payer: string;
+    escrow: string;
+    price: bigint;
+    amountPaid: bigint;
+    createdAt: bigint;
+    paymentTime: bigint;
+    releaseAt: bigint;
+    status: bigint;
+  };
+}
 
 export interface PaymentProcessorInterface extends Interface {
   getFunction(
     nameOrSignature:
+      | "ACCEPTANCE_WINDOW"
+      | "ACCEPTED"
+      | "BASIS_POINTS"
+      | "CANCELLED"
+      | "CREATED"
+      | "PAID"
+      | "REFUNDED"
+      | "REJECTED"
+      | "RELEASED"
+      | "VALID_PERIOD"
+      | "calculateFee"
       | "cancelInvoice"
       | "cancelOwnershipHandover"
       | "completeOwnershipHandover"
       | "createInvoice"
       | "creatorsAction"
       | "getDefaultHoldPeriod"
-      | "getFee"
+      | "getFeeRate"
       | "getFeeReceiver"
       | "getInvoiceData"
       | "getNextInvoiceId"
@@ -78,9 +91,9 @@ export interface PaymentProcessorInterface extends Interface {
       | "renounceOwnership"
       | "requestOwnershipHandover"
       | "setDefaultHoldPeriod"
-      | "setFee"
+      | "setFeeRate"
       | "setFeeReceiversAddress"
-      | "setInvoiceHoldPeriod"
+      | "setInvoiceReleaseTime"
       | "totalInvoiceCreated"
       | "transferOwnership"
       | "withdrawFees"
@@ -101,6 +114,29 @@ export interface PaymentProcessorInterface extends Interface {
       | "UpdateHoldPeriod"
   ): EventFragment;
 
+  encodeFunctionData(
+    functionFragment: "ACCEPTANCE_WINDOW",
+    values?: undefined
+  ): string;
+  encodeFunctionData(functionFragment: "ACCEPTED", values?: undefined): string;
+  encodeFunctionData(
+    functionFragment: "BASIS_POINTS",
+    values?: undefined
+  ): string;
+  encodeFunctionData(functionFragment: "CANCELLED", values?: undefined): string;
+  encodeFunctionData(functionFragment: "CREATED", values?: undefined): string;
+  encodeFunctionData(functionFragment: "PAID", values?: undefined): string;
+  encodeFunctionData(functionFragment: "REFUNDED", values?: undefined): string;
+  encodeFunctionData(functionFragment: "REJECTED", values?: undefined): string;
+  encodeFunctionData(functionFragment: "RELEASED", values?: undefined): string;
+  encodeFunctionData(
+    functionFragment: "VALID_PERIOD",
+    values?: undefined
+  ): string;
+  encodeFunctionData(
+    functionFragment: "calculateFee",
+    values: [BigNumberish]
+  ): string;
   encodeFunctionData(
     functionFragment: "cancelInvoice",
     values: [BigNumberish]
@@ -125,7 +161,10 @@ export interface PaymentProcessorInterface extends Interface {
     functionFragment: "getDefaultHoldPeriod",
     values?: undefined
   ): string;
-  encodeFunctionData(functionFragment: "getFee", values?: undefined): string;
+  encodeFunctionData(
+    functionFragment: "getFeeRate",
+    values?: undefined
+  ): string;
   encodeFunctionData(
     functionFragment: "getFeeReceiver",
     values?: undefined
@@ -168,7 +207,7 @@ export interface PaymentProcessorInterface extends Interface {
     values: [BigNumberish]
   ): string;
   encodeFunctionData(
-    functionFragment: "setFee",
+    functionFragment: "setFeeRate",
     values: [BigNumberish]
   ): string;
   encodeFunctionData(
@@ -176,7 +215,7 @@ export interface PaymentProcessorInterface extends Interface {
     values: [AddressLike]
   ): string;
   encodeFunctionData(
-    functionFragment: "setInvoiceHoldPeriod",
+    functionFragment: "setInvoiceReleaseTime",
     values: [BigNumberish, BigNumberish]
   ): string;
   encodeFunctionData(
@@ -192,6 +231,29 @@ export interface PaymentProcessorInterface extends Interface {
     values?: undefined
   ): string;
 
+  decodeFunctionResult(
+    functionFragment: "ACCEPTANCE_WINDOW",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(functionFragment: "ACCEPTED", data: BytesLike): Result;
+  decodeFunctionResult(
+    functionFragment: "BASIS_POINTS",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(functionFragment: "CANCELLED", data: BytesLike): Result;
+  decodeFunctionResult(functionFragment: "CREATED", data: BytesLike): Result;
+  decodeFunctionResult(functionFragment: "PAID", data: BytesLike): Result;
+  decodeFunctionResult(functionFragment: "REFUNDED", data: BytesLike): Result;
+  decodeFunctionResult(functionFragment: "REJECTED", data: BytesLike): Result;
+  decodeFunctionResult(functionFragment: "RELEASED", data: BytesLike): Result;
+  decodeFunctionResult(
+    functionFragment: "VALID_PERIOD",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "calculateFee",
+    data: BytesLike
+  ): Result;
   decodeFunctionResult(
     functionFragment: "cancelInvoice",
     data: BytesLike
@@ -216,7 +278,7 @@ export interface PaymentProcessorInterface extends Interface {
     functionFragment: "getDefaultHoldPeriod",
     data: BytesLike
   ): Result;
-  decodeFunctionResult(functionFragment: "getFee", data: BytesLike): Result;
+  decodeFunctionResult(functionFragment: "getFeeRate", data: BytesLike): Result;
   decodeFunctionResult(
     functionFragment: "getFeeReceiver",
     data: BytesLike
@@ -258,13 +320,13 @@ export interface PaymentProcessorInterface extends Interface {
     functionFragment: "setDefaultHoldPeriod",
     data: BytesLike
   ): Result;
-  decodeFunctionResult(functionFragment: "setFee", data: BytesLike): Result;
+  decodeFunctionResult(functionFragment: "setFeeRate", data: BytesLike): Result;
   decodeFunctionResult(
     functionFragment: "setFeeReceiversAddress",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
-    functionFragment: "setInvoiceHoldPeriod",
+    functionFragment: "setInvoiceReleaseTime",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
@@ -477,6 +539,28 @@ export interface PaymentProcessor extends BaseContract {
     event?: TCEvent
   ): Promise<this>;
 
+  ACCEPTANCE_WINDOW: TypedContractMethod<[], [bigint], "view">;
+
+  ACCEPTED: TypedContractMethod<[], [bigint], "view">;
+
+  BASIS_POINTS: TypedContractMethod<[], [bigint], "view">;
+
+  CANCELLED: TypedContractMethod<[], [bigint], "view">;
+
+  CREATED: TypedContractMethod<[], [bigint], "view">;
+
+  PAID: TypedContractMethod<[], [bigint], "view">;
+
+  REFUNDED: TypedContractMethod<[], [bigint], "view">;
+
+  REJECTED: TypedContractMethod<[], [bigint], "view">;
+
+  RELEASED: TypedContractMethod<[], [bigint], "view">;
+
+  VALID_PERIOD: TypedContractMethod<[], [bigint], "view">;
+
+  calculateFee: TypedContractMethod<[_amount: BigNumberish], [bigint], "view">;
+
   cancelInvoice: TypedContractMethod<
     [_invoiceId: BigNumberish],
     [void],
@@ -505,13 +589,13 @@ export interface PaymentProcessor extends BaseContract {
 
   getDefaultHoldPeriod: TypedContractMethod<[], [bigint], "view">;
 
-  getFee: TypedContractMethod<[], [bigint], "view">;
+  getFeeRate: TypedContractMethod<[], [bigint], "view">;
 
   getFeeReceiver: TypedContractMethod<[], [string], "view">;
 
   getInvoiceData: TypedContractMethod<
     [_invoiceId: BigNumberish],
-    [InvoiceStructOutput],
+    [IPaymentProcessorV1.InvoiceStructOutput],
     "view"
   >;
 
@@ -553,7 +637,11 @@ export interface PaymentProcessor extends BaseContract {
     "nonpayable"
   >;
 
-  setFee: TypedContractMethod<[_newFee: BigNumberish], [void], "nonpayable">;
+  setFeeRate: TypedContractMethod<
+    [_feeRate: BigNumberish],
+    [void],
+    "nonpayable"
+  >;
 
   setFeeReceiversAddress: TypedContractMethod<
     [_newFeeReceiver: AddressLike],
@@ -561,7 +649,7 @@ export interface PaymentProcessor extends BaseContract {
     "nonpayable"
   >;
 
-  setInvoiceHoldPeriod: TypedContractMethod<
+  setInvoiceReleaseTime: TypedContractMethod<
     [_invoiceId: BigNumberish, _holdPeriod: BigNumberish],
     [void],
     "nonpayable"
@@ -581,6 +669,39 @@ export interface PaymentProcessor extends BaseContract {
     key: string | FunctionFragment
   ): T;
 
+  getFunction(
+    nameOrSignature: "ACCEPTANCE_WINDOW"
+  ): TypedContractMethod<[], [bigint], "view">;
+  getFunction(
+    nameOrSignature: "ACCEPTED"
+  ): TypedContractMethod<[], [bigint], "view">;
+  getFunction(
+    nameOrSignature: "BASIS_POINTS"
+  ): TypedContractMethod<[], [bigint], "view">;
+  getFunction(
+    nameOrSignature: "CANCELLED"
+  ): TypedContractMethod<[], [bigint], "view">;
+  getFunction(
+    nameOrSignature: "CREATED"
+  ): TypedContractMethod<[], [bigint], "view">;
+  getFunction(
+    nameOrSignature: "PAID"
+  ): TypedContractMethod<[], [bigint], "view">;
+  getFunction(
+    nameOrSignature: "REFUNDED"
+  ): TypedContractMethod<[], [bigint], "view">;
+  getFunction(
+    nameOrSignature: "REJECTED"
+  ): TypedContractMethod<[], [bigint], "view">;
+  getFunction(
+    nameOrSignature: "RELEASED"
+  ): TypedContractMethod<[], [bigint], "view">;
+  getFunction(
+    nameOrSignature: "VALID_PERIOD"
+  ): TypedContractMethod<[], [bigint], "view">;
+  getFunction(
+    nameOrSignature: "calculateFee"
+  ): TypedContractMethod<[_amount: BigNumberish], [bigint], "view">;
   getFunction(
     nameOrSignature: "cancelInvoice"
   ): TypedContractMethod<[_invoiceId: BigNumberish], [void], "nonpayable">;
@@ -604,7 +725,7 @@ export interface PaymentProcessor extends BaseContract {
     nameOrSignature: "getDefaultHoldPeriod"
   ): TypedContractMethod<[], [bigint], "view">;
   getFunction(
-    nameOrSignature: "getFee"
+    nameOrSignature: "getFeeRate"
   ): TypedContractMethod<[], [bigint], "view">;
   getFunction(
     nameOrSignature: "getFeeReceiver"
@@ -613,7 +734,7 @@ export interface PaymentProcessor extends BaseContract {
     nameOrSignature: "getInvoiceData"
   ): TypedContractMethod<
     [_invoiceId: BigNumberish],
-    [InvoiceStructOutput],
+    [IPaymentProcessorV1.InvoiceStructOutput],
     "view"
   >;
   getFunction(
@@ -648,13 +769,13 @@ export interface PaymentProcessor extends BaseContract {
     "nonpayable"
   >;
   getFunction(
-    nameOrSignature: "setFee"
-  ): TypedContractMethod<[_newFee: BigNumberish], [void], "nonpayable">;
+    nameOrSignature: "setFeeRate"
+  ): TypedContractMethod<[_feeRate: BigNumberish], [void], "nonpayable">;
   getFunction(
     nameOrSignature: "setFeeReceiversAddress"
   ): TypedContractMethod<[_newFeeReceiver: AddressLike], [void], "nonpayable">;
   getFunction(
-    nameOrSignature: "setInvoiceHoldPeriod"
+    nameOrSignature: "setInvoiceReleaseTime"
   ): TypedContractMethod<
     [_invoiceId: BigNumberish, _holdPeriod: BigNumberish],
     [void],

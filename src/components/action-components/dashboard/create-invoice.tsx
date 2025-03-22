@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useGetFee } from "@/hooks/useGetFee";
+import { useGetFeeRate } from "@/hooks/useGetFeeRate";
 import { ContractContext } from "@/context/contract-context";
 import { ConnectKitButton } from "connectkit";
 import { formatEther, parseUnits } from "viem";
@@ -30,7 +30,7 @@ let id: string;
 const CreateInvoiceDialog = () => {
   const [amount, setAmount] = useState("");
   const { address } = useAccount();
-  const { data } = useGetFee();
+  const { data } = useGetFeeRate();
 
   const [openCreate, setOpenCreate] = useState<boolean>(false);
   const [open, setOpen] = useState<boolean>(false);
@@ -49,8 +49,8 @@ const CreateInvoiceDialog = () => {
       setOpen(true);
     }
   };
-  const formatedFee = data ? formatEther(data) : "0";
-  const isAmountValid = parseFloat(amount) > parseFloat(formatedFee);
+  const formatedFee = data ? parseInt(data.toString()) / 100 : "0";
+  const isAmountValid = true
   return (
     <>
       <Dialog open={openCreate} onOpenChange={setOpenCreate}>
@@ -64,7 +64,7 @@ const CreateInvoiceDialog = () => {
           <DialogHeader>
             <DialogTitle className="text-2xl">New Invoice</DialogTitle>
             <DialogDescription className="text-sm text-muted-foreground">
-              Additional fee of {formatedFee} POL applies excluding gas fee
+              Additional fee of {formatedFee} % applies excluding gas fee
             </DialogDescription>
           </DialogHeader>
 

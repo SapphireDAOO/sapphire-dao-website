@@ -63,10 +63,9 @@ const invoiceQuery = `query ($address: String!) {
       paidAt
       price
       status
-      holdPeriod
       contract
       paymentTxHash
-      toBeReleasedAt
+      releasedAt
       releaseHash
       payer {
         id
@@ -79,10 +78,9 @@ const invoiceQuery = `query ($address: String!) {
       paidAt
       price
       status
-      holdPeriod
       contract
       fee
-      toBeReleasedAt
+      releasedAt
       paymentTxHash
       creator {
         id
@@ -229,12 +227,11 @@ const WalletProvider = ({ children }: Props) => {
             ? formatEther(invoice.amountPaid)
             : null,
           type: "Creator",
-          holdPeriod: invoice.holdPeriod,
           contract: invoice.contract,
           paymentTxHash: invoice.paymentTxHash,
           payer: invoice.payer === null ? "" : invoice.payer.id,
           releaseHash: invoice.releaseHash,
-          releaseAt: invoice.toBeReleasedAt,
+          releaseAt: invoice.releasedAt,
         })
       );
 
@@ -252,11 +249,10 @@ const WalletProvider = ({ children }: Props) => {
             ? formatEther(invoice.amountPaid)
             : null,
           type: "Payer",
-          holdPeriod: invoice.holdPeriod,
           creator: invoice.creator.id,
           contract: invoice.contract,
           paymentTxHash: invoice.paymentTxHash,
-          releaseAt: invoice.toBeReleasedAt,
+          releaseAt: invoice.releasedAt,
           payer: invoice.payer === null ? "" : invoice.payer.id,
         })
       );
@@ -645,7 +641,7 @@ const WalletProvider = ({ children }: Props) => {
         to: INVOICE_ADDRESS[chainId],
         data: encodeFunctionData({
           abi: PaymentProcessor__factory.abi,
-          functionName: "setInvoiceHoldPeriod",
+          functionName: "setInvoiceReleaseTime",
           args: [invoiceId, holdPeriod],
         }),
         gasPrice,
@@ -732,7 +728,7 @@ const WalletProvider = ({ children }: Props) => {
         to: INVOICE_ADDRESS[chainId],
         data: encodeFunctionData({
           abi: PaymentProcessor__factory.abi,
-          functionName: "setFee",
+          functionName: "setFeeRate",
           args: [newFee],
         }),
 

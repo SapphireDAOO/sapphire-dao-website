@@ -4,7 +4,7 @@ export type Invoice = {
   amountPaid?: string | null;
   createdAt?: string | null;
   paidAt?: string;
-  toBeReleasedAt?: string;
+  releasedAt?: string;
   price?: string | null;
   status?: string;
   type?: "Payer" | "Creator";
