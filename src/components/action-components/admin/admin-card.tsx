@@ -13,8 +13,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ContractContext } from "@/context/contract-context";
 import { Loader2 } from "lucide-react";
-import { formatEther, parseEther } from "ethers";
-import { useAccount } from "wagmi";
 import { useGetOwner } from "@/hooks/useGetOwner";
 import { useGetFeeReceiver } from "@/hooks/useGetFeeReceiver";
 import { Address } from "viem";
@@ -22,9 +20,7 @@ import { useGetFeeRate } from "@/hooks/useGetFeeRate";
 import { useGetDefaultHoldPeriod } from "@/hooks/useGetDefaultHoldPeriod";
 
 const AdminCard = () => {
-  const { address } = useAccount();
-  const { data: allowedAddress, isLoading: isAllowedAddressLoading } =
-    useGetOwner();
+  const { isLoading: isAllowedAddressLoading } = useGetOwner();
   const { data: fee } = useGetFeeRate();
 
   const { data: defaultHoldPeriod } = useGetDefaultHoldPeriod();

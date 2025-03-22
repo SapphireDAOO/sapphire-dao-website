@@ -88,7 +88,7 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
               />
               <p className="text-sm text-red-400">
                 *Invoice creator cannot make this payment, Additional fee of{" "}
-                {parseInt(fees?.toString()!) / 100}% applies excluding gas fee*
+                {parseInt(fees!.toString()!) / 100}% applies excluding gas fee*
               </p>
             </div>
           </div>

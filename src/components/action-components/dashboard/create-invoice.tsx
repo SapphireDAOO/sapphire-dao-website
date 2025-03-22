@@ -17,7 +17,7 @@ import { Label } from "@/components/ui/label";
 import { useGetFeeRate } from "@/hooks/useGetFeeRate";
 import { ContractContext } from "@/context/contract-context";
 import { ConnectKitButton } from "connectkit";
-import { formatEther, parseUnits } from "viem";
+import {  parseUnits } from "viem";
 import { CirclePlus, Loader2 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { toast } from "sonner";
