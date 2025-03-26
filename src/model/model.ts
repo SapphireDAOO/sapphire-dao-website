@@ -1,5 +1,6 @@
 // Define the base Invoice type that represents an invoice's properties
 export type Invoice = {
+  releaseAt?: string | null;
   id: string;
   amountPaid?: string | null;
   createdAt?: string | null;

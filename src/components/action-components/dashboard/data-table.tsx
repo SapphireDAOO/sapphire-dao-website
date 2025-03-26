@@ -37,9 +37,9 @@ const DataTable = <TData,>({
   const filteredColumns = useMemo(() => {
     return columns.filter((column) => {
       // Hide "Release" column when on "Payer" tab
-      if (currentTab === "payer" && column.accessorKey === "releaseHash") {
-        return false;
-      }
+      // if (currentTab === "payer" && column.accessorKey === "releaseHash") {
+      //   return false;
+      // }
       // Show "Creator" column only when on "Payer" tab
       if (currentTab !== "payer" && column.accessorKey === "creator") {
         return false;

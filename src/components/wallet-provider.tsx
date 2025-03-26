@@ -257,7 +257,7 @@ const WalletProvider = ({ children }: Props) => {
         })
       );
 
-      console.log(paidInvoiceData);
+      console.log("PAID FOR", paidInvoiceData);
 
       // Combine created and paid invoices into a single list
       const allInvoiceData: (UserCreatedInvoice | UserPaidInvoice)[] = [

@@ -154,9 +154,7 @@ const columns: ColumnDef<Invoice>[] = [
     cell: ({ row }) => {
       const releaseHash = row.getValue("releaseHash");
       const status = row.original?.status; // Fetch invoice status
-      const releaseAt = row.original?.holdPeriod ?? null; // Ensure null safety
-
-      console.log(`Invoice ID: ${row.original.id}, ReleaseAt: ${releaseAt}`);
+      const releaseAt = row.original?.releaseAt ?? null; // Ensure null safety
 
       // If status is RELEASED, show hash
       if (status === "RELEASED" && releaseHash) {
