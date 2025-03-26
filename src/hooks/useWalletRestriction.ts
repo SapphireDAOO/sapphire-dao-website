@@ -19,8 +19,8 @@ const useWalletRestriction = () => {
           });
 
           if (accounts.length > 0) {
-            const wal: string = accounts[0].toLowerCase();
-            const dataResult: string = data?.toLowerCase()!;
+            const wal = accounts[0].toLowerCase();
+            const dataResult = data?.toLowerCase();
             setWalletConnected(true);
             if (wal !== dataResult) {
               setIsAllowed(true);
