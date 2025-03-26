@@ -11,8 +11,6 @@ const useWalletRestriction = () => {
   const router = useRouter();
 
   useEffect(() => {
-    if (!data) return;
-
     const checkWallet = async () => {
       if (typeof window !== "undefined" && window.ethereum) {
         try {
@@ -22,11 +20,9 @@ const useWalletRestriction = () => {
 
           if (accounts.length > 0) {
             const wal: string = accounts[0].toLowerCase();
-            const dataResult: string = data.toLowerCase();
-
+            const dataResult: string = data?.toLowerCase()!;
             setWalletConnected(true);
-
-            if (wal === dataResult) {
+            if (wal !== dataResult) {
               setIsAllowed(true);
             }
           } else {

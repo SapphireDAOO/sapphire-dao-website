@@ -32,17 +32,33 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
   const router = useRouter();
   const { address } = useAccount();
   const { data: fees } = useGetFeeRate();
+  console.log("THE FEE RATE IS", fees);
   const [amount, setAmount] = useState("");
   const [open, setOpen] = useState(false);
   const { makeInvoicePayment, isLoading } = useContext(ContractContext);
 
+  let protocolFee = !fees ? 0 : fees;
+  const a = parseEther(amount);
+
   const getFee = () => {
     if (!amount) return BigInt(0);
-    return (BigInt(amount) * fees!) / BigInt(10000);
+    if (protocolFee === 0) return BigInt(0);
+    protocolFee = typeof protocolFee == "bigint" ? protocolFee : BigInt(0);
+    return (a * protocolFee) / BigInt(10000);
   };
-  const isAmountValid =
-    parseFloat(amount) > getFee() &&
-    parseFloat(amount) <= parseFloat(data?.price || "0");
+
+  console.log(a, getFee());
+  // 1000000000000000000n
+  // 70000000000000000n
+
+  const isAmountValid = a > getFee() && a > 0;
+
+  console.log(
+    "IS VALID",
+    a > getFee(),
+    a > 0,
+    a <= parseFloat(data?.price || "0")
+  );
 
   const handleClick = async () => {
     const invoiceID = BigInt(data?.id);
@@ -88,7 +104,8 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
               />
               <p className="text-sm text-red-400">
                 *Invoice creator cannot make this payment, Additional fee of{" "}
-                {parseInt(fees!.toString()!) / 100}% applies excluding gas fee*
+                {parseInt(protocolFee.toString()!) / 100}% applies excluding gas
+                fee*
               </p>
             </div>
           </div>

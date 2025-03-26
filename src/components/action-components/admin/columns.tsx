@@ -1,9 +1,9 @@
- 
 "use client";
 import { ColumnDef } from "@tanstack/react-table";
 import { AllInvoice } from "@/model/model";
 import { formatAddress } from "@/utils";
 import React from "react";
+import { formatEther } from "viem";
 
 const columns: ColumnDef<AllInvoice>[] = [
   {
@@ -90,6 +90,16 @@ const columns: ColumnDef<AllInvoice>[] = [
     header: () => <div className="text-center">Release</div>,
     cell: ({ row }) => {
       const releasedAtTimeStamp: string = row.getValue("release");
+
+      return <div className="text-center">{releasedAtTimeStamp}</div>;
+    },
+  },
+  {
+    accessorKey: "fee",
+    header: () => <div className="text-center">Fee</div>,
+    cell: ({ row }) => {
+      const releasedAtTimeStamp: string = formatEther(row.getValue("fee"));
+      console.log("THE FEE IS", releasedAtTimeStamp);
 
       return <div className="text-center">{releasedAtTimeStamp}</div>;
     },
