@@ -42,7 +42,9 @@ const GET_ALL_INVOICES = `
       paidAt
       paymentTxHash
       contract
+      releaseHash
       fee
+      status
       creator {
         id
       }
@@ -187,8 +189,10 @@ const WalletProvider = ({ children }: Props) => {
         release:
           list.releasedAt && !isNaN(list.releasedAt)
             ? unixToGMT(list.releasedAt)
-            : "Not Released",
+            : "Pending",
         fee: list.fee || "0",
+        releaseHash: list.releaseHash,
+        status: list.status,
       }));
 
       return invoiceList;

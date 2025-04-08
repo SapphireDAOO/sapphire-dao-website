@@ -18,7 +18,6 @@ import { CircleCheckBig, Loader2 } from "lucide-react";
 import { useContext, useState } from "react";
 import { ConnectKitButton } from "connectkit";
 import { PaymentCardProps } from "@/model/model";
-import { parseEther } from "viem";
 import {
   Dialog,
   DialogContent,
@@ -27,45 +26,32 @@ import {
   DialogOverlay,
   DialogPortal,
 } from "@/components/ui/dialog";
+import { useGetInvoicePrice } from "@/hooks/useGetInvoicePrice";
+import { toast } from "sonner";
 
 const PaymentCard = ({ data }: PaymentCardProps) => {
   const router = useRouter();
   const { address } = useAccount();
   const { data: fees } = useGetFeeRate();
-  console.log("THE FEE RATE IS", fees);
-  const [amount, setAmount] = useState("");
+
   const [open, setOpen] = useState(false);
   const { makeInvoicePayment, isLoading } = useContext(ContractContext);
 
-  let protocolFee = !fees ? 0 : fees;
-  const a = parseEther(amount);
+  const protocolFee = !fees ? 0 : fees;
 
-  const getFee = () => {
-    if (!amount) return BigInt(0);
-    if (protocolFee === 0) return BigInt(0);
-    protocolFee = typeof protocolFee == "bigint" ? protocolFee : BigInt(0);
-    return (a * protocolFee) / BigInt(10000);
-  };
-
-  console.log(a, getFee());
-  // 1000000000000000000n
-  // 70000000000000000n
-
-  const isAmountValid = a > getFee() && a > 0;
-
-  console.log(
-    "IS VALID",
-    a > getFee(),
-    a > 0,
-    a <= parseFloat(data?.price || "0")
-  );
+  const invoiceID = BigInt(data?.id);
+  const { data: invoiceData } = useGetInvoicePrice(invoiceID);
 
   const handleClick = async () => {
-    const invoiceID = BigInt(data?.id);
-    const amountInWei = parseEther(amount);
-    const success = await makeInvoicePayment(amountInWei, invoiceID);
+    if (!invoiceData?.price) {
+      toast.error("Invoice price not available.");
+      return;
+    }
+
+    const success = await makeInvoicePayment(invoiceData.price, invoiceID);
     if (success) {
       setOpen(true);
+      toast.success("Payment successful!");
     }
   };
 
@@ -93,15 +79,16 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
             </div>
 
             <div className="flex flex-col space-y-4 mt-3">
-              <Label htmlFor="amount">Payer Amount</Label>
+              {/* <Label htmlFor="amount">Payer Amount</Label>
               <Input
                 id="amount"
                 type="number"
+                placeholder="Enter amount in pol"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 required
                 disabled={data?.status !== "CREATED"}
-              />
+              /> */}
               <p className="text-sm text-red-400">
                 *Invoice creator cannot make this payment, Additional fee of{" "}
                 {parseInt(protocolFee.toString()!) / 100}% applies excluding gas
@@ -115,7 +102,7 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
             <Button
               onClick={handleClick}
               className="w-full"
-              disabled={!isAmountValid || data?.status !== "CREATED"}
+              disabled={data?.status !== "CREATED"}
             >
               {isLoading === "makeInvoicePayment" ? (
                 <>

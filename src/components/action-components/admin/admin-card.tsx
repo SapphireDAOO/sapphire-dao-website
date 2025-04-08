@@ -38,7 +38,6 @@ const AdminCard = () => {
     setFeeReceiversAddress,
     setInvoiceHoldPeriod,
     setDefaultHoldPeriod,
-    withdrawFees,
     setFee,
     transferOwnership,
     isLoading,
@@ -66,10 +65,6 @@ const AdminCard = () => {
   const handlesDaoFee = async () => {
     const sDaoFeeInBps = BigInt(parseInt(sDaoFee) * 100);
     await setFee(sDaoFeeInBps);
-  };
-
-  const handleWithdrawFee = async () => {
-    await withdrawFees();
   };
 
   if (isAllowedAddressLoading) {
@@ -273,25 +268,6 @@ const AdminCard = () => {
               Updates the fee for using Sapphire DAO service.
             </p>
           </div>
-        </div>
-        <div className="my-3 space-y-1.5">
-          <Label htmlFor="setFee">Withdraw fees</Label>
-          <div className="flex flex-col-1">
-            <Button onClick={handleWithdrawFee} className="w-full">
-              {isLoading === "withdrawFees" ? (
-                <Loader2
-                  className="inline-flex animate-spin"
-                  size={10}
-                  color="#cee7d6"
-                />
-              ) : (
-                "WITHDRAW"
-              )}
-            </Button>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            Withdraw fee from Sapphire DAO service.
-          </p>
         </div>
       </CardContent>
       <CardFooter className="flex justify-between">

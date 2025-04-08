@@ -26,6 +26,8 @@ export type AllInvoice = {
   by: string;
   release: string;
   fee: string;
+  releaseHash: string;
+  status: string
 };
 
 // Specialized invoice type for invoices created by the user
