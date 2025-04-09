@@ -239,7 +239,7 @@ const columns: ColumnDef<Invoice>[] = [
   },
   {
     accessorKey: "status",
-    header: () => <div className="text-center">Status</div>,
+    header: () => <div className="text-center">State</div>,
     cell: ({ row }) => (
       <div className="text-center capitalize">{row.getValue("status")}</div>
     ),
@@ -250,20 +250,6 @@ const columns: ColumnDef<Invoice>[] = [
     cell: ({ row }) => (
       <div className="text-center">{row.getValue("price") + " POL"}</div>
     ),
-  },
-  {
-    accessorKey: "amountPaid",
-    header: () => <div className="text-center">Paid Amount</div>,
-    cell: ({ row }) => {
-      const payment = row.original;
-      return (
-        <div className="text-center">
-          {payment.amountPaid
-            ? row.getValue("amountPaid") + " POL"
-            : "Not paid"}
-        </div>
-      );
-    },
   },
   {
     id: "actions",
