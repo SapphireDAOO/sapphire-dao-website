@@ -15,6 +15,7 @@ export interface ContractContextData {
   cancelInvoice: (invoiceId: bigint) => Promise<boolean>;
   releaseInvoice: (invoiceId: bigint) => Promise<boolean>;
   refundPayerAfterWindow: (invoiceId: bigint) => Promise<boolean>;
+  setMinimumInvoiceValue: (newValue: bigint) => Promise<boolean>;
   setFeeReceiversAddress: (address: Address) => Promise<boolean>;
   transferOwnership: (address: Address) => Promise<boolean>;
   setInvoiceHoldPeriod: (
@@ -23,7 +24,6 @@ export interface ContractContextData {
   ) => Promise<boolean>;
   setDefaultHoldPeriod: (newDefaultHoldPeriod: bigint) => Promise<boolean>;
   setFee: (newFee: bigint) => Promise<boolean>;
-  withdrawFees: () => Promise<boolean>;
   refetchInvoiceData?: () => Promise<void>;
   refetchAllInvoiceData?: () => Promise<void>;
 }
@@ -43,7 +43,7 @@ export const contractContextDefaults: ContractContextData = {
   setInvoiceHoldPeriod: async () => Promise.resolve(false),
   setDefaultHoldPeriod: async () => Promise.resolve(false),
   setFee: async () => Promise.resolve(false),
-  withdrawFees: async () => Promise.resolve(false),
+  setMinimumInvoiceValue: async () => Promise.resolve(false),
   refetchInvoiceData: async () => Promise.resolve(),
   refetchAllInvoiceData: async () => Promise.resolve(),
 };

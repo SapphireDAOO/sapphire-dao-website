@@ -18,21 +18,25 @@ import { useGetFeeReceiver } from "@/hooks/useGetFeeReceiver";
 import { Address } from "viem";
 import { useGetFeeRate } from "@/hooks/useGetFeeRate";
 import { useGetDefaultHoldPeriod } from "@/hooks/useGetDefaultHoldPeriod";
+import { useGetMinimumInvoiceValue } from "@/hooks/useGetMinimumInvoiceValue";
+import { ethers } from "ethers";
 
 const AdminCard = () => {
   const { isLoading: isAllowedAddressLoading } = useGetOwner();
   const { data: fee } = useGetFeeRate();
 
   const { data: defaultHoldPeriod } = useGetDefaultHoldPeriod();
+  const { data: minimumInvoiceValue } = useGetMinimumInvoiceValue();
 
   const { data: feeReceiver } = useGetFeeReceiver();
 
-  const [receiverAdd, setReceiverAdd] = useState("");
+  const [receiversAdd, setReceiverAdd] = useState("");
   const [ownerAddr, setOwnerAddr] = useState("");
   const [invoiceId, setInvoiceId] = useState("");
   const [holdPeriod, setHoldPeriod] = useState("");
   const [defaultPeriod, setDefaultPeriod] = useState("");
   const [sDaoFee, setDaoFee] = useState("");
+  const [value, setValue] = useState("");
 
   const {
     setFeeReceiversAddress,
@@ -40,14 +44,15 @@ const AdminCard = () => {
     setDefaultHoldPeriod,
     setFee,
     transferOwnership,
+    setMinimumInvoiceValue,
     isLoading,
   } = useContext(ContractContext);
 
   const handleReceiverAdd = async () => {
-    await setFeeReceiversAddress(receiverAdd as Address);
+    await setFeeReceiversAddress(receiversAdd as Address);
   };
 
-  const handleOwnerAddr = async () => {
+  const handleOwnerAddress = async () => {
     await transferOwnership(ownerAddr as Address);
   };
 
@@ -62,9 +67,14 @@ const AdminCard = () => {
     await setDefaultHoldPeriod(defaultPeriodInSecond);
   };
 
-  const handlesDaoFee = async () => {
+  const handleDaoFee = async () => {
     const sDaoFeeInBps = BigInt(parseInt(sDaoFee) * 100);
     await setFee(sDaoFeeInBps);
+  };
+
+  const handleMinimumInvoiceValue = async () => {
+    const v = ethers.parseEther(value);
+    await setMinimumInvoiceValue(v);
   };
 
   if (isAllowedAddressLoading) {
@@ -114,6 +124,16 @@ const AdminCard = () => {
               {fee ? parseInt(fee.toString()) / 100 + "%" : "Loading..."}
             </span>
           </p>
+          <p className="text-sm font-medium mt-2">
+            <span className="text-muted-foreground">
+              Minimum Invoice Value:{" "}
+            </span>
+            <span className="font-mono text-primary">
+              {minimumInvoiceValue
+                ? ethers.formatEther(minimumInvoiceValue) + " POL"
+                : "Loading..."}
+            </span>
+          </p>
         </div>
       </CardHeader>
       <CardContent>
@@ -127,7 +147,7 @@ const AdminCard = () => {
                 value={ownerAddr}
                 onChange={(e) => setOwnerAddr(e.target.value)}
               />
-              <Button onClick={handleOwnerAddr}>
+              <Button onClick={handleOwnerAddress}>
                 {isLoading === "setFeeReceiversAddress" ? (
                   <Loader2
                     className="inline-flex animate-spin"
@@ -149,7 +169,7 @@ const AdminCard = () => {
               <Input
                 id="setFeeAdd"
                 placeholder="0xxxxx"
-                value={receiverAdd}
+                value={receiversAdd}
                 onChange={(e) => setReceiverAdd(e.target.value)}
               />
               <Button onClick={handleReceiverAdd}>
@@ -232,6 +252,35 @@ const AdminCard = () => {
           </div>
 
           <div className="my-3 space-y-1.5">
+            <Label htmlFor="setFee">Set Minimum Invoice Value</Label>
+            <div className="flex flex-col-2 gap-2">
+              <Input
+                id="setMinimumInvoiceValue"
+                type="number"
+                placeholder="minimum invoice value"
+                value={sDaoFee}
+                onChange={(e) => {
+                  setValue(e.target.value.toString());
+                }}
+              />
+              <Button onClick={handleMinimumInvoiceValue}>
+                {isLoading === "setMinimumInvoiceValue" ? (
+                  <Loader2
+                    className="inline-flex animate-spin"
+                    size={10}
+                    color="#cee7d6"
+                  />
+                ) : (
+                  "SET"
+                )}
+              </Button>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Updates the Minimum Invoice Value
+            </p>
+          </div>
+
+          <div className="my-3 space-y-1.5">
             <Label htmlFor="setFee">Set Fee</Label>
             <div className="flex flex-col-2 gap-2">
               <Input
@@ -252,7 +301,7 @@ const AdminCard = () => {
                 max={49.99}
                 min={0}
               />
-              <Button onClick={handlesDaoFee}>
+              <Button onClick={handleDaoFee}>
                 {isLoading === "setFee" ? (
                   <Loader2
                     className="inline-flex animate-spin"

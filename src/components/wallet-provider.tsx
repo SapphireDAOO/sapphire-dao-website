@@ -764,19 +764,24 @@ const WalletProvider = ({ children }: Props) => {
     return success;
   };
 
-  const withdrawFees = async (): Promise<boolean> => {
-    setIsLoading("withdrawFees");
+
+  const setMinimumInvoiceValue = async (newValue: bigint): Promise<boolean> => {
+    setIsLoading("setMinimumInvoiceValue");
+
     let success = false;
     let progressToastId;
     try {
       const gasPrice = await fetchGasPrice(publicClient, chainId);
+
       const tx = await walletClient?.sendTransaction({
         chain: polygonAmoy,
         to: INVOICE_ADDRESS[chainId],
         data: encodeFunctionData({
           abi: PaymentProcessor__factory.abi,
-          functionName: "withdrawFees",
+          functionName: "setMinimumInvoiceValue",
+          args: [newValue],
         }),
+
         gasPrice,
       });
 
@@ -787,9 +792,10 @@ const WalletProvider = ({ children }: Props) => {
       const receipt = await publicClient?.waitForTransactionReceipt({
         hash: tx!,
       });
+
       if (receipt?.status) {
         toast.dismiss(progressToastId);
-        toast.success("Successfully withdraw fees");
+        toast.success("Successfully set new fee");
         await getInvoiceData();
         success = true;
       } else {
@@ -803,6 +809,8 @@ const WalletProvider = ({ children }: Props) => {
     setIsLoading("");
     return success;
   };
+
+
 
   // Contract interactions (e.g., createInvoice, makeInvoicePayment) are implemented below
   // Each function interacts with the blockchain using `walletClient` and `publicClient`
@@ -823,7 +831,7 @@ const WalletProvider = ({ children }: Props) => {
         setDefaultHoldPeriod,
         transferOwnership,
         setFee,
-        withdrawFees,
+        setMinimumInvoiceValue,
         refetchAllInvoiceData: async () => {
           await getAllInvoiceData();
         },

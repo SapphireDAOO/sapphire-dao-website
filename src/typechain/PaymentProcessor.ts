@@ -82,6 +82,7 @@ export interface PaymentProcessorInterface extends Interface {
       | "getFeeRate"
       | "getFeeReceiver"
       | "getInvoiceData"
+      | "getMinimumInvoiceValue"
       | "getNextInvoiceId"
       | "makeInvoicePayment"
       | "owner"
@@ -94,9 +95,9 @@ export interface PaymentProcessorInterface extends Interface {
       | "setFeeRate"
       | "setFeeReceiversAddress"
       | "setInvoiceReleaseTime"
+      | "setMinimumInvoiceValue"
       | "totalInvoiceCreated"
       | "transferOwnership"
-      | "withdrawFees"
   ): FunctionFragment;
 
   getEvent(
@@ -174,6 +175,10 @@ export interface PaymentProcessorInterface extends Interface {
     values: [BigNumberish]
   ): string;
   encodeFunctionData(
+    functionFragment: "getMinimumInvoiceValue",
+    values?: undefined
+  ): string;
+  encodeFunctionData(
     functionFragment: "getNextInvoiceId",
     values?: undefined
   ): string;
@@ -219,16 +224,16 @@ export interface PaymentProcessorInterface extends Interface {
     values: [BigNumberish, BigNumberish]
   ): string;
   encodeFunctionData(
+    functionFragment: "setMinimumInvoiceValue",
+    values: [BigNumberish]
+  ): string;
+  encodeFunctionData(
     functionFragment: "totalInvoiceCreated",
     values?: undefined
   ): string;
   encodeFunctionData(
     functionFragment: "transferOwnership",
     values: [AddressLike]
-  ): string;
-  encodeFunctionData(
-    functionFragment: "withdrawFees",
-    values?: undefined
   ): string;
 
   decodeFunctionResult(
@@ -288,6 +293,10 @@ export interface PaymentProcessorInterface extends Interface {
     data: BytesLike
   ): Result;
   decodeFunctionResult(
+    functionFragment: "getMinimumInvoiceValue",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
     functionFragment: "getNextInvoiceId",
     data: BytesLike
   ): Result;
@@ -330,15 +339,15 @@ export interface PaymentProcessorInterface extends Interface {
     data: BytesLike
   ): Result;
   decodeFunctionResult(
+    functionFragment: "setMinimumInvoiceValue",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
     functionFragment: "totalInvoiceCreated",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
     functionFragment: "transferOwnership",
-    data: BytesLike
-  ): Result;
-  decodeFunctionResult(
-    functionFragment: "withdrawFees",
     data: BytesLike
   ): Result;
 }
@@ -599,6 +608,8 @@ export interface PaymentProcessor extends BaseContract {
     "view"
   >;
 
+  getMinimumInvoiceValue: TypedContractMethod<[], [bigint], "view">;
+
   getNextInvoiceId: TypedContractMethod<[], [bigint], "view">;
 
   makeInvoicePayment: TypedContractMethod<
@@ -655,6 +666,12 @@ export interface PaymentProcessor extends BaseContract {
     "nonpayable"
   >;
 
+  setMinimumInvoiceValue: TypedContractMethod<
+    [_minimumInvoiceValue: BigNumberish],
+    [void],
+    "nonpayable"
+  >;
+
   totalInvoiceCreated: TypedContractMethod<[], [bigint], "view">;
 
   transferOwnership: TypedContractMethod<
@@ -662,8 +679,6 @@ export interface PaymentProcessor extends BaseContract {
     [void],
     "payable"
   >;
-
-  withdrawFees: TypedContractMethod<[], [void], "nonpayable">;
 
   getFunction<T extends ContractMethod = ContractMethod>(
     key: string | FunctionFragment
@@ -738,6 +753,9 @@ export interface PaymentProcessor extends BaseContract {
     "view"
   >;
   getFunction(
+    nameOrSignature: "getMinimumInvoiceValue"
+  ): TypedContractMethod<[], [bigint], "view">;
+  getFunction(
     nameOrSignature: "getNextInvoiceId"
   ): TypedContractMethod<[], [bigint], "view">;
   getFunction(
@@ -782,14 +800,18 @@ export interface PaymentProcessor extends BaseContract {
     "nonpayable"
   >;
   getFunction(
+    nameOrSignature: "setMinimumInvoiceValue"
+  ): TypedContractMethod<
+    [_minimumInvoiceValue: BigNumberish],
+    [void],
+    "nonpayable"
+  >;
+  getFunction(
     nameOrSignature: "totalInvoiceCreated"
   ): TypedContractMethod<[], [bigint], "view">;
   getFunction(
     nameOrSignature: "transferOwnership"
   ): TypedContractMethod<[newOwner: AddressLike], [void], "payable">;
-  getFunction(
-    nameOrSignature: "withdrawFees"
-  ): TypedContractMethod<[], [void], "nonpayable">;
 
   getEvent(
     key: "InvoiceAccepted"
