@@ -41,6 +41,7 @@ export const formatAddress = (address: string) => {
 };
 
 export const unixToGMT = (unixTimestamp: any) => {
+  if (!unixTimestamp) return "";
   const date = new Date(unixTimestamp * 1000); // Convert Unix timestamp to milliseconds
 
   // Define month abbreviations

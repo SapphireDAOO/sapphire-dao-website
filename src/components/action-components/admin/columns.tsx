@@ -35,6 +35,15 @@ const columns: ColumnDef<AllInvoice>[] = [
     },
   },
   {
+    accessorKey: "createdAt",
+    header: () => <div className="text-center">Time Created</div>,
+    cell: ({ row }) => {
+      const createdAt: string = row.getValue("createdAt");
+
+      return <div className="text-center">{createdAt}</div>;
+    },
+  },
+  {
     accessorKey: "payment",
     header: () => <div className="text-center">Payment</div>,
     cell: ({ row }) => {
@@ -63,6 +72,15 @@ const columns: ColumnDef<AllInvoice>[] = [
     },
   },
   {
+    accessorKey: "paidAt",
+    header: () => <div className="text-center">Time Paid</div>,
+    cell: ({ row }) => {
+      const paidAt: string = row.getValue("paidAt");
+
+      return <div className="text-center">{paidAt}</div>;
+    },
+  },
+  {
     accessorKey: "by",
     header: () => <div className="text-center">By</div>,
     cell: ({ row }) => {
@@ -83,6 +101,15 @@ const columns: ColumnDef<AllInvoice>[] = [
           )}
         </div>
       );
+    },
+  },
+  {
+    accessorKey: "status",
+    header: () => <div className="text-center">State</div>,
+    cell: ({ row }) => {
+      const status: string = row.getValue("status");
+
+      return <div className="text-center">{status}</div>;
     },
   },
   {

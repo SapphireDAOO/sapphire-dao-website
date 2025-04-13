@@ -22,8 +22,11 @@ export type AllInvoice = {
   id: string;
   contract: string;
   creator: string;
+  createdAt: string;
   payment: string;
+  paidAt:string
   by: string;
+  state: string;
   release: string;
   fee: string;
   releaseHash: string;

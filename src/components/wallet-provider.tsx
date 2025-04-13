@@ -38,6 +38,7 @@ const GET_ALL_INVOICES = `
   query {
     invoices {
       id
+      createdAt
       releasedAt
       paidAt
       paymentTxHash
@@ -185,12 +186,15 @@ const WalletProvider = ({ children }: Props) => {
         contract: list.contract || "",
         creator: list.creator?.id || "",
         payment: list.paymentTxHash || "",
+        createdAt: unixToGMT(list.createdAt) || "-",
+        paidAt: unixToGMT(list.paidAt),
         by: list.payer?.id || "",
         release:
           list.releasedAt && !isNaN(list.releasedAt)
             ? unixToGMT(list.releasedAt)
             : "Pending",
         fee: list.fee || "0",
+        state: list.status,
         releaseHash: list.releaseHash,
         status: list.status,
       }));
@@ -764,7 +768,6 @@ const WalletProvider = ({ children }: Props) => {
     return success;
   };
 
-
   const setMinimumInvoiceValue = async (newValue: bigint): Promise<boolean> => {
     setIsLoading("setMinimumInvoiceValue");
 
@@ -809,8 +812,6 @@ const WalletProvider = ({ children }: Props) => {
     setIsLoading("");
     return success;
   };
-
-
 
   // Contract interactions (e.g., createInvoice, makeInvoicePayment) are implemented below
   // Each function interacts with the blockchain using `walletClient` and `publicClient`
