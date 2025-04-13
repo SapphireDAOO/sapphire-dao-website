@@ -77,6 +77,8 @@ const columns: ColumnDef<AllInvoice>[] = [
     cell: ({ row }) => {
       const paidAt: string = row.getValue("paidAt");
 
+      if (!paidAt) return <div className="text-center">-</div>;
+
       return <div className="text-center">{paidAt}</div>;
     },
   },
@@ -117,15 +119,14 @@ const columns: ColumnDef<AllInvoice>[] = [
     header: () => <div className="text-center">Release</div>,
     cell: ({ row }) => {
       const releasedAtTimeStamp: string = row.getValue("release");
-      const releaseHash: string = row.original.releaseHash;
-      const status: string = row.original.status;
+      const { releaseHash, status } = row.original;
 
-      let response;
+      if (status === "REFUNDED" || status === "REJECTED") {
+        return <div className="text-center">-</div>;
+      }
 
-      if (status !== "RELEASED") {
-        response = releasedAtTimeStamp;
-      } else {
-        response = (
+      if (status === "RELEASED") {
+        return (
           <a
             href={`https://amoy.polygonscan.com/address/${releaseHash}`}
             target="_blank"
@@ -137,7 +138,7 @@ const columns: ColumnDef<AllInvoice>[] = [
         );
       }
 
-      return <div className="text-center">{response}</div>;
+      return <div className="text-center">{releasedAtTimeStamp}</div>;
     },
   },
   {
