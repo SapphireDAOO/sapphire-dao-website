@@ -95,6 +95,14 @@ const invoiceQuery = `query ($address: String!) {
   }
 }`;
 
+const invoiceOwnerQuery = `query Invoice($id: String!) {
+  invoice(id: $id) {
+    creator {
+      id
+    }
+  }
+}`;
+
 // Utility function to fetch and calculate a higher gas price with a 3x multiplier
 const fetchGasPrice = async (
   publicClient: any,
@@ -813,6 +821,19 @@ const WalletProvider = ({ children }: Props) => {
     return success;
   };
 
+  const getInvoiceOwner = async (id: string): Promise<string> => {
+    const { data, error } = await client(chainId)
+      .query(invoiceOwnerQuery, { id })
+      .toPromise();
+
+    if (error) {
+      console.error("GraphQL Error:", error.message);
+      return "";
+    }
+
+    return data?.invoice?.creator?.id || "";
+  };
+
   // Contract interactions (e.g., createInvoice, makeInvoicePayment) are implemented below
   // Each function interacts with the blockchain using `walletClient` and `publicClient`
   return (
@@ -833,6 +854,7 @@ const WalletProvider = ({ children }: Props) => {
         transferOwnership,
         setFee,
         setMinimumInvoiceValue,
+        getInvoiceOwner,
         refetchAllInvoiceData: async () => {
           await getAllInvoiceData();
         },

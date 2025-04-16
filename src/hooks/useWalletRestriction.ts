@@ -7,7 +7,6 @@ const useWalletRestriction = () => {
   const { data } = useGetOwner();
   const [isAllowed, setIsAllowed] = useState(false);
   const [walletConnected, setWalletConnected] = useState(false);
-  // const router = useRouter();
 
   const checkWallet = async () => {
     if (typeof window !== "undefined" && window.ethereum) {

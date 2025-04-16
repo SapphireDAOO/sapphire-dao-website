@@ -1,7 +1,6 @@
 "use client";
 import { useAccount } from "wagmi";
 import { useRouter } from "next/navigation";
-import { useGetFeeRate } from "@/hooks/useGetFeeRate";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -15,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ContractContext } from "@/context/contract-context";
 import { CircleCheckBig, Loader2 } from "lucide-react";
-import { useContext, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import { ConnectKitButton } from "connectkit";
 import { PaymentCardProps } from "@/model/model";
 import {
@@ -32,15 +31,30 @@ import { toast } from "sonner";
 const PaymentCard = ({ data }: PaymentCardProps) => {
   const router = useRouter();
   const { address } = useAccount();
-  const { data: fees } = useGetFeeRate();
 
   const [open, setOpen] = useState(false);
+  const [userIsCreator, setUserIsCreator] = useState(false);
   const { makeInvoicePayment, isLoading } = useContext(ContractContext);
+  const { getInvoiceOwner } = useContext(ContractContext);
 
-  const protocolFee = !fees ? 0 : fees;
+  useEffect(() => {
+    const checkCreator = async () => {
+      if (address && data?.id) {
+        const creatorCheck = await isCreator();
+        setUserIsCreator(creatorCheck);
+      }
+    };
 
-  const invoiceID = BigInt(data?.id);
-  const { data: invoiceData } = useGetInvoicePrice(invoiceID);
+    checkCreator();
+  }, [address, data?.id]);
+
+  const invoiceID = data?.id ? BigInt(data.id) : undefined;
+  const { data: invoiceData } = useGetInvoicePrice(invoiceID!);
+
+  const isCreator = async () => {
+    const creator = await getInvoiceOwner(invoiceID!.toString());
+    return address?.toString().toLowerCase() === creator.toLowerCase();
+  };
 
   const handleClick = async () => {
     if (!invoiceData?.price) {
@@ -48,12 +62,14 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
       return;
     }
 
-    const success = await makeInvoicePayment(invoiceData.price, invoiceID);
+    const success = await makeInvoicePayment(invoiceData.price, invoiceID!);
     if (success) {
       setOpen(true);
       toast.success("Payment successful!");
     }
   };
+
+  const currStatus = invoiceData?.status;
 
   return (
     <>
@@ -77,24 +93,6 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
                 disabled
               />
             </div>
-
-            <div className="flex flex-col space-y-4 mt-3">
-              {/* <Label htmlFor="amount">Payer Amount</Label>
-              <Input
-                id="amount"
-                type="number"
-                placeholder="Enter amount in pol"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                required
-                disabled={data?.status !== "CREATED"}
-              /> */}
-              <p className="text-sm text-red-400">
-                *Invoice creator cannot make this payment, Additional fee of{" "}
-                {parseInt(protocolFee.toString()!) / 100}% applies excluding gas
-                fee*
-              </p>
-            </div>
           </div>
         </CardContent>
         <CardFooter className="flex">
@@ -102,7 +100,9 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
             <Button
               onClick={handleClick}
               className="w-full"
-              disabled={data?.status !== "CREATED"}
+              disabled={
+                invoiceData?.status !== 2 || userIsCreator || !invoiceID
+              }
             >
               {isLoading === "makeInvoicePayment" ? (
                 <>
@@ -113,10 +113,10 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
                     color="#cee7d6"
                   />
                 </>
-              ) : data?.status === "CREATED" ? (
-                "Make Payment"
+              ) : currStatus && currStatus > 2 ? (
+                "PAID"
               ) : (
-                `This Invoice is ${data?.status}`
+                "Make Payment"
               )}
             </Button>
           ) : (

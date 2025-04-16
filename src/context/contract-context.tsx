@@ -11,6 +11,7 @@ export interface ContractContextData {
   allInvoiceData: AllInvoice[];
   createInvoice: (invoicePrice: bigint) => Promise<number>;
   makeInvoicePayment: (amount: bigint, invoiceId: bigint) => Promise<boolean>;
+  getInvoiceOwner: (id: string) => Promise<string>;
   creatorsAction: (invoiceId: bigint, state: boolean) => Promise<boolean>;
   cancelInvoice: (invoiceId: bigint) => Promise<boolean>;
   releaseInvoice: (invoiceId: bigint) => Promise<boolean>;
@@ -46,6 +47,7 @@ export const contractContextDefaults: ContractContextData = {
   setMinimumInvoiceValue: async () => Promise.resolve(false),
   refetchInvoiceData: async () => Promise.resolve(),
   refetchAllInvoiceData: async () => Promise.resolve(),
+  getInvoiceOwner: () => Promise.resolve(""),
 };
 export const ContractContext = React.createContext<ContractContextData>(
   contractContextDefaults

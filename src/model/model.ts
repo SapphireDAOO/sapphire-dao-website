@@ -48,7 +48,7 @@ export type PaymentCardProps = {
   data: {
     id: string; // Unique identifier for the invoice
     price: string; // Price associated with the invoice
-    status: string; // Status of the invoice (e.g., "paid", "pending", "unpaid")
+    status: string; // Status of the invoice (e.g., "paid", "created", "unpaid")
   };
 };
 
