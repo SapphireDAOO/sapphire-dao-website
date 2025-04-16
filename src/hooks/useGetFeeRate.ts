@@ -26,7 +26,5 @@ export const useGetFeeRate = () => {
     account: address,
   });
 
-  console.log("THE FEE VALUE RETURNED IS", data)
-
   return { data, refetch, isLoading };
 };

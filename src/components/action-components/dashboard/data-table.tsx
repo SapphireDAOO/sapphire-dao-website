@@ -76,8 +76,6 @@ const DataTable = <TData,>({
     return [...allData, ...otherData];
   }, [filteredData]);
 
-  console.log(newData);
-
   const table = useReactTable({
     data: newData,
     columns: filteredColumns,

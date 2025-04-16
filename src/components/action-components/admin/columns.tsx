@@ -146,7 +146,6 @@ const columns: ColumnDef<AllInvoice>[] = [
     header: () => <div className="text-center">Fee</div>,
     cell: ({ row }) => {
       const releasedAtTimeStamp: string = formatEther(row.getValue("fee"));
-      console.log("THE FEE IS", releasedAtTimeStamp);
 
       return <div className="text-center">{releasedAtTimeStamp}</div>;
     },
