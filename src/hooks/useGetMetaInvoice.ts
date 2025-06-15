@@ -1,0 +1,37 @@
+import { advancedPaymentProcessor } from "@/abis/AdvancedPaymentProcessor";
+import { ADVANCE_INVOICE_ADDRESS } from "@/constants";
+import { Address } from "viem";
+
+import { polygonAmoy } from "viem/chains";
+import { useAccount, useChainId, useReadContract } from "wagmi";
+
+/**
+ * Custom hook to fetch a meta invoice from the AdvancedPaymentProcessor smart contract.
+ *
+ * @param invoiceKey - The unique identifier (key) of the invoice.
+ *
+ * @returns An object containing:
+ *   - `data`: The meta invoice data returned by the smart contract. This may include fields like `token`, `amount`, `receiver`, etc.
+ *   - `refetch`: A function to manually re-fetch the data.
+ *   - `isLoading`: Boolean indicating whether the contract read operation is still in progress.
+ */
+
+export const useGetMetaInvoice = (invoiceKey: Address) => {
+  // Get the connected user's wallet address using the wagmi `useAccount` hook
+  const { address } = useAccount();
+
+  // Get the current chain ID using the wagmi `useChainId` hook
+  const chainId = useChainId();
+
+  // Use the wagmi `useReadContract` hook to interact with the `getMetaInvoice` function of the AdvancedPaymentProcessor contract
+  const { data, refetch, isLoading } = useReadContract({
+    abi: advancedPaymentProcessor,
+    chainId: polygonAmoy.id,
+    address: ADVANCE_INVOICE_ADDRESS[chainId],
+    functionName: "getMetaInvoice",
+    args: [invoiceKey],
+    account: address,
+  });
+
+  return { data, refetch, isLoading };
+};

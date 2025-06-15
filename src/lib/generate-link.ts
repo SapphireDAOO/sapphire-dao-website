@@ -1,34 +1,32 @@
 // Import the Invoice type from the model and the CryptoJS library for encryption
-import { Invoice } from "@/model/model";
 import CryptoJS from "crypto-js";
+import { Address } from "viem";
 
 /**
  * Function to generate a secure, encrypted link based on the provided payment data.
  * @param {Invoice | undefined} payment - The payment data object of type Invoice (or undefined).
  * @returns {string | undefined | null} - The secure, encrypted string or null/undefined if conditions aren't met.
  */
-const generateSecureLink = (payment: Invoice | undefined) => {
+const generateSecureLink = (invoiceKey: Address | undefined) => {
   // Retrieve the secret key from environment variables
   const secretKey = process.env.NEXT_PUBLIC_SECRET_KEY;
-  
+
   // If the secret key is missing, return early
   if (!secretKey) {
     return;
   }
 
   // Validate the payment object and its essential properties
-  if (!payment || !payment.id || !payment.price || !payment.status) {
+  if (!invoiceKey) {
     return; // Return undefined if the payment data is incomplete or invalid
   }
 
-  if (payment) {
+  if (invoiceKey) {
     try {
       // Encrypt the relevant payment data using AES encryption
       const encrypted = CryptoJS.AES.encrypt(
         JSON.stringify({
-          id: payment.id,     // Include the payment ID in the encrypted data
-          price: payment.price, // Include the price in the encrypted data
-          status: payment.status, // Include the status in the encrypted data
+          invoiceKey: invoiceKey, // Include the invoice KEY in the encrypted data
         }),
         secretKey // Use the secret key for encryption
       ).toString();

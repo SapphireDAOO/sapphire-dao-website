@@ -29,23 +29,23 @@ const DataTable = <TData,>({
   columns: any[];
   data: TData[];
   statuses: { label: string; value: string }[];
-  currentTab?: string; // "creator" or "payer"
+  currentTab?: string; // "seller" or "buyer"
 }) => {
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [searchQuery, setSearchQuery] = useState<string>("");
 
   const filteredColumns = useMemo(() => {
     return columns.filter((column) => {
-      // Hide "Release" column when on "Payer" tab
-      // if (currentTab === "payer" && column.accessorKey === "releaseHash") {
+      // Hide "Release" column when on "buyer" tab
+      // if (currentTab === "buyer" && column.accessorKey === "releaseHash") {
       //   return false;
       // }
-      // Show "Creator" column only when on "Payer" tab
-      if (currentTab !== "payer" && column.accessorKey === "creator") {
+      // Show "seller" column only when on "buyer" tab
+      if (currentTab !== "buyer" && column.accessorKey === "seller") {
         return false;
       }
 
-      if (currentTab === "payer" && column.accessorKey === "payer") {
+      if (currentTab === "buyer" && column.accessorKey === "buyer") {
         return false;
       }
       return true;

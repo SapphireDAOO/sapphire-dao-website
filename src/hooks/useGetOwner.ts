@@ -1,7 +1,7 @@
 import { INVOICE_ADDRESS } from "@/constants";
-import { PaymentProcessor__factory } from "@/typechain";
 import { polygonAmoy } from "wagmi/chains";
 import { useAccount, useChainId, useReadContract } from "wagmi";
+import { paymentProcessor } from "@/abis/PaymentProcessor";
 
 /**
  * Custom hook to retrieve the owner address of the PaymentProcessor smart contract.
@@ -18,7 +18,7 @@ export const useGetOwner = () => {
 
   // Use the wagmi `useReadContract` hook to interact with the `owner` function of the PaymentProcessor contract
   const { data, refetch, isLoading } = useReadContract({
-    abi: PaymentProcessor__factory.abi,
+    abi: paymentProcessor,
     chainId: polygonAmoy.id,
     address: INVOICE_ADDRESS[chainId],
     functionName: "owner",

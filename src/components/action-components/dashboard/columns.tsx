@@ -14,10 +14,10 @@ import { Button } from "@/components/ui/button";
 import { ArrowUpDown } from "lucide-react";
 import { MoreHorizontal } from "lucide-react";
 import { toast } from "sonner";
-import CreatorsAction from "./creators-action";
+import SellersAction from "./sellers-action";
 import CancelInvoice from "./cancel-payment";
 import ReleaseInvoice from "./release-invoice";
-import RefundPayer from "./refund-payer";
+import RefundBuyer from "./refund-buyer";
 import { formatAddress, timeLeft } from "@/utils";
 import generateSecureLink from "@/lib/generate-link";
 import React from "react";
@@ -62,23 +62,23 @@ const columns: ColumnDef<Invoice>[] = [
     },
   },
   {
-    accessorKey: "creator",
-    header: () => <div className="text-center">Creator</div>,
+    accessorKey: "seller",
+    header: () => <div className="text-center">Seller</div>,
     cell: ({ row }) => {
       const payment = row.original;
-      const creatorsAddress = row.getValue("creator");
+      const sellersAddress = row.getValue("seller");
       return (
         <div className="text-center">
-          {payment.type === "Creator" ? (
+          {payment.type === "Seller" ? (
             "me"
-          ) : creatorsAddress ? (
+          ) : sellersAddress ? (
             <a
-              href={`https://amoy.polygonscan.com/address/${creatorsAddress}`}
+              href={`https://amoy.polygonscan.com/address/${sellersAddress}`}
               target="_blank"
               rel="noopener noreferrer"
               className="text-blue-500 underline"
             >
-              {formatAddress(creatorsAddress as string)}
+              {formatAddress(sellersAddress as string)}
             </a>
           ) : (
             "-"
@@ -116,21 +116,21 @@ const columns: ColumnDef<Invoice>[] = [
     },
   },
   {
-    accessorKey: "payer",
+    accessorKey: "buyer",
     header: () => <div className="text-center">By</div>,
     cell: ({ row }) => {
       const { type } = row.original;
-      const payersAddress = row.getValue("payer") as string | undefined;
+      const buyersAddress = row.getValue("buyer") as string | undefined;
 
-      if (!payersAddress) return <div className="text-center">-</div>;
+      if (!buyersAddress) return <div className="text-center">-</div>;
 
       const displayText =
-        type === "Payer" ? "me" : formatAddress(payersAddress);
+        type === "Buyer" ? "me" : formatAddress(buyersAddress);
 
       return (
         <div className="text-center">
           <a
-            href={`https://amoy.polygonscan.com/address/${payersAddress}`}
+            href={`https://amoy.polygonscan.com/address/${buyersAddress}`}
             target="_blank"
             rel="noopener noreferrer"
             className="text-blue-500 underline"
@@ -268,7 +268,7 @@ const columns: ColumnDef<Invoice>[] = [
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>Actions</DropdownMenuLabel>
-            {payment.type === "Creator" &&
+            {payment.type === "Seller" &&
               t !== "Time Elapsed" &&
               payment.status == "CREATED" && (
                 <>
@@ -278,7 +278,9 @@ const columns: ColumnDef<Invoice>[] = [
                         typeof window !== "undefined"
                           ? window.location.origin
                           : "";
-                      const encodedEncryptedData = generateSecureLink(payment);
+                      const encodedEncryptedData = generateSecureLink(
+                        payment?.invoiceKey
+                      );
                       navigator.clipboard.writeText(
                         `${domain}/pay/?data=${encodedEncryptedData}`
                       );
@@ -292,20 +294,20 @@ const columns: ColumnDef<Invoice>[] = [
               )}
 
             {payment?.status === "PAID" &&
-              payment.type === "Creator" &&
+              payment.type === "Seller" &&
               t !== "Time Elapsed" && (
                 <>
                   <DropdownMenuItem>
-                    <CreatorsAction
-                      invoiceId={payment.id}
+                    <SellersAction
+                      invoiceKey={payment.invoiceKey}
                       state={true}
                       text="Accept Payment"
                       key="0"
                     />
                   </DropdownMenuItem>
                   <DropdownMenuItem>
-                    <CreatorsAction
-                      invoiceId={payment.id}
+                    <SellersAction
+                      invoiceKey={payment.invoiceKey}
                       state={false}
                       text="Reject Payment"
                       key="1"
@@ -315,27 +317,27 @@ const columns: ColumnDef<Invoice>[] = [
               )}
             {payment?.status === "CREATED" && (
               <DropdownMenuItem>
-                <CancelInvoice invoiceId={payment.id} />
+                <CancelInvoice invoiceKey={payment.invoiceKey} />
               </DropdownMenuItem>
             )}
 
-            {payment?.status === "ACCEPTED" && payment.type === "Creator" && (
+            {payment?.status === "ACCEPTED" && payment.type === "Seller" && (
               <DropdownMenuItem>
-                <ReleaseInvoice invoiceId={payment.id} />
+                <ReleaseInvoice invoiceKey={payment.invoiceKey} />
               </DropdownMenuItem>
             )}
             {payment?.status !== "REFUNDED" &&
               payment?.status !== "REJECTED" &&
-              payment?.type === "Payer" && (
+              payment?.type === "Seller" && (
                 <DropdownMenuItem>
-                  <RefundPayer
-                    invoiceId={payment.id}
+                  <RefundBuyer
+                    invoiceKey={payment.invoiceKey}
                     timeStamp={payment.paidAt}
                   />
                 </DropdownMenuItem>
               )}
             {payment?.status === "REFUNDED" ||
-              (payment?.status === "REJECTED" && payment?.type === "Payer" && (
+              (payment?.status === "REJECTED" && payment?.type === "Buyer" && (
                 <DropdownMenuItem>
                   <Button className="w-full">All Settled</Button>
                 </DropdownMenuItem>

@@ -3,21 +3,22 @@ import { useContext } from "react";
 import { ContractContext } from "@/context/contract-context";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
+import type { Address } from "viem";
 
-const RefundPayer = ({
-  invoiceId,
+const RefundBuyer = ({
+  invoiceKey,
   timeStamp,
 }: {
-  invoiceId: string;
+  invoiceKey: Address;
   timeStamp: string | undefined;
 }) => {
-  const { refundPayerAfterWindow, isLoading } = useContext(ContractContext);
+  const { refundBuyerAfterWindow, isLoading } = useContext(ContractContext);
   const paidAtTime = Number(timeStamp) * 1000;
   const threeDaysLater = paidAtTime + 259200000;
   const currentTime = Date.now();
   const disAbledButton = currentTime > threeDaysLater;
   const handleClick = async () => {
-    await refundPayerAfterWindow(BigInt(invoiceId));
+    await refundBuyerAfterWindow(invoiceKey);
   };
 
   return (
@@ -39,4 +40,4 @@ const RefundPayer = ({
     </>
   );
 };
-export default RefundPayer;
+export default RefundBuyer;

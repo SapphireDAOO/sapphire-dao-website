@@ -14,43 +14,41 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useGetFeeRate } from "@/hooks/useGetFeeRate";
+// import { useGetFeeRate } from "@/hooks/useGetFeeRate";
 import { ContractContext } from "@/context/contract-context";
 import { ConnectKitButton } from "connectkit";
-import {  parseUnits } from "viem";
+import { type Address, parseUnits } from "viem";
 import { CirclePlus, Loader2 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { toast } from "sonner";
 import generateSecureLink from "@/lib/generate-link";
-import { Invoice } from "@/model/model";
-
-let price: string;
-let id: string;
 
 const CreateInvoiceDialog = () => {
   const [amount, setAmount] = useState("");
   const { address } = useAccount();
-  const { data } = useGetFeeRate();
+  // const { data } = useGetFeeRate();
 
   const [openCreate, setOpenCreate] = useState<boolean>(false);
   const [open, setOpen] = useState<boolean>(false);
+  const [invoiceKey, setInvoiceKey] = useState<Address>("0x");
+
   const { createInvoice, refetchInvoiceData, isLoading } =
     useContext(ContractContext);
 
   const handleClick = async () => {
     const amountValue = parseUnits(amount, 18);
-    const success = await createInvoice(amountValue);
+    const response = await createInvoice(amountValue);
 
     setOpenCreate(false);
-    if (success) {
-      id = success.toString();
-      price = amount;
+    if (response) {
+      setInvoiceKey(response);
       refetchInvoiceData?.();
       setOpen(true);
     }
   };
-  const formatedFee = data ? parseInt(data.toString()) / 100 : "0";
-  const isAmountValid = true
+  // const formatedFee = data ? parseInt(data.toString()) / 100 : "0";
+  const formatedFee = "0";
+  const isAmountValid = true;
   return (
     <>
       <Dialog open={openCreate} onOpenChange={setOpenCreate}>
@@ -107,7 +105,7 @@ const CreateInvoiceDialog = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      <InvoiceQRLink open={open} setOpen={setOpen} />
+      <InvoiceQRLink open={open} setOpen={setOpen} invoiceKey={invoiceKey} />
     </>
   );
 };
@@ -116,18 +114,17 @@ export default CreateInvoiceDialog;
 interface InvoiceQRLinkProps {
   open: boolean;
   setOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  invoiceKey: Address;
 }
 
-export const InvoiceQRLink = ({ open, setOpen }: InvoiceQRLinkProps) => {
+export const InvoiceQRLink = ({
+  open,
+  setOpen,
+  invoiceKey,
+}: InvoiceQRLinkProps) => {
   const domain = typeof window !== "undefined" ? window.location.origin : "";
 
-  const highestIdInvoice: Invoice = {
-    id: id!,
-    price,
-    status: "CREATED",
-  };
-
-  const encodedEncryptedData = generateSecureLink(highestIdInvoice);
+  const encodedEncryptedData = generateSecureLink(invoiceKey!);
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(

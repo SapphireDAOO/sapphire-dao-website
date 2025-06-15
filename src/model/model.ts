@@ -1,52 +1,57 @@
+import type { Address } from "viem";
+
 // Define the base Invoice type that represents an invoice's properties
 export type Invoice = {
   releaseAt?: string | null;
   id: string;
+  invoiceKey: Address;
   amountPaid?: string | null;
   createdAt?: string | null;
   paidAt?: string;
   releasedAt?: string;
   price?: string | null;
   status?: string;
-  type?: "Payer" | "Creator";
+  type?: "Buyer" | "Seller";
   holdPeriod?: string | null;
   paymentTxHash?: string;
   releaseHash?: string;
   contract?: string;
   fee?: string;
-  payer?: string;
-  creator?: string;
+  buyer?: string;
+  seller?: string;
 };
 
 export type AllInvoice = {
   id: string;
+  invoiceKey: Address;
   contract: string;
-  creator: string;
+  seller: string;
   createdAt: string;
   payment: string;
-  paidAt:string
+  paidAt: string;
   by: string;
   state: string;
   release: string;
   fee: string;
   releaseHash: string;
-  status: string
+  status: string;
 };
 
 // Specialized invoice type for invoices created by the user
 export interface UserCreatedInvoice extends Invoice {
-  type?: "Creator"; // Specifies that the invoice type is "Creator"
+  type?: "Seller"; // Specifies that the invoice type is "Seller"
 }
 
 // Specialized invoice type for invoices paid by the user
 export interface UserPaidInvoice extends Invoice {
-  type?: "Payer"; // Specifies that the invoice type is "Payer"
+  type?: "Buyer"; // Specifies that the invoice type is "Buyer"
 }
 
 // Props for a Payment Card component, containing basic invoice details
 export type PaymentCardProps = {
   data: {
     id: string; // Unique identifier for the invoice
+    invoiceKey: Address; // Invoicekey associated with the invoice
     price: string; // Price associated with the invoice
     status: string; // Status of the invoice (e.g., "paid", "created", "unpaid")
   };
@@ -56,3 +61,40 @@ export type PaymentCardProps = {
 export type ErrorMessages = {
   [key: string]: string; // A key-value pair where the key is the error key, and the value is the corresponding error message
 };
+
+export interface TokenData {
+  name: string;
+  id: Address;
+  decimals: number;
+}
+export interface InvoiceDetails {
+  id: string;
+  invoiceKey: Address;
+  price: string;
+  paymentToken: Address;
+  tokenList: TokenData[];
+}
+
+export interface SmartInvoice {
+  id: string;
+  invoiceId: string;
+  price: string;
+  paymentToken: string;
+  amountPaid?: string;
+  cancelAt?: string;
+  contract?: string;
+  createdAt?: string;
+  escrow?: string;
+  expiresAt?: string;
+  paidAt?: string;
+  releasedAt?: string;
+  state?: string;
+}
+
+export interface MetaInvoice {
+  id: string;
+  invoiceId: string;
+  price: string;
+  contract?: string;
+  paymentToken?: string;
+}

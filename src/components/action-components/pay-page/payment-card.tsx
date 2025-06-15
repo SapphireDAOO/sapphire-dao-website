@@ -25,35 +25,37 @@ import {
   DialogOverlay,
   DialogPortal,
 } from "@/components/ui/dialog";
-import { useGetInvoicePrice } from "@/hooks/useGetInvoicePrice";
+
 import { toast } from "sonner";
-
+import { formatEther } from "viem";
+import { useGetInvoiceData } from "@/hooks/useGetInvoiceData";
 const PaymentCard = ({ data }: PaymentCardProps) => {
-  const router = useRouter();
   const { address } = useAccount();
-
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [userIsCreator, setUserIsCreator] = useState(false);
-  const { makeInvoicePayment, isLoading } = useContext(ContractContext);
-  const { getInvoiceOwner } = useContext(ContractContext);
 
+  const invoiceKEY = data?.invoiceKey;
+  const { data: invoiceData } = useGetInvoiceData(invoiceKEY!);
+
+  const { getInvoiceOwner, makeInvoicePayment, isLoading } =
+    useContext(ContractContext);
+
+  // Check if the connected user is the creator of the invoice
   useEffect(() => {
     const checkCreator = async () => {
-      if (address && data?.id) {
+      if (address && invoiceKEY) {
         const creatorCheck = await isCreator();
         setUserIsCreator(creatorCheck);
       }
     };
 
     checkCreator();
-  }, [address, data?.id]);
-
-  const invoiceID = data?.id ? BigInt(data.id) : undefined;
-  const { data: invoiceData } = useGetInvoicePrice(invoiceID!);
+  }, [address, invoiceKEY]);
 
   const isCreator = async () => {
-    const creator = await getInvoiceOwner(invoiceID!.toString());
-    return address?.toString().toLowerCase() === creator.toLowerCase();
+    const creator = await getInvoiceOwner(invoiceKEY!);
+    return address?.toLowerCase() === creator.toLowerCase();
   };
 
   const handleClick = async () => {
@@ -61,8 +63,7 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
       toast.error("Invoice price not available.");
       return;
     }
-
-    const success = await makeInvoicePayment(invoiceData.price, invoiceID!);
+    const success = await makeInvoicePayment(invoiceData.price, invoiceKEY!);
     if (success) {
       setOpen(true);
       toast.success("Payment successful!");
@@ -82,14 +83,20 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
           <div className="grid w-full items-center gap-4">
             <div className="flex flex-col space-y-2">
               <Label htmlFor="id">Invoice ID</Label>
-              <Input id="id" placeholder={`${data?.id || "N/A"}`} disabled />
+              <Input
+                id="id"
+                placeholder={`${invoiceData?.invoiceId || "N/A"}`}
+                disabled
+              />
             </div>
 
             <div className="flex flex-col space-y-2 mt-3">
               <Label htmlFor="price">Request Amount</Label>
               <Input
                 id="price"
-                placeholder={`${data?.price || "N/A"} POL`}
+                placeholder={`${
+                  formatEther(invoiceData?.price ?? BigInt(0)) || "N/A"
+                } POL`}
                 disabled
               />
             </div>
@@ -101,7 +108,7 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
               onClick={handleClick}
               className="w-full"
               disabled={
-                invoiceData?.status !== 2 || userIsCreator || !invoiceID
+                invoiceData?.status !== 1 || userIsCreator || !invoiceKEY
               }
             >
               {isLoading === "makeInvoicePayment" ? (
@@ -113,8 +120,8 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
                     color="#cee7d6"
                   />
                 </>
-              ) : currStatus && currStatus > 2 ? (
-                "PAID"
+              ) : currStatus && currStatus !== 1 ? (
+                "RESOLVED"
               ) : (
                 "Make Payment"
               )}

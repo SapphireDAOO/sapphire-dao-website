@@ -6,7 +6,11 @@ export const POLYGON = 137;
 export const POLYGON_AMOY = 80_002;
 
 export const INVOICE_ADDRESS: Record<number, Address> = {
-  [polygonAmoy.id]: "0x972762b524f34bab0a2730438089f5e8f0e5c12e",
+  [polygonAmoy.id]: "0xB42f8799CaeE60F2C8aecE2844b483C79E55acfD",
+};
+
+export const ADVANCE_INVOICE_ADDRESS: Record<number, Address> = {
+  [polygonAmoy.id]: "0x05e6989466427b0bc350DDD897538D8867b1bB58",
 };
 
 export const THE_GRAPH_API_URL: Record<number, string> = {

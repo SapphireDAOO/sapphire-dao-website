@@ -4,11 +4,17 @@ import { useEffect, useState, ReactNode } from "react";
 import { toast } from "sonner";
 import { formatEther } from "ethers";
 import { useAccount, usePublicClient, useWalletClient } from "wagmi";
-import { PaymentProcessor__factory } from "@/typechain";
-import { Address, encodeFunctionData } from "viem";
+import {
+  type Address,
+  encodeFunctionData,
+  erc20Abi,
+  maxUint256,
+  zeroAddress,
+} from "viem";
 import { createClient } from "urql";
 import { ContractContext } from "@/context/contract-context";
 import {
+  ADVANCE_INVOICE_ADDRESS,
   INVOICE_ADDRESS,
   POLYGON_AMOY,
   THE_GRAPH_API_URL,
@@ -22,7 +28,8 @@ import {
 } from "@/model/model";
 import { polygonAmoy } from "viem/chains";
 import { unixToGMT } from "@/utils";
-
+import { paymentProcessor } from "@/abis/PaymentProcessor";
+import { advancedPaymentProcessor } from "@/abis/AdvancedPaymentProcessor";
 // Props type for the WalletProvider component
 type Props = {
   children?: ReactNode; // Allows nested components inside WalletProvider
@@ -37,19 +44,22 @@ const client = (chainId: number) =>
 const GET_ALL_INVOICES = `
   query {
     invoices {
-      id
-      createdAt
-      releasedAt
-      paidAt
-      paymentTxHash
-      contract
-      releaseHash
-      fee
-      status
-      creator {
+    contract
+    createdAt
+    fee
+    id
+    invoiceId
+    paidAt
+    paymentTxHash
+    price
+    releaseHash
+    releasedAt
+    state
+    amountPaid
+      seller {
         id
       }
-      payer {
+      buyer {
         id
       }
     }
@@ -59,36 +69,40 @@ const GET_ALL_INVOICES = `
 // GraphQL query to fetch invoices for a specific user
 const invoiceQuery = `query ($address: String!) {
   user (id: $address) {
-    createdInvoices {
+    ownedInvoices {
       amountPaid
-      createdAt
-      id
-      paidAt
-      price
-      status
       contract
+      createdAt
+      fee
+      id
+      invoiceId
+      paidAt
       paymentTxHash
-      releasedAt
+      price
       releaseHash
-      payer {
+      releasedAt
+      state
+      seller {
         id
       }
     }
     paidInvoices {
       amountPaid
-      createdAt
-      id
-      paidAt
-      price
-      status
       contract
+      createdAt
       fee
-      releasedAt
+      id
+      invoiceId
+      paidAt
       paymentTxHash
-      creator {
+      price
+      releaseHash
+      releasedAt
+      state
+      seller {
         id
       }
-      payer {
+      buyer {
         id
       }
     }
@@ -97,7 +111,7 @@ const invoiceQuery = `query ($address: String!) {
 
 const invoiceOwnerQuery = `query Invoice($id: String!) {
   invoice(id: $id) {
-    creator {
+    seller {
       id
     }
   }
@@ -190,13 +204,14 @@ const WalletProvider = ({ children }: Props) => {
 
       // Map over invoices safely
       const invoiceList: AllInvoice[] = data.invoices.map((list: any) => ({
-        id: list.id || "",
+        id: list.invoiceId || "",
+        invoiceKey: list.id || "",
         contract: list.contract || "",
-        creator: list.creator?.id || "",
+        seller: list.seller?.id || "",
         payment: list.paymentTxHash || "",
         createdAt: unixToGMT(list.createdAt) || "-",
         paidAt: unixToGMT(list.paidAt),
-        by: list.payer?.id || "",
+        by: list.buyer?.id || "",
         release:
           list.releasedAt && !isNaN(list.releasedAt)
             ? unixToGMT(list.releasedAt)
@@ -204,7 +219,7 @@ const WalletProvider = ({ children }: Props) => {
         fee: list.fee || "0",
         state: list.status,
         releaseHash: list.releaseHash,
-        status: list.status,
+        status: list.state,
       }));
 
       return invoiceList;
@@ -227,25 +242,26 @@ const WalletProvider = ({ children }: Props) => {
 
       // Process created invoices
       const createdInvoice: UserCreatedInvoice[] =
-        data?.user?.createdInvoices || [];
+        data?.user?.ownedInvoices || [];
 
       const paidInvoices: UserPaidInvoice[] = data?.user?.paidInvoices || [];
 
       // Format created invoices to fit with out model
       const createdInvoiceData: UserCreatedInvoice[] = createdInvoice.map(
         (invoice: any) => ({
-          id: invoice?.id,
+          id: invoice.invoiceId,
+          invoiceKey: invoice.id,
           createdAt: invoice.createdAt ? unixToGMT(invoice.createdAt) : null,
           paidAt: invoice.paidAt || "Not Paid",
-          status: invoice.status || "Unknown",
+          status: invoice.state || "Unknown",
           price: invoice.price ? formatEther(invoice.price) : null,
           amountPaid: invoice.amountPaid
             ? formatEther(invoice.amountPaid)
             : null,
-          type: "Creator",
+          type: "Seller",
           contract: invoice.contract,
           paymentTxHash: invoice.paymentTxHash,
-          payer: invoice.payer === null ? "" : invoice.payer.id,
+          seller: invoice.seller === null ? "" : invoice.seller.id,
           releaseHash: invoice.releaseHash,
           releaseAt: invoice.releasedAt,
         })
@@ -254,20 +270,21 @@ const WalletProvider = ({ children }: Props) => {
       // Format paid invoices
       const paidInvoiceData: UserPaidInvoice[] = paidInvoices.map(
         (invoice: any) => ({
-          id: invoice.id,
+          id: invoice.invoiceId,
+          invoiceKey: invoice.id,
           createdAt: invoice.createdAt ? unixToGMT(invoice.createdAt) : null,
           paidAt: invoice.paidAt || "Not Paid",
-          status: invoice.status || "Unknown",
+          status: invoice.state || "Unknown",
           price: invoice.price ? formatEther(invoice.price) : null,
           amountPaid: invoice.amountPaid
             ? formatEther(invoice.amountPaid)
             : null,
-          type: "Payer",
-          creator: invoice.creator.id,
+          type: "Buyer",
+          seller: invoice.seller.id,
           contract: invoice.contract,
           paymentTxHash: invoice.paymentTxHash,
           releaseAt: invoice.releasedAt,
-          payer: invoice.payer === null ? "" : invoice.payer.id,
+          buyer: invoice.buyer === null ? "" : invoice.buyer.id,
         })
       );
 
@@ -284,10 +301,11 @@ const WalletProvider = ({ children }: Props) => {
   };
 
   // Function to create an invoice
-  const createInvoice = async (invoicePrice: bigint): Promise<number> => {
+  const createInvoice = async (
+    invoicePrice: bigint
+  ): Promise<Address | undefined> => {
     setIsLoading("createInvoice"); // Set the loading state to indicate the operation in progress
 
-    let id = 0; // Initialize the invoice ID to 0
     try {
       // Fetch gas price
       const gasPrice = await fetchGasPrice(publicClient, chainId);
@@ -297,7 +315,7 @@ const WalletProvider = ({ children }: Props) => {
         chain: polygonAmoy,
         to: INVOICE_ADDRESS[chainId],
         data: encodeFunctionData({
-          abi: PaymentProcessor__factory.abi,
+          abi: paymentProcessor,
           functionName: "createInvoice",
           args: [invoicePrice],
         }),
@@ -310,28 +328,27 @@ const WalletProvider = ({ children }: Props) => {
         hash: tx!,
       });
 
-      // Extract the invoice ID from the logs in the transaction receipt
-      const hexId = receipt?.logs[0].topics[1];
-
-      id = parseInt(hexId!, 16);
-
       // Check the transaction status and provide feedback to the user
       if (receipt?.status) {
+        // Extract the invoice Key from the logs in the transaction receipt
+        const invoiceKey = receipt?.logs[0].topics[1];
         toast.success("Invoice successfully created");
         await getInvoiceData();
+
+        return invoiceKey;
       } else {
         toast.error("Error creating invoice, Please try again.");
+        return undefined;
       }
     } catch (error) {
       getError(error);
     }
     setIsLoading(""); // Reset the loading state
-    return id; // Return the created invoice ID
   };
 
   const makeInvoicePayment = async (
     amount: bigint,
-    invoiceId: bigint
+    invoiceKey: Address
   ): Promise<boolean> => {
     setIsLoading("makeInvoicePayment");
 
@@ -343,9 +360,9 @@ const WalletProvider = ({ children }: Props) => {
         chain: polygonAmoy,
         to: INVOICE_ADDRESS[chainId],
         data: encodeFunctionData({
-          abi: PaymentProcessor__factory.abi,
+          abi: paymentProcessor,
           functionName: "makeInvoicePayment",
-          args: [invoiceId],
+          args: [invoiceKey],
         }),
         value: amount,
         gasPrice,
@@ -369,8 +386,66 @@ const WalletProvider = ({ children }: Props) => {
     return success;
   };
 
-  const creatorsAction = async (
-    invoiceId: bigint,
+  const payAdvancedInvoice = async (
+    paymentType: "paySingleInvoice" | "payMetaInvoice",
+    amount: bigint,
+    invoiceKey: Address,
+    paymentToken: Address
+  ): Promise<boolean> => {
+    setIsLoading(paymentType);
+
+    let success = false;
+    try {
+      const gasPrice = await fetchGasPrice(publicClient, chainId);
+
+      // If not native token, ensure approval first
+      if (paymentToken !== zeroAddress && amount > BigInt(0)) {
+        const approved = await handleApproval(
+          paymentToken,
+          ADVANCE_INVOICE_ADDRESS[chainId],
+          amount,
+          address!
+        );
+
+        if (!approved) {
+          toast.error("Approval failed");
+          return false;
+        }
+      }
+
+      const tx = await walletClient?.sendTransaction({
+        chain: polygonAmoy,
+        to: ADVANCE_INVOICE_ADDRESS[chainId],
+        data: encodeFunctionData({
+          abi: advancedPaymentProcessor,
+          functionName: paymentType,
+          args: [invoiceKey, paymentToken],
+        }),
+        value: amount,
+        gasPrice,
+      });
+
+      const receipt = await publicClient?.waitForTransactionReceipt({
+        hash: tx!,
+      });
+
+      if (receipt?.status === "success") {
+        toast.success("Invoice Payment Successful");
+        await getInvoiceData();
+        success = true;
+      } else {
+        toast.error("Transaction failed. Please try again.");
+      }
+    } catch (error) {
+      getError(error);
+    }
+
+    setIsLoading("");
+    return success;
+  };
+
+  const sellerAction = async (
+    invoiceKey: Address,
     state: boolean
   ): Promise<boolean> => {
     const action = state ? "accepted" : "rejected";
@@ -386,9 +461,9 @@ const WalletProvider = ({ children }: Props) => {
         chain: polygonAmoy,
         to: INVOICE_ADDRESS[chainId],
         data: encodeFunctionData({
-          abi: PaymentProcessor__factory.abi,
-          functionName: "creatorsAction",
-          args: [invoiceId, state],
+          abi: paymentProcessor,
+          functionName: "sellerAction",
+          args: [invoiceKey, state],
         }),
         gasPrice,
       });
@@ -418,7 +493,7 @@ const WalletProvider = ({ children }: Props) => {
     return success;
   };
 
-  const cancelInvoice = async (invoiceId: bigint): Promise<boolean> => {
+  const cancelInvoice = async (invoiceKey: Address): Promise<boolean> => {
     setIsLoading("cancelInvoice");
 
     let success = false;
@@ -430,9 +505,9 @@ const WalletProvider = ({ children }: Props) => {
         chain: polygonAmoy,
         to: INVOICE_ADDRESS[chainId],
         data: encodeFunctionData({
-          abi: PaymentProcessor__factory.abi,
+          abi: paymentProcessor,
           functionName: "cancelInvoice",
-          args: [invoiceId],
+          args: [invoiceKey],
         }),
 
         gasPrice,
@@ -461,7 +536,7 @@ const WalletProvider = ({ children }: Props) => {
     return success;
   };
 
-  const releaseInvoice = async (invoiceId: bigint): Promise<boolean> => {
+  const releaseInvoice = async (invoiceKey: Address): Promise<boolean> => {
     setIsLoading("releaseInvoice");
 
     let success = false;
@@ -473,9 +548,9 @@ const WalletProvider = ({ children }: Props) => {
         chain: polygonAmoy,
         to: INVOICE_ADDRESS[chainId],
         data: encodeFunctionData({
-          abi: PaymentProcessor__factory.abi,
+          abi: paymentProcessor,
           functionName: "releaseInvoice",
-          args: [invoiceId],
+          args: [invoiceKey],
         }),
 
         gasPrice,
@@ -505,10 +580,10 @@ const WalletProvider = ({ children }: Props) => {
     return success;
   };
 
-  const refundPayerAfterWindow = async (
-    invoiceId: bigint
+  const refundBuyerAfterWindow = async (
+    invoiceKey: Address
   ): Promise<boolean> => {
-    setIsLoading("refundPayerAfterWindow");
+    setIsLoading("refundBuyerAfterWindow");
 
     let success = false;
     let progressToastId;
@@ -519,9 +594,9 @@ const WalletProvider = ({ children }: Props) => {
         chain: polygonAmoy,
         to: INVOICE_ADDRESS[chainId],
         data: encodeFunctionData({
-          abi: PaymentProcessor__factory.abi,
-          functionName: "refundPayerAfterWindow",
-          args: [invoiceId],
+          abi: paymentProcessor,
+          functionName: "refundBuyerAfterWindow",
+          args: [invoiceKey],
         }),
         gasPrice,
       });
@@ -535,7 +610,7 @@ const WalletProvider = ({ children }: Props) => {
       });
       if (receipt?.status) {
         toast.dismiss(progressToastId);
-        toast.success("Refund to payer successfully processed");
+        toast.success("Refund to buyer successfully processed");
         await getInvoiceData();
         success = true;
       } else {
@@ -561,7 +636,7 @@ const WalletProvider = ({ children }: Props) => {
         chain: polygonAmoy,
         to: INVOICE_ADDRESS[chainId],
         data: encodeFunctionData({
-          abi: PaymentProcessor__factory.abi,
+          abi: paymentProcessor,
           functionName: "transferOwnership",
           args: [address],
         }),
@@ -593,52 +668,52 @@ const WalletProvider = ({ children }: Props) => {
     return success;
   };
 
-  const setFeeReceiversAddress = async (address: Address): Promise<boolean> => {
-    setIsLoading("setFeeReceiversAddress");
+  // const setFeeReceiversAddress = async (address: Address): Promise<boolean> => {
+  //   setIsLoading("setFeeReceiversAddress");
 
-    let success = false;
-    let progressToastId;
-    try {
-      const gasPrice = await fetchGasPrice(publicClient, chainId);
+  //   let success = false;
+  //   let progressToastId;
+  //   try {
+  //     const gasPrice = await fetchGasPrice(publicClient, chainId);
 
-      const tx = await walletClient?.sendTransaction({
-        chain: polygonAmoy,
-        to: INVOICE_ADDRESS[chainId],
-        data: encodeFunctionData({
-          abi: PaymentProcessor__factory.abi,
-          functionName: "setFeeReceiversAddress",
-          args: [address],
-        }),
-        gasPrice,
-      });
+  //     const tx = await walletClient?.sendTransaction({
+  //       chain: polygonAmoy,
+  //       to: INVOICE_ADDRESS[chainId],
+  //       data: encodeFunctionData({
+  //         abi: paymentProcessor,
+  //         functionName: "setFeeReceiversAddress",
+  //         args: [address],
+  //       }),
+  //       gasPrice,
+  //     });
 
-      progressToastId = toast.info("Transaction in progress...", {
-        duration: Infinity,
-      });
+  //     progressToastId = toast.info("Transaction in progress...", {
+  //       duration: Infinity,
+  //     });
 
-      const receipt = await publicClient?.waitForTransactionReceipt({
-        hash: tx!,
-      });
+  //     const receipt = await publicClient?.waitForTransactionReceipt({
+  //       hash: tx!,
+  //     });
 
-      if (receipt?.status) {
-        toast.dismiss(progressToastId);
-        toast.success("Fee receiver address updated successfully");
-        await getInvoiceData();
-        success = true;
-      } else {
-        toast.dismiss(progressToastId);
-        toast.error("Failed to update fee receiver address. Please try again.");
-      }
-    } catch (error) {
-      toast.dismiss(progressToastId);
-      getError(error);
-    }
-    setIsLoading("");
-    return success;
-  };
+  //     if (receipt?.status) {
+  //       toast.dismiss(progressToastId);
+  //       toast.success("Fee receiver address updated successfully");
+  //       await getInvoiceData();
+  //       success = true;
+  //     } else {
+  //       toast.dismiss(progressToastId);
+  //       toast.error("Failed to update fee receiver address. Please try again.");
+  //     }
+  //   } catch (error) {
+  //     toast.dismiss(progressToastId);
+  //     getError(error);
+  //   }
+  //   setIsLoading("");
+  //   return success;
+  // };
 
   const setInvoiceHoldPeriod = async (
-    invoiceId: bigint,
+    invoiceKey: Address,
     holdPeriod: number
   ): Promise<boolean> => {
     setIsLoading("setInvoiceHoldPeriod");
@@ -652,9 +727,9 @@ const WalletProvider = ({ children }: Props) => {
         chain: polygonAmoy,
         to: INVOICE_ADDRESS[chainId],
         data: encodeFunctionData({
-          abi: PaymentProcessor__factory.abi,
+          abi: paymentProcessor,
           functionName: "setInvoiceReleaseTime",
-          args: [invoiceId, holdPeriod],
+          args: [invoiceKey, holdPeriod],
         }),
         gasPrice,
       });
@@ -696,7 +771,7 @@ const WalletProvider = ({ children }: Props) => {
         chain: polygonAmoy,
         to: INVOICE_ADDRESS[chainId],
         data: encodeFunctionData({
-          abi: PaymentProcessor__factory.abi,
+          abi: paymentProcessor,
           functionName: "setDefaultHoldPeriod",
           args: [newDefaultHoldPeriod],
         }),
@@ -727,50 +802,50 @@ const WalletProvider = ({ children }: Props) => {
     return success;
   };
 
-  const setFee = async (newFee: bigint): Promise<boolean> => {
-    setIsLoading("setFee");
+  // const setFee = async (newFee: bigint): Promise<boolean> => {
+  //   setIsLoading("setFee");
 
-    let success = false;
-    let progressToastId;
-    try {
-      const gasPrice = await fetchGasPrice(publicClient, chainId);
+  //   let success = false;
+  //   let progressToastId;
+  //   try {
+  //     const gasPrice = await fetchGasPrice(publicClient, chainId);
 
-      const tx = await walletClient?.sendTransaction({
-        chain: polygonAmoy,
-        to: INVOICE_ADDRESS[chainId],
-        data: encodeFunctionData({
-          abi: PaymentProcessor__factory.abi,
-          functionName: "setFeeRate",
-          args: [newFee],
-        }),
+  //     const tx = await walletClient?.sendTransaction({
+  //       chain: polygonAmoy,
+  //       to: INVOICE_ADDRESS[chainId],
+  //       data: encodeFunctionData({
+  //         abi: paymentProcessor,
+  //         functionName: "setFeeRate",
+  //         args: [newFee],
+  //       }),
 
-        gasPrice,
-      });
+  //       gasPrice,
+  //     });
 
-      progressToastId = toast.info("Transaction in progress...", {
-        duration: Infinity,
-      });
+  //     progressToastId = toast.info("Transaction in progress...", {
+  //       duration: Infinity,
+  //     });
 
-      const receipt = await publicClient?.waitForTransactionReceipt({
-        hash: tx!,
-      });
+  //     const receipt = await publicClient?.waitForTransactionReceipt({
+  //       hash: tx!,
+  //     });
 
-      if (receipt?.status) {
-        toast.dismiss(progressToastId);
-        toast.success("Successfully set new fee");
-        await getInvoiceData();
-        success = true;
-      } else {
-        toast.dismiss(progressToastId);
-        toast.error("Failed to set new fee. Please try again");
-      }
-    } catch (error) {
-      toast.dismiss(progressToastId);
-      getError(error);
-    }
-    setIsLoading("");
-    return success;
-  };
+  //     if (receipt?.status) {
+  //       toast.dismiss(progressToastId);
+  //       toast.success("Successfully set new fee");
+  //       await getInvoiceData();
+  //       success = true;
+  //     } else {
+  //       toast.dismiss(progressToastId);
+  //       toast.error("Failed to set new fee. Please try again");
+  //     }
+  //   } catch (error) {
+  //     toast.dismiss(progressToastId);
+  //     getError(error);
+  //   }
+  //   setIsLoading("");
+  //   return success;
+  // };
 
   const setMinimumInvoiceValue = async (newValue: bigint): Promise<boolean> => {
     setIsLoading("setMinimumInvoiceValue");
@@ -784,7 +859,7 @@ const WalletProvider = ({ children }: Props) => {
         chain: polygonAmoy,
         to: INVOICE_ADDRESS[chainId],
         data: encodeFunctionData({
-          abi: PaymentProcessor__factory.abi,
+          abi: paymentProcessor,
           functionName: "setMinimumInvoiceValue",
           args: [newValue],
         }),
@@ -827,7 +902,71 @@ const WalletProvider = ({ children }: Props) => {
       return "";
     }
 
-    return data?.invoice?.creator?.id || "";
+    return data?.invoice?.seller?.id || "";
+  };
+
+  const getAdvancedInvoiceData = async (
+    invoiceKey: Address,
+    query: string,
+    type: "smartInvoice" | "metaInvoice"
+  ): Promise<any> => {
+    const { data, error } = await client(chainId)
+      .query(query, { id: invoiceKey })
+      .toPromise();
+
+    if (error) {
+      console.error(`[GraphQL Error] ${type}:`, error.message);
+      return "";
+    }
+
+    return data || "";
+  };
+
+  const handleApproval = async (
+    tokenAddress: Address,
+    spender: Address,
+    amount: bigint,
+    owner: Address
+  ): Promise<boolean> => {
+    try {
+      const allowance = await publicClient?.readContract({
+        address: tokenAddress,
+        abi: erc20Abi,
+        functionName: "allowance",
+        args: [owner, spender],
+      });
+
+      if (allowance && allowance >= amount) return true;
+
+      const gasPrice = await fetchGasPrice(publicClient, chainId);
+
+      const tx = await walletClient?.sendTransaction({
+        chain: polygonAmoy,
+        to: tokenAddress,
+        data: encodeFunctionData({
+          abi: erc20Abi,
+          functionName: "approve",
+          args: [spender, maxUint256],
+        }),
+        gasPrice,
+      });
+
+      const receipt = await publicClient?.waitForTransactionReceipt({
+        hash: tx!,
+      });
+
+      if (receipt?.status === "success") {
+        toast.success("Approval successful");
+        return true;
+      } else {
+        toast.error("Approval failed");
+        return false;
+      }
+    } catch (error) {
+      console.error("handleApproval error", error);
+      getError(error);
+      return false;
+    }
   };
 
   // Contract interactions (e.g., createInvoice, makeInvoicePayment) are implemented below
@@ -840,17 +979,19 @@ const WalletProvider = ({ children }: Props) => {
         allInvoiceData,
         createInvoice,
         makeInvoicePayment,
-        creatorsAction,
+        payAdvancedInvoice,
+        sellerAction,
         cancelInvoice,
         releaseInvoice,
-        refundPayerAfterWindow,
-        setFeeReceiversAddress,
+        refundBuyerAfterWindow,
+        // setFeeReceiversAddress,
         setInvoiceHoldPeriod,
         setDefaultHoldPeriod,
         transferOwnership,
-        setFee,
+        // setFee,
         setMinimumInvoiceValue,
         getInvoiceOwner,
+        getAdvancedInvoiceData,
         refetchAllInvoiceData: async () => {
           await getAllInvoiceData();
         },

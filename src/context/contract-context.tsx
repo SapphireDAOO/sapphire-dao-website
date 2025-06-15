@@ -1,6 +1,7 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Invoice, AllInvoice } from "@/model/model";
 import React from "react";
-import { Address } from "viem";
+import type { Address } from "viem";
 
 // This code defines a React Context for managing and interacting with the PaymentProcessor contract,
 // providing default values and a structure for contract-related operations within the application.
@@ -9,22 +10,33 @@ export interface ContractContextData {
   isLoading: string | undefined;
   invoiceData: Invoice[];
   allInvoiceData: AllInvoice[];
-  createInvoice: (invoicePrice: bigint) => Promise<number>;
-  makeInvoicePayment: (amount: bigint, invoiceId: bigint) => Promise<boolean>;
+  createInvoice: (invoicePrice: bigint) => Promise<Address | undefined>;
+  makeInvoicePayment: (amount: bigint, invoiceKey: Address) => Promise<boolean>;
+  payAdvancedInvoice: (
+    paymentType: "paySingleInvoice" | "payMetaInvoice",
+    amount: bigint,
+    invoiceKey: Address,
+    paymentToken: Address
+  ) => Promise<boolean>;
   getInvoiceOwner: (id: string) => Promise<string>;
-  creatorsAction: (invoiceId: bigint, state: boolean) => Promise<boolean>;
-  cancelInvoice: (invoiceId: bigint) => Promise<boolean>;
-  releaseInvoice: (invoiceId: bigint) => Promise<boolean>;
-  refundPayerAfterWindow: (invoiceId: bigint) => Promise<boolean>;
+  sellerAction: (invoiceKey: Address, state: boolean) => Promise<boolean>;
+  cancelInvoice: (invoiceKey: Address) => Promise<boolean>;
+  releaseInvoice: (invoiceKey: Address) => Promise<boolean>;
+  refundBuyerAfterWindow: (invoiceKey: Address) => Promise<boolean>;
   setMinimumInvoiceValue: (newValue: bigint) => Promise<boolean>;
-  setFeeReceiversAddress: (address: Address) => Promise<boolean>;
+  // setFeeReceiversAddress: (address: Address) => Promise<boolean>;
   transferOwnership: (address: Address) => Promise<boolean>;
   setInvoiceHoldPeriod: (
-    invoiceId: bigint,
+    invoiceKey: Address,
     holdPeriod: number
   ) => Promise<boolean>;
   setDefaultHoldPeriod: (newDefaultHoldPeriod: bigint) => Promise<boolean>;
-  setFee: (newFee: bigint) => Promise<boolean>;
+  // setFee: (newFee: bigint) => Promise<boolean>;
+  getAdvancedInvoiceData: (
+    invoiceKey: Address,
+    query: string,
+    type: "smartInvoice" | "metaInvoice"
+  ) => Promise<any>;
   refetchInvoiceData?: () => Promise<void>;
   refetchAllInvoiceData?: () => Promise<void>;
 }
@@ -34,20 +46,22 @@ export const contractContextDefaults: ContractContextData = {
   invoiceData: [],
   allInvoiceData: [],
   transferOwnership: async () => Promise.resolve(false),
-  createInvoice: async () => Promise.resolve(0),
+  createInvoice: async () => Promise.resolve("0x"),
   makeInvoicePayment: async () => Promise.resolve(false),
-  creatorsAction: async () => Promise.resolve(false),
+  payAdvancedInvoice: async () => Promise.resolve(false),
+  sellerAction: async () => Promise.resolve(false),
   cancelInvoice: async () => Promise.resolve(false),
   releaseInvoice: async () => Promise.resolve(false),
-  refundPayerAfterWindow: async () => Promise.resolve(false),
-  setFeeReceiversAddress: async () => Promise.resolve(false),
+  refundBuyerAfterWindow: async () => Promise.resolve(false),
+  // setFeeReceiversAddress: async () => Promise.resolve(false),
   setInvoiceHoldPeriod: async () => Promise.resolve(false),
   setDefaultHoldPeriod: async () => Promise.resolve(false),
-  setFee: async () => Promise.resolve(false),
+  // setFee: async () => Promise.resolve(false),
   setMinimumInvoiceValue: async () => Promise.resolve(false),
   refetchInvoiceData: async () => Promise.resolve(),
   refetchAllInvoiceData: async () => Promise.resolve(),
-  getInvoiceOwner: () => Promise.resolve(""),
+  getInvoiceOwner: async () => Promise.resolve(""),
+  getAdvancedInvoiceData: async () => Promise.resolve(""),
 };
 export const ContractContext = React.createContext<ContractContextData>(
   contractContextDefaults

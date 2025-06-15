@@ -3,20 +3,21 @@ import { useContext } from "react";
 import { ContractContext } from "@/context/contract-context";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
+import type { Address } from "viem";
 
-const CreatorsAction = ({
-  invoiceId,
+const SellersAction = ({
+  invoiceKey,
   state,
   text,
 }: {
-  invoiceId: string;
+  invoiceKey: Address;
   state: boolean;
   text: string;
 }) => {
-  const { creatorsAction, isLoading } = useContext(ContractContext);
+  const { sellerAction, isLoading } = useContext(ContractContext);
 
   const handleClick = async () => {
-    await creatorsAction(BigInt(invoiceId), state);
+    await sellerAction(invoiceKey, state);
   };
   const isActionLoading = state
     ? isLoading === "accepted"
@@ -40,4 +41,4 @@ const CreatorsAction = ({
     </>
   );
 };
-export default CreatorsAction;
+export default SellersAction;
