@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ContractContext } from "@/context/contract-context";
 import { CircleCheckBig, Loader2 } from "lucide-react";
-import { useContext, useEffect, useState } from "react";
+import { useCallback, useContext, useEffect, useState } from "react";
 import { ConnectKitButton } from "connectkit";
 import { PaymentCardProps } from "@/model/model";
 import {
@@ -42,6 +42,12 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
     useContext(ContractContext);
 
   // Check if the connected user is the creator of the invoice
+
+  const isCreator = useCallback(async () => {
+    const creator = await getInvoiceOwner(invoiceKEY!);
+    return address?.toLowerCase() === creator.toLowerCase();
+  }, [address, getInvoiceOwner, invoiceKEY]);
+
   useEffect(() => {
     const checkCreator = async () => {
       if (address && invoiceKEY) {
@@ -51,12 +57,7 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
     };
 
     checkCreator();
-  }, [address, invoiceKEY]);
-
-  const isCreator = async () => {
-    const creator = await getInvoiceOwner(invoiceKEY!);
-    return address?.toLowerCase() === creator.toLowerCase();
-  };
+  }, [address, invoiceKEY, isCreator]);
 
   const handleClick = async () => {
     if (!invoiceData?.price) {

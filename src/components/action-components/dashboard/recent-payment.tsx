@@ -12,11 +12,11 @@ const RecentPayment = () => {
 
   // Filtered invoices for each tab
   const filteredCreatedInvoices = invoiceData.filter(
-    (invoice) => invoice.type === "Creator"
+    (invoice) => invoice.type === "Seller"
   );
 
   const filteredPaidInvoices = invoiceData.filter(
-    (invoice) => invoice.type === "Payer"
+    (invoice) => invoice.type === "Buyer"
   );
 
   // Dropdown statuses

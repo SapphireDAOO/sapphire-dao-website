@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
-import { useEffect, useState, ReactNode } from "react";
+import { useEffect, useState, ReactNode, useCallback } from "react";
 import { toast } from "sonner";
 import { formatEther } from "ethers";
 import { useAccount, usePublicClient, useWalletClient } from "wagmi";
@@ -30,6 +30,7 @@ import { polygonAmoy } from "viem/chains";
 import { unixToGMT } from "@/utils";
 import { paymentProcessor } from "@/abis/PaymentProcessor";
 import { advancedPaymentProcessor } from "@/abis/AdvancedPaymentProcessor";
+
 // Props type for the WalletProvider component
 type Props = {
   children?: ReactNode; // Allows nested components inside WalletProvider
@@ -141,52 +142,8 @@ const WalletProvider = ({ children }: Props) => {
   const [invoiceData, setInvoiceData] = useState<Invoice[]>([]);
   const [allInvoiceData, setAllInvoiceData] = useState<AllInvoice[]>([]);
 
-  const refetchAllInvoiceData = async () => {
-    const fetchedInvoices = await getAllInvoiceData();
-    setAllInvoiceData(fetchedInvoices);
-  };
-
-  // Fetch invoice data when user address or chain changes
-  useEffect(() => {
-    const onAddress = async () => {
-      await getInvoiceData();
-    };
-
-    refetchAllInvoiceData();
-    if (!address || !chain) {
-      setInvoiceData([]); // Clear data if no address or chain is available
-      setAllInvoiceData([]);
-    } else {
-      onAddress(); // Fetch invoice data for the connected account
-    }
-  }, [address, chain]);
-
-  // Error handler for blockchain operations
-  const getError = (error: any) => {
-    if (
-      error.message.includes("user rejected transaction") ||
-      error.message.includes("User denied transaction.")
-    ) {
-      return; // Ignore user rejection errors
-    }
-
-    const errorData = error.error?.data || error?.data;
-
-    // Check for specific error codes and display corresponding messages
-    if (errorData) {
-      for (const [errorCode, message] of Object.entries(errorMessages)) {
-        if (errorData.includes(errorCode)) {
-          toast.error(message); // Show error notification
-          return;
-        }
-      }
-    }
-
-    const message = error?.data?.message || error?.error?.data?.message;
-    toast.error(message || "Something went wrong"); // Show a generic error message
-  };
-
-  const getAllInvoiceData = async () => {
+  // Memoize getAllInvoiceData
+  const getAllInvoiceData = useCallback(async () => {
     try {
       const { data, error } = await client(chainId)
         .query(GET_ALL_INVOICES, {})
@@ -227,10 +184,16 @@ const WalletProvider = ({ children }: Props) => {
       console.error("❌ Error fetching invoice data:", error);
       return [];
     }
-  };
+  }, [chainId]);
 
-  // Fetch invoice data for the connected user
-  const getInvoiceData = async () => {
+  // Memoize refetchAllInvoiceData
+  const refetchAllInvoiceData = useCallback(async () => {
+    const fetchedInvoices = await getAllInvoiceData();
+    setAllInvoiceData(fetchedInvoices);
+  }, [getAllInvoiceData]);
+
+  // Memoize getInvoiceData
+  const getInvoiceData = useCallback(async () => {
     try {
       const { data, error } = await client(chainId)
         .query(invoiceQuery, { address: address?.toLowerCase() })
@@ -246,7 +209,7 @@ const WalletProvider = ({ children }: Props) => {
 
       const paidInvoices: UserPaidInvoice[] = data?.user?.paidInvoices || [];
 
-      // Format created invoices to fit with out model
+      // Format created invoices to fit with our model
       const createdInvoiceData: UserCreatedInvoice[] = createdInvoice.map(
         (invoice: any) => ({
           id: invoice.invoiceId,
@@ -298,6 +261,47 @@ const WalletProvider = ({ children }: Props) => {
     } catch (error) {
       console.error("Error fetching invoice data:", error);
     }
+  }, [address, chainId]);
+
+  // Memoize onAddress
+  const onAddress = useCallback(async () => {
+    await getInvoiceData();
+  }, [getInvoiceData]);
+
+  // Fetch invoice data when user address or chain changes
+  useEffect(() => {
+    refetchAllInvoiceData();
+    if (!address || !chain) {
+      setInvoiceData([]); // Clear data if no address or chain is available
+      setAllInvoiceData([]);
+    } else {
+      onAddress(); // Fetch invoice data for the connected account
+    }
+  }, [address, chain, refetchAllInvoiceData, onAddress]);
+
+  // Error handler for blockchain operations
+  const getError = (error: any) => {
+    if (
+      error.message.includes("user rejected transaction") ||
+      error.message.includes("User denied transaction.")
+    ) {
+      return; // Ignore user rejection errors
+    }
+
+    const errorData = error.error?.data || error?.data;
+
+    // Check for specific error codes and display corresponding messages
+    if (errorData) {
+      for (const [errorCode, message] of Object.entries(errorMessages)) {
+        if (errorData.includes(errorCode)) {
+          toast.error(message); // Show error notification
+          return;
+        }
+      }
+    }
+
+    const message = error?.data?.message || error?.error?.data?.message;
+    toast.error(message || "Something went wrong"); // Show a generic error message
   };
 
   // Function to create an invoice
@@ -319,7 +323,6 @@ const WalletProvider = ({ children }: Props) => {
           functionName: "createInvoice",
           args: [invoicePrice],
         }),
-
         gasPrice,
       });
 
@@ -334,7 +337,6 @@ const WalletProvider = ({ children }: Props) => {
         const invoiceKey = receipt?.logs[0].topics[1];
         toast.success("Invoice successfully created");
         await getInvoiceData();
-
         return invoiceKey;
       } else {
         toast.error("Error creating invoice, Please try again.");
@@ -969,6 +971,14 @@ const WalletProvider = ({ children }: Props) => {
     }
   };
 
+  const setFeeReceiversAddress = (): Promise<boolean> => {
+    return Promise.resolve(false); // or true, or whatever def
+  };
+
+  const setFee = (): Promise<boolean> => {
+    return Promise.resolve(false); // or true, or whatever def
+  };
+
   // Contract interactions (e.g., createInvoice, makeInvoicePayment) are implemented below
   // Each function interacts with the blockchain using `walletClient` and `publicClient`
   return (
@@ -984,11 +994,11 @@ const WalletProvider = ({ children }: Props) => {
         cancelInvoice,
         releaseInvoice,
         refundBuyerAfterWindow,
-        // setFeeReceiversAddress,
+        setFeeReceiversAddress,
         setInvoiceHoldPeriod,
         setDefaultHoldPeriod,
         transferOwnership,
-        // setFee,
+        setFee,
         setMinimumInvoiceValue,
         getInvoiceOwner,
         getAdvancedInvoiceData,

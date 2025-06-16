@@ -1,6 +1,5 @@
 import { advancedPaymentProcessor } from "@/abis/AdvancedPaymentProcessor";
-import { paymentProcessor } from "@/abis/PaymentProcessor";
-import { ADVANCE_INVOICE_ADDRESS, INVOICE_ADDRESS } from "@/constants";
+import { ADVANCE_INVOICE_ADDRESS } from "@/constants";
 import { Address } from "viem";
 
 import { polygonAmoy } from "viem/chains";

@@ -5,6 +5,10 @@ import { polygonAmoy } from "wagmi/chains";
 export const POLYGON = 137;
 export const POLYGON_AMOY = 80_002;
 
+export const PAYMENT_PROCESSOR_STORAGE: Record<number, Address> = {
+  [polygonAmoy.id]: "0x4C10f2D977C0d7369b5FB8bE66629482FE8E8f89",
+};
+
 export const INVOICE_ADDRESS: Record<number, Address> = {
   [polygonAmoy.id]: "0xB42f8799CaeE60F2C8aecE2844b483C79E55acfD",
 };

@@ -72,7 +72,7 @@ const CheckoutPage = () => {
           method: "GET",
         });
 
-        let result = await response.json();
+        const result = await response.json();
         if (response.ok && result.valid) {
           setInvoiceKey(result.data.invoiceKey as Address);
         } else {
@@ -98,18 +98,21 @@ const CheckoutPage = () => {
     );
   }, [metaInvoice]);
 
-  const defaultToken: TokenData[] = [
-    {
-      name: "Mock Usdc",
-      id: "0x0363820C54670800d71A0098c96B53Cf11193F6F",
-      decimals: 6,
-    },
-    {
-      name: "Mock WBtc",
-      id: "0x8f73c398ECcd94874752c1dFa48F20A092C8Cf86",
-      decimals: 8,
-    },
-  ];
+  const defaultToken: TokenData[] = useMemo<TokenData[]>(
+    () => [
+      {
+        name: "Mock Usdc",
+        id: "0x0363820C54670800d71A0098c96B53Cf11193F6F",
+        decimals: 6,
+      },
+      {
+        name: "Mock WBtc",
+        id: "0x8f73c398ECcd94874752c1dFa48F20A092C8Cf86",
+        decimals: 8,
+      },
+    ],
+    []
+  );
 
   // Step 3: Fetch invoice data dynamically
   useEffect(() => {
@@ -149,8 +152,10 @@ const CheckoutPage = () => {
             };
           } else {
             structured = {
+              // eslint-disable-next-line @typescript-eslint/no-non-null-asserted-optional-chain
               id: invoiceInfo?.invoiceId.toString()!,
               invoiceKey: invoiceKey,
+              // eslint-disable-next-line @typescript-eslint/no-non-null-asserted-optional-chain
               price: invoiceInfo?.price.toString()!,
               paymentToken: invoiceInfo?.paymentToken.toString() as Address,
               tokenList: defaultToken,
@@ -165,7 +170,16 @@ const CheckoutPage = () => {
       }
     };
     loadInvoice();
-  }, [invoiceKey, metaInvoice]);
+  }, [
+    invoiceKey,
+    metaInvoice,
+    isMetaInvoice,
+    defaultToken,
+    getAdvancedInvoiceData,
+    invoiceInfo?.invoiceId,
+    invoiceInfo?.paymentToken,
+    invoiceInfo?.price,
+  ]);
 
   // UI
   if (error) {

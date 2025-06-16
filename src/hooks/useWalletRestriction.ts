@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useGetOwner } from "./useGetOwner";
 
 const useWalletRestriction = () => {
@@ -8,7 +8,7 @@ const useWalletRestriction = () => {
   const [isAllowed, setIsAllowed] = useState(false);
   const [walletConnected, setWalletConnected] = useState(false);
 
-  const checkWallet = async () => {
+  const checkWallet = useCallback(async () => {
     if (typeof window !== "undefined" && window.ethereum) {
       try {
         const accounts = await window.ethereum.request({
@@ -35,7 +35,7 @@ const useWalletRestriction = () => {
     } else {
       console.error("Ethereum wallet not detected");
     }
-  };
+  }, [data]); // Dependency array for useCallback
 
   useEffect(() => {
     const safeCheck = async () => {
@@ -55,7 +55,8 @@ const useWalletRestriction = () => {
         window.ethereum.removeListener("accountsChanged", safeCheck);
       };
     }
-  }, [data]);
+  }, [checkWallet]); // Only checkWallet is needed here now
+
   return { isAllowed, walletConnected };
 };
 

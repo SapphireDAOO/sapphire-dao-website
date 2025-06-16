@@ -40,7 +40,7 @@ const AdminCard = () => {
 
   const {
     setFeeReceiversAddress,
-    setInvoiceHoldPeriod,
+    // setInvoiceHoldPeriod,
     setDefaultHoldPeriod,
     setFee,
     transferOwnership,
@@ -56,11 +56,11 @@ const AdminCard = () => {
     await transferOwnership(ownerAddr as Address);
   };
 
-  const handleInvoiceHoldPeriod = async () => {
-    const invoiceIdBigNumber = BigInt(invoiceId);
-    const holdPeriodInSecond = Number(holdPeriod) * 24 * 60 * 60;
-    await setInvoiceHoldPeriod(invoiceIdBigNumber, holdPeriodInSecond);
-  };
+  // const handleInvoiceHoldPeriod = async () => {
+  //   const invoiceIdBigNumber = BigInt(invoiceId);
+  //   const holdPeriodInSecond = Number(holdPeriod) * 24 * 60 * 60;
+  //   await setInvoiceHoldPeriod(invoiceIdBigNumber, holdPeriodInSecond);
+  // };
 
   const handleDefaultPeriod = async () => {
     const defaultPeriodInSecond = BigInt(Number(defaultPeriod) * 24 * 60 * 60);
@@ -104,7 +104,7 @@ const AdminCard = () => {
             </span>
             <span className="font-mono text-primary">
               {feeReceiver
-                ? `${feeReceiver.slice(0, 8)}...${feeReceiver.slice(-6)}`
+                ? `${"feeReceiver".slice(0, 8)}...${"feeReceiver".slice(-6)}`
                 : "Loading..."}
             </span>
           </p>
@@ -206,7 +206,7 @@ const AdminCard = () => {
                 value={holdPeriod}
                 onChange={(e) => setHoldPeriod(e.target.value)}
               />
-              <Button onClick={handleInvoiceHoldPeriod}>
+              <Button >
                 {isLoading === "setInvoiceHoldPeriod" ? (
                   <Loader2
                     className="inline-flex animate-spin"
