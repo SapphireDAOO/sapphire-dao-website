@@ -98,7 +98,11 @@ const CheckoutCard = ({ data, isMetaInvoice }: CheckoutCardProps) => {
               <Label htmlFor="price">Request Amount</Label>
               <Input
                 id="price"
-                placeholder={data?.price ? `${data.price} POL` : "N/A"}
+                placeholder={
+                  data?.price
+                    ? `$${(Number(data.price) / 1e8).toFixed(2)}`
+                    : "N/A"
+                }
                 disabled
               />
             </div>

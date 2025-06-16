@@ -67,11 +67,12 @@ export interface TokenData {
   id: Address;
   decimals: number;
 }
+
 export interface InvoiceDetails {
   id: string;
   invoiceKey: Address;
   price: string;
-  paymentToken: Address;
+  paymentToken?: Address;
   tokenList: TokenData[];
 }
 

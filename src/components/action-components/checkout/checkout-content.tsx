@@ -1,6 +1,6 @@
 "use client";
 
-import { useContext, useEffect, useState } from "react";
+import { useContext, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import type { Address } from "viem";
 
@@ -10,6 +10,7 @@ import { InvoiceDetails, TokenData } from "@/model/model";
 
 import CheckoutCard from "./checkout-card";
 import Container from "@/components/Container";
+import { useGetMarketplaceInvoiceData } from "@/hooks/useGetMarketplaceInvoiceData";
 
 const paymentTokensFragment = `
   paymentTokens(first: 5) {
@@ -71,11 +72,9 @@ const CheckoutPage = () => {
           method: "GET",
         });
 
-        console.log("RESPONSE", response);
-
-        const result = await response.json();
+        let result = await response.json();
         if (response.ok && result.valid) {
-          setInvoiceKey(result.data.id as Address);
+          setInvoiceKey(result.data.invoiceKey as Address);
         } else {
           setError(result.error || "Token verification failed.");
         }
@@ -87,49 +86,86 @@ const CheckoutPage = () => {
     if (jwtToken) verifyToken();
   }, [jwtToken]);
 
-  // Step 2: Determine if it's a MetaInvoice
-  const { data: metaInvoice } = useGetMetaInvoice(
-    invoiceKey ?? "0x0000000000000000000000000000000000000000"
-  );
-  const isMetaInvoice =
-    metaInvoice?.buyer &&
-    metaInvoice.buyer !== "0x0000000000000000000000000000000000000000";
+  const { data: invoiceInfo } = useGetMarketplaceInvoiceData(invoiceKey!);
+  const { data: metaInvoice } = useGetMetaInvoice(invoiceKey!);
+
+  console.log(invoiceInfo, metaInvoice);
+
+  const isMetaInvoice = useMemo(() => {
+    return (
+      metaInvoice?.buyer &&
+      metaInvoice.buyer !== "0x0000000000000000000000000000000000000000"
+    );
+  }, [metaInvoice]);
+
+  const defaultToken: TokenData[] = [
+    {
+      name: "Mock Usdc",
+      id: "0x0363820C54670800d71A0098c96B53Cf11193F6F",
+      decimals: 6,
+    },
+    {
+      name: "Mock WBtc",
+      id: "0x8f73c398ECcd94874752c1dFa48F20A092C8Cf86",
+      decimals: 8,
+    },
+  ];
 
   // Step 3: Fetch invoice data dynamically
   useEffect(() => {
     if (!invoiceKey || metaInvoice === undefined) return;
+
+    const loadInvoice = async () => {
+      if (!invoiceKey) return;
+
+      const query = isMetaInvoice ? metaInvoiceQuery : smartInvoiceQuery;
+      const type = isMetaInvoice ? "metaInvoice" : "smartInvoice";
+
+      console.log("TYPE", isMetaInvoice);
+
+      try {
+        const response = await getAdvancedInvoiceData(invoiceKey, query, type);
+
+        const invoice = response?.[type];
+        const paymentTokens: TokenData[] = response?.paymentTokens || [];
+
+        let structured: InvoiceDetails;
+        if (invoice) {
+          structured = {
+            id: invoice.invoiceId,
+            invoiceKey: invoice.id,
+            price: invoice.price,
+            paymentToken: invoice.paymentToken,
+            tokenList: paymentTokens,
+          };
+        } else {
+          if (isMetaInvoice) {
+            structured = {
+              id: metaInvoice?.invoiceId.toString(),
+              invoiceKey: invoiceKey,
+              price: metaInvoice?.price.toString(),
+              paymentToken: metaInvoice?.paymentToken.toString() as Address,
+              tokenList: defaultToken,
+            };
+          } else {
+            structured = {
+              id: invoiceInfo?.invoiceId.toString()!,
+              invoiceKey: invoiceKey,
+              price: invoiceInfo?.price.toString()!,
+              paymentToken: invoiceInfo?.paymentToken.toString() as Address,
+              tokenList: defaultToken,
+            };
+          }
+        }
+
+        setInvoiceDetails(structured);
+      } catch (error) {
+        console.log(error);
+        setError("Failed to fetch invoice details.");
+      }
+    };
     loadInvoice();
   }, [invoiceKey, metaInvoice]);
-
-  const loadInvoice = async () => {
-    if (!invoiceKey) return;
-
-    const query = isMetaInvoice ? metaInvoiceQuery : smartInvoiceQuery;
-    const type = isMetaInvoice ? "metaInvoice" : "smartInvoice";
-
-    try {
-      const response = await getAdvancedInvoiceData(invoiceKey, query, type);
-      const invoice = response?.[type];
-      const paymentTokens: TokenData[] = response?.paymentTokens || [];
-
-      if (!invoice) {
-        setError("Invoice not found.");
-        return;
-      }
-
-      const structured: InvoiceDetails = {
-        id: invoice.invoiceId,
-        invoiceKey: invoice.id,
-        price: invoice.price,
-        paymentToken: invoice.paymentToken,
-        tokenList: paymentTokens,
-      };
-
-      setInvoiceDetails(structured);
-    } catch {
-      setError("Failed to fetch invoice details.");
-    }
-  };
 
   // UI
   if (error) {
@@ -137,6 +173,29 @@ const CheckoutPage = () => {
       <Container>
         <div className="flex items-center justify-center min-h-[calc(100vh-4rem)] text-red-500">
           {error}
+        </div>
+      </Container>
+    );
+  }
+
+  const isLoading =
+    invoiceKey && metaInvoice !== undefined && !invoiceDetails && !error;
+
+  if (error) {
+    return (
+      <Container>
+        <div className="flex items-center justify-center min-h-[calc(100vh-4rem)] text-red-500">
+          An error occcureed. Try again
+        </div>
+      </Container>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <Container>
+        <div className="flex items-center justify-center min-h-[calc(100vh-4rem)]">
+          <p>Loading invoice details...</p>
         </div>
       </Container>
     );
