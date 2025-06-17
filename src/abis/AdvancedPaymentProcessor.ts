@@ -23,7 +23,6 @@ export const advancedPaymentProcessor = [
   { inputs: [], name: "CancelationRequestDeadlinePassed", type: "error" },
   { inputs: [], name: "DisputeWindowExpired", type: "error" },
   { inputs: [], name: "DuplicateResolutionAttempt", type: "error" },
-  { inputs: [], name: "EscrowAddressMismatch", type: "error" },
   { inputs: [], name: "InvalidBuyer", type: "error" },
   { inputs: [], name: "InvalidDisputeResolution", type: "error" },
   { inputs: [], name: "InvalidInvoiceState", type: "error" },
@@ -31,20 +30,18 @@ export const advancedPaymentProcessor = [
   { inputs: [], name: "InvalidNativePayment", type: "error" },
   { inputs: [], name: "InvalidPaymentToken", type: "error" },
   { inputs: [], name: "InvalidSellersPayoutShare", type: "error" },
+  { inputs: [], name: "InvoiceAlreadyExists", type: "error" },
   { inputs: [], name: "InvoiceDoesNotExist", type: "error" },
   { inputs: [], name: "InvoiceExpired", type: "error" },
   { inputs: [], name: "InvoiceResponseTimeExpired", type: "error" },
   { inputs: [], name: "InvoiceStillActive", type: "error" },
   { inputs: [], name: "NewOwnerIsZeroAddress", type: "error" },
   { inputs: [], name: "NoHandoverRequest", type: "error" },
-  { inputs: [], name: "NoShareAllocatedToBuyer", type: "error" },
-  { inputs: [], name: "NoSubInvoiceCancelled", type: "error" },
   { inputs: [], name: "NotAuthorized", type: "error" },
   { inputs: [], name: "Unauthorized", type: "error" },
   { inputs: [], name: "UnauthorizedBuyer", type: "error" },
   { inputs: [], name: "UnauthorizedParticipant", type: "error" },
   { inputs: [], name: "UnauthorizedSeller", type: "error" },
-  { inputs: [], name: "ZeroEscrowBalance", type: "error" },
   {
     anonymous: false,
     inputs: [
@@ -562,6 +559,7 @@ export const advancedPaymentProcessor = [
       { internalType: "address", name: "buyer", type: "address" },
       {
         components: [
+          { internalType: "string", name: "invoiceKey", type: "string" },
           { internalType: "address", name: "seller", type: "address" },
           { internalType: "address", name: "buyer", type: "address" },
           {
@@ -591,6 +589,7 @@ export const advancedPaymentProcessor = [
     inputs: [
       {
         components: [
+          { internalType: "string", name: "invoiceKey", type: "string" },
           { internalType: "address", name: "seller", type: "address" },
           { internalType: "address", name: "buyer", type: "address" },
           {

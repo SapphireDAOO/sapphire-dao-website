@@ -12,20 +12,20 @@ const columns: ColumnDef<AllInvoice>[] = [
     cell: ({ row }) => <div className="text-center">{row.getValue("id")}</div>,
   },
   {
-    accessorKey: "creator",
-    header: () => <div className="text-center">Creator</div>,
+    accessorKey: "seller",
+    header: () => <div className="text-center">Seller</div>,
     cell: ({ row }) => {
-      const creatorsAddress = row.getValue("creator");
+      const sellersAddress = row.getValue("seller");
       return (
         <div className="text-center">
-          {creatorsAddress ? (
+          {sellersAddress ? (
             <a
-              href={`https://amoy.polygonscan.com/address/${creatorsAddress}`}
+              href={`https://amoy.polygonscan.com/address/${sellersAddress}`}
               target="_blank"
               rel="noopener noreferrer"
               className="text-blue-500 underline"
             >
-              {formatAddress(creatorsAddress as string)}
+              {formatAddress(sellersAddress as string)}
             </a>
           ) : (
             "-"
@@ -86,17 +86,17 @@ const columns: ColumnDef<AllInvoice>[] = [
     accessorKey: "by",
     header: () => <div className="text-center">By</div>,
     cell: ({ row }) => {
-      const payersAddress = row.getValue("by");
+      const buyersAddress = row.getValue("by");
       return (
         <div className="text-center">
-          {payersAddress ? (
+          {buyersAddress ? (
             <a
-              href={`https://amoy.polygonscan.com/address/${payersAddress}`}
+              href={`https://amoy.polygonscan.com/address/${buyersAddress}`}
               target="_blank"
               rel="noopener noreferrer"
               className="text-blue-500 underline"
             >
-              {formatAddress(payersAddress as string)}
+              {formatAddress(buyersAddress as string)}
             </a>
           ) : (
             "-"

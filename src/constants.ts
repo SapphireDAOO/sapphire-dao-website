@@ -10,7 +10,7 @@ export const PAYMENT_PROCESSOR_STORAGE: Record<number, Address> = {
 };
 
 export const INVOICE_ADDRESS: Record<number, Address> = {
-  [polygonAmoy.id]: "0xB42f8799CaeE60F2C8aecE2844b483C79E55acfD",
+  [polygonAmoy.id]: "0x4C32D45bc54f9329f5C49EaD691b12c464c3a5f0",
 };
 
 export const ADVANCE_INVOICE_ADDRESS: Record<number, Address> = {

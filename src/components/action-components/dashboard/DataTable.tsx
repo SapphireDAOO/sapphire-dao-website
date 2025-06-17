@@ -1,14 +1,15 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import {
   flexRender,
   getCoreRowModel,
-  getPaginationRowModel,
   getFilteredRowModel,
+  getPaginationRowModel,
   useReactTable,
 } from "@tanstack/react-table";
+
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,31 +21,31 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
+type StatusOption = { label: string; value: string };
+
 const DataTable = <TData,>({
   columns,
   data,
   statuses,
   currentTab,
+  prioritizePaid = false,
 }: {
   columns: any[];
   data: TData[];
-  statuses: { label: string; value: string }[];
-  currentTab?: string; // "seller" or "buyer"
+  statuses?: StatusOption[]; // optional for AllInvoices
+  currentTab?: "buyer" | "seller";
+  prioritizePaid?: boolean;
 }) => {
-  const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [searchQuery, setSearchQuery] = useState<string>("");
+  const [statusFilter, setStatusFilter] = useState<string>("ALL");
 
+  // Filter columns if `currentTab` exists
   const filteredColumns = useMemo(() => {
+    if (!currentTab) return columns;
     return columns.filter((column) => {
-      // Hide "Release" column when on "buyer" tab
-      // if (currentTab === "buyer" && column.accessorKey === "releaseHash") {
-      //   return false;
-      // }
-      // Show "seller" column only when on "buyer" tab
       if (currentTab !== "buyer" && column.accessorKey === "seller") {
         return false;
       }
-
       if (currentTab === "buyer" && column.accessorKey === "buyer") {
         return false;
       }
@@ -52,32 +53,34 @@ const DataTable = <TData,>({
     });
   }, [columns, currentTab]);
 
+  // Search + optional status filter
   const filteredData = useMemo(() => {
     return data.filter((row: any) => {
-      const matchesStatus =
-        statusFilter === "ALL" ||
-        row.status?.toLowerCase() === statusFilter.toLowerCase();
-
       const matchesSearch =
         searchQuery.trim() === "" ||
         row.id?.toLowerCase().includes(searchQuery.toLowerCase());
 
-      return matchesStatus && matchesSearch;
+      const matchesStatus =
+        !statuses ||
+        statusFilter === "ALL" ||
+        row.status?.toLowerCase() === statusFilter.toLowerCase();
+
+      return matchesSearch && matchesStatus;
     });
-  }, [data, statusFilter, searchQuery]);
+  }, [data, searchQuery, statusFilter, statuses]);
 
-  const newData = useMemo(() => {
-    const allData = filteredData
-      .filter((i: any) => i.status === "PAID")
+  // Optional prioritization of "PAID" status
+  const sortedData = useMemo(() => {
+    if (!prioritizePaid) return filteredData;
+    const paid = filteredData
+      .filter((row: any) => row.status === "PAID")
       .reverse();
-
-    const otherData = filteredData.filter((i: any) => i.status !== "PAID");
-
-    return [...allData, ...otherData];
-  }, [filteredData]);
+    const others = filteredData.filter((row: any) => row.status !== "PAID");
+    return [...paid, ...others];
+  }, [filteredData, prioritizePaid]);
 
   const table = useReactTable({
-    data: newData,
+    data: sortedData,
     columns: filteredColumns,
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
@@ -86,25 +89,27 @@ const DataTable = <TData,>({
 
   return (
     <div>
-      {/* Filters */}
-      <div className="flex items-center justify-between py-4">
+      {/* Controls */}
+      <div className="flex flex-col sm:flex-row justify-between items-center py-4 gap-4">
         <Input
           placeholder="Search by ID..."
-          className="max-w-sm"
+          className="max-w-md"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
         />
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          className="px-4 py-2 border rounded-md w-52"
-        >
-          {statuses.map((status) => (
-            <option key={status.value} value={status.value}>
-              {status.label}
-            </option>
-          ))}
-        </select>
+        {statuses && (
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="px-4 py-2 border rounded-md w-52"
+          >
+            {statuses.map((status) => (
+              <option key={status.value} value={status.value}>
+                {status.label}
+              </option>
+            ))}
+          </select>
+        )}
       </div>
 
       {/* Table */}

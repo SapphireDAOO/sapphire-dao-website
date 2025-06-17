@@ -1,0 +1,120 @@
+"use client";
+
+import { useContext } from "react";
+import DataTable from "./DataTable";
+import { ContractContext } from "@/context/contract-context";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import baseColumns from "./baseColumns";
+import invoiceActions from "./invoices-components/invoiceActions";
+
+const IndexRecentPayment = ({
+  isMarketplaceTab,
+}: {
+  isMarketplaceTab: boolean;
+}) => {
+  const { invoiceData } = useContext(ContractContext);
+  // const [currentTab, setCurrentTab] = useState("seller");
+
+  const allSimpleInvoices = {
+    seller: invoiceData.filter((invoice) => invoice.type === "Seller"),
+    buyer: invoiceData.filter((invoice) => invoice.type === "Buyer"),
+    all: invoiceData,
+  };
+
+  const allMarketplaceInvoices = {
+    seller: [],
+    buyer: [],
+    all: [],
+  };
+
+  const dropdownStatusesByTab = {
+    seller: [
+      { label: "All", value: "ALL" },
+      { label: "Created", value: "CREATED" },
+      { label: "Accepted", value: "ACCEPTED" },
+      { label: "Paid", value: "PAID" },
+      { label: "Rejected", value: "REJECTED" },
+      { label: "Cancelled", value: "CANCELLED" },
+      { label: "Refunded", value: "REFUNDED" },
+      { label: "Released", value: "RELEASED" },
+    ],
+    buyer: [
+      { label: "All", value: "ALL" },
+      { label: "Accepted", value: "ACCEPTED" },
+      { label: "Paid", value: "PAID" },
+      { label: "Rejected", value: "REJECTED" },
+      { label: "Refunded", value: "REFUNDED" },
+      { label: "Released", value: "RELEASED" },
+    ],
+    all: [
+      { label: "All", value: "ALL" },
+      { label: "Created", value: "CREATED" },
+      { label: "Accepted", value: "ACCEPTED" },
+      { label: "Paid", value: "PAID" },
+      { label: "Rejected", value: "REJECTED" },
+      { label: "Cancelled", value: "CANCELLED" },
+      { label: "Refunded", value: "REFUNDED" },
+      { label: "Released", value: "RELEASED" },
+    ],
+  };
+
+  const tabItems = [
+    {
+      value: "all",
+      label: "All",
+    },
+    {
+      value: "seller",
+      label: isMarketplaceTab ? "Issued Invoices" : "Created by me",
+    },
+    {
+      value: "buyer",
+      label: isMarketplaceTab ? "Received Invoices" : "Paid by me",
+    },
+  ];
+
+  const invoiceColumns = [...baseColumns, ...invoiceActions];
+  const marketplaceColumns = [...baseColumns];
+
+  const invoicesByTab = isMarketplaceTab
+    ? allMarketplaceInvoices
+    : allSimpleInvoices;
+
+  return (
+    <div className="container mx-auto">
+      <Tabs
+        defaultValue="seller"
+        // onValueChange={(value) => setCurrentTab(value)}
+      >
+        <TabsList>
+          {tabItems.map((tab) => (
+            <TabsTrigger key={tab.value} value={tab.value}>
+              {tab.label}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+
+        {tabItems.map((tab) => (
+          <TabsContent key={tab.value} value={tab.value}>
+            <DataTable
+              columns={isMarketplaceTab ? marketplaceColumns : invoiceColumns}
+              data={
+                tab.value === "all"
+                  ? invoicesByTab.seller.concat(invoicesByTab.buyer)
+                  : invoicesByTab[tab.value as "seller" | "buyer"]
+              }
+              statuses={
+                dropdownStatusesByTab[
+                  tab.value as keyof typeof dropdownStatusesByTab
+                ]
+              }
+              currentTab={tab.value === "buyer" ? "buyer" : undefined}
+            />
+          </TabsContent>
+        ))}
+      </Tabs>
+    </div>
+  );
+};
+
+export default IndexRecentPayment;

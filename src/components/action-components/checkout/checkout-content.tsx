@@ -130,7 +130,8 @@ const CheckoutPage = () => {
         const response = await getAdvancedInvoiceData(invoiceKey, query, type);
 
         const invoice = response?.[type];
-        const paymentTokens: TokenData[] = response?.paymentTokens || [];
+        const paymentTokens: TokenData[] =
+          response?.paymentTokens || defaultToken;
 
         let structured: InvoiceDetails;
         if (invoice) {
