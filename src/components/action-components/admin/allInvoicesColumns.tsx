@@ -5,7 +5,7 @@ import { formatAddress } from "@/utils";
 import React from "react";
 import { formatEther } from "viem";
 
-const columns: ColumnDef<AllInvoice>[] = [
+const allInvoicesColumns: ColumnDef<AllInvoice>[] = [
   {
     accessorKey: "id",
     header: () => <div className="text-center">Invoice id</div>,
@@ -152,4 +152,4 @@ const columns: ColumnDef<AllInvoice>[] = [
   },
 ];
 
-export default columns;
+export default allInvoicesColumns;

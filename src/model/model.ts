@@ -11,7 +11,7 @@ export type Invoice = {
   releasedAt?: string;
   price?: string | null;
   status?: string;
-  type?: "Buyer" | "Seller";
+  type?: "Seller" | "Buyer" | "IssuedInvoice" | "ReceivedInvoice";
   holdPeriod?: string | null;
   paymentTxHash?: string;
   releaseHash?: string;
@@ -19,6 +19,7 @@ export type Invoice = {
   fee?: string;
   buyer?: string;
   seller?: string;
+  source?: string;
 };
 
 export type AllInvoice = {
@@ -37,14 +38,39 @@ export type AllInvoice = {
   status: string;
 };
 
+export type AdminAction = {
+  id: string;
+  invoiceKey: Address;
+  action: string;
+  time: string;
+  type: "Single Invoice" | "Meta Invoice";
+};
+
+export type AllInvoicesData = {
+  invoices: AllInvoice[];
+  actions: AdminAction[];
+};
+
 // Specialized invoice type for invoices created by the user
 export interface UserCreatedInvoice extends Invoice {
   type?: "Seller"; // Specifies that the invoice type is "Seller"
+  source?: "Simple";
 }
 
 // Specialized invoice type for invoices paid by the user
 export interface UserPaidInvoice extends Invoice {
   type?: "Buyer"; // Specifies that the invoice type is "Buyer"
+  source?: "Simple";
+}
+
+export interface UserIssuedInvoiceInvoice extends Invoice {
+  type?: "IssuedInvoice"; // Specifies that the invoice type is "IssuedInvoice"
+  source?: "Marketplace";
+}
+
+export interface UserReceivedInvoicesInvoice extends Invoice {
+  type?: "ReceivedInvoice"; // Specifies that the invoice type is "ReceivedInvoices"
+  source?: "Marketplace";
 }
 
 // Props for a Payment Card component, containing basic invoice details
@@ -67,12 +93,11 @@ export interface TokenData {
   id: Address;
   decimals: number;
 }
-
 export interface InvoiceDetails {
   id: string;
   invoiceKey: Address;
   price: string;
-  paymentToken?: Address;
+  paymentToken: Address;
   tokenList: TokenData[];
 }
 

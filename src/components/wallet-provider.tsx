@@ -25,12 +25,15 @@ import {
   Invoice,
   UserPaidInvoice,
   AllInvoice,
+  UserReceivedInvoicesInvoice,
+  UserIssuedInvoiceInvoice,
+  AdminAction,
+  AllInvoicesData,
 } from "@/model/model";
 import { polygonAmoy } from "viem/chains";
 import { unixToGMT } from "@/utils";
 import { paymentProcessor } from "@/abis/PaymentProcessor";
 import { advancedPaymentProcessor } from "@/abis/AdvancedPaymentProcessor";
-
 // Props type for the WalletProvider component
 type Props = {
   children?: ReactNode; // Allows nested components inside WalletProvider
@@ -45,24 +48,32 @@ const client = (chainId: number) =>
 const GET_ALL_INVOICES = `
   query {
     invoices {
-    contract
-    createdAt
-    fee
-    id
-    invoiceId
-    paidAt
-    paymentTxHash
-    price
-    releaseHash
-    releasedAt
-    state
-    amountPaid
+      contract
+      createdAt
+      fee
+      id
+      invoiceId
+      paidAt
+      paymentTxHash
+      price
+      releaseHash
+      releasedAt
+      state
+      amountPaid
       seller {
         id
       }
       buyer {
         id
       }
+    }
+
+    adminActions {
+      id
+      invoiceId
+      time
+      type
+      action
     }
   }
 `;
@@ -107,6 +118,37 @@ const invoiceQuery = `query ($address: String!) {
         id
       }
     }
+    issuedInvoices {
+      amountPaid
+      contract
+      createdAt
+      id
+      invoiceId
+      paidAt
+      price
+      releasedAt
+      state
+      seller {
+        id
+      }
+    }
+    receivedInvoices {
+      amountPaid
+      contract
+      createdAt
+      id
+      invoiceId
+      paidAt
+      price
+      releasedAt
+      state
+      seller {
+        id
+      }
+      buyer {
+        id
+      }
+    }
   }
 }`;
 
@@ -140,144 +182,10 @@ const WalletProvider = ({ children }: Props) => {
   // State variables for loading and invoice data
   const [isLoading, setIsLoading] = useState<string>();
   const [invoiceData, setInvoiceData] = useState<Invoice[]>([]);
-  const [allInvoiceData, setAllInvoiceData] = useState<AllInvoice[]>([]);
-
-  // Memoize getAllInvoiceData
-  const getAllInvoiceData = useCallback(async () => {
-    try {
-      const { data, error } = await client(chainId)
-        .query(GET_ALL_INVOICES, {})
-        .toPromise();
-
-      if (error) {
-        console.error("GraphQL Error:", error.message);
-        return [];
-      }
-
-      if (!data?.invoices) {
-        console.warn("No invoice data found.");
-        return [];
-      }
-
-      // Map over invoices safely
-      const invoiceList: AllInvoice[] = data.invoices.map((list: any) => ({
-        id: list.invoiceId || "",
-        invoiceKey: list.id || "",
-        contract: list.contract || "",
-        seller: list.seller?.id || "",
-        payment: list.paymentTxHash || "",
-        createdAt: unixToGMT(list.createdAt) || "-",
-        paidAt: unixToGMT(list.paidAt),
-        by: list.buyer?.id || "",
-        release:
-          list.releasedAt && !isNaN(list.releasedAt)
-            ? unixToGMT(list.releasedAt)
-            : "Pending",
-        fee: list.fee || "0",
-        state: list.status,
-        releaseHash: list.releaseHash,
-        status: list.state,
-      }));
-
-      return invoiceList;
-    } catch (error) {
-      console.error("❌ Error fetching invoice data:", error);
-      return [];
-    }
-  }, [chainId]);
-
-  // Memoize refetchAllInvoiceData
-  const refetchAllInvoiceData = useCallback(async () => {
-    const fetchedInvoices = await getAllInvoiceData();
-    setAllInvoiceData(fetchedInvoices);
-  }, [getAllInvoiceData]);
-
-  // Memoize getInvoiceData
-  const getInvoiceData = useCallback(async () => {
-    try {
-      const { data, error } = await client(chainId)
-        .query(invoiceQuery, { address: address?.toLowerCase() })
-        .toPromise();
-
-      if (error) {
-        console.log(error.message);
-      }
-
-      // Process created invoices
-      const createdInvoice: UserCreatedInvoice[] =
-        data?.user?.ownedInvoices || [];
-
-      const paidInvoices: UserPaidInvoice[] = data?.user?.paidInvoices || [];
-
-      // Format created invoices to fit with our model
-      const createdInvoiceData: UserCreatedInvoice[] = createdInvoice.map(
-        (invoice: any) => ({
-          id: invoice.invoiceId,
-          invoiceKey: invoice.id,
-          createdAt: invoice.createdAt ? unixToGMT(invoice.createdAt) : null,
-          paidAt: invoice.paidAt || "Not Paid",
-          status: invoice.state || "Unknown",
-          price: invoice.price ? formatEther(invoice.price) : null,
-          amountPaid: invoice.amountPaid
-            ? formatEther(invoice.amountPaid)
-            : null,
-          type: "Seller",
-          contract: invoice.contract,
-          paymentTxHash: invoice.paymentTxHash,
-          seller: invoice.seller === null ? "" : invoice.seller.id,
-          releaseHash: invoice.releaseHash,
-          releaseAt: invoice.releasedAt,
-        })
-      );
-
-      // Format paid invoices
-      const paidInvoiceData: UserPaidInvoice[] = paidInvoices.map(
-        (invoice: any) => ({
-          id: invoice.invoiceId,
-          invoiceKey: invoice.id,
-          createdAt: invoice.createdAt ? unixToGMT(invoice.createdAt) : null,
-          paidAt: invoice.paidAt || "Not Paid",
-          status: invoice.state || "Unknown",
-          price: invoice.price ? formatEther(invoice.price) : null,
-          amountPaid: invoice.amountPaid
-            ? formatEther(invoice.amountPaid)
-            : null,
-          type: "Buyer",
-          seller: invoice.seller.id,
-          contract: invoice.contract,
-          paymentTxHash: invoice.paymentTxHash,
-          releaseAt: invoice.releasedAt,
-          buyer: invoice.buyer === null ? "" : invoice.buyer.id,
-        })
-      );
-
-      // Combine created and paid invoices into a single list
-      const allInvoiceData: (UserCreatedInvoice | UserPaidInvoice)[] = [
-        ...createdInvoiceData,
-        ...paidInvoiceData,
-      ];
-
-      setInvoiceData(allInvoiceData || []);
-    } catch (error) {
-      console.error("Error fetching invoice data:", error);
-    }
-  }, [address, chainId]);
-
-  // Memoize onAddress
-  const onAddress = useCallback(async () => {
-    await getInvoiceData();
-  }, [getInvoiceData]);
-
-  // Fetch invoice data when user address or chain changes
-  useEffect(() => {
-    refetchAllInvoiceData();
-    if (!address || !chain) {
-      setInvoiceData([]); // Clear data if no address or chain is available
-      setAllInvoiceData([]);
-    } else {
-      onAddress(); // Fetch invoice data for the connected account
-    }
-  }, [address, chain, refetchAllInvoiceData, onAddress]);
+  const [allInvoiceData, setAllInvoiceData] = useState<AllInvoicesData>({
+    invoices: [],
+    actions: [],
+  });
 
   // Error handler for blockchain operations
   const getError = (error: any) => {
@@ -304,6 +212,205 @@ const WalletProvider = ({ children }: Props) => {
     toast.error(message || "Something went wrong"); // Show a generic error message
   };
 
+  const getAllInvoiceData = useCallback(async () => {
+    try {
+      const { data, error } = await client(chainId)
+        .query(GET_ALL_INVOICES, {})
+        .toPromise();
+
+      if (error) {
+        console.error("GraphQL Error:", error.message);
+        return { invoices: [], actions: [] };
+      }
+
+      const rawInvoices = data?.invoices || [];
+      const rawAdminActions = data?.adminActions || [];
+
+      const invoices: AllInvoice[] = rawInvoices.map((list: any) => ({
+        id: list.invoiceId || "",
+        invoiceKey: list.id || "",
+        contract: list.contract || "",
+        seller: list.seller?.id || "",
+        payment: list.paymentTxHash || "",
+        createdAt: unixToGMT(list.createdAt) || "-",
+        paidAt: unixToGMT(list.paidAt),
+        by: list.buyer?.id || "",
+        release:
+          list.releasedAt && !isNaN(list.releasedAt)
+            ? unixToGMT(list.releasedAt)
+            : "Pending",
+        fee: list.fee || "0",
+        state: list.status,
+        releaseHash: list.releaseHash,
+        status: list.state,
+      }));
+
+      const actions: AdminAction[] = rawAdminActions.map((list: any) => ({
+        id: list.invoiceId || "",
+        invoiceKey: list.id || "",
+        action: list.action || "Unknown",
+        time: list.time ? unixToGMT(list.time) : null,
+        type: list.type,
+      }));
+
+      return { invoices, actions };
+    } catch (error) {
+      console.error("❌ Error fetching invoice data:", error);
+      return { invoices: [], actions: [] };
+    }
+  }, [chainId]);
+
+  // Fetch invoice data for the connected user
+  const getInvoiceData = useCallback(async () => {
+    try {
+      const { data, error } = await client(chainId)
+        .query(invoiceQuery, { address: address?.toLowerCase() })
+        .toPromise();
+
+      if (error) {
+        console.log(error.message);
+      }
+
+      // Process created invoices
+      const createdInvoice: UserCreatedInvoice[] =
+        data?.user?.ownedInvoices || [];
+
+      const paidInvoices: UserPaidInvoice[] = data?.user?.paidInvoices || [];
+
+      const issuedInvoices: UserIssuedInvoiceInvoice[] =
+        data?.user?.issuedInvoices || [];
+
+      const receivedInvoices: UserReceivedInvoicesInvoice[] =
+        data?.user?.receivedInvoices || [];
+
+      // Format created invoices to fit with out model
+      const createdInvoiceData: UserCreatedInvoice[] = createdInvoice.map(
+        (invoice: any) => ({
+          id: invoice.invoiceId,
+          invoiceKey: invoice.id,
+          createdAt: invoice.createdAt ? unixToGMT(invoice.createdAt) : null,
+          paidAt: invoice.paidAt || "Not Paid",
+          status: invoice.state || "Unknown",
+          price: invoice.price ? formatEther(invoice.price) : null,
+          amountPaid: invoice.amountPaid
+            ? formatEther(invoice.amountPaid)
+            : null,
+          type: "Seller",
+          contract: invoice.contract,
+          paymentTxHash: invoice.paymentTxHash,
+          seller: invoice.seller === null ? "" : invoice.seller.id,
+          releaseHash: invoice.releaseHash,
+          releaseAt: invoice.releasedAt,
+          source: "Simple",
+        })
+      );
+
+      // Format paid invoices
+      const paidInvoiceData: UserPaidInvoice[] = paidInvoices.map(
+        (invoice: any) => ({
+          id: invoice.invoiceId,
+          invoiceKey: invoice.id,
+          createdAt: invoice.createdAt ? unixToGMT(invoice.createdAt) : null,
+          paidAt: invoice.paidAt || "Not Paid",
+          status: invoice.state || "Unknown",
+          price: invoice.price ? formatEther(invoice.price) : null,
+          amountPaid: invoice.amountPaid
+            ? formatEther(invoice.amountPaid)
+            : null,
+          type: "Buyer",
+          seller: invoice.seller.id,
+          contract: invoice.contract,
+          paymentTxHash: invoice.paymentTxHash,
+          releaseAt: invoice.releasedAt,
+          buyer: invoice.buyer === null ? "" : invoice.buyer.id,
+          source: "Simple",
+        })
+      );
+
+      // Format Issued Invoices
+      const issuedInvoicesData: UserIssuedInvoiceInvoice[] = issuedInvoices.map(
+        (invoice: any) => ({
+          id: invoice.invoiceId,
+          invoiceKey: invoice.id,
+          createdAt: invoice.createdAt ? unixToGMT(invoice.createdAt) : null,
+          paidAt: invoice.paidAt || "Not Paid",
+          status: invoice.state || "Unknown",
+          price: invoice.price ? formatEther(invoice.price) : null,
+          amountPaid: invoice.amountPaid
+            ? formatEther(invoice.amountPaid)
+            : null,
+          type: "IssuedInvoice",
+          contract: invoice.contract,
+          paymentTxHash: invoice.paymentTxHash,
+          seller: invoice.seller === null ? "" : invoice.seller.id,
+          releaseHash: invoice.releaseHash,
+          releaseAt: invoice.releasedAt,
+          source: "Marketplace",
+        })
+      );
+
+      // Format Received Invoices
+      const receivedInvoicesData: UserReceivedInvoicesInvoice[] =
+        receivedInvoices.map((invoice: any) => ({
+          id: invoice.invoiceId,
+          invoiceKey: invoice.id,
+          createdAt: invoice.createdAt ? unixToGMT(invoice.createdAt) : null,
+          paidAt: invoice.paidAt || "Not Paid",
+          status: invoice.state || "Unknown",
+          price: invoice.price ? formatEther(invoice.price) : null,
+          amountPaid: invoice.amountPaid
+            ? formatEther(invoice.amountPaid)
+            : null,
+          type: "ReceivedInvoice",
+          seller: invoice.seller.id,
+          contract: invoice.contract,
+          paymentTxHash: invoice.paymentTxHash,
+          releaseAt: invoice.releasedAt,
+          buyer: invoice.buyer === null ? "" : invoice.buyer.id,
+          source: "Marketplace",
+        }));
+
+      // Combine created and paid invoices into a single list
+      const allInvoiceData: (
+        | UserCreatedInvoice
+        | UserPaidInvoice
+        | UserReceivedInvoicesInvoice
+        | UserIssuedInvoiceInvoice
+      )[] = [
+        ...createdInvoiceData,
+        ...paidInvoiceData,
+        ...issuedInvoicesData,
+        ...receivedInvoicesData,
+      ];
+
+      setInvoiceData(allInvoiceData || []);
+    } catch (error) {
+      console.error("Error fetching invoice data:", error);
+    }
+  }, [address, chainId]);
+
+  const refetchAllInvoiceData = useCallback(async () => {
+    const fetchedInvoices = await getAllInvoiceData();
+    setAllInvoiceData(fetchedInvoices);
+  }, [getAllInvoiceData]);
+
+  useEffect(() => {
+    const onAddress = async () => {
+      await getInvoiceData();
+    };
+
+    refetchAllInvoiceData();
+    if (!address || !chain) {
+      setInvoiceData([]);
+      setAllInvoiceData({
+        invoices: [],
+        actions: [],
+      });
+    } else {
+      onAddress();
+    }
+  }, [address, chain, getInvoiceData, refetchAllInvoiceData]);
+
   // Function to create an invoice
   const createInvoice = async (
     invoicePrice: bigint
@@ -323,6 +430,7 @@ const WalletProvider = ({ children }: Props) => {
           functionName: "createInvoice",
           args: [invoicePrice],
         }),
+
         gasPrice,
       });
 
@@ -337,6 +445,7 @@ const WalletProvider = ({ children }: Props) => {
         const invoiceKey = receipt?.logs[0].topics[1];
         toast.success("Invoice successfully created");
         await getInvoiceData();
+
         return invoiceKey;
       } else {
         toast.error("Error creating invoice, Please try again.");

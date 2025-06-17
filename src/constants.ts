@@ -19,7 +19,7 @@ export const ADVANCE_INVOICE_ADDRESS: Record<number, Address> = {
 
 export const THE_GRAPH_API_URL: Record<number, string> = {
   [polygonAmoy.id]:
-    "https://api.studio.thegraph.com/query/100227/payment-processor-test-v1/version/latest",
+    "https://subgraph.satsuma-prod.com/a881ed61cd10/freecode--350948/payment-processor-test-v1/api",
 };
 
 export const errorMessages: ErrorMessages = {

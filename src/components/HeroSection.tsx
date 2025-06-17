@@ -28,7 +28,7 @@ const HeroSection = () => {
           </Link>
 
           <Link
-            href="https://sapphiredao.gitbook.io/"
+            href="https://sapphiredao.gitbook.io/sapphiredao-docs"
             className={buttonVariants({ variant: "default" })}
             target="_blank"
             rel="noopener noreferrer"

@@ -2,7 +2,6 @@
 
 import { useContext } from "react";
 import { ContractContext } from "@/context/contract-context";
-import columns from "./admin-columns";
 import { formatAddress } from "@/utils";
 import { ADVANCE_INVOICE_ADDRESS, INVOICE_ADDRESS } from "@/constants";
 import { polygonAmoy } from "viem/chains";
@@ -10,6 +9,8 @@ import DataTable from "../dashboard/DataTable";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import DashboardHeader from "../dashboard/Header";
 import Container from "@/components/Container";
+import allInvoicesColumns from "./allInvoicesColumns";
+import adminActionsColumns from "./adminActionsColumns";
 
 const ContractLink = ({ address }: { address: string }) => (
   <>
@@ -34,7 +35,7 @@ const AdminInvoices = () => {
         <div className="flex items-center justify-center mt-10">
           <TabsList>
             <TabsTrigger value="invoices">Invoices</TabsTrigger>
-            <TabsTrigger value="marketplace">Marketplace</TabsTrigger>
+            <TabsTrigger value="actions">Admin Actions</TabsTrigger>
           </TabsList>
         </div>
         <TabsContent value="invoices">
@@ -45,20 +46,26 @@ const AdminInvoices = () => {
                 <ContractLink address={INVOICE_ADDRESS[polygonAmoy.id]} />
               }
             />
-            <DataTable columns={columns} data={allInvoiceData ?? []} />
+            <DataTable
+              columns={allInvoicesColumns}
+              data={allInvoiceData.invoices ?? []}
+            />
           </Container>
         </TabsContent>
-        <TabsContent value="marketplace">
+        <TabsContent value="actions">
           <Container>
             <DashboardHeader
-              title="MARKETPLACE"
+              title="Admin Action"
               rightContent={
                 <ContractLink
                   address={ADVANCE_INVOICE_ADDRESS[polygonAmoy.id]}
                 />
               }
             />
-            <DataTable columns={columns} data={[]} />
+            <DataTable
+              columns={adminActionsColumns}
+              data={allInvoiceData.actions ?? []}
+            />
           </Container>
         </TabsContent>
       </Tabs>

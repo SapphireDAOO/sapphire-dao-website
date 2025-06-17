@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { Invoice, AllInvoice } from "@/model/model";
+import { Invoice, AllInvoice, AdminAction } from "@/model/model";
 import React from "react";
 import type { Address } from "viem";
 
@@ -9,7 +9,10 @@ import type { Address } from "viem";
 export interface ContractContextData {
   isLoading: string | undefined;
   invoiceData: Invoice[];
-  allInvoiceData: AllInvoice[];
+  allInvoiceData: {
+    invoices: AllInvoice[];
+    actions: AdminAction[];
+  };
   createInvoice: (invoicePrice: bigint) => Promise<Address | undefined>;
   makeInvoicePayment: (amount: bigint, invoiceKey: Address) => Promise<boolean>;
   payAdvancedInvoice: (
@@ -44,7 +47,10 @@ export interface ContractContextData {
 export const contractContextDefaults: ContractContextData = {
   isLoading: undefined,
   invoiceData: [],
-  allInvoiceData: [],
+  allInvoiceData: {
+    invoices: [],
+    actions: [],
+  },
   transferOwnership: async () => Promise.resolve(false),
   createInvoice: async () => Promise.resolve("0x"),
   makeInvoicePayment: async () => Promise.resolve(false),
