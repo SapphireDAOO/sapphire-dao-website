@@ -16,15 +16,25 @@ const IndexRecentPayment = ({
   // const [currentTab, setCurrentTab] = useState("seller");
 
   const allSimpleInvoices = {
-    seller: invoiceData.filter((invoice) => invoice.type === "Seller"),
-    buyer: invoiceData.filter((invoice) => invoice.type === "Buyer"),
-    all: invoiceData,
+    seller: invoiceData.filter(
+      (invoice) => invoice.type === "Seller" && invoice.source === "Simple"
+    ),
+    buyer: invoiceData.filter(
+      (invoice) => invoice.type === "Buyer" && invoice.source === "Simple"
+    ),
+    all: invoiceData.filter((invoice) => invoice.source === "Simple"),
   };
 
   const allMarketplaceInvoices = {
-    seller: [],
-    buyer: [],
-    all: [],
+    seller: invoiceData.filter(
+      (invoice) =>
+        invoice.type === "IssuedInvoice" && invoice.source === "Marketplace"
+    ),
+    buyer: invoiceData.filter(
+      (invoice) =>
+        invoice.type === "ReceivedInvoice" && invoice.source === "Marketplace"
+    ),
+    all: invoiceData.filter((invoice) => invoice.source === "Marketplace"),
   };
 
   const dropdownStatusesByTab = {

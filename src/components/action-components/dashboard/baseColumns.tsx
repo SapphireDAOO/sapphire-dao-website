@@ -229,6 +229,7 @@ const baseColumns: ColumnDef<Invoice>[] = [
       <div className="text-center capitalize">{row.getValue("status")}</div>
     ),
   },
+  // `$${(Number(data.price) / 1e8).toFixed(2)}`
   {
     accessorKey: "price",
     header: () => <div className="text-center">Amount</div>,
