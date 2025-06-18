@@ -5,8 +5,8 @@ import DataTable from "./DataTable";
 import { ContractContext } from "@/context/contract-context";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import baseColumns from "./baseColumns";
-import invoiceActions from "./invoices-components/invoiceActions";
-import marketplaceActions from "./marketplace-components/marketplaceActions";
+import invoiceActions from "./invoices-components/InvoiceActions";
+import marketplaceActions from "./marketplace-components/MarketplaceActions";
 
 const IndexRecentPayment = ({
   isMarketplaceTab,

@@ -11,7 +11,7 @@ import DashboardHeader from "../dashboard/Header";
 import Container from "@/components/Container";
 import allInvoicesColumns from "./allInvoicesColumns";
 import adminActionsColumns from "./adminActionsColumns";
-import allMarketplaceInvoices from "./all-marketplace-invoices-columns";
+import allMarketplaceInvoices from "./AllMarketplaceInvoicesColumns";
 import { useGetBalance } from "@/hooks/useGetBalance";
 import { Address } from "viem";
 
