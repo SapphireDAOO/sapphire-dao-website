@@ -6,6 +6,7 @@ import { ContractContext } from "@/context/contract-context";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import baseColumns from "./baseColumns";
 import invoiceActions from "./invoices-components/invoiceActions";
+import marketplaceActions from "./marketplace-components/marketplaceActions";
 
 const IndexRecentPayment = ({
   isMarketplaceTab,
@@ -38,34 +39,68 @@ const IndexRecentPayment = ({
   };
 
   const dropdownStatusesByTab = {
-    seller: [
-      { label: "All", value: "ALL" },
-      { label: "Created", value: "CREATED" },
-      { label: "Accepted", value: "ACCEPTED" },
-      { label: "Paid", value: "PAID" },
-      { label: "Rejected", value: "REJECTED" },
-      { label: "Cancelled", value: "CANCELLED" },
-      { label: "Refunded", value: "REFUNDED" },
-      { label: "Released", value: "RELEASED" },
-    ],
-    buyer: [
-      { label: "All", value: "ALL" },
-      { label: "Accepted", value: "ACCEPTED" },
-      { label: "Paid", value: "PAID" },
-      { label: "Rejected", value: "REJECTED" },
-      { label: "Refunded", value: "REFUNDED" },
-      { label: "Released", value: "RELEASED" },
-    ],
-    all: [
-      { label: "All", value: "ALL" },
-      { label: "Created", value: "CREATED" },
-      { label: "Accepted", value: "ACCEPTED" },
-      { label: "Paid", value: "PAID" },
-      { label: "Rejected", value: "REJECTED" },
-      { label: "Cancelled", value: "CANCELLED" },
-      { label: "Refunded", value: "REFUNDED" },
-      { label: "Released", value: "RELEASED" },
-    ],
+    simple: {
+      seller: [
+        { label: "All", value: "ALL" },
+        { label: "Created", value: "CREATED" },
+        { label: "Accepted", value: "ACCEPTED" },
+        { label: "Paid", value: "PAID" },
+        { label: "Rejected", value: "REJECTED" },
+        { label: "Cancelled", value: "CANCELLED" },
+        { label: "Refunded", value: "REFUNDED" },
+        { label: "Released", value: "RELEASED" },
+      ],
+      buyer: [
+        { label: "All", value: "ALL" },
+        { label: "Accepted", value: "ACCEPTED" },
+        { label: "Paid", value: "PAID" },
+        { label: "Rejected", value: "REJECTED" },
+        { label: "Refunded", value: "REFUNDED" },
+        { label: "Released", value: "RELEASED" },
+      ],
+      all: [
+        { label: "All", value: "ALL" },
+        { label: "Created", value: "CREATED" },
+        { label: "Accepted", value: "ACCEPTED" },
+        { label: "Paid", value: "PAID" },
+        { label: "Rejected", value: "REJECTED" },
+        { label: "Cancelled", value: "CANCELLED" },
+        { label: "Refunded", value: "REFUNDED" },
+        { label: "Released", value: "RELEASED" },
+      ],
+    },
+
+    marketplace: {
+      all: [
+        { label: "All", value: "ALL" },
+        { label: "Created", value: "CREATED" },
+        { label: "Accepted", value: "ACCEPTED" },
+        { label: "Paid", value: "PAID" },
+        { label: "Rejected", value: "REJECTED" },
+        { label: "Cancelled", value: "CANCELED" },
+        { label: "Released", value: "RELEASED" },
+        { label: "Disputed", value: "DISPUTED" },
+        { label: "Dispute Resolved", value: "DISPUTE RESOLVED" },
+        { label: "Dispute Dismissed", value: "DISPUTE DISMISSED" },
+        { label: "Dispute Settled", value: "DISPUTE SETTLED" },
+        { label: "Cancelation Requested", value: "CANCELATION REQUESTED" },
+        { label: "Cancelation Accepted", value: "CANCELATION_ACCEPTED" },
+        { label: "Cancelation Rejected", value: "CANCELATION_REJECTED" },
+      ],
+      seller: [
+        { label: "All", value: "ALL" },
+        { label: "Created", value: "CREATED" },
+        { label: "Accepted", value: "ACCEPTED" },
+        { label: "Paid", value: "PAID" },
+        { label: "Rejected", value: "REJECTED" },
+      ],
+      buyer: [
+        { label: "All", value: "ALL" },
+        { label: "Paid", value: "PAID" },
+        { label: "Released", value: "RELEASED" },
+        { label: "Disputed", value: "DISPUTED" },
+      ],
+    },
   };
 
   const tabItems = [
@@ -84,12 +119,12 @@ const IndexRecentPayment = ({
   ];
 
   const invoiceColumns = [...baseColumns, ...invoiceActions];
-  const marketplaceColumns = [...baseColumns];
+  const marketplaceColumns = [...baseColumns, ...marketplaceActions];
 
   const invoicesByTab = isMarketplaceTab
     ? allMarketplaceInvoices
     : allSimpleInvoices;
-
+  const sourceKey = isMarketplaceTab ? "marketplace" : "simple";
   return (
     <div className="container mx-auto">
       <Tabs
@@ -114,8 +149,8 @@ const IndexRecentPayment = ({
                   : invoicesByTab[tab.value as "seller" | "buyer"]
               }
               statuses={
-                dropdownStatusesByTab[
-                  tab.value as keyof typeof dropdownStatusesByTab
+                dropdownStatusesByTab[sourceKey][
+                  tab.value as "seller" | "buyer" | "all"
                 ]
               }
               currentTab={tab.value === "buyer" ? "buyer" : undefined}

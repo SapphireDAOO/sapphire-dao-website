@@ -1080,6 +1080,321 @@ const WalletProvider = ({ children }: Props) => {
     }
   };
 
+  const acceptMarketplaceInvoice = async (
+    orderId: Address
+  ): Promise<boolean> => {
+    setIsLoading("acceptMarketplaceInvoice");
+
+    let success = false;
+    let progressToastId;
+    try {
+      const gasPrice = await fetchGasPrice(publicClient, chainId);
+
+      const tx = await walletClient?.sendTransaction({
+        chain: polygonAmoy,
+        to: ADVANCE_INVOICE_ADDRESS[chainId],
+        data: encodeFunctionData({
+          abi: advancedPaymentProcessor,
+          functionName: "acceptInvoice",
+          args: [orderId],
+        }),
+        gasPrice,
+      });
+
+      progressToastId = toast.info("Transaction in progress...", {
+        duration: Infinity,
+      });
+
+      const receipt = await publicClient?.waitForTransactionReceipt({
+        hash: tx!,
+      });
+      if (receipt?.status) {
+        toast.dismiss(progressToastId);
+        toast.success("Order accepted");
+        await getInvoiceData();
+        success = true;
+      } else {
+        toast.dismiss(progressToastId);
+        toast.error("An unexpected error occurred. Please try again");
+      }
+    } catch (error) {
+      toast.dismiss(progressToastId);
+      getError(error);
+    }
+    setIsLoading("");
+    return success;
+  };
+
+  const cancelMarketplaceInvoice = async (
+    orderId: Address
+  ): Promise<boolean> => {
+    setIsLoading("cancelMarketplaceInvoice");
+
+    let success = false;
+    let progressToastId;
+    try {
+      const gasPrice = await fetchGasPrice(publicClient, chainId);
+
+      const tx = await walletClient?.sendTransaction({
+        chain: polygonAmoy,
+        to: ADVANCE_INVOICE_ADDRESS[chainId],
+        data: encodeFunctionData({
+          abi: advancedPaymentProcessor,
+          functionName: "cancelInvoice",
+          args: [orderId],
+        }),
+        gasPrice,
+      });
+
+      progressToastId = toast.info("Transaction in progress...", {
+        duration: Infinity,
+      });
+
+      const receipt = await publicClient?.waitForTransactionReceipt({
+        hash: tx!,
+      });
+      if (receipt?.status) {
+        toast.dismiss(progressToastId);
+        toast.success("Order canceled");
+        await getInvoiceData();
+        success = true;
+      } else {
+        toast.dismiss(progressToastId);
+        toast.error("An unexpected error occurred. Please try again");
+      }
+    } catch (error) {
+      toast.dismiss(progressToastId);
+      getError(error);
+    }
+    setIsLoading("");
+    return success;
+  };
+
+  const requestCancelation = async (orderId: Address): Promise<boolean> => {
+    setIsLoading("requestCancelation");
+
+    let success = false;
+    let progressToastId;
+    try {
+      const gasPrice = await fetchGasPrice(publicClient, chainId);
+
+      const tx = await walletClient?.sendTransaction({
+        chain: polygonAmoy,
+        to: ADVANCE_INVOICE_ADDRESS[chainId],
+        data: encodeFunctionData({
+          abi: advancedPaymentProcessor,
+          functionName: "requestCancelation",
+          args: [orderId],
+        }),
+        gasPrice,
+      });
+
+      progressToastId = toast.info("Transaction in progress...", {
+        duration: Infinity,
+      });
+
+      const receipt = await publicClient?.waitForTransactionReceipt({
+        hash: tx!,
+      });
+      if (receipt?.status) {
+        toast.dismiss(progressToastId);
+        toast.success("Cancelation requested");
+        await getInvoiceData();
+        success = true;
+      } else {
+        toast.dismiss(progressToastId);
+        toast.error("An unexpected error occurred. Please try again");
+      }
+    } catch (error) {
+      toast.dismiss(progressToastId);
+      getError(error);
+    }
+    setIsLoading("");
+    return success;
+  };
+
+  const handleCancelationRequest = async (
+    orderId: Address,
+    accept: boolean
+  ): Promise<boolean> => {
+    setIsLoading("requestCancelation");
+
+    let success = false;
+    let progressToastId;
+    try {
+      const gasPrice = await fetchGasPrice(publicClient, chainId);
+
+      const tx = await walletClient?.sendTransaction({
+        chain: polygonAmoy,
+        to: ADVANCE_INVOICE_ADDRESS[chainId],
+        data: encodeFunctionData({
+          abi: advancedPaymentProcessor,
+          functionName: "handleCancelationRequest",
+          args: [orderId, accept],
+        }),
+        gasPrice,
+      });
+
+      progressToastId = toast.info("Transaction in progress...", {
+        duration: Infinity,
+      });
+
+      const receipt = await publicClient?.waitForTransactionReceipt({
+        hash: tx!,
+      });
+      if (receipt?.status) {
+        const state = accept ? "granted" : "rejected";
+        toast.dismiss(progressToastId);
+        toast.success(`Cancelation ${state}`);
+        await getInvoiceData();
+        success = true;
+      } else {
+        toast.dismiss(progressToastId);
+        toast.error("An unexpected error occurred. Please try again");
+      }
+    } catch (error) {
+      toast.dismiss(progressToastId);
+      getError(error);
+    }
+    setIsLoading("");
+    return success;
+  };
+
+  const createDispute = async (orderId: Address): Promise<boolean> => {
+    setIsLoading("createDispute");
+
+    let success = false;
+    let progressToastId;
+    try {
+      const gasPrice = await fetchGasPrice(publicClient, chainId);
+
+      const tx = await walletClient?.sendTransaction({
+        chain: polygonAmoy,
+        to: ADVANCE_INVOICE_ADDRESS[chainId],
+        data: encodeFunctionData({
+          abi: advancedPaymentProcessor,
+          functionName: "createDispute",
+          args: [orderId],
+        }),
+        gasPrice,
+      });
+
+      progressToastId = toast.info("Transaction in progress...", {
+        duration: Infinity,
+      });
+
+      const receipt = await publicClient?.waitForTransactionReceipt({
+        hash: tx!,
+      });
+      if (receipt?.status) {
+        toast.dismiss(progressToastId);
+        toast.success("Dispute Raised");
+        await getInvoiceData();
+        success = true;
+      } else {
+        toast.dismiss(progressToastId);
+        toast.error("An unexpected error occurred. Please try again");
+      }
+    } catch (error) {
+      toast.dismiss(progressToastId);
+      getError(error);
+    }
+    setIsLoading("");
+    return success;
+  };
+
+  const claimExpiredInvoiceRefunds = async (
+    orderId: Address
+  ): Promise<boolean> => {
+    setIsLoading("claimExpiredInvoiceRefunds");
+
+    let success = false;
+    let progressToastId;
+    try {
+      const gasPrice = await fetchGasPrice(publicClient, chainId);
+
+      const tx = await walletClient?.sendTransaction({
+        chain: polygonAmoy,
+        to: ADVANCE_INVOICE_ADDRESS[chainId],
+        data: encodeFunctionData({
+          abi: advancedPaymentProcessor,
+          functionName: "claimExpiredInvoiceRefunds",
+          args: [orderId],
+        }),
+        gasPrice,
+      });
+
+      progressToastId = toast.info("Transaction in progress...", {
+        duration: Infinity,
+      });
+
+      const receipt = await publicClient?.waitForTransactionReceipt({
+        hash: tx!,
+      });
+      if (receipt?.status) {
+        toast.dismiss(progressToastId);
+        toast.success("Refunded");
+        await getInvoiceData();
+        success = true;
+      } else {
+        toast.dismiss(progressToastId);
+        toast.error("An unexpected error occurred. Please try again");
+      }
+    } catch (error) {
+      toast.dismiss(progressToastId);
+      getError(error);
+    }
+    setIsLoading("");
+    return success;
+  };
+
+  const resolveDispute = async (orderId: Address): Promise<boolean> => {
+    setIsLoading("resolveDispute");
+
+    let success = false;
+    let progressToastId;
+    try {
+      const gasPrice = await fetchGasPrice(publicClient, chainId);
+
+      const tx = await walletClient?.sendTransaction({
+        chain: polygonAmoy,
+        to: ADVANCE_INVOICE_ADDRESS[chainId],
+        data: encodeFunctionData({
+          abi: advancedPaymentProcessor,
+          functionName: "resolveDispute",
+          args: [orderId],
+        }),
+        gasPrice,
+      });
+
+      progressToastId = toast.info("Transaction in progress...", {
+        duration: Infinity,
+      });
+
+      const receipt = await publicClient?.waitForTransactionReceipt({
+        hash: tx!,
+      });
+
+      if (receipt?.status) {
+        toast.dismiss(progressToastId);
+        const message = !receipt?.logs.length
+          ? "Entered resolution"
+          : "Dispute Resolved";
+        toast.success(message);
+        await getInvoiceData();
+        success = true;
+      } else {
+        toast.dismiss(progressToastId);
+        toast.error("An unexpected error occurred. Please try again");
+      }
+    } catch (error) {
+      toast.dismiss(progressToastId);
+      getError(error);
+    }
+    setIsLoading("");
+    return success;
+  };
+
   const setFeeReceiversAddress = (): Promise<boolean> => {
     return Promise.resolve(false); // or true, or whatever def
   };
@@ -1111,6 +1426,13 @@ const WalletProvider = ({ children }: Props) => {
         setMinimumInvoiceValue,
         getInvoiceOwner,
         getAdvancedInvoiceData,
+        resolveDispute,
+        acceptMarketplaceInvoice,
+        cancelMarketplaceInvoice,
+        requestCancelation,
+        handleCancelationRequest,
+        createDispute,
+        claimExpiredInvoiceRefunds,
         refetchAllInvoiceData: async () => {
           await getAllInvoiceData();
         },

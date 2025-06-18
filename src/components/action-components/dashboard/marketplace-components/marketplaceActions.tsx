@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/rules-of-hooks */
 "use client";
 import { ColumnDef } from "@tanstack/react-table";
 import { Invoice } from "@/model/model";
@@ -13,8 +14,14 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal } from "lucide-react";
 import { timeLeft } from "@/utils";
+import AcceptInvoice from "./accept-invoice";
+import RequestCancelation from "./request-cancelation";
+import CreateDispute from "./create-dispute";
+import HandleCancelationRequest from "./handle-cancelation";
+import CancelInvoice from "./cancel-invoice";
+import Refund from "./refund";
 
-const marketplaceColumns: ColumnDef<Invoice>[] = [
+const marketplaceActions: ColumnDef<Invoice>[] = [
   {
     id: "actions",
     cell: ({ row }) => {
@@ -22,6 +29,7 @@ const marketplaceColumns: ColumnDef<Invoice>[] = [
       const t = timeLeft(Number(paidAtTimestamp), 259200000);
 
       const payment = row.original;
+      console.log("RES", row.original);
       return (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -34,14 +42,14 @@ const marketplaceColumns: ColumnDef<Invoice>[] = [
             <DropdownMenuLabel>Actions</DropdownMenuLabel>
             {payment.status === "CREATED" && (
               <>
-                {payment.type === "Buyer" && t !== "Time Elapsed" && (
+                {payment.type === "ReceivedInvoice" && (
                   <>
                     <DropdownMenuItem>Pay Invoice</DropdownMenuItem>
                     <DropdownMenuSeparator />
                   </>
                 )}
 
-                {payment.type === "Seller" && t !== "Time Elapsed" && (
+                {payment.type === "IssuedInvoice" && t !== "Time Elapsed" && (
                   <>
                     <DropdownMenuItem>Waiting for Payment</DropdownMenuItem>
                     <DropdownMenuSeparator />
@@ -52,28 +60,27 @@ const marketplaceColumns: ColumnDef<Invoice>[] = [
 
             {payment.status === "PAID" && (
               <>
-                {payment.type === "Seller" && t !== "Time Elapsed" && (
+                {payment.type === "IssuedInvoice" && t !== "Time Elapsed" && (
                   <>
-                    <DropdownMenuItem>Accept Payment</DropdownMenuItem>
-                    <DropdownMenuItem>Reject Payment</DropdownMenuItem>
+                    <AcceptInvoice invoiceKey={payment.invoiceKey} />
+                    <CancelInvoice invoiceKey={payment.invoiceKey} />
                   </>
                 )}
 
-                {payment.type === "Buyer" && t !== "Time Elapsed" && (
-                  <DropdownMenuItem>
-                    Waiting for Seller Response
-                  </DropdownMenuItem>
+                {payment.type === "ReceivedInvoice" && t !== "Time Elapsed" && (
+                  <RequestCancelation invoiceKey={payment.invoiceKey} />
                 )}
 
-                {payment.type === "Buyer" && t === "Time Elapsed" && (
-                  <DropdownMenuItem>Request Cancelation</DropdownMenuItem>
+                {payment.type === "ReceivedInvoice" && t === "Time Elapsed" && (
+                  <Refund invoiceKey={payment.invoiceKey} />
                 )}
               </>
             )}
 
-            {payment.status === "ACCEPTED" && payment.type === "Buyer" && (
-              <DropdownMenuItem>Create Dispute</DropdownMenuItem>
-            )}
+            {payment.status === "ACCEPTED" &&
+              payment.type === "ReceivedInvoice" && (
+                <CreateDispute invoiceKey={payment.invoiceKey} />
+              )}
 
             {payment.status === "REJECTED" && (
               <DropdownMenuItem>Refunded</DropdownMenuItem>
@@ -83,21 +90,36 @@ const marketplaceColumns: ColumnDef<Invoice>[] = [
               <DropdownMenuItem>Invoice Cancelled</DropdownMenuItem>
             )}
 
-            {payment.status === "CANCELATION_REQUESTED" &&
-              payment.type === "Seller" && (
+            {payment.status === "CANCELATION REQUESTED" &&
+              payment.type === "IssuedInvoice" && (
                 <>
-                  <DropdownMenuItem>Accept Cancelation</DropdownMenuItem>
-                  <DropdownMenuItem>Reject Cancelation</DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <HandleCancelationRequest
+                      invoiceKey={payment.invoiceKey}
+                      state={true}
+                      text="Accept"
+                      key="0"
+                    />
+                  </DropdownMenuItem>
+
+                  <DropdownMenuItem asChild>
+                    <HandleCancelationRequest
+                      invoiceKey={payment.invoiceKey}
+                      state={false}
+                      text="Reject"
+                      key="1"
+                    />
+                  </DropdownMenuItem>
                 </>
               )}
 
-            {payment.status === "CANCELATION_REJECTED" &&
-              payment.type === "Seller" && (
+            {payment.status === "CANCELATION REJECTED" &&
+              payment.type === "IssuedInvoice" && (
                 <DropdownMenuItem>Accept Invoice</DropdownMenuItem>
               )}
 
-            {payment.status === "CANCELATION_ACCEPTED" &&
-              payment.type === "Buyer" && (
+            {payment.status === "CANCELATION ACCEPTED" &&
+              payment.type === "ReceivedInvoice" && (
                 <DropdownMenuItem>Refunded</DropdownMenuItem>
               )}
 
@@ -105,11 +127,11 @@ const marketplaceColumns: ColumnDef<Invoice>[] = [
               <DropdownMenuItem>Dispute In Progress</DropdownMenuItem>
             )}
 
-            {payment.status === "DISPUTE_DISMISSED" && (
+            {payment.status === "DISPUTE DISMISSED" && (
               <DropdownMenuItem>Dispute Dismissed</DropdownMenuItem>
             )}
 
-            {payment.status === "DISPUTE_RESOLVED" && (
+            {payment.status === "DISPUTE RESOLVED" && (
               <DropdownMenuItem>Dispute Resolved</DropdownMenuItem>
             )}
 
@@ -123,4 +145,4 @@ const marketplaceColumns: ColumnDef<Invoice>[] = [
   },
 ];
 
-export default marketplaceColumns;
+export default marketplaceActions;
