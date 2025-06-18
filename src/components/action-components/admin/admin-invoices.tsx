@@ -25,19 +25,27 @@ const ContractLink: React.FC<ContractLinkProps> = ({ address }) => {
   const formattedBalance = balance ? Number(balance).toFixed(3) : undefined;
 
   return (
-    <>
-      Contract:{" "}
-      <a
-        href={`https://amoy.polygonscan.com/address/${address}`}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="text-blue-500 underline"
-      >
-        {formatAddress(address)}
-      </a>
-      <br />
-      Balance: {isLoading ? "Loading..." : formattedBalance ? `${formattedBalance} POL` : "0 POL"}
-    </>
+    <div className="flex flex-col gap-2">
+      <span>
+        Contract:{" "}
+        <a
+          href={`https://amoy.polygonscan.com/address/${address}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-blue-500 underline"
+        >
+          {formatAddress(address)}
+        </a>
+      </span>
+      <span>
+        Balance:{" "}
+        {isLoading
+          ? "Loading..."
+          : formattedBalance
+          ? `${formattedBalance} POL`
+          : "0 POL"}
+      </span>
+    </div>
   );
 };
 

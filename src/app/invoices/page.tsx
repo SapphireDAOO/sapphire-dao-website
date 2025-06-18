@@ -4,12 +4,10 @@ import ProtectedPage from "@/components/ProtectedPage";
 
 export default function Invoices() {
   return (
-    <ProtectedPage>
-      <main>
-        <Container>
-          <AdminInvoices />
-        </Container>
-      </main>
-    </ProtectedPage>
+    <main>
+      <Container>
+        <AdminInvoices />
+      </Container>
+    </main>
   );
 }

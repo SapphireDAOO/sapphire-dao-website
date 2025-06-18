@@ -32,7 +32,7 @@ const AdminCard = () => {
 
   const [receiversAdd, setReceiverAdd] = useState("");
   const [ownerAddr, setOwnerAddr] = useState("");
-  const [invoiceId, setInvoiceId] = useState("");
+  const [invoiceKey, setInvoiceKey] = useState("");
   const [holdPeriod, setHoldPeriod] = useState("");
   const [defaultPeriod, setDefaultPeriod] = useState("");
   const [sDaoFee, setDaoFee] = useState("");
@@ -40,7 +40,7 @@ const AdminCard = () => {
 
   const {
     setFeeReceiversAddress,
-    // setInvoiceHoldPeriod,
+    setInvoiceHoldPeriod,
     setDefaultHoldPeriod,
     setFee,
     transferOwnership,
@@ -56,11 +56,10 @@ const AdminCard = () => {
     await transferOwnership(ownerAddr as Address);
   };
 
-  // const handleInvoiceHoldPeriod = async () => {
-  //   const invoiceIdBigNumber = BigInt(invoiceId);
-  //   const holdPeriodInSecond = Number(holdPeriod) * 24 * 60 * 60;
-  //   await setInvoiceHoldPeriod(invoiceIdBigNumber, holdPeriodInSecond);
-  // };
+  const handleInvoiceHoldPeriod = async () => {
+    const holdPeriodInSecond = Number(holdPeriod) * 24 * 60 * 60;
+    await setInvoiceHoldPeriod(invoiceKey as Address, holdPeriodInSecond);
+  };
 
   const handleDefaultPeriod = async () => {
     const defaultPeriodInSecond = BigInt(Number(defaultPeriod) * 24 * 60 * 60);
@@ -104,7 +103,9 @@ const AdminCard = () => {
             </span>
             <span className="font-mono text-primary">
               {feeReceiver
-                ? `${"feeReceiver".slice(0, 8)}...${"feeReceiver".slice(-6)}`
+                ? `${String(feeReceiver).slice(0, 8)}...${String(
+                    feeReceiver
+                  ).slice(-6)}`
                 : "Loading..."}
             </span>
           </p>
@@ -196,8 +197,8 @@ const AdminCard = () => {
                 id="holdPeriodID"
                 placeholder="Invoice Id"
                 type="number"
-                value={invoiceId}
-                onChange={(e) => setInvoiceId(e.target.value)}
+                value={invoiceKey}
+                onChange={(e) => setInvoiceKey(e.target.value)}
               />
               <Input
                 id="invoicePeriod"
@@ -206,7 +207,7 @@ const AdminCard = () => {
                 value={holdPeriod}
                 onChange={(e) => setHoldPeriod(e.target.value)}
               />
-              <Button >
+              <Button onClick={handleInvoiceHoldPeriod}>
                 {isLoading === "setInvoiceHoldPeriod" ? (
                   <Loader2
                     className="inline-flex animate-spin"
