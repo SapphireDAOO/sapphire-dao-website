@@ -1,4 +1,3 @@
-// eslint-disable react-hooks/rules-of-hooks
 "use client";
 import { ColumnDef } from "@tanstack/react-table";
 import { Invoice } from "@/model/model";
@@ -33,58 +32,89 @@ const marketplaceColumns: ColumnDef<Invoice>[] = [
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>Actions</DropdownMenuLabel>
-            {payment.type === "Buyer" &&
-              t !== "Time Elapsed" &&
-              payment.status === "CREATED" && (
-                <>
-                  <DropdownMenuItem>Pay Invoice</DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                </>
-              )}
-
-            {payment.status === "PAID" &&
-              payment.type === "Seller" &&
-              t !== "Time Elapsed" && (
-                <>
-                  <DropdownMenuItem>Accept Payment</DropdownMenuItem>
-                  <DropdownMenuItem>Reject Payment</DropdownMenuItem>
-                </>
-              )}
-
-            {payment.status === "PAID" &&
-              payment.type === "Seller" &&
-              t === "Time Elapsed" && (
-                <DropdownMenuItem>Time Elapsed</DropdownMenuItem>
-              )}
-
-            {payment.status === "PAID" &&
-              payment.type === "Buyer" &&
-              t === "Time Elapsed" && (
-                <DropdownMenuItem>Request Cancel</DropdownMenuItem>
-              )}
-
-            {payment.status === "CANCELLED" && payment.type === "Seller" && (
+            {payment.status === "CREATED" && (
               <>
-                <DropdownMenuItem>Accept Cancel</DropdownMenuItem>
-                <DropdownMenuItem>Reject Cancel</DropdownMenuItem>
+                {payment.type === "Buyer" && t !== "Time Elapsed" && (
+                  <>
+                    <DropdownMenuItem>Pay Invoice</DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                  </>
+                )}
+
+                {payment.type === "Seller" && t !== "Time Elapsed" && (
+                  <>
+                    <DropdownMenuItem>Waiting for Payment</DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                  </>
+                )}
               </>
             )}
 
-            {(payment.status === "REJECTED" ||
-              payment.status === "REFUNDED") && (
-              <DropdownMenuItem>Refunded / Resolved</DropdownMenuItem>
+            {payment.status === "PAID" && (
+              <>
+                {payment.type === "Seller" && t !== "Time Elapsed" && (
+                  <>
+                    <DropdownMenuItem>Accept Payment</DropdownMenuItem>
+                    <DropdownMenuItem>Reject Payment</DropdownMenuItem>
+                  </>
+                )}
+
+                {payment.type === "Buyer" && t !== "Time Elapsed" && (
+                  <DropdownMenuItem>
+                    Waiting for Seller Response
+                  </DropdownMenuItem>
+                )}
+
+                {payment.type === "Buyer" && t === "Time Elapsed" && (
+                  <DropdownMenuItem>Request Cancelation</DropdownMenuItem>
+                )}
+              </>
             )}
 
             {payment.status === "ACCEPTED" && payment.type === "Buyer" && (
               <DropdownMenuItem>Create Dispute</DropdownMenuItem>
             )}
 
-            {payment.status === "DISPUTE" && (
-              <DropdownMenuItem>Dispute in progress</DropdownMenuItem>
+            {payment.status === "REJECTED" && (
+              <DropdownMenuItem>Refunded</DropdownMenuItem>
             )}
 
-            {payment.status === "RESOLVE" && (
-              <DropdownMenuItem>RESOLVED</DropdownMenuItem>
+            {payment.status === "CANCELED" && (
+              <DropdownMenuItem>Invoice Cancelled</DropdownMenuItem>
+            )}
+
+            {payment.status === "CANCELATION_REQUESTED" &&
+              payment.type === "Seller" && (
+                <>
+                  <DropdownMenuItem>Accept Cancelation</DropdownMenuItem>
+                  <DropdownMenuItem>Reject Cancelation</DropdownMenuItem>
+                </>
+              )}
+
+            {payment.status === "CANCELATION_REJECTED" &&
+              payment.type === "Seller" && (
+                <DropdownMenuItem>Accept Invoice</DropdownMenuItem>
+              )}
+
+            {payment.status === "CANCELATION_ACCEPTED" &&
+              payment.type === "Buyer" && (
+                <DropdownMenuItem>Refunded</DropdownMenuItem>
+              )}
+
+            {payment.status === "DISPUTED" && (
+              <DropdownMenuItem>Dispute In Progress</DropdownMenuItem>
+            )}
+
+            {payment.status === "DISPUTE_DISMISSED" && (
+              <DropdownMenuItem>Dispute Dismissed</DropdownMenuItem>
+            )}
+
+            {payment.status === "DISPUTE_RESOLVED" && (
+              <DropdownMenuItem>Dispute Resolved</DropdownMenuItem>
+            )}
+
+            {payment.status === "RELEASED" && (
+              <DropdownMenuItem>Payment Released</DropdownMenuItem>
             )}
           </DropdownMenuContent>
         </DropdownMenu>

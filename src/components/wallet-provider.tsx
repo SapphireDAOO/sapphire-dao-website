@@ -335,7 +335,7 @@ const WalletProvider = ({ children }: Props) => {
           createdAt: invoice.createdAt ? unixToGMT(invoice.createdAt) : null,
           paidAt: invoice.paidAt || "Not Paid",
           status: invoice.state || "Unknown",
-          price: invoice.price ? formatEther(invoice.price) : null,
+          price: invoice.price ? invoice.price : null,
           amountPaid: invoice.amountPaid
             ? formatEther(invoice.amountPaid)
             : null,
@@ -357,7 +357,7 @@ const WalletProvider = ({ children }: Props) => {
           createdAt: invoice.createdAt ? unixToGMT(invoice.createdAt) : null,
           paidAt: invoice.paidAt || "Not Paid",
           status: invoice.state || "Unknown",
-          price: invoice.price ? formatEther(invoice.price) : null,
+          price: invoice.price ? invoice.price : null,
           amountPaid: invoice.amountPaid
             ? formatEther(invoice.amountPaid)
             : null,
