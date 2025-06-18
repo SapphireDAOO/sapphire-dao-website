@@ -15,11 +15,24 @@ import allMarketplaceInvoices from "./AllMarketplaceInvoicesColumns";
 import { useGetBalance } from "@/hooks/useGetBalance";
 import { Address } from "viem";
 
+/**
+ * Props for the ContractLink component.
+ */
 interface ContractLinkProps {
-  address: Address;
+  address: Address; // The contract address to display
+  showBalance?: boolean; // Whether to display the balance (defaults to true)
 }
 
-const ContractLink: React.FC<ContractLinkProps> = ({ address }) => {
+/**
+ * A component that displays a clickable contract address link and optionally the POL balance of the marketplace wallet.
+ *
+ * @param {ContractLinkProps} props - The component props.
+ * @returns {JSX.Element} The rendered contract link and optional balance display.
+ */
+const ContractLink: React.FC<ContractLinkProps> = ({
+  address,
+  showBalance = true,
+}) => {
   const { data: balance, isLoading } = useGetBalance();
 
   const formattedBalance = balance ? Number(balance).toFixed(3) : undefined;
@@ -37,14 +50,16 @@ const ContractLink: React.FC<ContractLinkProps> = ({ address }) => {
           {formatAddress(address)}
         </a>
       </span>
-      <span>
-        Balance:{" "}
-        {isLoading
-          ? "Loading..."
-          : formattedBalance
-          ? `${formattedBalance} POL`
-          : "0 POL"}
-      </span>
+      {showBalance && (
+        <span>
+          Wallet Balance:{" "}
+          {isLoading
+            ? "Loading..."
+            : formattedBalance
+            ? `${formattedBalance} POL`
+            : "0 POL"}
+        </span>
+      )}
     </div>
   );
 };
@@ -67,7 +82,10 @@ const AdminInvoices = () => {
             <DashboardHeader
               title="INVOICES"
               rightContent={
-                <ContractLink address={INVOICE_ADDRESS[polygonAmoy.id]} />
+                <ContractLink
+                  address={INVOICE_ADDRESS[polygonAmoy.id] as Address}
+                  showBalance={false}
+                />
               }
             />
             <DataTable
@@ -82,7 +100,7 @@ const AdminInvoices = () => {
               title="MARKETPLACE"
               rightContent={
                 <ContractLink
-                  address={ADVANCE_INVOICE_ADDRESS[polygonAmoy.id]}
+                  address={ADVANCE_INVOICE_ADDRESS[polygonAmoy.id] as Address}
                 />
               }
             />
@@ -98,7 +116,7 @@ const AdminInvoices = () => {
               title="Admin Action"
               rightContent={
                 <ContractLink
-                  address={ADVANCE_INVOICE_ADDRESS[polygonAmoy.id]}
+                  address={ADVANCE_INVOICE_ADDRESS[polygonAmoy.id] as Address}
                 />
               }
             />
