@@ -225,17 +225,25 @@ const baseColumns: ColumnDef<Invoice>[] = [
   {
     accessorKey: "status",
     header: () => <div className="text-center">State</div>,
-    cell: ({ row }) => (
-      <div className="text-center capitalize">{row.getValue("status")}</div>
-    ),
+    cell: ({ row }) => {
+      const status = row.getValue("status") as string;
+      return <div className="text-center capitalize">{status}</div>;
+    },
   },
-  // `$${(Number(data.price) / 1e8).toFixed(2)}`
   {
     accessorKey: "price",
     header: () => <div className="text-center">Amount</div>,
-    cell: ({ row }) => (
-      <div className="text-center">{row.getValue("price") + " POL"}</div>
-    ),
+    cell: ({ row }) => {
+      const price = row.getValue("price");
+      const source = row.original.source?.toLowerCase();
+
+      const orderCost =
+        source !== "simple"
+          ? `$${(Number(price) / 1e8).toFixed(2)}`
+          : `${price} POL`;
+
+      return <div className="text-center">{orderCost}</div>;
+    },
   },
 ];
 

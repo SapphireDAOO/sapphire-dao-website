@@ -11,20 +11,35 @@ import DashboardHeader from "../dashboard/Header";
 import Container from "@/components/Container";
 import allInvoicesColumns from "./allInvoicesColumns";
 import adminActionsColumns from "./adminActionsColumns";
+import allMarketplaceInvoices from "./all-marketplace-invoices-columns";
+import { useGetBalance } from "@/hooks/useGetBalance";
+import { Address } from "viem";
 
-const ContractLink = ({ address }: { address: string }) => (
-  <>
-    Contract:{" "}
-    <a
-      href={`https://amoy.polygonscan.com/address/${address}`}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="text-blue-500 underline"
-    >
-      {formatAddress(address)}
-    </a>
-  </>
-);
+interface ContractLinkProps {
+  address: Address;
+}
+
+const ContractLink: React.FC<ContractLinkProps> = ({ address }) => {
+  const { data: balance, isLoading } = useGetBalance();
+
+  const formattedBalance = balance ? Number(balance).toFixed(3) : undefined;
+
+  return (
+    <>
+      Contract:{" "}
+      <a
+        href={`https://amoy.polygonscan.com/address/${address}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-blue-500 underline"
+      >
+        {formatAddress(address)}
+      </a>
+      <br />
+      Balance: {isLoading ? "Loading..." : formattedBalance ? `${formattedBalance} POL` : "0 POL"}
+    </>
+  );
+};
 
 const AdminInvoices = () => {
   const { allInvoiceData } = useContext(ContractContext);
@@ -35,7 +50,8 @@ const AdminInvoices = () => {
         <div className="flex items-center justify-center mt-10">
           <TabsList>
             <TabsTrigger value="invoices">Invoices</TabsTrigger>
-            <TabsTrigger value="actions">Admin Actions</TabsTrigger>
+            <TabsTrigger value="marketplace">Marketplace Invoices</TabsTrigger>
+            <TabsTrigger value="actions">Marketplace Actions</TabsTrigger>
           </TabsList>
         </div>
         <TabsContent value="invoices">
@@ -49,6 +65,22 @@ const AdminInvoices = () => {
             <DataTable
               columns={allInvoicesColumns}
               data={allInvoiceData.invoices ?? []}
+            />
+          </Container>
+        </TabsContent>
+        <TabsContent value="marketplace">
+          <Container>
+            <DashboardHeader
+              title="MARKETPLACE"
+              rightContent={
+                <ContractLink
+                  address={ADVANCE_INVOICE_ADDRESS[polygonAmoy.id]}
+                />
+              }
+            />
+            <DataTable
+              columns={allMarketplaceInvoices}
+              data={allInvoiceData.marketplaceInvoices ?? []}
             />
           </Container>
         </TabsContent>

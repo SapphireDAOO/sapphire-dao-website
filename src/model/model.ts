@@ -49,6 +49,7 @@ export type AdminAction = {
 export type AllInvoicesData = {
   invoices: AllInvoice[];
   actions: AdminAction[];
+  marketplaceInvoices: AllInvoice[];
 };
 
 // Specialized invoice type for invoices created by the user

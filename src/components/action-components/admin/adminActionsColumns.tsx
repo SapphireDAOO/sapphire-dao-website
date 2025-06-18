@@ -4,6 +4,7 @@ import { AdminAction } from "@/model/model";
 
 import React from "react";
 import { Address } from "viem";
+import CopyableAddress from "@/components/ui/CopyableAddress";
 
 const adminActionsColumns: ColumnDef<AdminAction>[] = [
   {
@@ -13,12 +14,10 @@ const adminActionsColumns: ColumnDef<AdminAction>[] = [
   },
   {
     accessorKey: "invoiceKey",
-    header: () => <div className="text-center">Order id</div>,
+    header: () => <div className="text-center">Order Id</div>,
     cell: ({ row }) => {
       const invoiceKey: Address = row.getValue("invoiceKey");
-      const shortKey = `${invoiceKey.slice(0, 6)}...${invoiceKey.slice(-4)}`;
-
-      return <div className="text-center font-mono">{shortKey}</div>;
+      return <CopyableAddress fullValue={invoiceKey} />;
     },
   },
   {

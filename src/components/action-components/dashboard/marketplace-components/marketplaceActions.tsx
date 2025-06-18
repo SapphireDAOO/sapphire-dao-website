@@ -1,4 +1,3 @@
-/* eslint-disable react-hooks/rules-of-hooks */
 "use client";
 import { ColumnDef } from "@tanstack/react-table";
 import { Invoice } from "@/model/model";
@@ -20,6 +19,7 @@ import CreateDispute from "./create-dispute";
 import HandleCancelationRequest from "./handle-cancelation";
 import CancelInvoice from "./cancel-invoice";
 import Refund from "./refund";
+import ResolveDispute from "./resolve-dispute";
 
 const marketplaceActions: ColumnDef<Invoice>[] = [
   {
@@ -124,7 +124,7 @@ const marketplaceActions: ColumnDef<Invoice>[] = [
               )}
 
             {payment.status === "DISPUTED" && (
-              <DropdownMenuItem>Dispute In Progress</DropdownMenuItem>
+              <ResolveDispute invoiceKey={payment.invoiceKey} />
             )}
 
             {payment.status === "DISPUTE DISMISSED" && (

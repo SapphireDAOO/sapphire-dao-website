@@ -12,6 +12,7 @@ export interface ContractContextData {
   allInvoiceData: {
     invoices: AllInvoice[];
     actions: AdminAction[];
+    marketplaceInvoices: AllInvoice[];
   };
   createInvoice: (invoicePrice: bigint) => Promise<Address | undefined>;
   makeInvoicePayment: (amount: bigint, invoiceKey: Address) => Promise<boolean>;
@@ -60,6 +61,7 @@ export const contractContextDefaults: ContractContextData = {
   allInvoiceData: {
     invoices: [],
     actions: [],
+    marketplaceInvoices: [],
   },
   transferOwnership: async () => Promise.resolve(false),
   createInvoice: async () => Promise.resolve("0x"),

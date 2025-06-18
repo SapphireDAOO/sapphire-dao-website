@@ -67,7 +67,6 @@ const GET_ALL_INVOICES = `
         id
       }
     }
-
     adminActions {
       id
       invoiceId
@@ -75,7 +74,24 @@ const GET_ALL_INVOICES = `
       type
       action
     }
-  }
+  smartInvoices {
+      contract
+      createdAt
+      id
+      invoiceId
+      paidAt
+      price
+      releasedAt
+      state
+      amountPaid
+      seller {
+        id
+      }
+      buyer {
+        id
+      }
+    }
+}
 `;
 
 // GraphQL query to fetch invoices for a specific user
@@ -185,6 +201,7 @@ const WalletProvider = ({ children }: Props) => {
   const [allInvoiceData, setAllInvoiceData] = useState<AllInvoicesData>({
     invoices: [],
     actions: [],
+    marketplaceInvoices: [],
   });
 
   // Error handler for blockchain operations
@@ -212,7 +229,7 @@ const WalletProvider = ({ children }: Props) => {
     toast.error(message || "Something went wrong"); // Show a generic error message
   };
 
-  const getAllInvoiceData = useCallback(async () => {
+  const getAllInvoiceData = useCallback(async (): Promise<AllInvoicesData> => {
     try {
       const { data, error } = await client(chainId)
         .query(GET_ALL_INVOICES, {})
@@ -220,11 +237,12 @@ const WalletProvider = ({ children }: Props) => {
 
       if (error) {
         console.error("GraphQL Error:", error.message);
-        return { invoices: [], actions: [] };
+        return { invoices: [], actions: [], marketplaceInvoices: [] };
       }
 
       const rawInvoices = data?.invoices || [];
       const rawAdminActions = data?.adminActions || [];
+      const rawMarketplaceInvoices = data?.smartInvoices || [];
 
       const invoices: AllInvoice[] = rawInvoices.map((list: any) => ({
         id: list.invoiceId || "",
@@ -253,10 +271,33 @@ const WalletProvider = ({ children }: Props) => {
         type: list.type,
       }));
 
-      return { invoices, actions };
+      console.log(rawMarketplaceInvoices)
+
+      const marketplaceInvoices: AllInvoice[] = rawMarketplaceInvoices.map(
+        (list: any) => ({
+          id: list.invoiceId || "",
+          invoiceKey: list.id || "",
+          contract: list.contract || "",
+          seller: list.seller?.id || "",
+          payment: list.paymentTxHash || "",
+          createdAt: unixToGMT(list.createdAt) || "-",
+          paidAt: unixToGMT(list.paidAt),
+          by: list.buyer?.id || "",
+          release:
+            list.releasedAt && !isNaN(list.releasedAt)
+              ? unixToGMT(list.releasedAt)
+              : "Pending",
+          fee: list.fee || "0",
+          state: list.status,
+          releaseHash: list.releaseHash,
+          status: list.state,
+        })
+      );
+
+      return { invoices, actions, marketplaceInvoices };
     } catch (error) {
       console.error("❌ Error fetching invoice data:", error);
-      return { invoices: [], actions: [] };
+      return { invoices: [], actions: [], marketplaceInvoices: [] };
     }
   }, [chainId]);
 
@@ -405,6 +446,7 @@ const WalletProvider = ({ children }: Props) => {
       setAllInvoiceData({
         invoices: [],
         actions: [],
+        marketplaceInvoices: [],
       });
     } else {
       onAddress();
