@@ -10,16 +10,16 @@ export const PAYMENT_PROCESSOR_STORAGE: Record<number, Address> = {
 };
 
 export const INVOICE_ADDRESS: Record<number, Address> = {
-  [polygonAmoy.id]: "0x55264c3099325453b159B998C77F78B749c30Dd7",
+  [polygonAmoy.id]: "0xC684B8C7cB5C842Da70224b467bC78240f6a09fb",
 };
 
 export const ADVANCE_INVOICE_ADDRESS: Record<number, Address> = {
-  [polygonAmoy.id]: "0x7f98897854Ab2B2370C3BF2694514f05375Ea606",
+  [polygonAmoy.id]: "0xf041a2Cd5f87fC7d02C3A42B02dC479582538D26",
 };
 
 export const THE_GRAPH_API_URL: Record<number, string> = {
   [polygonAmoy.id]:
-    "https://subgraph.satsuma-prod.com/a881ed61cd10/freecode--350948/payment-processor-test-v1/api",
+    "https://api.studio.thegraph.com/query/100227/payment-processor-test-v1/version/latest",
 };
 
 export const errorMessages: ErrorMessages = {

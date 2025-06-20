@@ -6,6 +6,45 @@ import { Button } from "@/components/ui/button";
 import { ArrowUpDown } from "lucide-react";
 import { formatAddress, timeLeft } from "@/utils";
 import React from "react";
+import { useGetTokenName } from "@/hooks/useGetTokenName";
+import { Address } from "viem";
+
+const DecisionWindowCell = ({
+  paidAtTimestamp,
+  status,
+  source,
+  cancelAt,
+}: {
+  paidAtTimestamp: number | string | null;
+  status?: string;
+  source?: string;
+  cancelAt?: string;
+}) => {
+  if (!status || !source) return <div className="text-center">-</div>;
+
+  const expiresAt = Number(cancelAt) * 1000;
+
+  const [timeRemaining, setTimeRemaining] = React.useState(() =>
+    status === "PAID" ? timeLeft(paidAtTimestamp, 259200000, expiresAt) : "-"
+  );
+
+  React.useEffect(() => {
+    if (status !== "PAID" || !paidAtTimestamp) return;
+
+    const interval = setInterval(() => {
+      const updatedTime = timeLeft(paidAtTimestamp, 259200000, expiresAt);
+      setTimeRemaining(updatedTime);
+
+      if (updatedTime === "Time Elapsed") {
+        clearInterval(interval);
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [paidAtTimestamp, status, expiresAt]);
+
+  return <div className="text-center">{timeRemaining}</div>;
+};
 
 const baseColumns: ColumnDef<Invoice>[] = [
   {
@@ -102,7 +141,7 @@ const baseColumns: ColumnDef<Invoice>[] = [
   },
   {
     accessorKey: "buyer",
-    header: () => <div className="text-center">By</div>,
+    header: () => <div className="text-center">Buyer</div>,
     cell: ({ row }) => {
       const { type } = row.original;
       const buyersAddress = row.getValue("buyer") as string | undefined;
@@ -121,6 +160,41 @@ const baseColumns: ColumnDef<Invoice>[] = [
             className="text-blue-500 underline"
           >
             {displayText}
+          </a>
+        </div>
+      );
+    },
+  },
+  {
+    accessorKey: "paymentToken",
+    header: () => <div className="text-center">Payment Token</div>,
+    cell: ({ row }) => {
+      const paymentToken = row.getValue("paymentToken") as string;
+      const paymentTokenAddress = row.getValue("paymentToken") as Address;
+      const zeroAddress = "0x0000000000000000000000000000000000000000";
+      if (!paymentToken) return <div className="text-center">-</div>;
+
+      const link =
+        paymentToken === zeroAddress
+          ? "https://polygon.technology/pol-token"
+          : `https://amoy.polygonscan.com/address/${paymentToken}`;
+
+      const { data: name, error } = useGetTokenName(paymentTokenAddress);
+
+      let tokenName = name;
+      if (error) {
+        tokenName = "POL";
+      }
+
+      return (
+        <div className="text-center">
+          <a
+            href={link}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-500 underline"
+          >
+            {tokenName}
           </a>
         </div>
       );
@@ -193,33 +267,16 @@ const baseColumns: ColumnDef<Invoice>[] = [
     accessorKey: "paidAt",
     header: () => <div className="text-center">Decision Window</div>,
     cell: ({ row }) => {
-      const paidAtTimestamp = row.getValue("paidAt");
       const payment = row.original;
 
-      const [timeRemaining, setTimeRemaining] = React.useState(() =>
-        payment?.status === "PAID"
-          ? timeLeft(Number(paidAtTimestamp), 259200000)
-          : "-"
+      return (
+        <DecisionWindowCell
+          paidAtTimestamp={row.getValue("paidAt")}
+          status={payment.status}
+          source={payment.source}
+          cancelAt={payment.cancelAt}
+        />
       );
-
-      React.useEffect(() => {
-        if (payment?.status !== "PAID" || !paidAtTimestamp) {
-          return;
-        }
-
-        const interval = setInterval(() => {
-          const updatedTime = timeLeft(paidAtTimestamp, 259200000);
-          setTimeRemaining(updatedTime);
-
-          if (updatedTime === "Time Elapsed") {
-            clearInterval(interval);
-          }
-        }, 1000);
-
-        return () => clearInterval(interval);
-      }, [paidAtTimestamp, payment?.status]);
-
-      return <div className="text-center">{timeRemaining}</div>;
     },
   },
   {

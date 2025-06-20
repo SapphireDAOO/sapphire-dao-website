@@ -8,7 +8,6 @@ import {
   type Address,
   encodeFunctionData,
   erc20Abi,
-  maxUint256,
   zeroAddress,
 } from "viem";
 import { createClient } from "urql";
@@ -35,6 +34,7 @@ import { unixToGMT } from "@/utils";
 import { paymentProcessor } from "@/abis/PaymentProcessor";
 import { advancedPaymentProcessor } from "@/abis/AdvancedPaymentProcessor";
 import { PaymentProcessorStorage } from "@/abis/PaymentProcessorStorage";
+
 // Props type for the WalletProvider component
 type Props = {
   children?: ReactNode; // Allows nested components inside WalletProvider
@@ -145,7 +145,12 @@ const invoiceQuery = `query ($address: String!) {
       price
       releasedAt
       state
+      paymentToken
+      cancelAt
       seller {
+        id
+      }
+      buyer {
         id
       }
     }
@@ -159,6 +164,8 @@ const invoiceQuery = `query ($address: String!) {
       price
       releasedAt
       state
+      paymentToken
+      cancelAt
       seller {
         id
       }
@@ -271,8 +278,6 @@ const WalletProvider = ({ children }: Props) => {
         time: list.time ? unixToGMT(list.time) : null,
         type: list.type,
       }));
-
-      console.log(rawMarketplaceInvoices);
 
       const marketplaceInvoices: AllInvoice[] = rawMarketplaceInvoices.map(
         (list: any) => ({
@@ -387,7 +392,10 @@ const WalletProvider = ({ children }: Props) => {
           seller: invoice.seller === null ? "" : invoice.seller.id,
           releaseHash: invoice.releaseHash,
           releaseAt: invoice.releasedAt,
+          buyer: invoice.buyer === null ? "" : invoice.buyer.id,
           source: "Marketplace",
+          paymentToken: invoice.paymentToken,
+          cancelAt: invoice.cancelAt,
         })
       );
 
@@ -410,6 +418,8 @@ const WalletProvider = ({ children }: Props) => {
           releaseAt: invoice.releasedAt,
           buyer: invoice.buyer === null ? "" : invoice.buyer.id,
           source: "Marketplace",
+          paymentToken: invoice.paymentToken,
+          cancelAt: invoice.cancelAt,
         }));
 
       // Combine created and paid invoices into a single list
@@ -552,19 +562,16 @@ const WalletProvider = ({ children }: Props) => {
     try {
       const gasPrice = await fetchGasPrice(publicClient, chainId);
 
-      // If not native token, ensure approval first
-      if (paymentToken !== zeroAddress && amount > BigInt(0)) {
-        const approved = await handleApproval(
-          paymentToken,
-          ADVANCE_INVOICE_ADDRESS[chainId],
-          amount,
-          address!
-        );
+      const { success: approved, price } = await handleApproval(
+        paymentToken,
+        ADVANCE_INVOICE_ADDRESS[chainId],
+        amount,
+        address!
+      );
 
-        if (!approved) {
-          toast.error("Approval failed");
-          return false;
-        }
+      if (!approved) {
+        toast.error("Approval failed");
+        return false;
       }
 
       const tx = await walletClient?.sendTransaction({
@@ -575,12 +582,17 @@ const WalletProvider = ({ children }: Props) => {
           functionName: paymentType,
           args: [invoiceKey, paymentToken],
         }),
-        value: amount,
+        value: paymentToken !== zeroAddress ? BigInt(0) : price,
         gasPrice,
       });
 
+      if (!tx) {
+        toast.error("Transaction failed to initiate");
+        return false;
+      }
+
       const receipt = await publicClient?.waitForTransactionReceipt({
-        hash: tx!,
+        hash: tx,
       });
 
       if (receipt?.status === "success") {
@@ -1081,8 +1093,20 @@ const WalletProvider = ({ children }: Props) => {
     spender: Address,
     amount: bigint,
     owner: Address
-  ): Promise<boolean> => {
+  ): Promise<{ success: boolean; price: bigint }> => {
     try {
+      const price = await publicClient?.readContract({
+        address: ADVANCE_INVOICE_ADDRESS[chainId],
+        abi: advancedPaymentProcessor,
+        functionName: "getTokenValueFromUsd",
+        args: [tokenAddress, amount],
+      });
+
+      if (!price || price <= 0) {
+        toast.error("Invalid or failed to fetch token price");
+        return { success: false, price: BigInt(0) };
+      }
+
       const allowance = await publicClient?.readContract({
         address: tokenAddress,
         abi: erc20Abi,
@@ -1090,9 +1114,15 @@ const WalletProvider = ({ children }: Props) => {
         args: [owner, spender],
       });
 
-      if (allowance && allowance >= amount) return true;
+      if (allowance && allowance >= price) {
+        return { success: true, price };
+      }
 
       const gasPrice = await fetchGasPrice(publicClient, chainId);
+      if (!gasPrice) {
+        toast.error("Failed to fetch gas price");
+        return { success: false, price };
+      }
 
       const tx = await walletClient?.sendTransaction({
         chain: polygonAmoy,
@@ -1100,26 +1130,31 @@ const WalletProvider = ({ children }: Props) => {
         data: encodeFunctionData({
           abi: erc20Abi,
           functionName: "approve",
-          args: [spender, maxUint256],
+          args: [spender, price],
         }),
         gasPrice,
       });
 
+      if (!tx) {
+        toast.error("Transaction failed to initiate");
+        return { success: false, price };
+      }
+
       const receipt = await publicClient?.waitForTransactionReceipt({
-        hash: tx!,
+        hash: tx,
       });
 
       if (receipt?.status === "success") {
         toast.success("Approval successful");
-        return true;
+        return { success: true, price };
       } else {
         toast.error("Approval failed");
-        return false;
+        return { success: false, price };
       }
     } catch (error) {
       console.error("handleApproval error", error);
       getError(error);
-      return false;
+      return { success: false, price: BigInt(0) };
     }
   };
 

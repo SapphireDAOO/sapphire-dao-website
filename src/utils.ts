@@ -6,26 +6,33 @@
  * or "Time Elapsed" if the target time has already passed, or "-" if not paid.
  * @returns A formatted string of the remaining time or a fallback message.
  */
-export const timeLeft = (paidAtTimestamp: any, extra: number = 0) => {
-  if (paidAtTimestamp === "Not Paid" || paidAtTimestamp == null) {
+export const timeLeft = (
+  paidAtTimestamp: number | string | null,
+  extra: number = 0,
+  expiresAt?: number
+) => {
+  if (!paidAtTimestamp || paidAtTimestamp === "Not Paid") {
     return "-";
   }
 
-  const paidAtTime = paidAtTimestamp * 1000;
 
-  const daysLater = paidAtTime + extra;
+
+  const paidAtTime = Number(paidAtTimestamp) * 1000;
+  const expiryTime = expiresAt ? expiresAt : paidAtTime + extra;
 
   const currentTime = Date.now();
-  if (currentTime > daysLater) {
+
+  if (currentTime > expiryTime) {
     return "Time Elapsed";
   }
 
-  const timeDiff = daysLater - currentTime;
-
-  const days = Math.floor(timeDiff / 86400000);
-  const hours = Math.floor((timeDiff % 86400000) / 3600000);
-  const minutes = Math.floor((timeDiff % 3600000) / 60000);
-  const seconds = Math.floor((timeDiff % 60000) / 1000);
+  const timeDiff = expiryTime - currentTime;
+  const days = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
+  const hours = Math.floor(
+    (timeDiff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)
+  );
+  const minutes = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60));
+  const seconds = Math.floor((timeDiff % (1000 * 60)) / 1000);
 
   return `${String(days).padStart(2, "0")}d ${String(hours).padStart(
     2,
@@ -35,7 +42,6 @@ export const timeLeft = (paidAtTimestamp: any, extra: number = 0) => {
     "0"
   )}s`;
 };
-
 export const formatAddress = (address: string) => {
   return `${address.slice(0, 4)}..${address.slice(-3)}`;
 };

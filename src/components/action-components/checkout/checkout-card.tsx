@@ -34,7 +34,7 @@ import {
   DialogPortal,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { zeroAddress, type Address } from "viem";
+import { type Address } from "viem";
 import { InvoiceDetails, TokenData } from "@/model/model";
 
 interface CheckoutCardProps {
@@ -64,8 +64,8 @@ const CheckoutCard = ({ data, isMetaInvoice }: CheckoutCardProps) => {
 
     const paymentType = isMetaInvoice ? "payMetaInvoice" : "paySingleInvoice";
     const paymentToken = selectedToken as Address;
-    const amount =
-      paymentToken === zeroAddress ? BigInt(data?.price) : BigInt(0);
+    const amount = BigInt(data?.price);
+    // paymentToken === zeroAddress as Address ?  : BigInt(0);
 
     const success = await payAdvancedInvoice(
       paymentType,

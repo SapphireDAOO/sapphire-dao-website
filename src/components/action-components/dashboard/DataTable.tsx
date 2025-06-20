@@ -8,6 +8,7 @@ import {
   getFilteredRowModel,
   getPaginationRowModel,
   useReactTable,
+  TableMeta,
 } from "@tanstack/react-table";
 
 import { Input } from "@/components/ui/input";
@@ -23,19 +24,26 @@ import {
 
 type StatusOption = { label: string; value: string };
 
+// Extend TableMeta to include currentTab
+interface CustomTableMeta<TData> extends TableMeta<TData> {
+  currentTab?: "buyer" | "seller" | "all";
+}
+
+interface DataTableProps<TData> {
+  columns: any[];
+  data: TData[];
+  statuses?: StatusOption[];
+  currentTab?: "buyer" | "seller" | "all";
+  prioritizePaid?: boolean;
+}
+
 const DataTable = <TData,>({
   columns,
   data,
   statuses,
   currentTab,
   prioritizePaid = false,
-}: {
-  columns: any[];
-  data: TData[];
-  statuses?: StatusOption[]; // optional for AllInvoices
-  currentTab?: "buyer" | "seller";
-  prioritizePaid?: boolean;
-}) => {
+}: DataTableProps<TData>) => {
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
 
@@ -85,6 +93,9 @@ const DataTable = <TData,>({
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
+    meta: {
+      currentTab, // Pass currentTab to table meta
+    } as CustomTableMeta<TData>,
   });
 
   return (
@@ -113,50 +124,52 @@ const DataTable = <TData,>({
       </div>
 
       {/* Table */}
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map((header) => (
-                  <TableHead key={header.id}>
-                    {header.isPlaceholder
-                      ? null
-                      : flexRender(
-                          header.column.columnDef.header,
-                          header.getContext()
-                        )}
-                  </TableHead>
-                ))}
-              </TableRow>
-            ))}
-          </TableHeader>
-          <TableBody>
-            {table.getRowModel().rows.length ? (
-              table.getRowModel().rows.map((row) => (
-                <TableRow key={row.id}>
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
-                      {flexRender(
-                        cell.column.columnDef.cell ?? "",
-                        cell.getContext()
-                      )}
-                    </TableCell>
+      <div className="rounded-md border w-full overflow-x-auto">
+        <div className="min-w-[1200px]">
+          <Table>
+            <TableHeader>
+              {table.getHeaderGroups().map((headerGroup) => (
+                <TableRow key={headerGroup.id}>
+                  {headerGroup.headers.map((header) => (
+                    <TableHead key={header.id}>
+                      {header.isPlaceholder
+                        ? null
+                        : flexRender(
+                            header.column.columnDef.header,
+                            header.getContext()
+                          )}
+                    </TableHead>
                   ))}
                 </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell
-                  colSpan={filteredColumns.length}
-                  className="text-center"
-                >
-                  No results found.
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
+              ))}
+            </TableHeader>
+            <TableBody>
+              {table.getRowModel().rows.length ? (
+                table.getRowModel().rows.map((row) => (
+                  <TableRow key={row.id}>
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell key={cell.id}>
+                        {flexRender(
+                          cell.column.columnDef.cell ?? "",
+                          cell.getContext()
+                        )}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell
+                    colSpan={filteredColumns.length}
+                    className="text-center"
+                  >
+                    No results found.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
       </div>
 
       {/* Pagination */}

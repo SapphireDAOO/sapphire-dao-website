@@ -10,7 +10,7 @@ const DashboardIndex = () => {
       <Tabs defaultValue="invoices">
         <div className="flex items-center justify-center mt-10">
           <TabsList>
-            <TabsTrigger value="invoices">Invoices</TabsTrigger>
+            <TabsTrigger value="invoices" >Invoices</TabsTrigger>
             <TabsTrigger value="marketplace">Marketplace</TabsTrigger>
           </TabsList>
         </div>

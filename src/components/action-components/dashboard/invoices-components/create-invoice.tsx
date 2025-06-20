@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-// import { useGetFeeRate } from "@/hooks/useGetFeeRate";
+import { useGetFeeRate } from "@/hooks/useGetFeeRate";
 import { ContractContext } from "@/context/contract-context";
 import { ConnectKitButton } from "connectkit";
 import { type Address, parseUnits } from "viem";
@@ -26,7 +26,7 @@ import generateSecureLink from "@/lib/generate-link";
 const CreateInvoiceDialog = () => {
   const [amount, setAmount] = useState("");
   const { address } = useAccount();
-  // const { data } = useGetFeeRate();
+  const { data: formatedFee } = useGetFeeRate();
 
   const [openCreate, setOpenCreate] = useState<boolean>(false);
   const [open, setOpen] = useState<boolean>(false);
@@ -47,7 +47,7 @@ const CreateInvoiceDialog = () => {
     }
   };
   // const formatedFee = data ? parseInt(data.toString()) / 100 : "0";
-  const formatedFee = "0";
+  // const formatedFee = "0";
   const isAmountValid = true;
   return (
     <>
@@ -62,7 +62,8 @@ const CreateInvoiceDialog = () => {
           <DialogHeader>
             <DialogTitle className="text-2xl">New Invoice</DialogTitle>
             <DialogDescription className="text-sm text-muted-foreground">
-              Additional fee of {formatedFee} % applies excluding gas fee
+              Additional fee of {Number(formatedFee) / 100} % applies
+              excluding gas fee
             </DialogDescription>
           </DialogHeader>
 

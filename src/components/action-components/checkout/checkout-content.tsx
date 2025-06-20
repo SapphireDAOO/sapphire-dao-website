@@ -89,8 +89,6 @@ const CheckoutPage = () => {
   const { data: invoiceInfo } = useGetMarketplaceInvoiceData(invoiceKey!);
   const { data: metaInvoice } = useGetMetaInvoice(invoiceKey!);
 
-  console.log(invoiceInfo, metaInvoice);
-
   const isMetaInvoice = useMemo(() => {
     return (
       metaInvoice?.buyer &&
@@ -123,8 +121,6 @@ const CheckoutPage = () => {
 
       const query = isMetaInvoice ? metaInvoiceQuery : smartInvoiceQuery;
       const type = isMetaInvoice ? "metaInvoice" : "smartInvoice";
-
-      console.log("TYPE", isMetaInvoice);
 
       try {
         const response = await getAdvancedInvoiceData(invoiceKey, query, type);

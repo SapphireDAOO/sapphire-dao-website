@@ -118,8 +118,13 @@ const IndexRecentPayment = ({
     },
   ];
 
-  const invoiceColumns = [...baseColumns, ...invoiceActions];
-  const marketplaceColumns = [...baseColumns, ...marketplaceActions];
+  // const includeSeller = false;
+  const invoiceColumns = [
+    ...baseColumns.filter(
+      (col) => !("accessorKey" in col && col.accessorKey === "paymentToken")
+    ),
+    ...invoiceActions,
+  ];
 
   const invoicesByTab = isMarketplaceTab
     ? allMarketplaceInvoices
@@ -127,10 +132,7 @@ const IndexRecentPayment = ({
   const sourceKey = isMarketplaceTab ? "marketplace" : "simple";
   return (
     <div className="container mx-auto">
-      <Tabs
-        defaultValue="seller"
-        // onValueChange={(value) => setCurrentTab(value)}
-      >
+      <Tabs defaultValue="seller">
         <TabsList>
           {tabItems.map((tab) => (
             <TabsTrigger key={tab.value} value={tab.value}>
@@ -139,24 +141,45 @@ const IndexRecentPayment = ({
           ))}
         </TabsList>
 
-        {tabItems.map((tab) => (
-          <TabsContent key={tab.value} value={tab.value}>
-            <DataTable
-              columns={isMarketplaceTab ? marketplaceColumns : invoiceColumns}
-              data={
-                tab.value === "all"
-                  ? invoicesByTab.seller.concat(invoicesByTab.buyer)
-                  : invoicesByTab[tab.value as "seller" | "buyer"]
+        {tabItems.map((tab) => {
+          const activeMarketplaceColumns = [
+            ...baseColumns.filter((col) => {
+              const key = "accessorKey" in col ? col.accessorKey : null;
+
+              if (key === "buyer") {
+                return tab.value !== "buyer";
               }
-              statuses={
-                dropdownStatusesByTab[sourceKey][
-                  tab.value as "seller" | "buyer" | "all"
-                ]
+
+              if (key === "seller") {
+                return tab.value !== "seller";
               }
-              currentTab={tab.value === "buyer" ? "buyer" : undefined}
-            />
-          </TabsContent>
-        ))}
+
+              return true;
+            }),
+            ...marketplaceActions,
+          ];
+
+          return (
+            <TabsContent key={tab.value} value={tab.value}>
+              <DataTable
+                columns={
+                  isMarketplaceTab ? activeMarketplaceColumns : invoiceColumns
+                }
+                data={
+                  tab.value === "all"
+                    ? invoicesByTab.seller.concat(invoicesByTab.buyer)
+                    : invoicesByTab[tab.value as "seller" | "buyer"]
+                }
+                statuses={
+                  dropdownStatusesByTab[sourceKey][
+                    tab.value as "seller" | "buyer" | "all"
+                  ]
+                }
+                currentTab={tab.value === "buyer" ? "buyer" : undefined}
+              />
+            </TabsContent>
+          );
+        })}
       </Tabs>
     </div>
   );

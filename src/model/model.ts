@@ -20,6 +20,8 @@ export type Invoice = {
   buyer?: string;
   seller?: string;
   source?: string;
+  paymentToken?: string;
+  cancelAt?: string
 };
 
 export type AllInvoice = {

@@ -29,7 +29,6 @@ const marketplaceActions: ColumnDef<Invoice>[] = [
       const t = timeLeft(Number(paidAtTimestamp), 259200000);
 
       const payment = row.original;
-      console.log("RES", row.original);
       return (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
