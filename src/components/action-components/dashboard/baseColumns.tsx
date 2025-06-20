@@ -112,6 +112,32 @@ const baseColumns: ColumnDef<Invoice>[] = [
     },
   },
   {
+    accessorKey: "buyer",
+    header: () => <div className="text-center">Buyer</div>,
+    cell: ({ row }) => {
+      const { type } = row.original;
+      const buyersAddress = row.getValue("buyer") as string | undefined;
+
+      if (!buyersAddress) return <div className="text-center">-</div>;
+
+      const displayText =
+        type === "Buyer" ? "me" : formatAddress(buyersAddress);
+
+      return (
+        <div className="text-center">
+          <a
+            href={`https://amoy.polygonscan.com/address/${buyersAddress}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-500 underline"
+          >
+            {displayText}
+          </a>
+        </div>
+      );
+    },
+  },
+  {
     accessorKey: "paymentTxHash",
     header: () => <div className="text-center">Payment</div>,
     cell: ({ row }) => {
@@ -135,32 +161,6 @@ const baseColumns: ColumnDef<Invoice>[] = [
           ) : (
             "-"
           )}
-        </div>
-      );
-    },
-  },
-  {
-    accessorKey: "buyer",
-    header: () => <div className="text-center">Buyer</div>,
-    cell: ({ row }) => {
-      const { type } = row.original;
-      const buyersAddress = row.getValue("buyer") as string | undefined;
-
-      if (!buyersAddress) return <div className="text-center">-</div>;
-
-      const displayText =
-        type === "Buyer" ? "me" : formatAddress(buyersAddress);
-
-      return (
-        <div className="text-center">
-          <a
-            href={`https://amoy.polygonscan.com/address/${buyersAddress}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-blue-500 underline"
-          >
-            {displayText}
-          </a>
         </div>
       );
     },

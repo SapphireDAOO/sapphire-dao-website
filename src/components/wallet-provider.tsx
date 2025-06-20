@@ -146,6 +146,7 @@ const invoiceQuery = `query ($address: String!) {
       releasedAt
       state
       paymentToken
+      paymentTxHash
       cancelAt
       seller {
         id
@@ -165,6 +166,7 @@ const invoiceQuery = `query ($address: String!) {
       releasedAt
       state
       paymentToken
+      paymentTxHash
       cancelAt
       seller {
         id
@@ -396,6 +398,7 @@ const WalletProvider = ({ children }: Props) => {
           source: "Marketplace",
           paymentToken: invoice.paymentToken,
           cancelAt: invoice.cancelAt,
+          
         })
       );
 
