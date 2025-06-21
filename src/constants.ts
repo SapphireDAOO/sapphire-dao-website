@@ -6,15 +6,15 @@ export const POLYGON = 137;
 export const POLYGON_AMOY = 80_002;
 
 export const PAYMENT_PROCESSOR_STORAGE: Record<number, Address> = {
-  [polygonAmoy.id]: "0xB1f5C5908c2Cf7D477e701B0823c2E314ab520fD",
+  [polygonAmoy.id]: "0xd8425e5E6Aa0e672Fa03037750a387e48196d608",
 };
 
 export const INVOICE_ADDRESS: Record<number, Address> = {
-  [polygonAmoy.id]: "0xC684B8C7cB5C842Da70224b467bC78240f6a09fb",
+  [polygonAmoy.id]: "0x7A22CbFBe8eb4a450bADa813c1feD96b25cFF864",
 };
 
 export const ADVANCE_INVOICE_ADDRESS: Record<number, Address> = {
-  [polygonAmoy.id]: "0xf041a2Cd5f87fC7d02C3A42B02dC479582538D26",
+  [polygonAmoy.id]: "0x57BFD7c3D1d14b82AB7Ad135B2E56e330F65D27f",
 };
 
 export const THE_GRAPH_API_URL: Record<number, string> = {
