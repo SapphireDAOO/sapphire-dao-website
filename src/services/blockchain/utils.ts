@@ -87,7 +87,7 @@ export const handleApproval = async (
     });
 
     if (receipt?.status === "success") {
-      toast.success("Approval successful");
+      toast.success("Approved");
       return true;
     } else {
       toast.error("Approval failed");
