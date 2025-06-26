@@ -64,6 +64,11 @@ const CheckoutCard = ({ data, isMetaInvoice }: CheckoutCardProps) => {
 
     const paymentType = isMetaInvoice ? "payMetaInvoice" : "paySingleInvoice";
     const paymentToken = selectedToken as Address;
+
+    if (!selectedToken) {
+      toast.error("Please select a token to proceed.");
+      return;
+    }
     const amount = BigInt(data?.price);
     // paymentToken === zeroAddress as Address ?  : BigInt(0);
 

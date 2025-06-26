@@ -36,7 +36,7 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
   const [userIsCreator, setUserIsCreator] = useState(false);
 
   const invoiceKEY = data?.invoiceKey;
-  const { data: invoiceData } = useGetInvoiceData(invoiceKEY!);
+  const { data: invoiceData } = useGetInvoiceData(invoiceKEY);
 
   const { getInvoiceOwner, makeInvoicePayment, isLoading } =
     useContext(ContractContext);
