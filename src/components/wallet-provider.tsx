@@ -1,6 +1,5 @@
 import { ReactNode, useState } from "react";
 import { useAccount, usePublicClient, useWalletClient } from "wagmi";
-import { POLYGON_AMOY } from "@/constants";
 import { ContractContext } from "@/context/contract-context";
 import { useInvoiceData } from "@/hooks/useInvoiceData";
 import {
@@ -20,15 +19,12 @@ import {
 import {
   payAdvancedInvoice,
   acceptMarketplaceInvoice,
-  cancelMarketplaceInvoice,
-  requestCancelation,
-  handleCancelationRequest,
   createDispute,
   claimExpiredInvoiceRefunds,
-  resolveDispute,
 } from "@/services/blockchain/AdvancedPaymentProcessor";
 import { Address } from "viem";
 import { WagmiClient } from "@/services/blockchain/type";
+import { ETHEREUM_SEPOLIA } from "@/constants";
 
 type Props = {
   children?: ReactNode;
@@ -36,7 +32,7 @@ type Props = {
 
 const WalletProvider = ({ children }: Props) => {
   const { chain, address } = useAccount();
-  const chainId = chain?.id || POLYGON_AMOY;
+  const chainId = chain?.id || ETHEREUM_SEPOLIA;
   const { data: walletClient } = useWalletClient();
   const publicClient = usePublicClient();
 
@@ -182,31 +178,6 @@ const WalletProvider = ({ children }: Props) => {
             setIsLoading,
             getInvoiceData
           ),
-        cancelMarketplaceInvoice: (orderId: Address) =>
-          cancelMarketplaceInvoice(
-            wagmiClients,
-            orderId,
-            chainId,
-            setIsLoading,
-            getInvoiceData
-          ),
-        requestCancelation: (orderId: Address) =>
-          requestCancelation(
-            wagmiClients,
-            orderId,
-            chainId,
-            setIsLoading,
-            getInvoiceData
-          ),
-        handleCancelationRequest: (orderId: Address, accept: boolean) =>
-          handleCancelationRequest(
-            wagmiClients,
-            orderId,
-            accept,
-            chainId,
-            setIsLoading,
-            getInvoiceData
-          ),
         createDispute: (orderId: Address) =>
           createDispute(
             wagmiClients,
@@ -217,14 +188,6 @@ const WalletProvider = ({ children }: Props) => {
           ),
         claimExpiredInvoiceRefunds: (orderId: Address) =>
           claimExpiredInvoiceRefunds(
-            wagmiClients,
-            orderId,
-            chainId,
-            setIsLoading,
-            getInvoiceData
-          ),
-        resolveDispute: (orderId: Address) =>
-          resolveDispute(
             wagmiClients,
             orderId,
             chainId,

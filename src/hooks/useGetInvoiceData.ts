@@ -1,8 +1,8 @@
 import { paymentProcessor } from "@/abis/PaymentProcessor";
-import { INVOICE_ADDRESS } from "@/constants";
+import { SIMPLE_PAYMENT_PROCESSOR } from "@/constants";
 import { Address } from "viem";
 
-import { polygonAmoy } from "viem/chains";
+import { sepolia } from "viem/chains";
 import { useAccount, useChainId, useReadContract } from "wagmi";
 
 /**
@@ -29,8 +29,8 @@ export const useGetInvoiceData = (invoiceKey: Address) => {
   // Use the wagmi `useReadContract` hook to interact with the `getInvoiceData` function of the PaymentProcessor contract
   const { data, refetch, isLoading } = useReadContract({
     abi: paymentProcessor,
-    chainId: polygonAmoy.id,
-    address: INVOICE_ADDRESS[chainId],
+    chainId: sepolia.id,
+    address: SIMPLE_PAYMENT_PROCESSOR[chainId],
     functionName: "getInvoiceData",
     args: [invoiceKey],
     account: address,

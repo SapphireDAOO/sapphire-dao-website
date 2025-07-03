@@ -1,6 +1,6 @@
 import { PAYMENT_PROCESSOR_STORAGE } from "@/constants";
 
-import { polygonAmoy } from "wagmi/chains";
+import { sepolia } from "wagmi/chains";
 import { useAccount, useChainId, useReadContract } from "wagmi";
 import { PaymentProcessorStorage } from "@/abis/PaymentProcessorStorage";
 
@@ -21,7 +21,7 @@ export const useGetFeeRate = () => {
 
   const { data, refetch, isLoading } = useReadContract({
     abi: PaymentProcessorStorage,
-    chainId: polygonAmoy.id,
+    chainId: sepolia.id,
     address: PAYMENT_PROCESSOR_STORAGE[chainId],
     functionName: "getFeeRate",
     account: address,

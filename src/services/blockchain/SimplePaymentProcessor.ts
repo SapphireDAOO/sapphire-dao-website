@@ -1,7 +1,7 @@
 import { toast } from "sonner";
 import { Address, encodeFunctionData } from "viem";
-import { polygonAmoy } from "viem/chains";
-import { INVOICE_ADDRESS } from "@/constants";
+import { sepolia } from "viem/chains";
+import { SIMPLE_PAYMENT_PROCESSOR } from "@/constants";
 import { fetchGasPrice, getError } from "./utils";
 import { paymentProcessor } from "@/abis/PaymentProcessor";
 import { client } from "../graphql/client";
@@ -19,8 +19,8 @@ export const createInvoice = async (
   try {
     const gasPrice = await fetchGasPrice(publicClient, chainId);
     const tx = await walletClient?.sendTransaction({
-      chain: polygonAmoy,
-      to: INVOICE_ADDRESS[chainId],
+      chain: sepolia,
+      to: SIMPLE_PAYMENT_PROCESSOR[chainId],
       data: encodeFunctionData({
         abi: paymentProcessor,
         functionName: "createInvoice",
@@ -67,8 +67,8 @@ export const makeInvoicePayment = async (
     const gasPrice = await fetchGasPrice(publicClient, chainId);
 
     const tx = await walletClient?.sendTransaction({
-      chain: polygonAmoy,
-      to: INVOICE_ADDRESS[chainId],
+      chain: sepolia,
+      to: SIMPLE_PAYMENT_PROCESSOR[chainId],
       data: encodeFunctionData({
         abi: paymentProcessor,
         functionName: "makeInvoicePayment",
@@ -118,8 +118,8 @@ export const sellerAction = async (
     const gasPrice = await fetchGasPrice(publicClient, chainId);
 
     const tx = await walletClient?.sendTransaction({
-      chain: polygonAmoy,
-      to: INVOICE_ADDRESS[chainId],
+      chain: sepolia,
+      to: SIMPLE_PAYMENT_PROCESSOR[chainId],
       data: encodeFunctionData({
         abi: paymentProcessor,
         functionName: "sellerAction",
@@ -173,8 +173,8 @@ export const cancelInvoice = async (
     const gasPrice = await fetchGasPrice(publicClient, chainId);
 
     const tx = await walletClient?.sendTransaction({
-      chain: polygonAmoy,
-      to: INVOICE_ADDRESS[chainId],
+      chain: sepolia,
+      to: SIMPLE_PAYMENT_PROCESSOR[chainId],
       data: encodeFunctionData({
         abi: paymentProcessor,
         functionName: "cancelInvoice",
@@ -228,8 +228,8 @@ export const releaseInvoice = async (
     const gasPrice = await fetchGasPrice(publicClient, chainId);
 
     const tx = await walletClient?.sendTransaction({
-      chain: polygonAmoy,
-      to: INVOICE_ADDRESS[chainId],
+      chain: sepolia,
+      to: SIMPLE_PAYMENT_PROCESSOR[chainId],
       data: encodeFunctionData({
         abi: paymentProcessor,
         functionName: "releaseInvoice",
@@ -283,8 +283,8 @@ export const refundBuyerAfterWindow = async (
     const gasPrice = await fetchGasPrice(publicClient, chainId);
 
     const tx = await walletClient?.sendTransaction({
-      chain: polygonAmoy,
-      to: INVOICE_ADDRESS[chainId],
+      chain: sepolia,
+      to: SIMPLE_PAYMENT_PROCESSOR[chainId],
       data: encodeFunctionData({
         abi: paymentProcessor,
         functionName: "refundBuyerAfterWindow",
@@ -338,8 +338,8 @@ export const transferOwnership = async (
     const gasPrice = await fetchGasPrice(publicClient, chainId);
 
     const tx = await walletClient?.sendTransaction({
-      chain: polygonAmoy,
-      to: INVOICE_ADDRESS[chainId],
+      chain: sepolia,
+      to: SIMPLE_PAYMENT_PROCESSOR[chainId],
       data: encodeFunctionData({
         abi: paymentProcessor,
         functionName: "transferOwnership",
@@ -393,8 +393,8 @@ export const setFeeReceiversAddress = async (
     const gasPrice = await fetchGasPrice(publicClient, chainId);
 
     const tx = await walletClient?.sendTransaction({
-      chain: polygonAmoy,
-      to: INVOICE_ADDRESS[chainId],
+      chain: sepolia,
+      to: SIMPLE_PAYMENT_PROCESSOR[chainId],
       data: encodeFunctionData({
         abi: PaymentProcessorStorage,
         functionName: "setFeeReceiversAddress",
@@ -449,8 +449,8 @@ export const setInvoiceHoldPeriod = async (
     const gasPrice = await fetchGasPrice(publicClient, chainId);
 
     const tx = await walletClient?.sendTransaction({
-      chain: polygonAmoy,
-      to: INVOICE_ADDRESS[chainId],
+      chain: sepolia,
+      to: SIMPLE_PAYMENT_PROCESSOR[chainId],
       data: encodeFunctionData({
         abi: paymentProcessor,
         functionName: "setInvoiceReleaseTime",
@@ -504,8 +504,8 @@ export const setDefaultHoldPeriod = async (
     const gasPrice = await fetchGasPrice(publicClient, chainId);
 
     const tx = await walletClient?.sendTransaction({
-      chain: polygonAmoy,
-      to: INVOICE_ADDRESS[chainId],
+      chain: sepolia,
+      to: SIMPLE_PAYMENT_PROCESSOR[chainId],
       data: encodeFunctionData({
         abi: paymentProcessor,
         functionName: "setDefaultHoldPeriod",
@@ -559,8 +559,8 @@ export const setFee = async (
     const gasPrice = await fetchGasPrice(publicClient, chainId);
 
     const tx = await walletClient?.sendTransaction({
-      chain: polygonAmoy,
-      to: INVOICE_ADDRESS[chainId],
+      chain: sepolia,
+      to: SIMPLE_PAYMENT_PROCESSOR[chainId],
       data: encodeFunctionData({
         abi: PaymentProcessorStorage,
         functionName: "setFeeRate",
@@ -614,8 +614,8 @@ export const setMinimumInvoiceValue = async (
     const gasPrice = await fetchGasPrice(publicClient, chainId);
 
     const tx = await walletClient?.sendTransaction({
-      chain: polygonAmoy,
-      to: INVOICE_ADDRESS[chainId],
+      chain: sepolia,
+      to: SIMPLE_PAYMENT_PROCESSOR[chainId],
       data: encodeFunctionData({
         abi: paymentProcessor,
         functionName: "setMinimumInvoiceValue",

@@ -71,7 +71,7 @@ const baseColumns: ColumnDef<Invoice>[] = [
         <div className="text-center">
           {contractAddress ? (
             <a
-              href={`https://amoy.polygonscan.com/address/${contractAddress}`}
+              href={`https://sepolia.etherscan.io/address/${contractAddress}`}
               target="_blank"
               rel="noopener noreferrer"
               className="text-blue-500 underline"
@@ -97,7 +97,7 @@ const baseColumns: ColumnDef<Invoice>[] = [
             "me"
           ) : sellersAddress ? (
             <a
-              href={`https://amoy.polygonscan.com/address/${sellersAddress}`}
+              href={`https://sepolia.etherscan.io/address/${sellersAddress}`}
               target="_blank"
               rel="noopener noreferrer"
               className="text-blue-500 underline"
@@ -126,7 +126,7 @@ const baseColumns: ColumnDef<Invoice>[] = [
       return (
         <div className="text-center">
           <a
-            href={`https://amoy.polygonscan.com/address/${buyersAddress}`}
+            href={`https://sepolia.etherscan.io/address/${buyersAddress}`}
             target="_blank"
             rel="noopener noreferrer"
             className="text-blue-500 underline"
@@ -151,7 +151,7 @@ const baseColumns: ColumnDef<Invoice>[] = [
         <div className="bold">
           {paymentHash ? (
             <a
-              href={`https://amoy.polygonscan.com/tx/${paymentHash}`}
+              href={`https://sepolia.etherscan.io/tx/${paymentHash}`}
               target="_blank"
               rel="noopener noreferrer"
               className="text-blue-500 underline"
@@ -177,13 +177,13 @@ const baseColumns: ColumnDef<Invoice>[] = [
       const link =
         paymentToken === zeroAddress
           ? "https://polygon.technology/pol-token"
-          : `https://amoy.polygonscan.com/address/${paymentToken}`;
+          : `https://sepolia.etherscan.io/address/${paymentToken}`;
 
       const { data: name, error } = useGetTokenName(paymentTokenAddress);
 
       let tokenName = name;
       if (error) {
-        tokenName = "POL";
+        tokenName = "ETH";
       }
 
       return (
@@ -220,7 +220,7 @@ const baseColumns: ColumnDef<Invoice>[] = [
         return (
           <div className="text-center">
             <a
-              href={`https://amoy.polygonscan.com/tx/${releaseHash}`}
+              href={`https://sepolia.etherscan.io/tx/${releaseHash}`}
               target="_blank"
               rel="noopener noreferrer"
               className="text-blue-500 underline"
@@ -297,7 +297,7 @@ const baseColumns: ColumnDef<Invoice>[] = [
       const orderCost =
         source !== "simple"
           ? `$${(Number(price) / 1e8).toFixed(2)}`
-          : `${price} POL`;
+          : `${price} ETH`;
 
       return <div className="text-center">{orderCost}</div>;
     },

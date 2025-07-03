@@ -76,7 +76,7 @@ const CreateInvoiceDialog = () => {
                 id="value"
                 type="number"
                 value={amount}
-                placeholder="Enter amount in pol"
+                placeholder="Enter amount in eth"
                 onChange={(e) => setAmount(e.target.value)}
                 className="col-span-3"
               />

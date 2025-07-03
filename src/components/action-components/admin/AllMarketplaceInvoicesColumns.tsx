@@ -29,7 +29,7 @@ const allMarketplaceInvoices: ColumnDef<Invoice>[] = [
         <div className="text-center">
           {sellersAddress ? (
             <a
-              href={`https://amoy.polygonscan.com/address/${sellersAddress}`}
+              href={`https://sepolia.etherscan.io/address/${sellersAddress}`}
               target="_blank"
               rel="noopener noreferrer"
               className="text-blue-500 underline"
@@ -66,7 +66,7 @@ const allMarketplaceInvoices: ColumnDef<Invoice>[] = [
         <div className="bold text-center">
           {paymentHash ? (
             <a
-              href={`https://amoy.polygonscan.com/tx/${paymentHash}`}
+              href={`https://sepolia.etherscan.io/tx/${paymentHash}`}
               target="_blank"
               rel="noopener noreferrer"
               className="text-blue-500 underline"
@@ -100,7 +100,7 @@ const allMarketplaceInvoices: ColumnDef<Invoice>[] = [
         <div className="text-center">
           {buyersAddress ? (
             <a
-              href={`https://amoy.polygonscan.com/address/${buyersAddress}`}
+              href={`https://sepolia.etherscan.io/address/${buyersAddress}`}
               target="_blank"
               rel="noopener noreferrer"
               className="text-blue-500 underline"
@@ -137,7 +137,7 @@ const allMarketplaceInvoices: ColumnDef<Invoice>[] = [
   //       if (status === "RELEASED") {
   //         return (
   //           <a
-  //             href={`https://amoy.polygonscan.com/address/${releaseHash}`}
+  //             href={`https://sepolia.etherscan.io/address/${releaseHash}`}
   //             target="_blank"
   //             rel="noopener noreferrer"
   //             className="text-blue-500 underline"

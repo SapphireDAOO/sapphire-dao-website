@@ -131,7 +131,7 @@ const AdminCard = () => {
             </span>
             <span className="font-mono text-primary">
               {minimumInvoiceValue
-                ? ethers.formatEther(minimumInvoiceValue) + " POL"
+                ? ethers.formatEther(minimumInvoiceValue) + " ETH"
                 : "Loading..."}
             </span>
           </p>

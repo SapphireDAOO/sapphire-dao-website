@@ -1,6 +1,6 @@
 import { PaymentProcessorStorage } from "@/abis/PaymentProcessorStorage";
 import { PAYMENT_PROCESSOR_STORAGE } from "@/constants";
-import { polygonAmoy } from "viem/chains";
+import { sepolia } from "viem/chains";
 import { useAccount, useChainId, useReadContract } from "wagmi";
 
 /**
@@ -21,7 +21,7 @@ export const useGetFeeReceiver = () => {
   // Use the wagmi `useReadContract` hook to interact with the `getFeeReceiver` function of the PaymentProcessor contract
   const { data, refetch, isLoading } = useReadContract({
     abi: PaymentProcessorStorage,
-    chainId: polygonAmoy.id,
+    chainId: sepolia.id,
     address: PAYMENT_PROCESSOR_STORAGE[chainId],
     functionName: "getFeeReceiver",
     account: address,

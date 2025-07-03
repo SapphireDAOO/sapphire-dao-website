@@ -1,25 +1,26 @@
 import { ErrorMessages } from "./model/model";
 import type { Address } from "viem";
-import { polygonAmoy } from "wagmi/chains";
+import { sepolia } from "wagmi/chains";
 
 export const POLYGON = 137;
 export const POLYGON_AMOY = 80_002;
+export const ETHEREUM_SEPOLIA = 11_155_111;
 
 export const PAYMENT_PROCESSOR_STORAGE: Record<number, Address> = {
-  [polygonAmoy.id]: "0xd8425e5E6Aa0e672Fa03037750a387e48196d608",
+  [sepolia.id]: "0x762A24e7679245DE78c7843B58d3bf2AF4c055ba",
 };
 
-export const INVOICE_ADDRESS: Record<number, Address> = {
-  [polygonAmoy.id]: "0x7A22CbFBe8eb4a450bADa813c1feD96b25cFF864",
+export const SIMPLE_PAYMENT_PROCESSOR: Record<number, Address> = {
+  [sepolia.id]: "0xC39eF2B61E47923db6f89f4E7Fda583b0b7cf8CE",
 };
 
-export const ADVANCE_INVOICE_ADDRESS: Record<number, Address> = {
-  [polygonAmoy.id]: "0x57BFD7c3D1d14b82AB7Ad135B2E56e330F65D27f",
+export const ADVANCED_PAYMENT_PROCESSOR: Record<number, Address> = {
+  [sepolia.id]: "0xb9DD118C880759E62516fa2c88Eb76ba3fd42eae",
 };
 
 export const THE_GRAPH_API_URL: Record<number, string> = {
-  [polygonAmoy.id]:
-    "https://api.studio.thegraph.com/query/100227/payment-processor-test-v1/version/latest",
+  [sepolia.id]:
+    "https://api.studio.thegraph.com/query/100227/payment-processor/version/latest",
 };
 
 export const errorMessages: ErrorMessages = {

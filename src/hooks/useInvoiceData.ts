@@ -7,7 +7,7 @@ import {
 } from "@/services/graphql/queries";
 import { useAccount } from "wagmi";
 import { unixToGMT } from "@/utils";
-import { POLYGON_AMOY } from "@/constants";
+import { ETHEREUM_SEPOLIA } from "@/constants";
 import {
   AllInvoice,
   AdminAction,
@@ -24,7 +24,7 @@ import { client } from "@/services/graphql/client";
 
 export const useInvoiceData = () => {
   const { chain, address } = useAccount();
-  const chainId = chain?.id || POLYGON_AMOY;
+  const chainId = chain?.id || ETHEREUM_SEPOLIA;
   const [invoiceData, setInvoiceData] = useState<Invoice[]>([]);
   const [allInvoiceData, setAllInvoiceData] = useState<AllInvoicesData>({
     invoices: [],

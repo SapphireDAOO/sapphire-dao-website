@@ -41,14 +41,7 @@ export interface ContractContextData {
     query: string,
     type: "smartInvoice" | "metaInvoice"
   ) => Promise<any>;
-  resolveDispute: (orderId: Address) => Promise<boolean>;
   acceptMarketplaceInvoice: (orderId: Address) => Promise<boolean>;
-  cancelMarketplaceInvoice: (orderId: Address) => Promise<boolean>;
-  requestCancelation: (orderId: Address) => Promise<boolean>;
-  handleCancelationRequest: (
-    orderId: Address,
-    accept: boolean
-  ) => Promise<boolean>;
   createDispute: (orderId: Address) => Promise<boolean>;
   claimExpiredInvoiceRefunds: (orderId: Address) => Promise<boolean>;
   refetchInvoiceData?: () => Promise<void>;
@@ -80,11 +73,7 @@ export const contractContextDefaults: ContractContextData = {
   refetchAllInvoiceData: async () => Promise.resolve(),
   getInvoiceOwner: async () => Promise.resolve(""),
   getAdvancedInvoiceData: async () => Promise.resolve(""),
-  resolveDispute: async () => Promise.resolve(false),
   acceptMarketplaceInvoice: async () => Promise.resolve(false),
-  cancelMarketplaceInvoice: async () => Promise.resolve(false),
-  requestCancelation: async () => Promise.resolve(false),
-  handleCancelationRequest: async () => Promise.resolve(false),
   createDispute: async () => Promise.resolve(false),
   claimExpiredInvoiceRefunds: () => Promise.resolve(false),
 };

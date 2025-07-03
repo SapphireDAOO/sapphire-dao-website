@@ -94,10 +94,10 @@ const CheckoutCard = ({ data, isMetaInvoice }: CheckoutCardProps) => {
         </CardHeader>
         <CardContent>
           <div className="grid w-full items-center gap-4">
-            <div className="flex flex-col space-y-2">
+            {/* <div className="flex flex-col space-y-2">
               <Label htmlFor="id">Invoice ID</Label>
               <Input id="id" placeholder={data?.id || "N/A"} disabled />
-            </div>
+            </div> */}
 
             <div className="flex flex-col space-y-2 mt-3">
               <Label htmlFor="price">Request Amount</Label>

@@ -14,12 +14,8 @@ import {
 import { MoreHorizontal } from "lucide-react";
 import { timeLeft } from "@/utils";
 import AcceptInvoice from "./accept-invoice";
-import RequestCancelation from "./request-cancelation";
 import CreateDispute from "./create-dispute";
-import HandleCancelationRequest from "./handle-cancelation";
-import CancelInvoice from "./cancel-invoice";
 import Refund from "./refund";
-import ResolveDispute from "./resolve-dispute";
 
 const marketplaceActions: ColumnDef<Invoice>[] = [
   {
@@ -62,13 +58,12 @@ const marketplaceActions: ColumnDef<Invoice>[] = [
                 {payment.type === "IssuedInvoice" && t !== "Time Elapsed" && (
                   <>
                     <AcceptInvoice invoiceKey={payment.invoiceKey} />
-                    <CancelInvoice invoiceKey={payment.invoiceKey} />
                   </>
                 )}
 
-                {payment.type === "ReceivedInvoice" && t !== "Time Elapsed" && (
-                  <RequestCancelation invoiceKey={payment.invoiceKey} />
-                )}
+                {payment.type === "ReceivedInvoice" &&
+                  t !== "Time Elapsed" &&
+                  ""}
 
                 {payment.type === "ReceivedInvoice" && t === "Time Elapsed" && (
                   <Refund invoiceKey={payment.invoiceKey} />
@@ -87,55 +82,6 @@ const marketplaceActions: ColumnDef<Invoice>[] = [
 
             {payment.status === "CANCELED" && (
               <DropdownMenuItem>Invoice Cancelled</DropdownMenuItem>
-            )}
-
-            {payment.status === "CANCELATION REQUESTED" &&
-              payment.type === "IssuedInvoice" && (
-                <>
-                  <DropdownMenuItem asChild>
-                    <HandleCancelationRequest
-                      invoiceKey={payment.invoiceKey}
-                      state={true}
-                      text="Accept"
-                      key="0"
-                    />
-                  </DropdownMenuItem>
-
-                  <DropdownMenuItem asChild>
-                    <HandleCancelationRequest
-                      invoiceKey={payment.invoiceKey}
-                      state={false}
-                      text="Reject"
-                      key="1"
-                    />
-                  </DropdownMenuItem>
-                </>
-              )}
-
-            {payment.status === "CANCELATION REJECTED" &&
-              payment.type === "IssuedInvoice" && (
-                <DropdownMenuItem>Accept Invoice</DropdownMenuItem>
-              )}
-
-            {payment.status === "CANCELATION ACCEPTED" &&
-              payment.type === "ReceivedInvoice" && (
-                <DropdownMenuItem>Refunded</DropdownMenuItem>
-              )}
-
-            {payment.status === "DISPUTED" && (
-              <ResolveDispute invoiceKey={payment.invoiceKey} />
-            )}
-
-            {payment.status === "DISPUTE DISMISSED" && (
-              <DropdownMenuItem>Dispute Dismissed</DropdownMenuItem>
-            )}
-
-            {payment.status === "DISPUTE RESOLVED" && (
-              <DropdownMenuItem>Dispute Resolved</DropdownMenuItem>
-            )}
-
-            {payment.status === "RELEASED" && (
-              <DropdownMenuItem>Payment Released</DropdownMenuItem>
             )}
           </DropdownMenuContent>
         </DropdownMenu>

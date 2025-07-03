@@ -3,8 +3,8 @@
 import { useContext } from "react";
 import { ContractContext } from "@/context/contract-context";
 import { formatAddress } from "@/utils";
-import { ADVANCE_INVOICE_ADDRESS, INVOICE_ADDRESS } from "@/constants";
-import { polygonAmoy } from "viem/chains";
+import { ADVANCED_PAYMENT_PROCESSOR, SIMPLE_PAYMENT_PROCESSOR } from "@/constants";
+import { sepolia } from "viem/chains";
 import DataTable from "../dashboard/DataTable";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import DashboardHeader from "../dashboard/Header";
@@ -42,7 +42,7 @@ const ContractLink: React.FC<ContractLinkProps> = ({
       <span>
         Contract:{" "}
         <a
-          href={`https://amoy.polygonscan.com/address/${address}`}
+          href={`https://sepolia.etherscan.io/address/${address}`}
           target="_blank"
           rel="noopener noreferrer"
           className="text-blue-500 underline"
@@ -56,8 +56,8 @@ const ContractLink: React.FC<ContractLinkProps> = ({
           {isLoading
             ? "Loading..."
             : formattedBalance
-            ? `${formattedBalance} POL`
-            : "0 POL"}
+            ? `${formattedBalance} ETH`
+            : "0 ETH"}
         </span>
       )}
     </div>
@@ -83,7 +83,7 @@ const AdminInvoices = () => {
               title="INVOICES"
               rightContent={
                 <ContractLink
-                  address={INVOICE_ADDRESS[polygonAmoy.id] as Address}
+                  address={SIMPLE_PAYMENT_PROCESSOR[sepolia.id] as Address}
                   showBalance={false}
                 />
               }
@@ -100,7 +100,7 @@ const AdminInvoices = () => {
               title="MARKETPLACE"
               rightContent={
                 <ContractLink
-                  address={ADVANCE_INVOICE_ADDRESS[polygonAmoy.id] as Address}
+                  address={ADVANCED_PAYMENT_PROCESSOR[sepolia.id] as Address}
                 />
               }
             />
@@ -116,7 +116,7 @@ const AdminInvoices = () => {
               title="Admin Action"
               rightContent={
                 <ContractLink
-                  address={ADVANCE_INVOICE_ADDRESS[polygonAmoy.id] as Address}
+                  address={ADVANCED_PAYMENT_PROCESSOR[sepolia.id] as Address}
                 />
               }
             />

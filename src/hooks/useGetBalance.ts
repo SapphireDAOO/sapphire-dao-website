@@ -1,5 +1,5 @@
-import { ADVANCE_INVOICE_ADDRESS } from "@/constants";
-import { polygonAmoy } from "wagmi/chains";
+import { ADVANCED_PAYMENT_PROCESSOR } from "@/constants";
+import { sepolia } from "wagmi/chains";
 import { useAccount, useChainId, useReadContract, useBalance } from "wagmi";
 import { advancedPaymentProcessor } from "@/abis/AdvancedPaymentProcessor";
 import { formatEther } from "ethers";
@@ -25,8 +25,8 @@ export const useGetBalance = () => {
     refetch: refetchAddress,
   } = useReadContract({
     abi: advancedPaymentProcessor,
-    chainId: polygonAmoy.id,
-    address: ADVANCE_INVOICE_ADDRESS[chainId],
+    chainId: sepolia.id,
+    address: ADVANCED_PAYMENT_PROCESSOR[chainId],
     functionName: "getMarketplace",
     account: address,
   });
@@ -38,7 +38,7 @@ export const useGetBalance = () => {
     refetch: refetchBalance,
   } = useBalance({
     address: marketplaceAddress,
-    chainId: polygonAmoy.id,
+    chainId: sepolia.id,
   });
 
   // Format the balance in ether (from wei)

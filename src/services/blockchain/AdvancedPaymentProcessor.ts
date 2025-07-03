@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { toast } from "sonner";
 import { encodeFunctionData, Address, zeroAddress } from "viem";
-import { polygonAmoy } from "viem/chains";
-import { ADVANCE_INVOICE_ADDRESS } from "@/constants";
+import { sepolia } from "viem/chains";
+import { ADVANCED_PAYMENT_PROCESSOR } from "@/constants";
 import { fetchGasPrice, getError, handleApproval } from "./utils";
 import { client } from "@/services/graphql/client";
 import { advancedPaymentProcessor } from "@/abis/AdvancedPaymentProcessor";
@@ -19,13 +19,16 @@ export const payAdvancedInvoice = async (
   setIsLoading: (value: string) => void,
   getInvoiceData: () => Promise<void>
 ): Promise<boolean> => {
+  console.log("Order id", amount, paymentToken);
   setIsLoading(paymentType);
+
+
   let success = false;
   try {
     const gasPrice = await fetchGasPrice(publicClient, chainId);
 
     const amountIntoken = await publicClient?.readContract({
-      address: ADVANCE_INVOICE_ADDRESS[chainId],
+      address: ADVANCED_PAYMENT_PROCESSOR[chainId],
       abi: advancedPaymentProcessor,
       functionName: "getTokenValueFromUsd",
       args: [paymentToken, amount],
@@ -33,7 +36,7 @@ export const payAdvancedInvoice = async (
 
     const approved = await handleApproval(
       paymentToken,
-      ADVANCE_INVOICE_ADDRESS[chainId],
+      ADVANCED_PAYMENT_PROCESSOR[chainId],
       amountIntoken,
       owner,
       walletClient,
@@ -47,8 +50,8 @@ export const payAdvancedInvoice = async (
     }
 
     const tx = await walletClient?.sendTransaction({
-      chain: polygonAmoy,
-      to: ADVANCE_INVOICE_ADDRESS[chainId],
+      chain: sepolia,
+      to: ADVANCED_PAYMENT_PROCESSOR[chainId],
       data: encodeFunctionData({
         abi: advancedPaymentProcessor,
         functionName: paymentType,
@@ -97,8 +100,8 @@ export const acceptMarketplaceInvoice = async (
     const gasPrice = await fetchGasPrice(publicClient, chainId);
 
     const tx = await walletClient?.sendTransaction({
-      chain: polygonAmoy,
-      to: ADVANCE_INVOICE_ADDRESS[chainId],
+      chain: sepolia,
+      to: ADVANCED_PAYMENT_PROCESSOR[chainId],
       data: encodeFunctionData({
         abi: advancedPaymentProcessor,
         functionName: "acceptInvoice",
@@ -132,168 +135,6 @@ export const acceptMarketplaceInvoice = async (
   return success;
 };
 
-export const cancelMarketplaceInvoice = async (
-  { walletClient, publicClient }: WagmiClient,
-  orderId: Address,
-  chainId: number,
-  setIsLoading: (value: string) => void,
-  getInvoiceData: () => Promise<void>
-): Promise<boolean> => {
-  setIsLoading("cancelMarketplaceInvoice");
-  let success = false;
-  let progressToastId: string | number | undefined;
-
-  try {
-    const gasPrice = await fetchGasPrice(publicClient, chainId);
-
-    const tx = await walletClient?.sendTransaction({
-      chain: polygonAmoy,
-      to: ADVANCE_INVOICE_ADDRESS[chainId],
-      data: encodeFunctionData({
-        abi: advancedPaymentProcessor,
-        functionName: "cancelInvoice",
-        args: [orderId],
-      }),
-      gasPrice,
-    });
-
-    progressToastId = toast.info("Transaction in progress...", {
-      duration: Infinity,
-    });
-
-    const receipt = await publicClient?.waitForTransactionReceipt({
-      hash: tx!,
-    });
-
-    if (receipt?.status) {
-      toast.dismiss(progressToastId);
-      toast.success("Order canceled");
-      await getInvoiceData();
-      success = true;
-    } else {
-      toast.dismiss(progressToastId);
-      toast.error("An unexpected error occurred. Please try again");
-    }
-  } catch (error) {
-    toast.dismiss(progressToastId);
-    getError(error);
-  }
-  setIsLoading("");
-  return success;
-};
-
-export const requestCancelation = async (
-  { walletClient, publicClient }: WagmiClient,
-  orderId: Address,
-  chainId: number,
-  setIsLoading: (value: string) => void,
-  getInvoiceData: () => Promise<void>
-): Promise<boolean> => {
-  setIsLoading("requestCancelation");
-  let success = false;
-  let progressToastId: string | number | undefined;
-
-  try {
-    const gasPrice = await fetchGasPrice(publicClient, chainId);
-
-    const tx = await walletClient?.sendTransaction({
-      chain: polygonAmoy,
-      to: ADVANCE_INVOICE_ADDRESS[chainId],
-      data: encodeFunctionData({
-        abi: advancedPaymentProcessor,
-        functionName: "requestCancelation",
-        args: [orderId],
-      }),
-      gasPrice,
-    });
-
-    progressToastId = toast.info("Transaction in progress...", {
-      duration: Infinity,
-    });
-
-    if (!tx) {
-      toast.error("Transaction failed to initiate");
-      return false;
-    }
-
-    const receipt = await publicClient?.waitForTransactionReceipt({
-      hash: tx,
-    });
-
-    if (receipt?.status) {
-      toast.dismiss(progressToastId);
-      toast.success("Cancelation requested");
-      await getInvoiceData();
-      success = true;
-    } else {
-      toast.dismiss(progressToastId);
-      toast.error("An unexpected error occurred. Please try again");
-    }
-  } catch (error) {
-    toast.dismiss(progressToastId);
-    getError(error);
-  }
-  setIsLoading("");
-  return success;
-};
-
-export const handleCancelationRequest = async (
-  { walletClient, publicClient }: WagmiClient,
-  orderId: Address,
-  accept: boolean,
-  chainId: number,
-  setIsLoading: (value: string) => void,
-  getInvoiceData: () => Promise<void>
-): Promise<boolean> => {
-  setIsLoading("requestCancelation");
-  let success = false;
-  let progressToastId: string | number | undefined;
-
-  try {
-    const gasPrice = await fetchGasPrice(publicClient, chainId);
-
-    const tx = await walletClient?.sendTransaction({
-      chain: polygonAmoy,
-      to: ADVANCE_INVOICE_ADDRESS[chainId],
-      data: encodeFunctionData({
-        abi: advancedPaymentProcessor,
-        functionName: "handleCancelationRequest",
-        args: [orderId, accept],
-      }),
-      gasPrice,
-    });
-
-    if (!tx) {
-      toast.error("Transaction failed to initiate");
-      return false;
-    }
-
-    progressToastId = toast.info("Transaction in progress...", {
-      duration: Infinity,
-    });
-
-    const receipt = await publicClient?.waitForTransactionReceipt({
-      hash: tx!,
-    });
-
-    if (receipt?.status) {
-      const state = accept ? "granted" : "rejected";
-      toast.dismiss(progressToastId);
-      toast.success(`Cancelation ${state}`);
-      await getInvoiceData();
-      success = true;
-    } else {
-      toast.dismiss(progressToastId);
-      toast.error("An unexpected error occurred. Please try again");
-    }
-  } catch (error) {
-    toast.dismiss(progressToastId);
-    getError(error);
-  }
-  setIsLoading("");
-  return success;
-};
-
 export const createDispute = async (
   { walletClient, publicClient }: WagmiClient,
   orderId: Address,
@@ -309,8 +150,8 @@ export const createDispute = async (
     const gasPrice = await fetchGasPrice(publicClient, chainId);
 
     const tx = await walletClient?.sendTransaction({
-      chain: polygonAmoy,
-      to: ADVANCE_INVOICE_ADDRESS[chainId],
+      chain: sepolia,
+      to: ADVANCED_PAYMENT_PROCESSOR[chainId],
       data: encodeFunctionData({
         abi: advancedPaymentProcessor,
         functionName: "createDispute",
@@ -364,8 +205,8 @@ export const claimExpiredInvoiceRefunds = async (
     const gasPrice = await fetchGasPrice(publicClient, chainId);
 
     const tx = await walletClient?.sendTransaction({
-      chain: polygonAmoy,
-      to: ADVANCE_INVOICE_ADDRESS[chainId],
+      chain: sepolia,
+      to: ADVANCED_PAYMENT_PROCESSOR[chainId],
       data: encodeFunctionData({
         abi: advancedPaymentProcessor,
         functionName: "claimExpiredInvoiceRefunds",
@@ -390,64 +231,6 @@ export const claimExpiredInvoiceRefunds = async (
     if (receipt?.status) {
       toast.dismiss(progressToastId);
       toast.success("Refunded");
-      await getInvoiceData();
-      success = true;
-    } else {
-      toast.dismiss(progressToastId);
-      toast.error("An unexpected error occurred. Please try again");
-    }
-  } catch (error) {
-    toast.dismiss(progressToastId);
-    getError(error);
-  }
-  setIsLoading("");
-  return success;
-};
-
-export const resolveDispute = async (
-  { walletClient, publicClient }: WagmiClient,
-  orderId: Address,
-  chainId: number,
-  setIsLoading: (value: string) => void,
-  getInvoiceData: () => Promise<void>
-): Promise<boolean> => {
-  setIsLoading("resolveDispute");
-  let success = false;
-  let progressToastId: string | number | undefined;
-
-  try {
-    const gasPrice = await fetchGasPrice(publicClient, chainId);
-
-    const tx = await walletClient?.sendTransaction({
-      chain: polygonAmoy,
-      to: ADVANCE_INVOICE_ADDRESS[chainId],
-      data: encodeFunctionData({
-        abi: advancedPaymentProcessor,
-        functionName: "resolveDispute",
-        args: [orderId],
-      }),
-      gasPrice,
-    });
-
-    if (!tx) {
-      toast.error("Transaction failed to initiate");
-      return false;
-    }
-
-    progressToastId = toast.info("Transaction in progress...", {
-      duration: Infinity,
-    });
-
-    const receipt = await publicClient?.waitForTransactionReceipt({
-      hash: tx,
-    });
-
-    if (receipt?.status) {
-      toast.dismiss(progressToastId);
-      const message = !receipt?.logs.length
-        ? "Entered resolution"
-        : "Dispute Resolved";
-      toast.success(message);
       await getInvoiceData();
       success = true;
     } else {

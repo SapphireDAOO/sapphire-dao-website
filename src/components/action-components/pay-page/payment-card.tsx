@@ -97,7 +97,7 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
                 id="price"
                 placeholder={`${
                   formatEther(invoiceData?.price ?? BigInt(0)) || "N/A"
-                } POL`}
+                } ETH`}
                 disabled
               />
             </div>

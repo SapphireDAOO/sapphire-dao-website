@@ -2,7 +2,7 @@
 import { toast } from "sonner";
 import { errorMessages, POLYGON_AMOY } from "@/constants";
 import { Address, encodeFunctionData, erc20Abi } from "viem";
-import { polygonAmoy } from "viem/chains";
+import { sepolia } from "viem/chains";
 
 export const fetchGasPrice = async (
   publicClient: any,
@@ -31,6 +31,7 @@ export const getError = (error: any) => {
     }
   }
   const message = error?.data?.message || error?.error?.data?.message;
+  console.log(error)
   toast.error(message || "Something went wrong");
 };
 
@@ -67,7 +68,7 @@ export const handleApproval = async (
     }
 
     const tx = await walletClient?.sendTransaction({
-      chain: polygonAmoy,
+      chain: sepolia,
       to: tokenAddress,
       data: encodeFunctionData({
         abi: erc20Abi,

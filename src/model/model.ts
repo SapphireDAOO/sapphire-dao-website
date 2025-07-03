@@ -97,7 +97,7 @@ export interface TokenData {
   decimals: number;
 }
 export interface InvoiceDetails {
-  id: string;
+  id?: string;
   invoiceKey: Address;
   price: string;
   paymentToken: Address;

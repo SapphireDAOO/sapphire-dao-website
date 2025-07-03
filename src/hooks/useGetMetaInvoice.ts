@@ -1,8 +1,8 @@
 import { advancedPaymentProcessor } from "@/abis/AdvancedPaymentProcessor";
-import { ADVANCE_INVOICE_ADDRESS } from "@/constants";
+import { ADVANCED_PAYMENT_PROCESSOR } from "@/constants";
 import { Address } from "viem";
 
-import { polygonAmoy } from "viem/chains";
+import { sepolia } from "viem/chains";
 import { useAccount, useChainId, useReadContract } from "wagmi";
 
 /**
@@ -26,8 +26,8 @@ export const useGetMetaInvoice = (invoiceKey: Address) => {
   // Use the wagmi `useReadContract` hook to interact with the `getMetaInvoice` function of the AdvancedPaymentProcessor contract
   const { data, refetch, isLoading } = useReadContract({
     abi: advancedPaymentProcessor,
-    chainId: polygonAmoy.id,
-    address: ADVANCE_INVOICE_ADDRESS[chainId],
+    chainId: sepolia.id,
+    address: ADVANCED_PAYMENT_PROCESSOR[chainId],
     functionName: "getMetaInvoice",
     args: [invoiceKey],
     account: address,

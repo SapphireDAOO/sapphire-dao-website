@@ -1,4 +1,4 @@
-import { polygonAmoy } from "wagmi/chains";
+import { sepolia } from "wagmi/chains";
 import { useReadContract } from "wagmi";
 import { Address, erc20Abi } from "viem";
 
@@ -13,7 +13,7 @@ import { Address, erc20Abi } from "viem";
 export const useGetTokenName = (tokenAddress: Address) => {
   const { data, refetch, isLoading, error } = useReadContract({
     abi: erc20Abi,
-    chainId: polygonAmoy.id,
+    chainId: sepolia.id,
     address: tokenAddress,
     functionName: "name",
   });

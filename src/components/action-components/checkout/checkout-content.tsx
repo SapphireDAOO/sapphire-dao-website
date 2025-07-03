@@ -90,27 +90,9 @@ const CheckoutPage = () => {
   const { data: metaInvoice } = useGetMetaInvoice(invoiceKey!);
 
   const isMetaInvoice = useMemo(() => {
-    return (
-      metaInvoice?.buyer &&
-      metaInvoice.buyer !== "0x0000000000000000000000000000000000000000"
-    );
+    return metaInvoice?.price != BigInt(0);
   }, [metaInvoice]);
 
-  const defaultToken: TokenData[] = useMemo<TokenData[]>(
-    () => [
-      {
-        name: "Mock Usdc",
-        id: "0x0363820C54670800d71A0098c96B53Cf11193F6F",
-        decimals: 6,
-      },
-      {
-        name: "Mock WBtc",
-        id: "0x8f73c398ECcd94874752c1dFa48F20A092C8Cf86",
-        decimals: 8,
-      },
-    ],
-    []
-  );
 
   // Step 3: Fetch invoice data dynamically
   useEffect(() => {
@@ -122,12 +104,14 @@ const CheckoutPage = () => {
       const query = isMetaInvoice ? metaInvoiceQuery : smartInvoiceQuery;
       const type = isMetaInvoice ? "metaInvoice" : "smartInvoice";
 
+        console.log("THE TYPE IS", type, invoiceKey)
+
       try {
         const response = await getAdvancedInvoiceData(invoiceKey, query, type);
 
         const invoice = response?.[type];
         const paymentTokens: TokenData[] =
-          response?.paymentTokens || defaultToken;
+          response?.paymentTokens || [];
 
         let structured: InvoiceDetails;
         if (invoice) {
@@ -141,11 +125,11 @@ const CheckoutPage = () => {
         } else {
           if (isMetaInvoice) {
             structured = {
-              id: metaInvoice?.invoiceId.toString(),
+              // id: metaInvoice?.invoiceId.toString(),
               invoiceKey: invoiceKey,
               price: metaInvoice?.price.toString(),
               paymentToken: metaInvoice?.paymentToken.toString() as Address,
-              tokenList: defaultToken,
+              tokenList: paymentTokens,
             };
           } else {
             structured = {
@@ -155,7 +139,7 @@ const CheckoutPage = () => {
               // eslint-disable-next-line @typescript-eslint/no-non-null-asserted-optional-chain
               price: invoiceInfo?.price.toString()!,
               paymentToken: invoiceInfo?.paymentToken.toString() as Address,
-              tokenList: defaultToken,
+              tokenList: paymentTokens,
             };
           }
         }
@@ -171,7 +155,6 @@ const CheckoutPage = () => {
     invoiceKey,
     metaInvoice,
     isMetaInvoice,
-    defaultToken,
     getAdvancedInvoiceData,
     invoiceInfo?.invoiceId,
     invoiceInfo?.paymentToken,

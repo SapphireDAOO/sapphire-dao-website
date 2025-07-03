@@ -1,5 +1,5 @@
-import { INVOICE_ADDRESS } from "@/constants";
-import { polygonAmoy } from "wagmi/chains";
+import { SIMPLE_PAYMENT_PROCESSOR } from "@/constants";
+import { sepolia } from "wagmi/chains";
 import { useAccount, useChainId, useReadContract } from "wagmi";
 import { paymentProcessor } from "@/abis/PaymentProcessor";
 
@@ -19,8 +19,8 @@ export const useGetOwner = () => {
   // Use the wagmi `useReadContract` hook to interact with the `owner` function of the PaymentProcessor contract
   const { data, refetch, isLoading } = useReadContract({
     abi: paymentProcessor,
-    chainId: polygonAmoy.id,
-    address: INVOICE_ADDRESS[chainId],
+    chainId: sepolia.id,
+    address: SIMPLE_PAYMENT_PROCESSOR[chainId],
     functionName: "owner",
     account: address,
   });
