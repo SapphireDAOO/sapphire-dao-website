@@ -22,7 +22,6 @@ export const payAdvancedInvoice = async (
   console.log("Order id", amount, paymentToken);
   setIsLoading(paymentType);
 
-
   let success = false;
   try {
     const gasPrice = await fetchGasPrice(publicClient, chainId);

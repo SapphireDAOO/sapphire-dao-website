@@ -99,7 +99,6 @@ export const invoiceQuery = `query ($address: String!) {
       state
       paymentToken
       paymentTxHash
-      cancelAt
       seller {
         id
       }
@@ -119,7 +118,6 @@ export const invoiceQuery = `query ($address: String!) {
       state
       paymentToken
       paymentTxHash
-      cancelAt
       seller {
         id
       }

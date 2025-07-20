@@ -58,7 +58,7 @@ const CheckoutCard = ({ data, isMetaInvoice }: CheckoutCardProps) => {
 
   const handleClick = async () => {
     if (!data?.price) {
-      toast.error("Invoice price not available.");
+      toast.error("Invoice price is not available.");
       return;
     }
 

@@ -61,7 +61,7 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
 
   const handleClick = async () => {
     if (!invoiceData?.price) {
-      toast.error("Invoice price not available.");
+      toast.error("Invoice price is not available.");
       return;
     }
     const success = await makeInvoicePayment(invoiceData.price, invoiceKEY!);

@@ -11,11 +11,11 @@ export const PAYMENT_PROCESSOR_STORAGE: Record<number, Address> = {
 };
 
 export const SIMPLE_PAYMENT_PROCESSOR: Record<number, Address> = {
-  [sepolia.id]: "0xC39eF2B61E47923db6f89f4E7Fda583b0b7cf8CE",
+  [sepolia.id]: "0xE00bDCE91730Be73C4a133cD908ec047d742499b",
 };
 
 export const ADVANCED_PAYMENT_PROCESSOR: Record<number, Address> = {
-  [sepolia.id]: "0xb9DD118C880759E62516fa2c88Eb76ba3fd42eae",
+  [sepolia.id]: "0x1A1b771B7e6cE617d22A148d08d0395Ca29f208a",
 };
 
 export const THE_GRAPH_API_URL: Record<number, string> = {

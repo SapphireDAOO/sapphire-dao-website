@@ -24,11 +24,9 @@ const smartInvoiceQuery = `
   query ($id: String!) {
     smartInvoice(id: $id) {
       amountPaid
-      cancelAt
       contract
       createdAt
       escrow
-      expiresAt
       id
       invoiceId
       paidAt
@@ -86,17 +84,18 @@ const CheckoutPage = () => {
     if (jwtToken) verifyToken();
   }, [jwtToken]);
 
-  const { data: invoiceInfo } = useGetMarketplaceInvoiceData(invoiceKey!);
-  const { data: metaInvoice } = useGetMetaInvoice(invoiceKey!);
+  const { data: invoiceInfo } = useGetMarketplaceInvoiceData(
+    invoiceKey || "0x"
+  );
+  const { data: metaInvoice } = useGetMetaInvoice(invoiceKey || "0x");
 
   const isMetaInvoice = useMemo(() => {
     return metaInvoice?.price != BigInt(0);
   }, [metaInvoice]);
 
-
   // Step 3: Fetch invoice data dynamically
   useEffect(() => {
-    if (!invoiceKey || metaInvoice === undefined) return;
+    if (!invoiceKey) return;
 
     const loadInvoice = async () => {
       if (!invoiceKey) return;
@@ -104,14 +103,11 @@ const CheckoutPage = () => {
       const query = isMetaInvoice ? metaInvoiceQuery : smartInvoiceQuery;
       const type = isMetaInvoice ? "metaInvoice" : "smartInvoice";
 
-        console.log("THE TYPE IS", type, invoiceKey)
-
       try {
         const response = await getAdvancedInvoiceData(invoiceKey, query, type);
 
         const invoice = response?.[type];
-        const paymentTokens: TokenData[] =
-          response?.paymentTokens || [];
+        const paymentTokens: TokenData[] = response?.paymentTokens || [];
 
         let structured: InvoiceDetails;
         if (invoice) {
@@ -119,31 +115,16 @@ const CheckoutPage = () => {
             id: invoice.invoiceId,
             invoiceKey: invoice.id,
             price: invoice.price,
-            paymentToken: invoice.paymentToken,
             tokenList: paymentTokens,
           };
         } else {
-          if (isMetaInvoice) {
-            structured = {
-              // id: metaInvoice?.invoiceId.toString(),
-              invoiceKey: invoiceKey,
-              price: metaInvoice?.price.toString(),
-              paymentToken: metaInvoice?.paymentToken.toString() as Address,
-              tokenList: paymentTokens,
-            };
-          } else {
-            structured = {
-              // eslint-disable-next-line @typescript-eslint/no-non-null-asserted-optional-chain
-              id: invoiceInfo?.invoiceId.toString()!,
-              invoiceKey: invoiceKey,
-              // eslint-disable-next-line @typescript-eslint/no-non-null-asserted-optional-chain
-              price: invoiceInfo?.price.toString()!,
-              paymentToken: invoiceInfo?.paymentToken.toString() as Address,
-              tokenList: paymentTokens,
-            };
-          }
+          structured = {
+            id: invoiceInfo?.invoiceId.toString() ?? "",
+            invoiceKey: invoiceKey,
+            price: invoiceInfo?.price.toString() ?? "0",
+            tokenList: paymentTokens,
+          };
         }
-
         setInvoiceDetails(structured);
       } catch (error) {
         console.log(error);
@@ -162,15 +143,6 @@ const CheckoutPage = () => {
   ]);
 
   // UI
-  if (error) {
-    return (
-      <Container>
-        <div className="flex items-center justify-center min-h-[calc(100vh-4rem)] text-red-500">
-          {error}
-        </div>
-      </Container>
-    );
-  }
 
   const isLoading =
     invoiceKey && metaInvoice !== undefined && !invoiceDetails && !error;
@@ -194,7 +166,7 @@ const CheckoutPage = () => {
       </Container>
     );
   }
-
+  console.log("THE INVOICE DETAILS IS", invoiceDetails);
   if (!invoiceDetails) {
     return (
       <Container>

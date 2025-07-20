@@ -100,7 +100,7 @@ export interface InvoiceDetails {
   id?: string;
   invoiceKey: Address;
   price: string;
-  paymentToken: Address;
+  paymentToken?: Address;
   tokenList: TokenData[];
 }
 
