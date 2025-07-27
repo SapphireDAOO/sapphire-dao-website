@@ -37,6 +37,7 @@ const AdminCard = () => {
   const [defaultPeriod, setDefaultPeriod] = useState("");
   const [sDaoFee, setDaoFee] = useState("");
   const [value, setValue] = useState("");
+  const [marketplaceAddress, setMarketplaceKeeper] = useState("");
 
   const {
     setFeeReceiversAddress,
@@ -45,11 +46,16 @@ const AdminCard = () => {
     setFee,
     transferOwnership,
     setMinimumInvoiceValue,
+    setMarketplaceAddress,
     isLoading,
   } = useContext(ContractContext);
 
   const handleReceiverAdd = async () => {
     await setFeeReceiversAddress(receiversAdd as Address);
+  };
+
+  const handleMarketplaceAddress = async () => {
+    await setMarketplaceAddress(marketplaceAddress as Address);
   };
 
   const handleOwnerAddress = async () => {
@@ -316,6 +322,31 @@ const AdminCard = () => {
             </div>
             <p className="text-sm text-muted-foreground">
               Updates the fee for using Sapphire DAO service.
+            </p>
+          </div>
+          <div className="my-3 space-y-1.5">
+            <Label htmlFor="setFeeAdd">Set New Marketplace Address</Label>
+            <div className="flex flex-col-2 gap-2">
+              <Input
+                id="setFeeAdd"
+                placeholder="0xxxxx"
+                value={ownerAddr}
+                onChange={(e) => setMarketplaceKeeper(e.target.value)}
+              />
+              <Button onClick={handleMarketplaceAddress}>
+                {isLoading === "setMarketplaceAddress" ? (
+                  <Loader2
+                    className="inline-flex animate-spin"
+                    size={10}
+                    color="#cee7d6"
+                  />
+                ) : (
+                  "SET"
+                )}
+              </Button>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Updates the Marketplace Keeper Address.
             </p>
           </div>
         </div>

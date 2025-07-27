@@ -84,56 +84,6 @@ export const payAdvancedInvoice = async (
   return success;
 };
 
-export const acceptMarketplaceInvoice = async (
-  { walletClient, publicClient }: WagmiClient,
-  orderId: Address,
-  chainId: number,
-  setIsLoading: (value: string) => void,
-  getInvoiceData: () => Promise<void>
-): Promise<boolean> => {
-  setIsLoading("acceptMarketplaceInvoice");
-  let success = false;
-  let progressToastId: string | number | undefined;
-
-  try {
-    const gasPrice = await fetchGasPrice(publicClient, chainId);
-
-    const tx = await walletClient?.sendTransaction({
-      chain: sepolia,
-      to: ADVANCED_PAYMENT_PROCESSOR[chainId],
-      data: encodeFunctionData({
-        abi: advancedPaymentProcessor,
-        functionName: "acceptInvoice",
-        args: [orderId],
-      }),
-      gasPrice,
-    });
-
-    progressToastId = toast.info("Transaction in progress...", {
-      duration: Infinity,
-    });
-
-    const receipt = await publicClient?.waitForTransactionReceipt({
-      hash: tx!,
-    });
-
-    if (receipt?.status) {
-      toast.dismiss(progressToastId);
-      toast.success("Order accepted");
-      await getInvoiceData();
-      success = true;
-    } else {
-      toast.dismiss(progressToastId);
-      toast.error("An unexpected error occurred. Please try again");
-    }
-  } catch (error) {
-    toast.dismiss(progressToastId);
-    getError(error);
-  }
-  setIsLoading("");
-  return success;
-};
-
 export const createDispute = async (
   { walletClient, publicClient }: WagmiClient,
   orderId: Address,
@@ -189,14 +139,13 @@ export const createDispute = async (
   return success;
 };
 
-export const claimExpiredInvoiceRefunds = async (
+export const setMarketplaceAddress = async (
   { walletClient, publicClient }: WagmiClient,
-  orderId: Address,
+  marketplaceAddress: Address,
   chainId: number,
-  setIsLoading: (value: string) => void,
-  getInvoiceData: () => Promise<void>
-): Promise<boolean> => {
-  setIsLoading("claimExpiredInvoiceRefunds");
+  setIsLoading: (value: string) => void
+): Promise<any> => {
+  setIsLoading("setMarketplaceAddress");
   let success = false;
   let progressToastId: string | number | undefined;
 
@@ -208,8 +157,8 @@ export const claimExpiredInvoiceRefunds = async (
       to: ADVANCED_PAYMENT_PROCESSOR[chainId],
       data: encodeFunctionData({
         abi: advancedPaymentProcessor,
-        functionName: "claimExpiredInvoiceRefunds",
-        args: [orderId],
+        functionName: "setMarketplace",
+        args: [marketplaceAddress],
       }),
       gasPrice,
     });
@@ -229,12 +178,11 @@ export const claimExpiredInvoiceRefunds = async (
 
     if (receipt?.status) {
       toast.dismiss(progressToastId);
-      toast.success("Refunded");
-      await getInvoiceData();
+      toast.success("Successfully set new address");
       success = true;
     } else {
       toast.dismiss(progressToastId);
-      toast.error("An unexpected error occurred. Please try again");
+      toast.error("Failed to set new address. Please try again");
     }
   } catch (error) {
     toast.dismiss(progressToastId);

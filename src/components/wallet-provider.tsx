@@ -18,9 +18,8 @@ import {
 } from "@/services/blockchain/SimplePaymentProcessor";
 import {
   payAdvancedInvoice,
-  acceptMarketplaceInvoice,
+  setMarketplaceAddress,
   createDispute,
-  claimExpiredInvoiceRefunds,
 } from "@/services/blockchain/AdvancedPaymentProcessor";
 import { Address } from "viem";
 import { WagmiClient } from "@/services/blockchain/type";
@@ -88,6 +87,8 @@ const WalletProvider = ({ children }: Props) => {
                 getInvoiceData
               )
             : Promise.resolve(false),
+        setMarketplaceAddress: (address: Address) =>
+          setMarketplaceAddress(wagmiClients, address, chainId, setIsLoading),
         sellerAction: (invoiceKey: Address, state: boolean) =>
           sellerAction(
             wagmiClients,
@@ -170,24 +171,9 @@ const WalletProvider = ({ children }: Props) => {
           query: string,
           type: "smartInvoice" | "metaInvoice"
         ) => fetchAdvancedInvoiceData(invoiceKey, query, type),
-        acceptMarketplaceInvoice: (orderId: Address) =>
-          acceptMarketplaceInvoice(
-            wagmiClients,
-            orderId,
-            chainId,
-            setIsLoading,
-            getInvoiceData
-          ),
+
         createDispute: (orderId: Address) =>
           createDispute(
-            wagmiClients,
-            orderId,
-            chainId,
-            setIsLoading,
-            getInvoiceData
-          ),
-        claimExpiredInvoiceRefunds: (orderId: Address) =>
-          claimExpiredInvoiceRefunds(
             wagmiClients,
             orderId,
             chainId,

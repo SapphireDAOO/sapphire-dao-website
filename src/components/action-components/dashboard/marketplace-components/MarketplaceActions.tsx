@@ -13,9 +13,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal } from "lucide-react";
 import { timeLeft } from "@/utils";
-import AcceptInvoice from "./accept-invoice";
-import CreateDispute from "./create-dispute";
-import Refund from "./refund";
 
 const marketplaceActions: ColumnDef<Invoice>[] = [
   {
@@ -51,37 +48,6 @@ const marketplaceActions: ColumnDef<Invoice>[] = [
                   </>
                 )}
               </>
-            )}
-
-            {payment.status === "PAID" && (
-              <>
-                {payment.type === "IssuedInvoice" && t !== "Time Elapsed" && (
-                  <>
-                    <AcceptInvoice invoiceKey={payment.invoiceKey} />
-                  </>
-                )}
-
-                {payment.type === "ReceivedInvoice" &&
-                  t !== "Time Elapsed" &&
-                  ""}
-
-                {payment.type === "ReceivedInvoice" && t === "Time Elapsed" && (
-                  <Refund invoiceKey={payment.invoiceKey} />
-                )}
-              </>
-            )}
-
-            {payment.status === "ACCEPTED" &&
-              payment.type === "ReceivedInvoice" && (
-                <CreateDispute invoiceKey={payment.invoiceKey} />
-              )}
-
-            {payment.status === "REJECTED" && (
-              <DropdownMenuItem>Refunded</DropdownMenuItem>
-            )}
-
-            {payment.status === "CANCELED" && (
-              <DropdownMenuItem>Invoice Cancelled</DropdownMenuItem>
             )}
           </DropdownMenuContent>
         </DropdownMenu>

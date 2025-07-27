@@ -7,11 +7,7 @@ export const advancedPaymentProcessor = [
         type: "address",
       },
       { internalType: "address", name: "ownerAddress", type: "address" },
-      {
-        internalType: "address",
-        name: "marketplaceAddress",
-        type: "address",
-      },
+      { internalType: "address", name: "marketplaceAddress", type: "address" },
       {
         internalType: "address",
         name: "nativeTokenAggregatorAddress",
@@ -22,65 +18,21 @@ export const advancedPaymentProcessor = [
     type: "constructor",
   },
   { inputs: [], name: "AlreadyInitialized", type: "error" },
-  { inputs: [], name: "AlreadyRefunded", type: "error" },
   { inputs: [], name: "BuyerCannotBeSeller", type: "error" },
-  { inputs: [], name: "CancelationRequestDeadlinePassed", type: "error" },
-  { inputs: [], name: "DisputeWindowExpired", type: "error" },
-  { inputs: [], name: "DuplicateResolutionAttempt", type: "error" },
-  { inputs: [], name: "InvalidBuyer", type: "error" },
+  { inputs: [], name: "InsufficientBalance", type: "error" },
   { inputs: [], name: "InvalidDisputeResolution", type: "error" },
   { inputs: [], name: "InvalidInvoiceState", type: "error" },
-  { inputs: [], name: "InvalidMetaInvoicePayment", type: "error" },
   { inputs: [], name: "InvalidNativePayment", type: "error" },
   { inputs: [], name: "InvalidPaymentToken", type: "error" },
   { inputs: [], name: "InvalidSellersPayoutShare", type: "error" },
   { inputs: [], name: "InvoiceAlreadyExists", type: "error" },
   { inputs: [], name: "InvoiceDoesNotExist", type: "error" },
-  { inputs: [], name: "InvoiceExpired", type: "error" },
-  { inputs: [], name: "InvoiceResponseTimeExpired", type: "error" },
-  { inputs: [], name: "InvoiceStillActive", type: "error" },
   { inputs: [], name: "MetaInvoiceAlreadyExists", type: "error" },
   { inputs: [], name: "NewOwnerIsZeroAddress", type: "error" },
   { inputs: [], name: "NoHandoverRequest", type: "error" },
   { inputs: [], name: "NotAuthorized", type: "error" },
-  { inputs: [], name: "OrderIsEmpty", type: "error" },
   { inputs: [], name: "PriceCannotBeZero", type: "error" },
   { inputs: [], name: "Unauthorized", type: "error" },
-  { inputs: [], name: "UnauthorizedBuyer", type: "error" },
-  { inputs: [], name: "UnauthorizedParticipant", type: "error" },
-  { inputs: [], name: "UnauthorizedSeller", type: "error" },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        internalType: "bytes32",
-        name: "orderId",
-        type: "bytes32",
-      },
-      {
-        indexed: true,
-        internalType: "bool",
-        name: "accepted",
-        type: "bool",
-      },
-    ],
-    name: "CancelationRequestHandled",
-    type: "event",
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        internalType: "bytes32",
-        name: "orderId",
-        type: "bytes32",
-      },
-    ],
-    name: "CancelationRequested",
-    type: "event",
-  },
   {
     anonymous: false,
     inputs: [
@@ -154,19 +106,6 @@ export const advancedPaymentProcessor = [
         name: "orderId",
         type: "bytes32",
       },
-    ],
-    name: "EarlyRelease",
-    type: "event",
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        internalType: "bytes32",
-        name: "orderId",
-        type: "bytes32",
-      },
       {
         indexed: true,
         internalType: "address",
@@ -175,32 +114,6 @@ export const advancedPaymentProcessor = [
       },
     ],
     name: "EscrowCreated",
-    type: "event",
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        internalType: "bytes32",
-        name: "orderId",
-        type: "bytes32",
-      },
-    ],
-    name: "ExpiredInvoiceRefunded",
-    type: "event",
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        internalType: "bytes32",
-        name: "orderId",
-        type: "bytes32",
-      },
-    ],
-    name: "InvoiceAccepted",
     type: "event",
   },
   {
@@ -231,51 +144,14 @@ export const advancedPaymentProcessor = [
           { internalType: "address", name: "buyer", type: "address" },
           { internalType: "address", name: "seller", type: "address" },
           { internalType: "address", name: "escrow", type: "address" },
-          {
-            internalType: "address",
-            name: "paymentToken",
-            type: "address",
-          },
-          {
-            internalType: "address",
-            name: "resolutionInitiator",
-            type: "address",
-          },
+          { internalType: "address", name: "paymentToken", type: "address" },
           { internalType: "uint8", name: "state", type: "uint8" },
-          {
-            internalType: "uint8",
-            name: "resolutionState",
-            type: "uint8",
-          },
           { internalType: "uint48", name: "paidAt", type: "uint48" },
           { internalType: "uint48", name: "createdAt", type: "uint48" },
-          {
-            internalType: "uint32",
-            name: "releaseWindow",
-            type: "uint32",
-          },
-          {
-            internalType: "uint32",
-            name: "invoiceExpiryDuration",
-            type: "uint32",
-          },
-          {
-            internalType: "uint32",
-            name: "timeBeforeCancelation",
-            type: "uint32",
-          },
+          { internalType: "uint256", name: "amountPaid", type: "uint256" },
           { internalType: "uint256", name: "price", type: "uint256" },
-          {
-            internalType: "uint256",
-            name: "amountPaid",
-            type: "uint256",
-          },
-          {
-            internalType: "bytes32",
-            name: "metaInvoiceId",
-            type: "bytes32",
-          },
-          { internalType: "bytes32", name: "orderId", type: "bytes32" },
+          { internalType: "uint256", name: "balance", type: "uint256" },
+          { internalType: "bytes32", name: "metaInvoiceId", type: "bytes32" },
         ],
         indexed: false,
         internalType: "struct IAdvancedPaymentProcessor.Invoice",
@@ -323,21 +199,14 @@ export const advancedPaymentProcessor = [
       {
         indexed: true,
         internalType: "bytes32",
-        name: "orderId",
+        name: "metaInvoiceId",
         type: "bytes32",
       },
-    ],
-    name: "InvoiceRejected",
-    type: "event",
-  },
-  {
-    anonymous: false,
-    inputs: [
       {
         indexed: true,
-        internalType: "bytes32",
-        name: "orderId",
-        type: "bytes32",
+        internalType: "uint256",
+        name: "totalPrice",
+        type: "uint256",
       },
     ],
     name: "MetaInvoiceCreated",
@@ -397,16 +266,40 @@ export const advancedPaymentProcessor = [
         name: "orderId",
         type: "bytes32",
       },
+      {
+        indexed: false,
+        internalType: "uint256",
+        name: "sellerAmount",
+        type: "uint256",
+      },
+      {
+        indexed: false,
+        internalType: "uint256",
+        name: "buyerAmount",
+        type: "uint256",
+      },
     ],
     name: "PaymentReleased",
     type: "event",
   },
   {
-    inputs: [],
-    name: "ACCEPTED",
-    outputs: [{ internalType: "uint8", name: "", type: "uint8" }],
-    stateMutability: "view",
-    type: "function",
+    anonymous: false,
+    inputs: [
+      {
+        indexed: true,
+        internalType: "bytes32",
+        name: "orderId",
+        type: "bytes32",
+      },
+      {
+        indexed: true,
+        internalType: "uint256",
+        name: "amount",
+        type: "uint256",
+      },
+    ],
+    name: "Refunded",
+    type: "event",
   },
   {
     inputs: [],
@@ -487,22 +380,6 @@ export const advancedPaymentProcessor = [
   },
   {
     inputs: [{ internalType: "bytes32", name: "orderId", type: "bytes32" }],
-    name: "acceptInvoice",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [
-      { internalType: "bytes32[]", name: "orderIds", type: "bytes32[]" },
-    ],
-    name: "acceptInvoices",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [{ internalType: "bytes32", name: "orderId", type: "bytes32" }],
     name: "cancelInvoice",
     outputs: [],
     stateMutability: "nonpayable",
@@ -513,13 +390,6 @@ export const advancedPaymentProcessor = [
     name: "cancelOwnershipHandover",
     outputs: [],
     stateMutability: "payable",
-    type: "function",
-  },
-  {
-    inputs: [{ internalType: "bytes32", name: "orderId", type: "bytes32" }],
-    name: "claimExpiredInvoiceRefunds",
-    outputs: [],
-    stateMutability: "nonpayable",
     type: "function",
   },
   {
@@ -555,21 +425,6 @@ export const advancedPaymentProcessor = [
         components: [
           { internalType: "string", name: "orderId", type: "string" },
           { internalType: "address", name: "seller", type: "address" },
-          {
-            internalType: "uint32",
-            name: "invoiceExpiryDuration",
-            type: "uint32",
-          },
-          {
-            internalType: "uint32",
-            name: "timeBeforeCancelation",
-            type: "uint32",
-          },
-          {
-            internalType: "uint32",
-            name: "releaseWindow",
-            type: "uint32",
-          },
           { internalType: "uint256", name: "price", type: "uint256" },
         ],
         internalType: "struct IAdvancedPaymentProcessor.InvoiceCreationParam[]",
@@ -588,21 +443,6 @@ export const advancedPaymentProcessor = [
         components: [
           { internalType: "string", name: "orderId", type: "string" },
           { internalType: "address", name: "seller", type: "address" },
-          {
-            internalType: "uint32",
-            name: "invoiceExpiryDuration",
-            type: "uint32",
-          },
-          {
-            internalType: "uint32",
-            name: "timeBeforeCancelation",
-            type: "uint32",
-          },
-          {
-            internalType: "uint32",
-            name: "releaseWindow",
-            type: "uint32",
-          },
           { internalType: "uint256", name: "price", type: "uint256" },
         ],
         internalType: "struct IAdvancedPaymentProcessor.InvoiceCreationParam",
@@ -625,51 +465,14 @@ export const advancedPaymentProcessor = [
           { internalType: "address", name: "buyer", type: "address" },
           { internalType: "address", name: "seller", type: "address" },
           { internalType: "address", name: "escrow", type: "address" },
-          {
-            internalType: "address",
-            name: "paymentToken",
-            type: "address",
-          },
-          {
-            internalType: "address",
-            name: "resolutionInitiator",
-            type: "address",
-          },
+          { internalType: "address", name: "paymentToken", type: "address" },
           { internalType: "uint8", name: "state", type: "uint8" },
-          {
-            internalType: "uint8",
-            name: "resolutionState",
-            type: "uint8",
-          },
           { internalType: "uint48", name: "paidAt", type: "uint48" },
           { internalType: "uint48", name: "createdAt", type: "uint48" },
-          {
-            internalType: "uint32",
-            name: "releaseWindow",
-            type: "uint32",
-          },
-          {
-            internalType: "uint32",
-            name: "invoiceExpiryDuration",
-            type: "uint32",
-          },
-          {
-            internalType: "uint32",
-            name: "timeBeforeCancelation",
-            type: "uint32",
-          },
+          { internalType: "uint256", name: "amountPaid", type: "uint256" },
           { internalType: "uint256", name: "price", type: "uint256" },
-          {
-            internalType: "uint256",
-            name: "amountPaid",
-            type: "uint256",
-          },
-          {
-            internalType: "bytes32",
-            name: "metaInvoiceId",
-            type: "bytes32",
-          },
-          { internalType: "bytes32", name: "orderId", type: "bytes32" },
+          { internalType: "uint256", name: "balance", type: "uint256" },
+          { internalType: "bytes32", name: "metaInvoiceId", type: "bytes32" },
         ],
         internalType: "struct IAdvancedPaymentProcessor.Invoice",
         name: "",
@@ -695,11 +498,6 @@ export const advancedPaymentProcessor = [
       {
         components: [
           { internalType: "uint256", name: "price", type: "uint256" },
-          {
-            internalType: "address",
-            name: "paymentToken",
-            type: "address",
-          },
           {
             internalType: "bytes32[]",
             name: "subInvoiceIds",
@@ -806,8 +604,21 @@ export const advancedPaymentProcessor = [
     type: "function",
   },
   {
-    inputs: [{ internalType: "bytes32", name: "orderId", type: "bytes32" }],
-    name: "releasePayment",
+    inputs: [
+      { internalType: "bytes32", name: "orderId", type: "bytes32" },
+      { internalType: "uint256", name: "amount", type: "uint256" },
+    ],
+    name: "refund",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [
+      { internalType: "bytes32", name: "orderId", type: "bytes32" },
+      { internalType: "uint256", name: "sellerShare", type: "uint256" },
+    ],
+    name: "release",
     outputs: [],
     stateMutability: "nonpayable",
     type: "function",
@@ -827,10 +638,7 @@ export const advancedPaymentProcessor = [
     type: "function",
   },
   {
-    inputs: [
-      { internalType: "bytes32", name: "orderId", type: "bytes32" },
-      { internalType: "address", name: "sender", type: "address" },
-    ],
+    inputs: [{ internalType: "bytes32", name: "orderId", type: "bytes32" }],
     name: "resolveDispute",
     outputs: [],
     stateMutability: "nonpayable",
@@ -838,11 +646,7 @@ export const advancedPaymentProcessor = [
   },
   {
     inputs: [
-      {
-        internalType: "address",
-        name: "marketplaceAddress",
-        type: "address",
-      },
+      { internalType: "address", name: "marketplaceAddress", type: "address" },
     ],
     name: "setMarketplace",
     outputs: [],
