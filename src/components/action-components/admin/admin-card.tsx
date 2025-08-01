@@ -5,7 +5,6 @@ import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -20,14 +19,18 @@ import { useGetFeeRate } from "@/hooks/useGetFeeRate";
 import { useGetDefaultHoldPeriod } from "@/hooks/useGetDefaultHoldPeriod";
 import { useGetMinimumInvoiceValue } from "@/hooks/useGetMinimumInvoiceValue";
 import { ethers } from "ethers";
+import { useGetMarketplaceWallet } from "@/hooks/useGetMarketplaceWallet";
+
+// Utility function to truncate addresses
+const truncateAddress = (address: string | undefined) =>
+  address ? `${address.slice(0, 6)}...${address.slice(-4)}` : "Loading...";
 
 const AdminCard = () => {
   const { isLoading: isAllowedAddressLoading } = useGetOwner();
   const { data: fee } = useGetFeeRate();
-
   const { data: defaultHoldPeriod } = useGetDefaultHoldPeriod();
   const { data: minimumInvoiceValue } = useGetMinimumInvoiceValue();
-
+  const { data: marketplaceKeeperAddress } = useGetMarketplaceWallet();
   const { data: feeReceiver } = useGetFeeReceiver();
 
   const [receiversAdd, setReceiverAdd] = useState("");
@@ -84,57 +87,47 @@ const AdminCard = () => {
 
   if (isAllowedAddressLoading) {
     return (
-      <Card className="w-[450px] flex items-center justify-center">
-        <Loader2
-          className="inline-flex animate-spin"
-          size={40}
-          color="#4CAF50"
-        />
-        <p className="text-muted-foreground mt-4">Loading...</p>
+      <Card className="w-full max-w-md flex items-center justify-center p-6">
+        <div className="flex flex-col items-center gap-2">
+          <Loader2 className="animate-spin h-8 w-8 text-green-500" />
+          <p className="text-sm text-muted-foreground">Loading...</p>
+        </div>
       </Card>
     );
   }
 
   return (
-    <Card className="w-[450px]">
+    <Card className="w-full max-w-md">
       <CardHeader>
-        <CardTitle>Admin Page</CardTitle>
-        <CardDescription>
-          Only permitted address are allowed to see this page
+        <CardTitle className="text-2xl font-bold">Admin Page</CardTitle>
+        <CardDescription className="text-sm text-muted-foreground">
+          Only permitted addresses are allowed to access this page
         </CardDescription>
-        <div className="mt-4 bg-muted p-3 rounded">
+        <div className="mt-4 bg-muted p-4 rounded grid gap-4">
           <p className="text-sm font-medium">
-            <span className="text-muted-foreground">
-              Current Fee Receiver:{" "}
-            </span>
-            <span className="font-mono text-primary">
-              {feeReceiver
-                ? `${String(feeReceiver).slice(0, 8)}...${String(
-                    feeReceiver
-                  ).slice(-6)}`
-                : "Loading..."}
-            </span>
+            <span className="text-muted-foreground">Fee Receiver: </span>
+            <span className="font-mono text-primary">{truncateAddress(feeReceiver as string)}</span>
           </p>
           <p className="text-sm font-medium">
-            <span className="text-muted-foreground">
-              Current Default Hold period:{" "}
-            </span>
+            <span className="text-muted-foreground">Marketplace Wallet: </span>
+            <span className="font-mono text-primary">{truncateAddress(marketplaceKeeperAddress)}</span>
+          </p>
+          <p className="text-sm font-medium">
+            <span className="text-muted-foreground">Default Hold Period: </span>
             <span className="font-mono text-primary">
               {defaultHoldPeriod
                 ? (Number(defaultHoldPeriod) / 60).toFixed(2) + " minutes"
                 : "Loading..."}
             </span>
           </p>
-          <p className="text-sm font-medium mt-2">
-            <span className="text-muted-foreground">Current Fee: </span>
+          <p className="text-sm font-medium">
+            <span className="text-muted-foreground">Fee: </span>
             <span className="font-mono text-primary">
               {fee ? parseInt(fee.toString()) / 100 + "%" : "Loading..."}
             </span>
           </p>
-          <p className="text-sm font-medium mt-2">
-            <span className="text-muted-foreground">
-              Minimum Invoice Value:{" "}
-            </span>
+          <p className="text-sm font-medium">
+            <span className="text-muted-foreground">Minimum Invoice Value: </span>
             <span className="font-mono text-primary">
               {minimumInvoiceValue
                 ? ethers.formatEther(minimumInvoiceValue) + " ETH"
@@ -144,217 +137,224 @@ const AdminCard = () => {
         </div>
       </CardHeader>
       <CardContent>
-        <div className="grid w-full items-center gap-4">
-          <div className="my-3 space-y-1.5">
-            <Label htmlFor="setFeeAdd">Set New Admin</Label>
-            <div className="flex flex-col-2 gap-2">
+        <div className="grid w-full items-center gap-6">
+          <div className="space-y-1.5">
+            <Label htmlFor="setAdminAddress">Set New Admin</Label>
+            <div className="flex gap-2">
               <Input
-                id="setFeeAdd"
-                placeholder="0xxxxx"
+                id="setAdminAddress"
+                placeholder="Enter address (0x...)"
                 value={ownerAddr}
                 onChange={(e) => setOwnerAddr(e.target.value)}
+                aria-describedby="setAdminAddressDescription"
+                className="w-full"
               />
-              <Button onClick={handleOwnerAddress}>
+              <Button
+                onClick={handleOwnerAddress}
+                disabled={isLoading === "setFeeReceiversAddress"}
+                aria-busy={isLoading === "setFeeReceiversAddress"}
+              >
                 {isLoading === "setFeeReceiversAddress" ? (
-                  <Loader2
-                    className="inline-flex animate-spin"
-                    size={10}
-                    color="#cee7d6"
-                  />
+                  <Loader2 className="inline-flex animate-spin h-4 w-4 text-green-300" />
                 ) : (
-                  "SET"
+                  "Update Admin"
                 )}
               </Button>
             </div>
-            <p className="text-sm text-muted-foreground">
+            <p id="setAdminAddressDescription" className="text-sm text-muted-foreground">
               Updates the admin of the fee receiver.
             </p>
           </div>
-          <div className="my-3 space-y-1.5">
-            <Label htmlFor="setFeeAdd">Set Fee receivers address</Label>
-            <div className="flex flex-col-2 gap-2">
+
+          <div className="space-y-1.5">
+            <Label htmlFor="setFeeReceiverAddress">Set Fee Receiver Address</Label>
+            <div className="flex gap-2">
               <Input
-                id="setFeeAdd"
-                placeholder="0xxxxx"
+                id="setFeeReceiverAddress"
+                placeholder="Enter address (0x...)"
                 value={receiversAdd}
                 onChange={(e) => setReceiverAdd(e.target.value)}
+                aria-describedby="setFeeReceiverAddressDescription"
+                className="w-full"
               />
-              <Button onClick={handleReceiverAdd}>
+              <Button
+                onClick={handleReceiverAdd}
+                disabled={isLoading === "setFeeReceiversAddress"}
+                aria-busy={isLoading === "setFeeReceiversAddress"}
+              >
                 {isLoading === "setFeeReceiversAddress" ? (
-                  <Loader2
-                    className="inline-flex animate-spin"
-                    size={10}
-                    color="#cee7d6"
-                  />
+                  <Loader2 className="inline-flex animate-spin h-4 w-4 text-green-300" />
                 ) : (
-                  "SET"
+                  "Set Fee Receiver"
                 )}
               </Button>
             </div>
-            <p className="text-sm text-muted-foreground">
+            <p id="setFeeReceiverAddressDescription" className="text-sm text-muted-foreground">
               Updates the address of the fee receiver.
             </p>
           </div>
 
-          <div className="my-3 space-y-1.5">
-            <Label htmlFor="holdPeriodID">Invoice Hold period</Label>
-            <div className="flex flex-col-2 gap-2">
+          <div className="space-y-1.5">
+            <Label htmlFor="holdPeriodID">Invoice Hold Period</Label>
+            <div className="grid grid-cols-2 gap-2">
               <Input
                 id="holdPeriodID"
-                placeholder="Invoice Id"
+                placeholder="Invoice ID"
                 type="number"
                 value={invoiceKey}
                 onChange={(e) => setInvoiceKey(e.target.value)}
+                aria-describedby="holdPeriodDescription"
+                className="w-full"
               />
               <Input
                 id="invoicePeriod"
-                placeholder="In Days"
+                placeholder="Enter days"
                 type="number"
                 value={holdPeriod}
                 onChange={(e) => setHoldPeriod(e.target.value)}
+                aria-describedby="holdPeriodDescription"
+                className="w-full"
               />
-              <Button onClick={handleInvoiceHoldPeriod}>
-                {isLoading === "setInvoiceHoldPeriod" ? (
-                  <Loader2
-                    className="inline-flex animate-spin"
-                    size={10}
-                    color="#cee7d6"
-                  />
-                ) : (
-                  "SET"
-                )}
-              </Button>
             </div>
-            <p className="text-sm text-muted-foreground">
+            <Button
+              onClick={handleInvoiceHoldPeriod}
+              disabled={isLoading === "setInvoiceHoldPeriod"}
+              aria-busy={isLoading === "setInvoiceHoldPeriod"}
+            >
+              {isLoading === "setInvoiceHoldPeriod" ? (
+                <Loader2 className="inline-flex animate-spin h-4 w-4 text-green-300" />
+              ) : (
+                "Set Hold Period"
+              )}
+            </Button>
+            <p id="holdPeriodDescription" className="text-sm text-muted-foreground">
               Sets a custom hold period for a specific invoice.
             </p>
           </div>
 
-          <div className="my-3 space-y-1.5">
-            <Label htmlFor="defaulthold">Default Hold Period</Label>
-            <div className="flex flex-col-2 gap-2">
+          <div className="space-y-1.5">
+            <Label htmlFor="defaultHoldPeriod">Default Hold Period</Label>
+            <div className="flex gap-2">
               <Input
-                id="defaulthold"
+                id="defaultHoldPeriod"
                 type="number"
-                placeholder="In Days"
+                placeholder="Enter days"
                 value={defaultPeriod}
                 onChange={(e) => setDefaultPeriod(e.target.value)}
+                aria-describedby="defaultHoldPeriodDescription"
+                className="w-full"
               />
-              <Button onClick={handleDefaultPeriod}>
-                {" "}
+              <Button
+                onClick={handleDefaultPeriod}
+                disabled={isLoading === "setDefaultHoldPeriod"}
+                aria-busy={isLoading === "setDefaultHoldPeriod"}
+              >
                 {isLoading === "setDefaultHoldPeriod" ? (
-                  <Loader2
-                    className="inline-flex animate-spin"
-                    size={10}
-                    color="#cee7d6"
-                  />
+                  <Loader2 className="inline-flex animate-spin h-4 w-4 text-green-300" />
                 ) : (
-                  "SET"
+                  "Set Default Period"
                 )}
               </Button>
             </div>
-            <p className="text-sm text-muted-foreground">
+            <p id="defaultHoldPeriodDescription" className="text-sm text-muted-foreground">
               Updates the default hold period for all new invoices.
             </p>
           </div>
 
-          <div className="my-3 space-y-1.5">
-            <Label htmlFor="setFee">Set Minimum Invoice Value</Label>
-            <div className="flex flex-col-2 gap-2">
+          <div className="space-y-1.5">
+            <Label htmlFor="setMinimumInvoiceValue">Set Minimum Invoice Value</Label>
+            <div className="flex gap-2">
               <Input
                 id="setMinimumInvoiceValue"
                 type="number"
-                placeholder="minimum invoice value"
-                value={sDaoFee}
-                onChange={(e) => {
-                  setValue(e.target.value.toString());
-                }}
+                placeholder="Enter value in ETH"
+                value={value}
+                onChange={(e) => setValue(e.target.value.toString())}
+                aria-describedby="setMinimumInvoiceValueDescription"
+                className="w-full"
               />
-              <Button onClick={handleMinimumInvoiceValue}>
+              <Button
+                onClick={handleMinimumInvoiceValue}
+                disabled={isLoading === "setMinimumInvoiceValue"}
+                aria-busy={isLoading === "setMinimumInvoiceValue"}
+              >
                 {isLoading === "setMinimumInvoiceValue" ? (
-                  <Loader2
-                    className="inline-flex animate-spin"
-                    size={10}
-                    color="#cee7d6"
-                  />
+                  <Loader2 className="inline-flex animate-spin h-4 w-4 text-green-300" />
                 ) : (
-                  "SET"
+                  "Set Minimum Value"
                 )}
               </Button>
             </div>
-            <p className="text-sm text-muted-foreground">
-              Updates the Minimum Invoice Value
+            <p id="setMinimumInvoiceValueDescription" className="text-sm text-muted-foreground">
+              Updates the minimum invoice value.
             </p>
           </div>
 
-          <div className="my-3 space-y-1.5">
+          <div className="space-y-1.5">
             <Label htmlFor="setFee">Set Fee</Label>
-            <div className="flex flex-col-2 gap-2">
+            <div className="flex gap-2">
               <Input
                 id="setFee"
                 type="number"
-                placeholder="amount of fee in %"
+                placeholder="Enter fee percentage"
                 value={sDaoFee}
                 onChange={(e) => {
                   const value = e.target.value;
-
-                  if (
-                    value === "" ||
-                    (Number(value) >= 0 && Number(value) < 30)
-                  ) {
+                  if (value === "" || (Number(value) >= 0 && Number(value) < 30)) {
                     setDaoFee(value);
                   }
                 }}
                 max={49.99}
                 min={0}
+                aria-describedby="setFeeDescription"
+                className="w-full"
               />
-              <Button onClick={handleDaoFee}>
+              <Button
+                onClick={handleDaoFee}
+                disabled={isLoading === "setFee"}
+                aria-busy={isLoading === "setFee"}
+              >
                 {isLoading === "setFee" ? (
-                  <Loader2
-                    className="inline-flex animate-spin"
-                    size={10}
-                    color="#cee7d6"
-                  />
+                  <Loader2 className="inline-flex animate-spin h-4 w-4 text-green-300" />
                 ) : (
-                  "SET"
+                  "Set Fee"
                 )}
               </Button>
             </div>
-            <p className="text-sm text-muted-foreground">
+            <p id="setFeeDescription" className="text-sm text-muted-foreground">
               Updates the fee for using Sapphire DAO service.
             </p>
           </div>
-          <div className="my-3 space-y-1.5">
-            <Label htmlFor="setFeeAdd">Set New Marketplace Address</Label>
-            <div className="flex flex-col-2 gap-2">
+
+          <div className="space-y-1.5">
+            <Label htmlFor="setMarketplaceAddress">Set New Marketplace Address</Label>
+            <div className="flex gap-2">
               <Input
-                id="setFeeAdd"
-                placeholder="0xxxxx"
-                value={ownerAddr}
+                id="setMarketplaceAddress"
+                placeholder="Enter address (0x...)"
+                value={marketplaceAddress}
                 onChange={(e) => setMarketplaceKeeper(e.target.value)}
+                aria-describedby="setMarketplaceAddressDescription"
+                className="w-full"
               />
-              <Button onClick={handleMarketplaceAddress}>
+              <Button
+                onClick={handleMarketplaceAddress}
+                disabled={isLoading === "setMarketplaceAddress"}
+                aria-busy={isLoading === "setMarketplaceAddress"}
+              >
                 {isLoading === "setMarketplaceAddress" ? (
-                  <Loader2
-                    className="inline-flex animate-spin"
-                    size={10}
-                    color="#cee7d6"
-                  />
+                  <Loader2 className="inline-flex animate-spin h-4 w-4 text-green-300" />
                 ) : (
-                  "SET"
+                  "Set Marketplace Address"
                 )}
               </Button>
             </div>
-            <p className="text-sm text-muted-foreground">
+            <p id="setMarketplaceAddressDescription" className="text-sm text-muted-foreground">
               Updates the Marketplace Keeper Address.
             </p>
           </div>
         </div>
       </CardContent>
-      <CardFooter className="flex justify-between">
-        {/* <Button variant="outline">Cancel</Button>
-        <Button>Deploy</Button> */}
-      </CardFooter>
     </Card>
   );
 };
