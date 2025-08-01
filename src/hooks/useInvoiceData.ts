@@ -64,6 +64,7 @@ export const useInvoiceData = () => {
         state: list.status,
         releaseHash: list.releaseHash,
         status: list.state,
+        creationTxHash: list.creationTxHash,
       }));
 
       const actions: AdminAction[] = rawAdminActions.map((list: any) => ({
@@ -72,6 +73,7 @@ export const useInvoiceData = () => {
         action: list.action || "Unknown",
         time: list.time ? unixToGMT(list.time) : null,
         type: list.type,
+        txHash: list.txHash,
       }));
 
       const marketplaceInvoices: AllInvoice[] = rawMarketplaceInvoices.map(
@@ -92,6 +94,7 @@ export const useInvoiceData = () => {
           state: list.status,
           releaseHash: list.releaseHash,
           status: list.state,
+          creationTxHash: list.creationTxHash,
         })
       );
 

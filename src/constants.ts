@@ -15,7 +15,7 @@ export const SIMPLE_PAYMENT_PROCESSOR: Record<number, Address> = {
 };
 
 export const ADVANCED_PAYMENT_PROCESSOR: Record<number, Address> = {
-  [sepolia.id]: "0x1A1b771B7e6cE617d22A148d08d0395Ca29f208a",
+  [sepolia.id]: "0x80D9b6eA9dE65A4cDB5cE106D7690F56B2695102",
 };
 
 export const THE_GRAPH_API_URL: Record<number, string> = {

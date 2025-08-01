@@ -21,7 +21,8 @@ export type Invoice = {
   seller?: string;
   source?: string;
   paymentToken?: string;
-  cancelAt?: string
+  cancelAt?: string;
+  creationTxHash?: string;
 };
 
 export type AllInvoice = {
@@ -38,6 +39,7 @@ export type AllInvoice = {
   fee: string;
   releaseHash: string;
   status: string;
+  creationTxHash: string;
 };
 
 export type AdminAction = {
@@ -46,6 +48,8 @@ export type AdminAction = {
   action: string;
   time: string;
   type: "Single Invoice" | "Meta Invoice";
+  txHash: string;
+  balance: string;
 };
 
 export type AllInvoicesData = {

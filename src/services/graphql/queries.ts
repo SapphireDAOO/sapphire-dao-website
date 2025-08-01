@@ -13,6 +13,7 @@ export const GET_ALL_INVOICES = `
       releasedAt
       state
       amountPaid
+      creationTxHash
       seller {
         id
       }
@@ -26,6 +27,8 @@ export const GET_ALL_INVOICES = `
       time
       type
       action
+      balance
+      txHash
     }
   smartInvoices {
       contract
@@ -37,6 +40,7 @@ export const GET_ALL_INVOICES = `
       releasedAt
       state
       amountPaid
+      creationTxHash
       seller {
         id
       }
@@ -135,5 +139,3 @@ export const invoiceOwnerQuery = `query Invoice($id: String!) {
     }
   }
 }`;
-
-

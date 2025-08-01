@@ -3,7 +3,10 @@
 import { useContext } from "react";
 import { ContractContext } from "@/context/contract-context";
 import { formatAddress } from "@/utils";
-import { ADVANCED_PAYMENT_PROCESSOR, SIMPLE_PAYMENT_PROCESSOR } from "@/constants";
+import {
+  ADVANCED_PAYMENT_PROCESSOR,
+  SIMPLE_PAYMENT_PROCESSOR,
+} from "@/constants";
 import { sepolia } from "viem/chains";
 import DataTable from "../dashboard/DataTable";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -11,7 +14,8 @@ import DashboardHeader from "../dashboard/Header";
 import Container from "@/components/Container";
 import allInvoicesColumns from "./allInvoicesColumns";
 import adminActionsColumns from "./adminActionsColumns";
-import allMarketplaceInvoices from "./AllMarketplaceInvoicesColumns";
+import allMarketplaceInvoices from "./allMarketplaceInvoicesColumns";
+
 import { useGetBalance } from "@/hooks/useGetBalance";
 import { Address } from "viem";
 
