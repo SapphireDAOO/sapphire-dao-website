@@ -104,13 +104,39 @@ const AdminCard = () => {
           Only permitted addresses are allowed to access this page
         </CardDescription>
         <div className="mt-4 bg-muted p-4 rounded grid gap-4">
-          <p className="text-sm font-medium">
-            <span className="text-muted-foreground">Fee Receiver: </span>
-            <span className="font-mono text-primary">{truncateAddress(feeReceiver as string)}</span>
+          <p className="text-sm font-medium flex items-center gap-2">
+            <span className="text-muted-foreground">Fee Receiver:</span>
+            <span className="font-mono text-primary">
+              {feeReceiver ? (
+                <a
+                  href={`https://sepolia.etherscan.io/address/${feeReceiver}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-500 underline"
+                >
+                  {truncateAddress(feeReceiver)}
+                </a>
+              ) : (
+                "Loading..."
+              )}
+            </span>
           </p>
           <p className="text-sm font-medium">
             <span className="text-muted-foreground">Marketplace Wallet: </span>
-            <span className="font-mono text-primary">{truncateAddress(marketplaceKeeperAddress)}</span>
+            <span className="font-mono text-primary">
+              {marketplaceKeeperAddress ? (
+                <a
+                  href={`https://sepolia.etherscan.io/address/${marketplaceKeeperAddress}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-500 underline"
+                >
+                  {truncateAddress(marketplaceKeeperAddress)}
+                </a>
+              ) : (
+                "Loading..."
+              )}
+            </span>
           </p>
           <p className="text-sm font-medium">
             <span className="text-muted-foreground">Default Hold Period: </span>
@@ -127,7 +153,9 @@ const AdminCard = () => {
             </span>
           </p>
           <p className="text-sm font-medium">
-            <span className="text-muted-foreground">Minimum Invoice Value: </span>
+            <span className="text-muted-foreground">
+              Minimum Invoice Value:{" "}
+            </span>
             <span className="font-mono text-primary">
               {minimumInvoiceValue
                 ? ethers.formatEther(minimumInvoiceValue) + " ETH"
@@ -151,23 +179,28 @@ const AdminCard = () => {
               />
               <Button
                 onClick={handleOwnerAddress}
-                disabled={isLoading === "setFeeReceiversAddress"}
-                aria-busy={isLoading === "setFeeReceiversAddress"}
+                disabled={isLoading === "transferOwnership"}
+                aria-busy={isLoading === "transferOwnership"}
               >
-                {isLoading === "setFeeReceiversAddress" ? (
+                {isLoading === "transferOwnership" ? (
                   <Loader2 className="inline-flex animate-spin h-4 w-4 text-green-300" />
                 ) : (
                   "Update Admin"
                 )}
               </Button>
             </div>
-            <p id="setAdminAddressDescription" className="text-sm text-muted-foreground">
+            <p
+              id="setAdminAddressDescription"
+              className="text-sm text-muted-foreground"
+            >
               Updates the admin of the fee receiver.
             </p>
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="setFeeReceiverAddress">Set Fee Receiver Address</Label>
+            <Label htmlFor="setFeeReceiverAddress">
+              Set Fee Receiver Address
+            </Label>
             <div className="flex gap-2">
               <Input
                 id="setFeeReceiverAddress"
@@ -189,7 +222,10 @@ const AdminCard = () => {
                 )}
               </Button>
             </div>
-            <p id="setFeeReceiverAddressDescription" className="text-sm text-muted-foreground">
+            <p
+              id="setFeeReceiverAddressDescription"
+              className="text-sm text-muted-foreground"
+            >
               Updates the address of the fee receiver.
             </p>
           </div>
@@ -227,7 +263,10 @@ const AdminCard = () => {
                 "Set Hold Period"
               )}
             </Button>
-            <p id="holdPeriodDescription" className="text-sm text-muted-foreground">
+            <p
+              id="holdPeriodDescription"
+              className="text-sm text-muted-foreground"
+            >
               Sets a custom hold period for a specific invoice.
             </p>
           </div>
@@ -256,13 +295,18 @@ const AdminCard = () => {
                 )}
               </Button>
             </div>
-            <p id="defaultHoldPeriodDescription" className="text-sm text-muted-foreground">
+            <p
+              id="defaultHoldPeriodDescription"
+              className="text-sm text-muted-foreground"
+            >
               Updates the default hold period for all new invoices.
             </p>
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="setMinimumInvoiceValue">Set Minimum Invoice Value</Label>
+            <Label htmlFor="setMinimumInvoiceValue">
+              Set Minimum Invoice Value
+            </Label>
             <div className="flex gap-2">
               <Input
                 id="setMinimumInvoiceValue"
@@ -285,7 +329,10 @@ const AdminCard = () => {
                 )}
               </Button>
             </div>
-            <p id="setMinimumInvoiceValueDescription" className="text-sm text-muted-foreground">
+            <p
+              id="setMinimumInvoiceValueDescription"
+              className="text-sm text-muted-foreground"
+            >
               Updates the minimum invoice value.
             </p>
           </div>
@@ -300,7 +347,10 @@ const AdminCard = () => {
                 value={sDaoFee}
                 onChange={(e) => {
                   const value = e.target.value;
-                  if (value === "" || (Number(value) >= 0 && Number(value) < 30)) {
+                  if (
+                    value === "" ||
+                    (Number(value) >= 0 && Number(value) < 30)
+                  ) {
                     setDaoFee(value);
                   }
                 }}
@@ -327,7 +377,9 @@ const AdminCard = () => {
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="setMarketplaceAddress">Set New Marketplace Address</Label>
+            <Label htmlFor="setMarketplaceAddress">
+              Set New Marketplace Address
+            </Label>
             <div className="flex gap-2">
               <Input
                 id="setMarketplaceAddress"
@@ -349,7 +401,10 @@ const AdminCard = () => {
                 )}
               </Button>
             </div>
-            <p id="setMarketplaceAddressDescription" className="text-sm text-muted-foreground">
+            <p
+              id="setMarketplaceAddressDescription"
+              className="text-sm text-muted-foreground"
+            >
               Updates the Marketplace Keeper Address.
             </p>
           </div>

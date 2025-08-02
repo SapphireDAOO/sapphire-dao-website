@@ -11,7 +11,6 @@ const allInvoicesColumns: ColumnDef<AllInvoice>[] = [
     header: () => <div className="text-center">Invoice Id</div>,
     cell: ({ row }) => {
       const invoiceKey: Address = row.getValue("invoiceKey");
-      console.log(row.original);
       const txHash = row.original.creationTxHash;
       const displayKey = invoiceKey
         ? `${invoiceKey.slice(0, 6)}...${invoiceKey.slice(-4)}`

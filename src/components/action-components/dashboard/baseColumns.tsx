@@ -60,7 +60,13 @@ const baseColumns: ColumnDef<Invoice>[] = [
         </Button>
       );
     },
-    cell: ({ row }) => <div className="text-center">{row.getValue("id")}</div>,
+
+    cell: ({ row }) => {
+      let id: string = row.getValue("id");
+      if (!id) return <div className="text-center">-</div>;
+      id = id.length != 66 ? id : `${id.slice(0, 6)}...${id.slice(-4)}`;
+      return <div className="text-center">{id}</div>;
+    },
   },
   {
     accessorKey: "contract",

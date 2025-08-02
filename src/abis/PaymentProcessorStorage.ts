@@ -187,4 +187,4 @@ export const PaymentProcessorStorage = [
   { type: "error", name: "NoHandoverRequest", inputs: [] },
   { type: "error", name: "NotAuthorized", inputs: [] },
   { type: "error", name: "Unauthorized", inputs: [] },
-];
+] as const;
