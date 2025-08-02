@@ -397,7 +397,7 @@ export const setFeeReceiversAddress = async (
       to: SIMPLE_PAYMENT_PROCESSOR[chainId],
       data: encodeFunctionData({
         abi: PaymentProcessorStorage,
-        functionName: "setFeeReceiversAddress",
+        functionName: "setFeeReceiver",
         args: [address],
       }),
       gasPrice,
