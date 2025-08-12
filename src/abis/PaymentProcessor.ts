@@ -17,7 +17,6 @@ export const paymentProcessor = [
     type: "constructor",
   },
   { inputs: [], name: "AcceptanceWindowExceeded", type: "error" },
-  { inputs: [], name: "AlreadyInitialized", type: "error" },
   { inputs: [], name: "FeeTooHigh", type: "error" },
   { inputs: [], name: "FeeValueCanNotBeZero", type: "error" },
   { inputs: [], name: "HoldPeriodCanNotBeZero", type: "error" },
@@ -38,6 +37,7 @@ export const paymentProcessor = [
     name: "InvalidInvoiceState",
     type: "error",
   },
+  { inputs: [], name: "InvoiceAlreadyExists", type: "error" },
   { inputs: [], name: "InvoiceAlreadyPaid", type: "error" },
   { inputs: [], name: "InvoiceHasAlreadyBeenReleased", type: "error" },
   { inputs: [], name: "InvoiceHasNotBeenAccepted", type: "error" },
@@ -45,12 +45,10 @@ export const paymentProcessor = [
   { inputs: [], name: "InvoiceNotEligibleForRefund", type: "error" },
   { inputs: [], name: "InvoiceNotPaid", type: "error" },
   { inputs: [], name: "InvoicePriceIsTooLow", type: "error" },
-  { inputs: [], name: "NewOwnerIsZeroAddress", type: "error" },
-  { inputs: [], name: "NoHandoverRequest", type: "error" },
+  { inputs: [], name: "NotAuthorized", type: "error" },
   { inputs: [], name: "ReleaseTimeOverflow", type: "error" },
   { inputs: [], name: "SellerCannotPayOwnedInvoice", type: "error" },
   { inputs: [], name: "TransferFailed", type: "error" },
-  { inputs: [], name: "Unauthorized", type: "error" },
   { inputs: [], name: "ValueIsTooLow", type: "error" },
   { inputs: [], name: "ZeroAddressIsNotAllowed", type: "error" },
   {
@@ -59,7 +57,7 @@ export const paymentProcessor = [
       {
         indexed: true,
         internalType: "bytes32",
-        name: "invoiceKey",
+        name: "orderId",
         type: "bytes32",
       },
     ],
@@ -72,7 +70,7 @@ export const paymentProcessor = [
       {
         indexed: true,
         internalType: "bytes32",
-        name: "invoiceKey",
+        name: "orderId",
         type: "bytes32",
       },
     ],
@@ -85,7 +83,7 @@ export const paymentProcessor = [
       {
         indexed: true,
         internalType: "bytes32",
-        name: "invoiceKey",
+        name: "orderId",
         type: "bytes32",
       },
       {
@@ -116,7 +114,7 @@ export const paymentProcessor = [
       {
         indexed: true,
         internalType: "bytes32",
-        name: "invoiceKey",
+        name: "orderId",
         type: "bytes32",
       },
       {
@@ -141,7 +139,7 @@ export const paymentProcessor = [
       {
         indexed: true,
         internalType: "bytes32",
-        name: "invoiceKey",
+        name: "orderId",
         type: "bytes32",
       },
     ],
@@ -154,7 +152,7 @@ export const paymentProcessor = [
       {
         indexed: true,
         internalType: "bytes32",
-        name: "invoiceKey",
+        name: "orderId",
         type: "bytes32",
       },
     ],
@@ -167,7 +165,7 @@ export const paymentProcessor = [
       {
         indexed: true,
         internalType: "bytes32",
-        name: "invoiceKey",
+        name: "orderId",
         type: "bytes32",
       },
     ],
@@ -179,53 +177,8 @@ export const paymentProcessor = [
     inputs: [
       {
         indexed: true,
-        internalType: "address",
-        name: "pendingOwner",
-        type: "address",
-      },
-    ],
-    name: "OwnershipHandoverCanceled",
-    type: "event",
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        internalType: "address",
-        name: "pendingOwner",
-        type: "address",
-      },
-    ],
-    name: "OwnershipHandoverRequested",
-    type: "event",
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        internalType: "address",
-        name: "oldOwner",
-        type: "address",
-      },
-      {
-        indexed: true,
-        internalType: "address",
-        name: "newOwner",
-        type: "address",
-      },
-    ],
-    name: "OwnershipTransferred",
-    type: "event",
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
         internalType: "bytes32",
-        name: "invoiceKey",
+        name: "orderId",
         type: "bytes32",
       },
       {
@@ -309,6 +262,13 @@ export const paymentProcessor = [
     type: "function",
   },
   {
+    inputs: [{ internalType: "bytes32", name: "orderId", type: "bytes32" }],
+    name: "acceptPayment",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
     inputs: [{ internalType: "uint256", name: "amount", type: "uint256" }],
     name: "calculateFee",
     outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
@@ -316,26 +276,10 @@ export const paymentProcessor = [
     type: "function",
   },
   {
-    inputs: [{ internalType: "bytes32", name: "invoiceKey", type: "bytes32" }],
+    inputs: [{ internalType: "bytes32", name: "orderId", type: "bytes32" }],
     name: "cancelInvoice",
     outputs: [],
     stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "cancelOwnershipHandover",
-    outputs: [],
-    stateMutability: "payable",
-    type: "function",
-  },
-  {
-    inputs: [
-      { internalType: "address", name: "pendingOwner", type: "address" },
-    ],
-    name: "completeOwnershipHandover",
-    outputs: [],
-    stateMutability: "payable",
     type: "function",
   },
   {
@@ -355,7 +299,7 @@ export const paymentProcessor = [
     type: "function",
   },
   {
-    inputs: [{ internalType: "bytes32", name: "invoiceKey", type: "bytes32" }],
+    inputs: [{ internalType: "bytes32", name: "orderId", type: "bytes32" }],
     name: "getInvoiceData",
     outputs: [
       {
@@ -394,26 +338,10 @@ export const paymentProcessor = [
     type: "function",
   },
   {
-    inputs: [{ internalType: "bytes32", name: "invoiceKey", type: "bytes32" }],
+    inputs: [{ internalType: "bytes32", name: "orderId", type: "bytes32" }],
     name: "makeInvoicePayment",
     outputs: [{ internalType: "address", name: "", type: "address" }],
     stateMutability: "payable",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "owner",
-    outputs: [{ internalType: "address", name: "result", type: "address" }],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [
-      { internalType: "address", name: "pendingOwner", type: "address" },
-    ],
-    name: "ownershipHandoverExpiresAt",
-    outputs: [{ internalType: "uint256", name: "result", type: "uint256" }],
-    stateMutability: "view",
     type: "function",
   },
   {
@@ -430,39 +358,22 @@ export const paymentProcessor = [
     type: "function",
   },
   {
-    inputs: [{ internalType: "bytes32", name: "invoiceKey", type: "bytes32" }],
-    name: "refundBuyerAfterWindow",
+    inputs: [{ internalType: "bytes32", name: "orderId", type: "bytes32" }],
+    name: "refundBuyer",
     outputs: [],
     stateMutability: "nonpayable",
     type: "function",
   },
   {
-    inputs: [{ internalType: "bytes32", name: "invoiceKey", type: "bytes32" }],
+    inputs: [{ internalType: "bytes32", name: "orderId", type: "bytes32" }],
+    name: "rejectPayment",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [{ internalType: "bytes32", name: "orderId", type: "bytes32" }],
     name: "releaseInvoice",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "renounceOwnership",
-    outputs: [],
-    stateMutability: "payable",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "requestOwnershipHandover",
-    outputs: [],
-    stateMutability: "payable",
-    type: "function",
-  },
-  {
-    inputs: [
-      { internalType: "bytes32", name: "invoiceKey", type: "bytes32" },
-      { internalType: "bool", name: "state", type: "bool" },
-    ],
-    name: "sellerAction",
     outputs: [],
     stateMutability: "nonpayable",
     type: "function",
@@ -482,7 +393,7 @@ export const paymentProcessor = [
   },
   {
     inputs: [
-      { internalType: "bytes32", name: "invoiceKey", type: "bytes32" },
+      { internalType: "bytes32", name: "orderId", type: "bytes32" },
       { internalType: "uint32", name: "holdPeriod", type: "uint32" },
     ],
     name: "setInvoiceReleaseTime",
@@ -508,13 +419,6 @@ export const paymentProcessor = [
     name: "totalInvoiceCreated",
     outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
     stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [{ internalType: "address", name: "newOwner", type: "address" }],
-    name: "transferOwnership",
-    outputs: [],
-    stateMutability: "payable",
     type: "function",
   },
 ] as const;

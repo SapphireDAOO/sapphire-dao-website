@@ -1,7 +1,7 @@
-import { SIMPLE_PAYMENT_PROCESSOR } from "@/constants";
+import { PAYMENT_PROCESSOR_STORAGE } from "@/constants";
 import { sepolia } from "wagmi/chains";
 import { useAccount, useChainId, useReadContract } from "wagmi";
-import { paymentProcessor } from "@/abis/PaymentProcessor";
+import { PaymentProcessorStorage } from "@/abis/PaymentProcessorStorage";
 
 /**
  * Custom hook to retrieve the owner address of the PaymentProcessor smart contract.
@@ -18,9 +18,9 @@ export const useGetOwner = () => {
 
   // Use the wagmi `useReadContract` hook to interact with the `owner` function of the PaymentProcessor contract
   const { data, refetch, isLoading } = useReadContract({
-    abi: paymentProcessor,
+    abi: PaymentProcessorStorage,
     chainId: sepolia.id,
-    address: SIMPLE_PAYMENT_PROCESSOR[chainId],
+    address: PAYMENT_PROCESSOR_STORAGE[chainId],
     functionName: "owner",
     account: address,
   });

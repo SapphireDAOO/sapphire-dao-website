@@ -1,7 +1,7 @@
 import { toast } from "sonner";
 import { Address, encodeFunctionData } from "viem";
 import { sepolia } from "viem/chains";
-import { SIMPLE_PAYMENT_PROCESSOR } from "@/constants";
+import { PAYMENT_PROCESSOR_STORAGE, SIMPLE_PAYMENT_PROCESSOR } from "@/constants";
 import { fetchGasPrice, getError } from "./utils";
 import { paymentProcessor } from "@/abis/PaymentProcessor";
 import { client } from "../graphql/client";
@@ -109,7 +109,7 @@ export const sellerAction = async (
   setIsLoading: (value: string) => void,
   getInvoiceData: () => Promise<void>
 ): Promise<boolean> => {
-  const action = state ? "accepted" : "rejected";
+  const action = state ? "acceptPayment" : "rejectPayment";
   setIsLoading(action);
   let success = false;
   let progressToastId: string | number | undefined;
@@ -119,11 +119,11 @@ export const sellerAction = async (
 
     const tx = await walletClient?.sendTransaction({
       chain: sepolia,
-      to: SIMPLE_PAYMENT_PROCESSOR[chainId],
+      to: PAYMENT_PROCESSOR_STORAGE[chainId],
       data: encodeFunctionData({
         abi: paymentProcessor,
-        functionName: "sellerAction",
-        args: [invoiceKey, state],
+        functionName: action,
+        args: [invoiceKey],
       }),
       gasPrice,
     });
@@ -287,7 +287,7 @@ export const refundBuyerAfterWindow = async (
       to: SIMPLE_PAYMENT_PROCESSOR[chainId],
       data: encodeFunctionData({
         abi: paymentProcessor,
-        functionName: "refundBuyerAfterWindow",
+        functionName: "refundBuyer",
         args: [invoiceKey],
       }),
       gasPrice,
@@ -341,7 +341,7 @@ export const transferOwnership = async (
       chain: sepolia,
       to: SIMPLE_PAYMENT_PROCESSOR[chainId],
       data: encodeFunctionData({
-        abi: paymentProcessor,
+        abi: PaymentProcessorStorage,
         functionName: "transferOwnership",
         args: [address],
       }),
