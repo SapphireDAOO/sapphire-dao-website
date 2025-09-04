@@ -1,14 +1,30 @@
 export const PaymentProcessorStorage = [
   {
     inputs: [
-      { internalType: "address", name: "ownerAddress", type: "address" },
-      { internalType: "address", name: "feeReceiverAddress", type: "address" },
-      { internalType: "uint256", name: "initialFeeRate", type: "uint256" },
+      {
+        components: [
+          { internalType: "address", name: "owner", type: "address" },
+          { internalType: "address", name: "feeReceiver", type: "address" },
+          { internalType: "address", name: "marketplace", type: "address" },
+          { internalType: "uint256", name: "feeRate", type: "uint256" },
+          {
+            internalType: "uint256",
+            name: "defaultHoldPeriod",
+            type: "uint256",
+          },
+          { internalType: "uint256", name: "gasThresold", type: "uint256" },
+        ],
+        internalType: "struct IPaymentProcessorStorage.Configuration",
+        name: "configuration",
+        type: "tuple",
+      },
     ],
     stateMutability: "nonpayable",
     type: "constructor",
   },
   { inputs: [], name: "AlreadyInitialized", type: "error" },
+  { inputs: [], name: "CallFailed", type: "error" },
+  { inputs: [], name: "HoldPeriodCanNotBeZero", type: "error" },
   { inputs: [], name: "NewOwnerIsZeroAddress", type: "error" },
   { inputs: [], name: "NoHandoverRequest", type: "error" },
   { inputs: [], name: "NotAuthorized", type: "error" },
@@ -75,6 +91,23 @@ export const PaymentProcessorStorage = [
     type: "function",
   },
   {
+    inputs: [
+      { internalType: "address", name: "target", type: "address" },
+      { internalType: "bytes", name: "data", type: "bytes" },
+    ],
+    name: "execute",
+    outputs: [{ internalType: "bytes", name: "", type: "bytes" }],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "getDefaultHoldPeriod",
+    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
     inputs: [],
     name: "getFeeRate",
     outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
@@ -90,8 +123,22 @@ export const PaymentProcessorStorage = [
   },
   {
     inputs: [],
-    name: "getNextInvoiceId",
+    name: "getGasThresold",
     outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "getMarketplace",
+    outputs: [{ internalType: "address", name: "", type: "address" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "getNextInvoiceId",
+    outputs: [{ internalType: "uint216", name: "", type: "uint216" }],
     stateMutability: "view",
     type: "function",
   },
@@ -136,6 +183,19 @@ export const PaymentProcessorStorage = [
     type: "function",
   },
   {
+    inputs: [
+      {
+        internalType: "uint256",
+        name: "newDefaultHoldPeriod",
+        type: "uint256",
+      },
+    ],
+    name: "setDefaultHoldPeriod",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
     inputs: [{ internalType: "uint256", name: "newFeeRate", type: "uint256" }],
     name: "setFeeRate",
     outputs: [],
@@ -152,9 +212,27 @@ export const PaymentProcessorStorage = [
     type: "function",
   },
   {
+    inputs: [
+      { internalType: "uint256", name: "newGasThresold", type: "uint256" },
+    ],
+    name: "setGasThresold",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [
+      { internalType: "address", name: "marketplaceAddress", type: "address" },
+    ],
+    name: "setMarketplaceAddress",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
     inputs: [],
     name: "totalInvoiceCreated",
-    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+    outputs: [{ internalType: "uint216", name: "", type: "uint216" }],
     stateMutability: "view",
     type: "function",
   },
@@ -166,9 +244,9 @@ export const PaymentProcessorStorage = [
     type: "function",
   },
   {
-    inputs: [{ internalType: "uint256", name: "by", type: "uint256" }],
+    inputs: [{ internalType: "uint216", name: "by", type: "uint216" }],
     name: "updateInvoiceId",
-    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+    outputs: [{ internalType: "uint216", name: "", type: "uint216" }],
     stateMutability: "nonpayable",
     type: "function",
   },

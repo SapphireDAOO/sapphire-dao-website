@@ -3,13 +3,12 @@ import { useContext } from "react";
 import { ContractContext } from "@/context/contract-context";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
-import type { Address } from "viem";
 
-const ReleaseInvoice = ({ invoiceKey }: { invoiceKey: Address }) => {
+const ReleaseInvoice = ({ orderId }: { orderId: bigint }) => {
   const { releaseInvoice, isLoading } = useContext(ContractContext);
 
   const handleClick = async () => {
-    await releaseInvoice(invoiceKey);
+    await releaseInvoice(orderId);
   };
 
   return (

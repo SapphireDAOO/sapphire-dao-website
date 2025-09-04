@@ -75,7 +75,7 @@ const CheckoutCard = ({ data, isMetaInvoice }: CheckoutCardProps) => {
     const success = await payAdvancedInvoice(
       paymentType,
       amount,
-      data.invoiceKey,
+      data.orderId,
       paymentToken
     );
 
@@ -126,7 +126,7 @@ const CheckoutCard = ({ data, isMetaInvoice }: CheckoutCardProps) => {
                   <SelectGroup>
                     <SelectLabel>tokens</SelectLabel>
                     {supportedTokens?.map((token) => (
-                      <SelectItem key={token.id} value={token.id}>
+                      <SelectItem key={token.id} value={token.id.toString()}>
                         {token.name}
                       </SelectItem>
                     ))}

@@ -19,7 +19,6 @@ import {
 import {
   payAdvancedInvoice,
   setMarketplaceAddress,
-  createDispute,
 } from "@/services/blockchain/AdvancedPaymentProcessor";
 import { Address } from "viem";
 import { WagmiClient } from "@/services/blockchain/type";
@@ -59,11 +58,11 @@ const WalletProvider = ({ children }: Props) => {
         allInvoiceData,
         createInvoice: (invoicePrice: bigint) =>
           createInvoice(wagmiClients, invoicePrice, chainId, setIsLoading),
-        makeInvoicePayment: (amount: bigint, invoiceKey: Address) =>
+        makeInvoicePayment: (amount: bigint, orderId: bigint) =>
           makeInvoicePayment(
             wagmiClients,
             amount,
-            invoiceKey,
+            orderId,
             chainId,
             setIsLoading,
             getInvoiceData
@@ -71,7 +70,7 @@ const WalletProvider = ({ children }: Props) => {
         payAdvancedInvoice: (
           paymentType: "paySingleInvoice" | "payMetaInvoice",
           price: bigint,
-          invoiceKey: Address,
+          orderId: bigint,
           paymentToken: Address
         ) =>
           address
@@ -79,7 +78,7 @@ const WalletProvider = ({ children }: Props) => {
                 wagmiClients,
                 paymentType,
                 price,
-                invoiceKey,
+                orderId,
                 paymentToken,
                 chainId,
                 address,
@@ -89,35 +88,35 @@ const WalletProvider = ({ children }: Props) => {
             : Promise.resolve(false),
         setMarketplaceAddress: (address: Address) =>
           setMarketplaceAddress(wagmiClients, address, chainId, setIsLoading),
-        sellerAction: (invoiceKey: Address, state: boolean) =>
+        sellerAction: (orderId: bigint, state: boolean) =>
           sellerAction(
             wagmiClients,
-            invoiceKey,
+            orderId,
             state,
             chainId,
             setIsLoading,
             getInvoiceData
           ),
-        cancelInvoice: (invoiceKey: Address) =>
+        cancelInvoice: (orderId: bigint) =>
           cancelInvoice(
             wagmiClients,
-            invoiceKey,
+            orderId,
             chainId,
             setIsLoading,
             getInvoiceData
           ),
-        releaseInvoice: (invoiceKey: Address) =>
+        releaseInvoice: (orderId: bigint) =>
           releaseInvoice(
             wagmiClients,
-            invoiceKey,
+            orderId,
             chainId,
             setIsLoading,
             getInvoiceData
           ),
-        refundBuyerAfterWindow: (invoiceKey: Address) =>
+        refundBuyerAfterWindow: (orderId: bigint) =>
           refundBuyerAfterWindow(
             wagmiClients,
-            invoiceKey,
+            orderId,
             chainId,
             setIsLoading,
             getInvoiceData
@@ -138,14 +137,16 @@ const WalletProvider = ({ children }: Props) => {
             setIsLoading,
             getInvoiceData
           ),
-        setInvoiceHoldPeriod: (invoiceKey: Address, holdPeriod: number) =>
+        setInvoiceHoldPeriod: (orderId: bigint, holdPeriod: bigint) =>
           setInvoiceHoldPeriod(
             wagmiClients,
-            invoiceKey,
+            orderId,
             holdPeriod,
             chainId,
             setIsLoading,
-            getInvoiceData
+            getInvoiceData,
+            invoiceData.find((i) => i.orderId.toString() === orderId.toString())
+              ?.contract
           ),
         setDefaultHoldPeriod: (newDefaultHoldPeriod: bigint) =>
           setDefaultHoldPeriod(
@@ -167,19 +168,10 @@ const WalletProvider = ({ children }: Props) => {
           ),
         getInvoiceOwner,
         getAdvancedInvoiceData: (
-          invoiceKey: Address,
+          orderId: bigint,
           query: string,
           type: "smartInvoice" | "metaInvoice"
-        ) => fetchAdvancedInvoiceData(invoiceKey, query, type),
-
-        createDispute: (orderId: Address) =>
-          createDispute(
-            wagmiClients,
-            orderId,
-            chainId,
-            setIsLoading,
-            getInvoiceData
-          ),
+        ) => fetchAdvancedInvoiceData(orderId, query, type),
         refetchAllInvoiceData,
         refetchInvoiceData,
       }}

@@ -18,7 +18,7 @@ import {
   AllInvoicesData,
   Invoice,
 } from "@/model/model";
-import { Address } from "viem";
+
 import { formatEther } from "viem";
 import { client } from "@/services/graphql/client";
 
@@ -49,7 +49,7 @@ export const useInvoiceData = () => {
 
       const invoices: AllInvoice[] = rawInvoices.map((list: any) => ({
         id: list.invoiceId || "",
-        invoiceKey: list.id || "",
+        orderId: list.id || "",
         contract: list.contract || "",
         seller: list.seller?.id || "",
         payment: list.paymentTxHash || "",
@@ -69,7 +69,7 @@ export const useInvoiceData = () => {
 
       const actions: AdminAction[] = rawAdminActions.map((list: any) => ({
         id: list.invoiceId || "",
-        invoiceKey: list.id || "",
+        orderId: list.id || "",
         action: list.action || "Unknown",
         time: list.time ? unixToGMT(list.time) : null,
         type: list.type,
@@ -79,7 +79,7 @@ export const useInvoiceData = () => {
       const marketplaceInvoices: AllInvoice[] = rawMarketplaceInvoices.map(
         (list: any) => ({
           id: list.invoiceId || "",
-          invoiceKey: list.id || "",
+          orderId: list.id || "",
           contract: list.contract || "",
           seller: list.seller?.id || "",
           payment: list.paymentTxHash || "",
@@ -131,7 +131,7 @@ export const useInvoiceData = () => {
       const createdInvoiceData: UserCreatedInvoice[] = createdInvoice.map(
         (invoice: any) => ({
           id: invoice.invoiceId,
-          invoiceKey: invoice.id,
+          orderId: invoice.id,
           createdAt: invoice.createdAt ? unixToGMT(invoice.createdAt) : null,
           paidAt: invoice.paidAt || "Not Paid",
           status: invoice.state || "Unknown",
@@ -153,7 +153,7 @@ export const useInvoiceData = () => {
       const paidInvoiceData: UserPaidInvoice[] = paidInvoices.map(
         (invoice: any) => ({
           id: invoice.invoiceId,
-          invoiceKey: invoice.id,
+          orderId: invoice.id,
           createdAt: invoice.createdAt ? unixToGMT(invoice.createdAt) : null,
           paidAt: invoice.paidAt || "Not Paid",
           status: invoice.state || "Unknown",
@@ -175,7 +175,7 @@ export const useInvoiceData = () => {
       const issuedInvoicesData: UserIssuedInvoiceInvoice[] = issuedInvoices.map(
         (invoice: any) => ({
           id: invoice.invoiceId,
-          invoiceKey: invoice.id,
+          orderId: invoice.id,
           createdAt: invoice.createdAt ? unixToGMT(invoice.createdAt) : null,
           paidAt: invoice.paidAt || "Not Paid",
           status: invoice.state || "Unknown",
@@ -200,7 +200,7 @@ export const useInvoiceData = () => {
       const receivedInvoicesData: UserReceivedInvoicesInvoice[] =
         receivedInvoices.map((invoice: any) => ({
           id: invoice.invoiceId,
-          invoiceKey: invoice.id,
+          orderId: invoice.id,
           createdAt: invoice.createdAt ? unixToGMT(invoice.createdAt) : null,
           paidAt: invoice.paidAt || "Not Paid",
           status: invoice.state || "Unknown",
@@ -252,12 +252,12 @@ export const useInvoiceData = () => {
   };
 
   const getAdvancedInvoiceData = async (
-    invoiceKey: Address,
+    orderId: bigint,
     query: string,
     type: "smartInvoice" | "metaInvoice"
   ): Promise<any> => {
     const { data, error } = await client(chainId)
-      .query(query, { id: invoiceKey })
+      .query(query, { id: orderId })
       .toPromise();
 
     if (error) {

@@ -55,7 +55,7 @@ const baseColumns: ColumnDef<Invoice>[] = [
           variant="ghost"
           onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
         >
-          Invoice id
+          Id
           <ArrowUpDown />
         </Button>
       );
@@ -68,6 +68,7 @@ const baseColumns: ColumnDef<Invoice>[] = [
       return <div className="text-center">{id}</div>;
     },
   },
+
   {
     accessorKey: "contract",
     header: () => <div className="text-center">Contract</div>,

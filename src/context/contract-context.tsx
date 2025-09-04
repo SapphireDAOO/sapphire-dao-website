@@ -14,35 +14,34 @@ export interface ContractContextData {
     actions: AdminAction[];
     marketplaceInvoices: AllInvoice[];
   };
-  createInvoice: (invoicePrice: bigint) => Promise<Address | undefined>;
-  makeInvoicePayment: (amount: bigint, invoiceKey: Address) => Promise<boolean>;
+  createInvoice: (invoicePrice: bigint) => Promise<bigint | undefined>;
+  makeInvoicePayment: (amount: bigint, orderId: bigint) => Promise<boolean>;
   payAdvancedInvoice: (
     paymentType: "paySingleInvoice" | "payMetaInvoice",
     amount: bigint,
-    invoiceKey: Address,
+    orderId: bigint,
     paymentToken: Address
   ) => Promise<boolean>;
   getInvoiceOwner: (id: string) => Promise<string>;
-  sellerAction: (invoiceKey: Address, state: boolean) => Promise<boolean>;
-  cancelInvoice: (invoiceKey: Address) => Promise<boolean>;
-  releaseInvoice: (invoiceKey: Address) => Promise<boolean>;
-  refundBuyerAfterWindow: (invoiceKey: Address) => Promise<boolean>;
+  sellerAction: (orderId: bigint, state: boolean) => Promise<boolean>;
+  cancelInvoice: (orderId: bigint) => Promise<boolean>;
+  releaseInvoice: (orderId: bigint) => Promise<boolean>;
+  refundBuyerAfterWindow: (orderId: bigint) => Promise<boolean>;
   setMinimumInvoiceValue: (newValue: bigint) => Promise<boolean>;
   setFeeReceiversAddress: (address: Address) => Promise<boolean>;
   transferOwnership: (address: Address) => Promise<boolean>;
   setInvoiceHoldPeriod: (
-    invoiceKey: Address,
-    holdPeriod: number
+    orderId: bigint,
+    holdPeriod: bigint
   ) => Promise<boolean>;
   setDefaultHoldPeriod: (newDefaultHoldPeriod: bigint) => Promise<boolean>;
   setFee: (newFee: bigint) => Promise<boolean>;
   getAdvancedInvoiceData: (
-    invoiceKey: Address,
+    orderId: bigint,
     query: string,
     type: "smartInvoice" | "metaInvoice"
   ) => Promise<any>;
   setMarketplaceAddress: (marketplaceAddress: Address) => Promise<any>;
-  createDispute: (orderId: Address) => Promise<boolean>;
   refetchInvoiceData?: () => Promise<void>;
   refetchAllInvoiceData?: () => Promise<void>;
 }
@@ -56,7 +55,7 @@ export const contractContextDefaults: ContractContextData = {
     marketplaceInvoices: [],
   },
   transferOwnership: async () => Promise.resolve(false),
-  createInvoice: async () => Promise.resolve("0x"),
+  createInvoice: async () => Promise.resolve(BigInt(0)),
   makeInvoicePayment: async () => Promise.resolve(false),
   payAdvancedInvoice: async () => Promise.resolve(false),
   sellerAction: async () => Promise.resolve(false),
@@ -73,7 +72,6 @@ export const contractContextDefaults: ContractContextData = {
   refetchAllInvoiceData: async () => Promise.resolve(),
   getInvoiceOwner: async () => Promise.resolve(""),
   getAdvancedInvoiceData: async () => Promise.resolve(""),
-  createDispute: async () => Promise.resolve(false),
 };
 
 export const ContractContext = React.createContext<ContractContextData>(

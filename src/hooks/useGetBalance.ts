@@ -1,8 +1,8 @@
-import { ADVANCED_PAYMENT_PROCESSOR } from "@/constants";
+import { PAYMENT_PROCESSOR_STORAGE } from "@/constants";
 import { sepolia } from "wagmi/chains";
 import { useAccount, useChainId, useReadContract, useBalance } from "wagmi";
-import { advancedPaymentProcessor } from "@/abis/AdvancedPaymentProcessor";
 import { formatEther } from "ethers";
+import { PaymentProcessorStorage } from "@/abis/PaymentProcessorStorage";
 
 /**
  * Custom hook to retrieve the balance of POL in the marketplace wallet.
@@ -24,9 +24,9 @@ export const useGetBalance = () => {
     isLoading: isLoadingAddress,
     refetch: refetchAddress,
   } = useReadContract({
-    abi: advancedPaymentProcessor,
+    abi: PaymentProcessorStorage,
     chainId: sepolia.id,
-    address: ADVANCED_PAYMENT_PROCESSOR[chainId],
+    address: PAYMENT_PROCESSOR_STORAGE[chainId],
     functionName: "getMarketplace",
     account: address,
   });

@@ -3,8 +3,7 @@ import { ColumnDef } from "@tanstack/react-table";
 import { AdminAction } from "@/model/model";
 
 import React from "react";
-import { Address } from "viem";
-
+import CopyableAddress from "@/components/ui/CopyableAddress";
 
 const adminActionsColumns: ColumnDef<AdminAction>[] = [
   // {
@@ -12,31 +11,46 @@ const adminActionsColumns: ColumnDef<AdminAction>[] = [
   //   header: () => <div className="text-center">Invoice id</div>,
   //   cell: ({ row }) => <div className="text-center">{row.getValue("id")}</div>,
   // },
+  // {
+  //   accessorKey: "orderId",
+  //   header: () => <div className="text-center">Invoice Id</div>,
+  //   cell: ({ row }) => {
+  //     const orderId: bigint = row.getValue("orderId");
+  //     const txHash = row.original.txHash;
+  //     return (
+  //       <div className="text-center">
+  //         {txHash ? (
+  //           <a
+  //             href={`https://sepolia.etherscan.io/tx/${txHash}`}
+  //             target="_blank"
+  //             rel="noopener noreferrer"
+  //             className="text-blue-500 underline"
+  //           >
+  //             {`${orderId.toString().slice(0, 6)}...${orderId
+  //               .toString()
+  //               .slice(-4)}`}
+  //           </a>
+  //         ) : (
+  //           "-"
+  //         )}
+  //       </div>
+  //     );
+  //     // return <CopyableAddress fullValue={orderId} />;
+  //   },
+
   {
-    accessorKey: "invoiceKey",
+    accessorKey: "orderId",
     header: () => <div className="text-center">Invoice Id</div>,
     cell: ({ row }) => {
-      const invoiceKey: Address = row.getValue("invoiceKey");
-      const txHash = row.original.txHash;
+      const orderId: bigint = row.getValue("orderId");
       return (
         <div className="text-center">
-          {txHash ? (
-            <a
-              href={`https://sepolia.etherscan.io/tx/${txHash}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-blue-500 underline"
-            >
-              {`${invoiceKey.slice(0, 6)}...${invoiceKey.slice(-4)}`}
-            </a>
-          ) : (
-            "-"
-          )}
+          <CopyableAddress fullValue={orderId.toString()} />
         </div>
       );
-      // return <CopyableAddress fullValue={invoiceKey} />;
     },
   },
+
   {
     accessorKey: "time",
     header: () => <div className="text-center">Time</div>,

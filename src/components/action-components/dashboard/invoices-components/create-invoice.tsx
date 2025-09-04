@@ -17,7 +17,7 @@ import { Label } from "@/components/ui/label";
 import { useGetFeeRate } from "@/hooks/useGetFeeRate";
 import { ContractContext } from "@/context/contract-context";
 import { ConnectKitButton } from "connectkit";
-import { type Address, parseUnits } from "viem";
+import { parseUnits } from "viem";
 import { CirclePlus, Loader2 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { toast } from "sonner";
@@ -30,7 +30,7 @@ const CreateInvoiceDialog = () => {
 
   const [openCreate, setOpenCreate] = useState<boolean>(false);
   const [open, setOpen] = useState<boolean>(false);
-  const [invoiceKey, setInvoiceKey] = useState<Address>("0x");
+  const [orderId, setorderId] = useState<bigint>(BigInt(0));
 
   const { createInvoice, refetchInvoiceData, isLoading } =
     useContext(ContractContext);
@@ -41,7 +41,7 @@ const CreateInvoiceDialog = () => {
 
     setOpenCreate(false);
     if (response) {
-      setInvoiceKey(response);
+      setorderId(response);
       refetchInvoiceData?.();
       setOpen(true);
     }
@@ -62,8 +62,8 @@ const CreateInvoiceDialog = () => {
           <DialogHeader>
             <DialogTitle className="text-2xl">New Invoice</DialogTitle>
             <DialogDescription className="text-sm text-muted-foreground">
-              Additional fee of {Number(formatedFee) / 100} % applies
-              excluding gas fee
+              Additional fee of {Number(formatedFee) / 100} % applies excluding
+              gas fee
             </DialogDescription>
           </DialogHeader>
 
@@ -106,7 +106,7 @@ const CreateInvoiceDialog = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      <InvoiceQRLink open={open} setOpen={setOpen} invoiceKey={invoiceKey} />
+      <InvoiceQRLink open={open} setOpen={setOpen} orderId={orderId} />
     </>
   );
 };
@@ -115,17 +115,17 @@ export default CreateInvoiceDialog;
 interface InvoiceQRLinkProps {
   open: boolean;
   setOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  invoiceKey: Address;
+  orderId: bigint;
 }
 
 export const InvoiceQRLink = ({
   open,
   setOpen,
-  invoiceKey,
+  orderId,
 }: InvoiceQRLinkProps) => {
   const domain = typeof window !== "undefined" ? window.location.origin : "";
 
-  const encodedEncryptedData = generateSecureLink(invoiceKey!);
+  const encodedEncryptedData = generateSecureLink(orderId!);
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(

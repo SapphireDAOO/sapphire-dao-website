@@ -15,7 +15,6 @@ import { toast } from "sonner";
 import SellersAction from "./sellers-action";
 import CancelInvoice from "./cancel-payment";
 import ReleaseInvoice from "./release-invoice";
-import RefundBuyer from "./refund-buyer";
 import { timeLeft } from "@/utils";
 import generateSecureLink from "@/lib/generate-link";
 import React from "react";
@@ -49,7 +48,7 @@ const invoiceActions: ColumnDef<Invoice>[] = [
                           ? window.location.origin
                           : "";
                       const encodedEncryptedData = generateSecureLink(
-                        payment?.invoiceKey
+                        payment?.orderId
                       );
                       navigator.clipboard.writeText(
                         `${domain}/pay/?data=${encodedEncryptedData}`
@@ -69,7 +68,7 @@ const invoiceActions: ColumnDef<Invoice>[] = [
                 <>
                   <DropdownMenuItem>
                     <SellersAction
-                      invoiceKey={payment.invoiceKey}
+                      orderId={payment.orderId}
                       state={true}
                       text="Accept Payment"
                       key="0"
@@ -77,7 +76,7 @@ const invoiceActions: ColumnDef<Invoice>[] = [
                   </DropdownMenuItem>
                   <DropdownMenuItem>
                     <SellersAction
-                      invoiceKey={payment.invoiceKey}
+                      orderId={payment.orderId}
                       state={false}
                       text="Reject Payment"
                       key="1"
@@ -87,25 +86,15 @@ const invoiceActions: ColumnDef<Invoice>[] = [
               )}
             {payment?.status === "CREATED" && (
               <DropdownMenuItem>
-                <CancelInvoice invoiceKey={payment.invoiceKey} />
+                <CancelInvoice orderId={payment.orderId} />
               </DropdownMenuItem>
             )}
 
             {payment?.status === "ACCEPTED" && payment.type === "Seller" && (
               <DropdownMenuItem>
-                <ReleaseInvoice invoiceKey={payment.invoiceKey} />
+                <ReleaseInvoice orderId={payment.orderId} />
               </DropdownMenuItem>
             )}
-            {payment?.status !== "REFUNDED" &&
-              payment?.status !== "REJECTED" &&
-              payment?.type === "Seller" && (
-                <DropdownMenuItem>
-                  <RefundBuyer
-                    invoiceKey={payment.invoiceKey}
-                    timeStamp={payment.paidAt}
-                  />
-                </DropdownMenuItem>
-              )}
             {payment?.status === "REFUNDED" ||
               (payment?.status === "REJECTED" && payment?.type === "Buyer" && (
                 <DropdownMenuItem>

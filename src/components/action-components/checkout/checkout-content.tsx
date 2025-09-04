@@ -2,7 +2,6 @@
 
 import { useContext, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import type { Address } from "viem";
 
 import { ContractContext } from "@/context/contract-context";
 import { useGetMetaInvoice } from "@/hooks/useGetMetaInvoice";
@@ -56,7 +55,7 @@ const CheckoutPage = () => {
   const jwtToken = searchParams.get("data");
 
   const { getAdvancedInvoiceData } = useContext(ContractContext);
-  const [invoiceKey, setInvoiceKey] = useState<Address | null>(null);
+  const [orderId, setOrderId] = useState<bigint | null>(null);
   const [invoiceDetails, setInvoiceDetails] = useState<InvoiceDetails | null>(
     null
   );
@@ -72,7 +71,7 @@ const CheckoutPage = () => {
 
         const result = await response.json();
         if (response.ok && result.valid) {
-          setInvoiceKey(result.data.invoiceKey as Address);
+          setOrderId(result.data.orderId);
         } else {
           setError(result.error || "Token verification failed.");
         }
@@ -84,10 +83,9 @@ const CheckoutPage = () => {
     if (jwtToken) verifyToken();
   }, [jwtToken]);
 
-  const { data: invoiceInfo } = useGetMarketplaceInvoiceData(
-    invoiceKey || "0x"
-  );
-  const { data: metaInvoice } = useGetMetaInvoice(invoiceKey || "0x");
+  const ZERO: bigint = BigInt(0);
+  const { data: invoiceInfo } = useGetMarketplaceInvoiceData(orderId || ZERO);
+  const { data: metaInvoice } = useGetMetaInvoice(orderId || ZERO);
 
   const isMetaInvoice = useMemo(() => {
     return metaInvoice?.price != BigInt(0);
@@ -95,16 +93,16 @@ const CheckoutPage = () => {
 
   // Step 3: Fetch invoice data dynamically
   useEffect(() => {
-    if (!invoiceKey) return;
+    if (!orderId) return;
 
     const loadInvoice = async () => {
-      if (!invoiceKey) return;
+      if (!orderId) return;
 
       const query = isMetaInvoice ? metaInvoiceQuery : smartInvoiceQuery;
       const type = isMetaInvoice ? "metaInvoice" : "smartInvoice";
 
       try {
-        const response = await getAdvancedInvoiceData(invoiceKey, query, type);
+        const response = await getAdvancedInvoiceData(orderId, query, type);
 
         const invoice = response?.[type];
         const paymentTokens: TokenData[] = response?.paymentTokens || [];
@@ -113,14 +111,14 @@ const CheckoutPage = () => {
         if (invoice) {
           structured = {
             id: invoice.invoiceId,
-            invoiceKey: invoice.id,
+            orderId: invoice.id,
             price: invoice.price,
             tokenList: paymentTokens,
           };
         } else {
           structured = {
             id: invoiceInfo?.invoiceId.toString() ?? "",
-            invoiceKey: invoiceKey,
+            orderId: orderId,
             price: invoiceInfo?.price.toString() ?? "0",
             tokenList: paymentTokens,
           };
@@ -133,7 +131,7 @@ const CheckoutPage = () => {
     };
     loadInvoice();
   }, [
-    invoiceKey,
+    orderId,
     metaInvoice,
     isMetaInvoice,
     getAdvancedInvoiceData,
@@ -145,7 +143,7 @@ const CheckoutPage = () => {
   // UI
 
   const isLoading =
-    invoiceKey && metaInvoice !== undefined && !invoiceDetails && !error;
+    orderId && metaInvoice !== undefined && !invoiceDetails && !error;
 
   if (error) {
     return (
@@ -166,7 +164,7 @@ const CheckoutPage = () => {
       </Container>
     );
   }
-  console.log("THE INVOICE DETAILS IS", invoiceDetails);
+
   if (!invoiceDetails) {
     return (
       <Container>

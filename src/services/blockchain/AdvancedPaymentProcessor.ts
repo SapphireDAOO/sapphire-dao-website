@@ -2,24 +2,27 @@
 import { toast } from "sonner";
 import { encodeFunctionData, Address, zeroAddress } from "viem";
 import { sepolia } from "viem/chains";
-import { ADVANCED_PAYMENT_PROCESSOR } from "@/constants";
+import {
+  ADVANCED_PAYMENT_PROCESSOR,
+  PAYMENT_PROCESSOR_STORAGE,
+} from "@/constants";
 import { fetchGasPrice, getError, handleApproval } from "./utils";
 import { client } from "@/services/graphql/client";
 import { advancedPaymentProcessor } from "@/abis/AdvancedPaymentProcessor";
 import { WagmiClient } from "./type";
+import { PaymentProcessorStorage } from "@/abis/PaymentProcessorStorage";
 
 export const payAdvancedInvoice = async (
   { walletClient, publicClient }: WagmiClient,
   paymentType: "paySingleInvoice" | "payMetaInvoice",
   amount: bigint,
-  orderId: Address,
+  orderId: bigint,
   paymentToken: Address,
   chainId: number,
   owner: Address,
   setIsLoading: (value: string) => void,
   getInvoiceData: () => Promise<void>
 ): Promise<boolean> => {
-  console.log("Order id", amount, paymentToken);
   setIsLoading(paymentType);
 
   let success = false;
@@ -86,7 +89,7 @@ export const payAdvancedInvoice = async (
 
 export const createDispute = async (
   { walletClient, publicClient }: WagmiClient,
-  orderId: Address,
+  orderId: bigint,
   chainId: number,
   setIsLoading: (value: string) => void,
   getInvoiceData: () => Promise<void>
@@ -154,10 +157,10 @@ export const setMarketplaceAddress = async (
 
     const tx = await walletClient?.sendTransaction({
       chain: sepolia,
-      to: ADVANCED_PAYMENT_PROCESSOR[chainId],
+      to: PAYMENT_PROCESSOR_STORAGE[chainId],
       data: encodeFunctionData({
-        abi: advancedPaymentProcessor,
-        functionName: "setMarketplace",
+        abi: PaymentProcessorStorage,
+        functionName: "setMarketplaceAddress",
         args: [marketplaceAddress],
       }),
       gasPrice,
@@ -193,7 +196,7 @@ export const setMarketplaceAddress = async (
 };
 
 export const getAdvancedInvoiceData = async (
-  orderId: Address,
+  orderId: bigint,
   query: string,
   type: "smartInvoice" | "metaInvoice",
   chainId: number

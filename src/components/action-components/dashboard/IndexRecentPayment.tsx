@@ -14,6 +14,7 @@ const IndexRecentPayment = ({
   isMarketplaceTab: boolean;
 }) => {
   const { invoiceData } = useContext(ContractContext);
+
   // const [currentTab, setCurrentTab] = useState("seller");
 
   const allSimpleInvoices = {

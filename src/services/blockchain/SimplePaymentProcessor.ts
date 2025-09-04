@@ -1,20 +1,25 @@
 import { toast } from "sonner";
 import { Address, encodeFunctionData } from "viem";
 import { sepolia } from "viem/chains";
-import { PAYMENT_PROCESSOR_STORAGE, SIMPLE_PAYMENT_PROCESSOR } from "@/constants";
+import {
+  ADVANCED_PAYMENT_PROCESSOR,
+  PAYMENT_PROCESSOR_STORAGE,
+  SIMPLE_PAYMENT_PROCESSOR,
+} from "@/constants";
 import { fetchGasPrice, getError } from "./utils";
 import { paymentProcessor } from "@/abis/PaymentProcessor";
 import { client } from "../graphql/client";
 import { PaymentProcessorStorage } from "@/abis/PaymentProcessorStorage";
 import { invoiceOwnerQuery } from "../graphql/queries";
 import { WagmiClient } from "./type";
+import { advancedPaymentProcessor } from "@/abis/AdvancedPaymentProcessor";
 
 export const createInvoice = async (
   { walletClient, publicClient }: WagmiClient,
   invoicePrice: bigint,
   chainId: number,
   setIsLoading: (value: string) => void
-): Promise<Address | undefined> => {
+): Promise<bigint | undefined> => {
   setIsLoading("createInvoice");
   try {
     const gasPrice = await fetchGasPrice(publicClient, chainId);
@@ -55,7 +60,7 @@ export const createInvoice = async (
 export const makeInvoicePayment = async (
   { walletClient, publicClient }: WagmiClient,
   amount: bigint,
-  invoiceKey: Address,
+  orderId: bigint,
   chainId: number,
   setIsLoading: (value: string) => void,
   getInvoiceData: () => Promise<void>
@@ -72,7 +77,7 @@ export const makeInvoicePayment = async (
       data: encodeFunctionData({
         abi: paymentProcessor,
         functionName: "makeInvoicePayment",
-        args: [invoiceKey],
+        args: [orderId],
       }),
       value: amount,
       gasPrice,
@@ -103,7 +108,7 @@ export const makeInvoicePayment = async (
 
 export const sellerAction = async (
   { walletClient, publicClient }: WagmiClient,
-  invoiceKey: Address,
+  orderId: bigint,
   state: boolean,
   chainId: number,
   setIsLoading: (value: string) => void,
@@ -119,11 +124,11 @@ export const sellerAction = async (
 
     const tx = await walletClient?.sendTransaction({
       chain: sepolia,
-      to: PAYMENT_PROCESSOR_STORAGE[chainId],
+      to: SIMPLE_PAYMENT_PROCESSOR[chainId],
       data: encodeFunctionData({
         abi: paymentProcessor,
         functionName: action,
-        args: [invoiceKey],
+        args: [orderId],
       }),
       gasPrice,
     });
@@ -160,7 +165,7 @@ export const sellerAction = async (
 
 export const cancelInvoice = async (
   { walletClient, publicClient }: WagmiClient,
-  invoiceKey: Address,
+  orderId: bigint,
   chainId: number,
   setIsLoading: (value: string) => void,
   getInvoiceData: () => Promise<void>
@@ -178,7 +183,7 @@ export const cancelInvoice = async (
       data: encodeFunctionData({
         abi: paymentProcessor,
         functionName: "cancelInvoice",
-        args: [invoiceKey],
+        args: [orderId],
       }),
       gasPrice,
     });
@@ -215,7 +220,7 @@ export const cancelInvoice = async (
 
 export const releaseInvoice = async (
   { walletClient, publicClient }: WagmiClient,
-  invoiceKey: Address,
+  orderId: bigint,
   chainId: number,
   setIsLoading: (value: string) => void,
   getInvoiceData: () => Promise<void>
@@ -233,7 +238,7 @@ export const releaseInvoice = async (
       data: encodeFunctionData({
         abi: paymentProcessor,
         functionName: "releaseInvoice",
-        args: [invoiceKey],
+        args: [orderId],
       }),
       gasPrice,
     });
@@ -270,7 +275,7 @@ export const releaseInvoice = async (
 
 export const refundBuyerAfterWindow = async (
   { walletClient, publicClient }: WagmiClient,
-  invoiceKey: Address,
+  orderId: bigint,
   chainId: number,
   setIsLoading: (value: string) => void,
   getInvoiceData: () => Promise<void>
@@ -288,7 +293,7 @@ export const refundBuyerAfterWindow = async (
       data: encodeFunctionData({
         abi: paymentProcessor,
         functionName: "refundBuyer",
-        args: [invoiceKey],
+        args: [orderId],
       }),
       gasPrice,
     });
@@ -435,11 +440,12 @@ export const setFeeReceiversAddress = async (
 
 export const setInvoiceHoldPeriod = async (
   { walletClient, publicClient }: WagmiClient,
-  invoiceKey: Address,
-  holdPeriod: number,
+  orderId: bigint,
+  holdPeriod: bigint,
   chainId: number,
   setIsLoading: (value: string) => void,
-  getInvoiceData: () => Promise<void>
+  getInvoiceData: () => Promise<void>,
+  target: string | undefined
 ): Promise<boolean> => {
   setIsLoading("setInvoiceHoldPeriod");
   let success = false;
@@ -448,13 +454,28 @@ export const setInvoiceHoldPeriod = async (
   try {
     const gasPrice = await fetchGasPrice(publicClient, chainId);
 
+    if (!target) return false;
+
+    const calldata =
+      target === ADVANCED_PAYMENT_PROCESSOR[chainId]
+        ? encodeFunctionData({
+            abi: advancedPaymentProcessor,
+            functionName: "setInvoiceReleaseTime",
+            args: [orderId, holdPeriod],
+          })
+        : encodeFunctionData({
+            abi: paymentProcessor,
+            functionName: "setInvoiceReleaseTime",
+            args: [orderId, Number(holdPeriod)],
+          });
+
     const tx = await walletClient?.sendTransaction({
       chain: sepolia,
-      to: SIMPLE_PAYMENT_PROCESSOR[chainId],
+      to: PaymentProcessorStorage[chainId],
       data: encodeFunctionData({
-        abi: paymentProcessor,
-        functionName: "setInvoiceReleaseTime",
-        args: [invoiceKey, holdPeriod],
+        abi: PaymentProcessorStorage,
+        functionName: "execute",
+        args: [target as Address, calldata],
       }),
       gasPrice,
     });
@@ -485,6 +506,7 @@ export const setInvoiceHoldPeriod = async (
     toast.dismiss(progressToastId);
     getError(error);
   }
+
   setIsLoading("");
   return success;
 };
@@ -505,9 +527,9 @@ export const setDefaultHoldPeriod = async (
 
     const tx = await walletClient?.sendTransaction({
       chain: sepolia,
-      to: SIMPLE_PAYMENT_PROCESSOR[chainId],
+      to: PAYMENT_PROCESSOR_STORAGE[chainId],
       data: encodeFunctionData({
-        abi: paymentProcessor,
+        abi: PaymentProcessorStorage,
         functionName: "setDefaultHoldPeriod",
         args: [newDefaultHoldPeriod],
       }),

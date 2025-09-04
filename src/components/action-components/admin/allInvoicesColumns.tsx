@@ -3,32 +3,46 @@ import { ColumnDef } from "@tanstack/react-table";
 import { AllInvoice } from "@/model/model";
 import { formatAddress } from "@/utils";
 import React from "react";
-import { Address, formatEther } from "viem";
+import { formatEther } from "viem";
+import CopyableAddress from "@/components/ui/CopyableAddress";
 
 const allInvoicesColumns: ColumnDef<AllInvoice>[] = [
+  // {
+  //   accessorKey: "orderId",
+  //   header: () => <div className="text-center">Invoice Id</div>,
+  //   cell: ({ row }) => {
+  //     const orderId: bigint = row.getValue("orderId");
+  //     const txHash = row.original.creationTxHash;
+  //     const displayKey = orderId
+  //       ? `${orderId.toString().slice(0, 6)}...${orderId.toString().slice(-4)}`
+  //       : "-";
+  //     return (
+  //       <div className="text-center">
+  //         {txHash ? (
+  //           <a
+  //             href={`https://sepolia.etherscan.io/tx/${txHash}`}
+  //             target="_blank"
+  //             rel="noopener noreferrer"
+  //             className="text-blue-500 underline"
+  //           >
+  //             {displayKey}
+  //           </a>
+  //         ) : (
+  //           displayKey
+  //         )}
+  //       </div>
+  //     );
+  //   },
+  // },
+
   {
-    accessorKey: "invoiceKey",
+    accessorKey: "orderId",
     header: () => <div className="text-center">Invoice Id</div>,
     cell: ({ row }) => {
-      const invoiceKey: Address = row.getValue("invoiceKey");
-      const txHash = row.original.creationTxHash;
-      const displayKey = invoiceKey
-        ? `${invoiceKey.slice(0, 6)}...${invoiceKey.slice(-4)}`
-        : "-";
+      const orderId: bigint = row.getValue("orderId");
       return (
         <div className="text-center">
-          {txHash ? (
-            <a
-              href={`https://sepolia.etherscan.io/tx/${txHash}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-blue-500 underline"
-            >
-              {displayKey}
-            </a>
-          ) : (
-            displayKey
-          )}
+          <CopyableAddress fullValue={orderId.toString()} />
         </div>
       );
     },

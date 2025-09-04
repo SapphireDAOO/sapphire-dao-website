@@ -1,6 +1,5 @@
 import { paymentProcessor } from "@/abis/PaymentProcessor";
 import { SIMPLE_PAYMENT_PROCESSOR } from "@/constants";
-import { Address } from "viem";
 
 import { sepolia } from "viem/chains";
 import { useAccount, useChainId, useReadContract } from "wagmi";
@@ -8,10 +7,10 @@ import { useAccount, useChainId, useReadContract } from "wagmi";
 /**
  * Custom hook to fetch invoice data from the PaymentProcessor smart contract using an invoice key.
  *
- * This function calls `getInvoiceData(invoiceKey)` on the contract and retrieves details
+ * This function calls `getInvoiceData(orderId)` on the contract and retrieves details
  * such as token address, amount, receiver address, and any other metadata stored in the invoice.
  *
- * @param invoiceKey - The unique key (address) used to identify the invoice on-chain.
+ * @param orderId - The unique key (address) used to identify the invoice on-chain.
  *
  * @returns An object containing:
  *   - `data`: The invoice data returned by the contract. This is typically an object that includes fields like `token`, `amount`, `receiver`, etc.
@@ -19,7 +18,7 @@ import { useAccount, useChainId, useReadContract } from "wagmi";
  *   - `isLoading`: Boolean indicating whether the contract read is currently in progress.
  */
 
-export const useGetInvoiceData = (invoiceKey: Address) => {
+export const useGetInvoiceData = (orderId: bigint) => {
   // Get the connected user's wallet address using the wagmi `useAccount` hook
   const { address } = useAccount();
 
@@ -32,7 +31,7 @@ export const useGetInvoiceData = (invoiceKey: Address) => {
     chainId: sepolia.id,
     address: SIMPLE_PAYMENT_PROCESSOR[chainId],
     functionName: "getInvoiceData",
-    args: [invoiceKey],
+    args: [orderId],
     account: address,
   });
 

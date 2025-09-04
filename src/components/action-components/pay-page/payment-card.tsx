@@ -35,8 +35,8 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
   const [open, setOpen] = useState(false);
   const [userIsCreator, setUserIsCreator] = useState(false);
 
-  const invoiceKEY = data?.invoiceKey;
-  const { data: invoiceData } = useGetInvoiceData(invoiceKEY);
+  const orderId = data?.orderId;
+  const { data: invoiceData } = useGetInvoiceData(orderId);
 
   const { getInvoiceOwner, makeInvoicePayment, isLoading } =
     useContext(ContractContext);
@@ -44,27 +44,27 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
   // Check if the connected user is the creator of the invoice
 
   const isCreator = useCallback(async () => {
-    const creator = await getInvoiceOwner(invoiceKEY!);
+    const creator = await getInvoiceOwner(orderId.toString());
     return address?.toLowerCase() === creator.toLowerCase();
-  }, [address, getInvoiceOwner, invoiceKEY]);
+  }, [address, getInvoiceOwner, orderId]);
 
   useEffect(() => {
     const checkCreator = async () => {
-      if (address && invoiceKEY) {
+      if (address && orderId) {
         const creatorCheck = await isCreator();
         setUserIsCreator(creatorCheck);
       }
     };
 
     checkCreator();
-  }, [address, invoiceKEY, isCreator]);
+  }, [address, orderId, isCreator]);
 
   const handleClick = async () => {
     if (!invoiceData?.price) {
       toast.error("Invoice price is not available.");
       return;
     }
-    const success = await makeInvoicePayment(invoiceData.price, invoiceKEY!);
+    const success = await makeInvoicePayment(invoiceData.price, orderId);
     if (success) {
       setOpen(true);
       toast.success("Payment successful!");
@@ -92,7 +92,7 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
             </div>
 
             <div className="flex flex-col space-y-2 mt-3">
-              <Label htmlFor="price">Request Amount</Label>
+              <Label htmlFor="price">Requested Amount</Label>
               <Input
                 id="price"
                 placeholder={`${
@@ -108,9 +108,7 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
             <Button
               onClick={handleClick}
               className="w-full"
-              disabled={
-                invoiceData?.status !== 1 || userIsCreator || !invoiceKEY
-              }
+              disabled={invoiceData?.status !== 1 || userIsCreator || !orderId}
             >
               {isLoading === "makeInvoicePayment" ? (
                 <>

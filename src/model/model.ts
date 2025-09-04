@@ -4,7 +4,7 @@ import type { Address } from "viem";
 export type Invoice = {
   releaseAt?: string | null;
   id: string;
-  invoiceKey: Address;
+  orderId: bigint;
   amountPaid?: string | null;
   createdAt?: string | null;
   paidAt?: string;
@@ -27,7 +27,7 @@ export type Invoice = {
 
 export type AllInvoice = {
   id: string;
-  invoiceKey: Address;
+  orderId: bigint;
   contract: string;
   seller: string;
   createdAt: string;
@@ -44,7 +44,7 @@ export type AllInvoice = {
 
 export type AdminAction = {
   id: string;
-  invoiceKey: Address;
+  orderId: bigint;
   action: string;
   time: string;
   type: "Single Invoice" | "Meta Invoice";
@@ -84,7 +84,7 @@ export interface UserReceivedInvoicesInvoice extends Invoice {
 export type PaymentCardProps = {
   data: {
     id: string; // Unique identifier for the invoice
-    invoiceKey: Address; // Invoicekey associated with the invoice
+    orderId: bigint; // orderId associated with the invoice
     price: string; // Price associated with the invoice
     status: string; // Status of the invoice (e.g., "paid", "created", "unpaid")
   };
@@ -97,12 +97,12 @@ export type ErrorMessages = {
 
 export interface TokenData {
   name: string;
-  id: Address;
+  id: bigint;
   decimals: number;
 }
 export interface InvoiceDetails {
   id?: string;
-  invoiceKey: Address;
+  orderId: bigint;
   price: string;
   paymentToken?: Address;
   tokenList: TokenData[];

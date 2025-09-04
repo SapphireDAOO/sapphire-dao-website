@@ -3,7 +3,7 @@ import { ColumnDef } from "@tanstack/react-table";
 import { Invoice } from "@/model/model";
 import { formatAddress } from "@/utils";
 import React from "react";
-import { Address, formatEther } from "viem";
+import { formatEther } from "viem";
 
 const allMarketplaceInvoices: ColumnDef<Invoice>[] = [
   // {
@@ -12,14 +12,14 @@ const allMarketplaceInvoices: ColumnDef<Invoice>[] = [
   //   cell: ({ row }) => <div className="text-center">{row.getValue("id")}</div>,
   // },
   {
-    accessorKey: "invoiceKey",
+    accessorKey: "orderId",
     header: () => <div className="text-center">Invoice Id</div>,
     cell: ({ row }) => {
-      const invoiceKey: Address = row.getValue("invoiceKey");
+      const orderId: bigint = row.getValue("orderId");
       const hash = row.original.creationTxHash;
 
-      const displayKey = invoiceKey
-        ? `${invoiceKey.slice(0, 6)}...${invoiceKey.slice(-4)}`
+      const displayKey = orderId
+        ? `${orderId.toString().slice(0, 6)}...${orderId.toString().slice(-4)}`
         : "-";
 
       return (
