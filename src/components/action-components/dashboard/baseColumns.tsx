@@ -51,24 +51,25 @@ const baseColumns: ColumnDef<Invoice>[] = [
     accessorKey: "id",
     header: ({ column }) => {
       return (
-        <Button
-          variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-        >
-          Id
-          <ArrowUpDown />
-        </Button>
+        <div className="text-center w-full">
+          <Button
+            variant="ghost"
+            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+            className="mx-auto"
+          >
+            Id
+            <ArrowUpDown className="ml-1 h-4 w-4" />
+          </Button>
+        </div>
       );
     },
-
     cell: ({ row }) => {
       let id: string = row.getValue("id");
       if (!id) return <div className="text-center">-</div>;
-      id = id.length != 66 ? id : `${id.slice(0, 6)}...${id.slice(-4)}`;
+      id = id.length !== 66 ? id : `${id.slice(0, 6)}...${id.slice(-4)}`;
       return <div className="text-center">{id}</div>;
     },
   },
-
   {
     accessorKey: "contract",
     header: () => <div className="text-center">Contract</div>,

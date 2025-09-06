@@ -121,10 +121,10 @@ const IndexRecentPayment = ({
 
   // const includeSeller = false;
   const invoiceColumns = [
+    ...invoiceActions,
     ...baseColumns.filter(
       (col) => !("accessorKey" in col && col.accessorKey === "paymentToken")
     ),
-    ...invoiceActions,
   ];
 
   const invoicesByTab = isMarketplaceTab
