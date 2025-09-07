@@ -164,7 +164,7 @@ const allInvoicesColumns: ColumnDef<AllInvoice>[] = [
       if (status === "RELEASED") {
         return (
           <a
-            href={`https://sepolia.etherscan.io/address/${releaseHash}`}
+            href={`https://sepolia.etherscan.io/tx/${releaseHash}`}
             target="_blank"
             rel="noopener noreferrer"
             className="text-blue-500 underline"
