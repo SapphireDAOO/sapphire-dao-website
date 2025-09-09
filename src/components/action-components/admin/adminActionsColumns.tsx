@@ -6,38 +6,11 @@ import React from "react";
 import CopyableAddress from "@/components/ui/CopyableAddress";
 
 const adminActionsColumns: ColumnDef<AdminAction>[] = [
-  // {
-  //   accessorKey: "id",
-  //   header: () => <div className="text-center">Invoice id</div>,
-  //   cell: ({ row }) => <div className="text-center">{row.getValue("id")}</div>,
-  // },
-  // {
-  //   accessorKey: "orderId",
-  //   header: () => <div className="text-center">Invoice Id</div>,
-  //   cell: ({ row }) => {
-  //     const orderId: bigint = row.getValue("orderId");
-  //     const txHash = row.original.txHash;
-  //     return (
-  //       <div className="text-center">
-  //         {txHash ? (
-  //           <a
-  //             href={`https://sepolia.etherscan.io/tx/${txHash}`}
-  //             target="_blank"
-  //             rel="noopener noreferrer"
-  //             className="text-blue-500 underline"
-  //           >
-  //             {`${orderId.toString().slice(0, 6)}...${orderId
-  //               .toString()
-  //               .slice(-4)}`}
-  //           </a>
-  //         ) : (
-  //           "-"
-  //         )}
-  //       </div>
-  //     );
-  //     // return <CopyableAddress fullValue={orderId} />;
-  //   },
-
+  {
+    accessorKey: "id",
+    header: () => <div className="text-center">Id</div>,
+    cell: ({ row }) => <div className="text-center">{row.getValue("id")}</div>,
+  },
   {
     accessorKey: "orderId",
     header: () => <div className="text-center">Invoice Id</div>,

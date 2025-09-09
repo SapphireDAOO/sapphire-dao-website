@@ -6,11 +6,11 @@ import React from "react";
 import { formatEther } from "viem";
 
 const allMarketplaceInvoices: ColumnDef<Invoice>[] = [
-  // {
-  //   accessorKey: "id",
-  //   header: () => <div className="text-center">Invoice id</div>,
-  //   cell: ({ row }) => <div className="text-center">{row.getValue("id")}</div>,
-  // },
+  {
+    accessorKey: "id",
+    header: () => <div className="text-center">Id</div>,
+    cell: ({ row }) => <div className="text-center">{row.getValue("id")}</div>,
+  },
   {
     accessorKey: "orderId",
     header: () => <div className="text-center">Invoice Id</div>,
@@ -70,6 +70,29 @@ const allMarketplaceInvoices: ColumnDef<Invoice>[] = [
       const createdAt: string = row.getValue("createdAt");
 
       return <div className="text-center">{createdAt}</div>;
+    },
+  },
+  {
+    accessorKey: "commisionTxHash",
+    header: () => <div className="text-center">Commission Url</div>,
+    cell: ({ row }) => {
+      const commissionUrl = row.getValue("commisionTxHash");
+      return (
+        <div className="text-center">
+          {commissionUrl ? (
+            <a
+              href={`https://sepolia.etherscan.io/tx/${commissionUrl}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-500 underline"
+            >
+              {formatAddress(commissionUrl as string)}
+            </a>
+          ) : (
+            "-"
+          )}
+        </div>
+      );
     },
   },
   {

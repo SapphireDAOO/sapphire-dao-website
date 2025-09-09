@@ -14,6 +14,7 @@ export const GET_ALL_INVOICES = `
       state
       amountPaid
       creationTxHash
+      commisionTxHash
       seller {
         id
       }
@@ -39,8 +40,11 @@ export const GET_ALL_INVOICES = `
       price
       releasedAt
       state
+      fee
+      paymentTxHash
       amountPaid
       creationTxHash
+      commisionTxHash
       seller {
         id
       }
@@ -101,7 +105,9 @@ export const invoiceQuery = `query ($address: String!) {
       price
       releasedAt
       state
-      paymentToken
+      paymentToken {
+        id
+      }
       paymentTxHash
       seller {
         id
@@ -120,7 +126,9 @@ export const invoiceQuery = `query ($address: String!) {
       price
       releasedAt
       state
-      paymentToken
+      paymentToken {
+        id
+      }
       paymentTxHash
       seller {
         id

@@ -70,7 +70,6 @@ const CheckoutCard = ({ data, isMetaInvoice }: CheckoutCardProps) => {
       return;
     }
     const amount = BigInt(data?.price);
-    // paymentToken === zeroAddress as Address ?  : BigInt(0);
 
     const success = await payAdvancedInvoice(
       paymentType,

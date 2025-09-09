@@ -40,6 +40,7 @@ export type AllInvoice = {
   releaseHash: string;
   status: string;
   creationTxHash: string;
+  commisionTxHash: string;
 };
 
 export type AdminAction = {

@@ -70,6 +70,7 @@ const CheckoutPage = () => {
         });
 
         const result = await response.json();
+        console.log("result", result);
         if (response.ok && result.valid) {
           setOrderId(result.data.orderId);
         } else {
@@ -86,6 +87,8 @@ const CheckoutPage = () => {
   const ZERO: bigint = BigInt(0);
   const { data: invoiceInfo } = useGetMarketplaceInvoiceData(orderId || ZERO);
   const { data: metaInvoice } = useGetMetaInvoice(orderId || ZERO);
+
+  // console.log(invoiceInfo)
 
   const isMetaInvoice = useMemo(() => {
     return metaInvoice?.price != BigInt(0);

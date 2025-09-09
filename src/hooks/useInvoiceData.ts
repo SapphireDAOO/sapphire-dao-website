@@ -65,6 +65,7 @@ export const useInvoiceData = () => {
         releaseHash: list.releaseHash,
         status: list.state,
         creationTxHash: list.creationTxHash,
+        commisionTxHash: list.commisionTxHash,
       }));
 
       const actions: AdminAction[] = rawAdminActions.map((list: any) => ({
@@ -95,9 +96,11 @@ export const useInvoiceData = () => {
           releaseHash: list.releaseHash,
           status: list.state,
           creationTxHash: list.creationTxHash,
+          commisionTxHash: list.commisionTxHash,
         })
       );
 
+      console.log(marketplaceInvoices);
       return { invoices, actions, marketplaceInvoices };
     } catch (error) {
       console.error("❌ Error fetching invoice data:", error);
@@ -110,6 +113,8 @@ export const useInvoiceData = () => {
       const { data, error } = await client(chainId)
         .query(invoiceQuery, { address: address?.toLowerCase() })
         .toPromise();
+
+      console.log(data);
 
       if (error) {
         console.log(error.message);
@@ -191,7 +196,7 @@ export const useInvoiceData = () => {
           releaseAt: invoice.releasedAt,
           buyer: invoice.buyer === null ? "" : invoice.buyer.id,
           source: "Marketplace",
-          paymentToken: invoice.paymentToken,
+          paymentToken: invoice.paymentToken.id,
           cancelAt: invoice.cancelAt,
         })
       );
@@ -215,9 +220,11 @@ export const useInvoiceData = () => {
           releaseAt: invoice.releasedAt,
           buyer: invoice.buyer === null ? "" : invoice.buyer.id,
           source: "Marketplace",
-          paymentToken: invoice.paymentToken,
+          paymentToken: invoice.paymentToken.id,
           cancelAt: invoice.cancelAt,
         }));
+
+      console.log(receivedInvoicesData[0].paymentTxHash);
 
       // Combine created and paid invoices into a single list
       const allInvoiceData: (

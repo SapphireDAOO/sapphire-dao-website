@@ -7,34 +7,11 @@ import { formatEther } from "viem";
 import CopyableAddress from "@/components/ui/CopyableAddress";
 
 const allInvoicesColumns: ColumnDef<AllInvoice>[] = [
-  // {
-  //   accessorKey: "orderId",
-  //   header: () => <div className="text-center">Invoice Id</div>,
-  //   cell: ({ row }) => {
-  //     const orderId: bigint = row.getValue("orderId");
-  //     const txHash = row.original.creationTxHash;
-  //     const displayKey = orderId
-  //       ? `${orderId.toString().slice(0, 6)}...${orderId.toString().slice(-4)}`
-  //       : "-";
-  //     return (
-  //       <div className="text-center">
-  //         {txHash ? (
-  //           <a
-  //             href={`https://sepolia.etherscan.io/tx/${txHash}`}
-  //             target="_blank"
-  //             rel="noopener noreferrer"
-  //             className="text-blue-500 underline"
-  //           >
-  //             {displayKey}
-  //           </a>
-  //         ) : (
-  //           displayKey
-  //         )}
-  //       </div>
-  //     );
-  //   },
-  // },
-
+  {
+    accessorKey: "id",
+    header: () => <div className="text-center">Id</div>,
+    cell: ({ row }) => <div className="text-center">{row.getValue("id")}</div>,
+  },
   {
     accessorKey: "orderId",
     header: () => <div className="text-center">Invoice Id</div>,
@@ -80,9 +57,34 @@ const allInvoicesColumns: ColumnDef<AllInvoice>[] = [
     },
   },
   {
+    accessorKey: "commisionTxHash",
+    header: () => <div className="text-center">Commission Url</div>,
+    cell: ({ row }) => {
+      const commissionUrl = row.getValue("commisionTxHash");
+      return (
+        <div className="text-center">
+          {commissionUrl ? (
+            <a
+              href={`https://sepolia.etherscan.io/tx/${commissionUrl}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-500 underline"
+            >
+              {formatAddress(commissionUrl as string)}
+            </a>
+          ) : (
+            "-"
+          )}
+        </div>
+      );
+    },
+  },
+  {
     accessorKey: "payment",
     header: () => <div className="text-center">Payment</div>,
     cell: ({ row }) => {
+      console.log("");
+      console.table(row.original);
       const paymentHash = row.getValue("payment");
 
       if (!paymentHash) {
