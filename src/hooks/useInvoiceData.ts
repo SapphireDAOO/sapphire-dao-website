@@ -79,8 +79,8 @@ export const useInvoiceData = () => {
 
       const marketplaceInvoices: AllInvoice[] = rawMarketplaceInvoices.map(
         (list: any) => ({
-          id: list.invoiceId || "",
-          orderId: list.id || "",
+          id: list.invoiceId,
+          orderId: list.id,
           contract: list.contract || "",
           seller: list.seller?.id || "",
           payment: list.paymentTxHash || "",
@@ -100,7 +100,6 @@ export const useInvoiceData = () => {
         })
       );
 
-      console.log(marketplaceInvoices);
       return { invoices, actions, marketplaceInvoices };
     } catch (error) {
       console.error("❌ Error fetching invoice data:", error);
@@ -113,8 +112,6 @@ export const useInvoiceData = () => {
       const { data, error } = await client(chainId)
         .query(invoiceQuery, { address: address?.toLowerCase() })
         .toPromise();
-
-      console.log(data);
 
       if (error) {
         console.log(error.message);
@@ -223,8 +220,6 @@ export const useInvoiceData = () => {
           paymentToken: invoice.paymentToken.id,
           cancelAt: invoice.cancelAt,
         }));
-
-      console.log(receivedInvoicesData[0].paymentTxHash);
 
       // Combine created and paid invoices into a single list
       const allInvoiceData: (

@@ -4,42 +4,50 @@ import { Invoice } from "@/model/model";
 import { formatAddress } from "@/utils";
 import React from "react";
 import { formatEther } from "viem";
+import { Button } from "@/components/ui/button";
+import { ArrowUpDown } from "lucide-react";
+import CopyableAddress from "@/components/ui/CopyableAddress";
 
 const allMarketplaceInvoices: ColumnDef<Invoice>[] = [
   {
     accessorKey: "id",
-    header: () => <div className="text-center">Id</div>,
-    cell: ({ row }) => <div className="text-center">{row.getValue("id")}</div>,
+    header: ({ column }) => {
+      return (
+        <div className="text-center w-full">
+          <Button
+            variant="ghost"
+            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+            className="mx-auto"
+          >
+            Id
+            <ArrowUpDown className="ml-1 h-4 w-4" />
+          </Button>
+        </div>
+      );
+    },
+    cell: ({ row }) => {
+      const id: string = row.getValue("id");
+      if (!id) return <div className="text-center">-</div>;
+      return <div className="text-center">{id}</div>;
+    },
+    enableSorting: true,
+    sortingFn: (rowA, rowB, columnId) =>
+      Number(rowA.getValue(columnId)) - Number(rowB.getValue(columnId)),
   },
+
   {
     accessorKey: "orderId",
     header: () => <div className="text-center">Invoice Id</div>,
     cell: ({ row }) => {
       const orderId: bigint = row.getValue("orderId");
-      const hash = row.original.creationTxHash;
-
-      const displayKey = orderId
-        ? `${orderId.toString().slice(0, 6)}...${orderId.toString().slice(-4)}`
-        : "-";
-
       return (
         <div className="text-center">
-          {hash ? (
-            <a
-              href={`https://sepolia.etherscan.io/tx/${hash}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-blue-500 underline"
-            >
-              {displayKey}
-            </a>
-          ) : (
-            displayKey
-          )}
+          <CopyableAddress fullValue={orderId.toString()} />
         </div>
       );
     },
   },
+
   {
     accessorKey: "seller",
     header: () => <div className="text-center">Seller</div>,

@@ -5,12 +5,31 @@ import { formatAddress } from "@/utils";
 import React from "react";
 import { formatEther } from "viem";
 import CopyableAddress from "@/components/ui/CopyableAddress";
+import { Button } from "@/components/ui/button";
+import { ArrowUpDown } from "lucide-react";
 
 const allInvoicesColumns: ColumnDef<AllInvoice>[] = [
   {
     accessorKey: "id",
-    header: () => <div className="text-center">Id</div>,
-    cell: ({ row }) => <div className="text-center">{row.getValue("id")}</div>,
+    header: ({ column }) => {
+      return (
+        <div className="text-center w-full">
+          <Button
+            variant="ghost"
+            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+            className="mx-auto"
+          >
+            Id
+            <ArrowUpDown className="ml-1 h-4 w-4" />
+          </Button>
+        </div>
+      );
+    },
+    cell: ({ row }) => {
+      const id: string = row.getValue("id");
+      if (!id) return <div className="text-center">-</div>;
+      return <div className="text-center">{id}</div>;
+    },
   },
   {
     accessorKey: "orderId",
@@ -83,8 +102,6 @@ const allInvoicesColumns: ColumnDef<AllInvoice>[] = [
     accessorKey: "payment",
     header: () => <div className="text-center">Payment</div>,
     cell: ({ row }) => {
-      console.log("");
-      console.table(row.original);
       const paymentHash = row.getValue("payment");
 
       if (!paymentHash) {

@@ -9,6 +9,7 @@ import {
   getPaginationRowModel,
   useReactTable,
   TableMeta,
+  getSortedRowModel,
 } from "@tanstack/react-table";
 
 import { Input } from "@/components/ui/input";
@@ -87,14 +88,19 @@ const DataTable = <TData,>({
     return [...paid, ...others];
   }, [filteredData, prioritizePaid]);
 
+  const [sorting, setSorting] = useState([{ id: "id", desc: false }]);
+
   const table = useReactTable({
     data: sortedData,
     columns: filteredColumns,
+    state: { sorting },
+    onSortingChange: setSorting,
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
+    getSortedRowModel: getSortedRowModel(),
     meta: {
-      currentTab, // Pass currentTab to table meta
+      currentTab,
     } as CustomTableMeta<TData>,
   });
 

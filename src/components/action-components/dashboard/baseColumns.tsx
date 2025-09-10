@@ -176,7 +176,6 @@ const baseColumns: ColumnDef<Invoice>[] = [
     accessorKey: "paymentToken",
     header: () => <div className="text-center">Payment Token</div>,
     cell: ({ row }) => {
-      console.log(row.original)
       const paymentToken = row.getValue("paymentToken") as string;
       const paymentTokenAddress = row.getValue("paymentToken") as Address;
       const zeroAddress = "0x0000000000000000000000000000000000000000";
