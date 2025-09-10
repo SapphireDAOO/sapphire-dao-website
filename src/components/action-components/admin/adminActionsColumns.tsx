@@ -4,12 +4,34 @@ import { AdminAction } from "@/model/model";
 
 import React from "react";
 import CopyableAddress from "@/components/ui/CopyableAddress";
+import { Button } from "@/components/ui/button";
+import { ArrowUpDown } from "lucide-react";
 
 const adminActionsColumns: ColumnDef<AdminAction>[] = [
   {
     accessorKey: "id",
-    header: () => <div className="text-center">Id</div>,
-    cell: ({ row }) => <div className="text-center">{row.getValue("id")}</div>,
+    header: ({ column }) => {
+      return (
+        <div className="text-center w-full">
+          <Button
+            variant="ghost"
+            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+            className="mx-auto"
+          >
+            Id
+            <ArrowUpDown className="ml-1 h-4 w-4" />
+          </Button>
+        </div>
+      );
+    },
+    cell: ({ row }) => {
+      const id: string = row.getValue("id");
+      if (!id) return <div className="text-center">-</div>;
+      return <div className="text-center">{id}</div>;
+    },
+    enableSorting: true,
+    sortingFn: (rowA, rowB, columnId) =>
+      Number(rowA.getValue(columnId)) - Number(rowB.getValue(columnId)),
   },
   {
     accessorKey: "orderId",
