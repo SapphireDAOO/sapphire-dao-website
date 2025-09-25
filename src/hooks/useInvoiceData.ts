@@ -145,6 +145,7 @@ export const useInvoiceData = () => {
           contract: invoice.contract,
           paymentTxHash: invoice.paymentTxHash,
           seller: invoice.seller === null ? "" : invoice.seller.id,
+          buyer: invoice.buyer === null ? "" : invoice.buyer.id,
           releaseHash: invoice.releaseHash,
           releaseAt: invoice.releasedAt,
           source: "Simple",

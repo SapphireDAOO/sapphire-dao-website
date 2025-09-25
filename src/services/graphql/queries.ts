@@ -71,6 +71,9 @@ export const invoiceQuery = `query ($address: String!) {
       releaseHash
       releasedAt
       state
+      buyer {
+        id
+      }
       seller {
         id
       }
