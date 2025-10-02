@@ -15,6 +15,12 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
+import {
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+} from "@/components/ui/popover";
+
 const DecisionWindowCell = ({
   paidAtTimestamp,
   status,
@@ -77,34 +83,13 @@ const baseColumns: ColumnDef<Invoice>[] = [
   },
   {
     accessorKey: "contract",
-    header: () => {
-      return (
-        <div className="text-center flex items-center justify-center gap-1">
-          <span>Contract</span>
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Info className="w-4 h-4 text-muted-foreground cursor-pointer" />
-              </TooltipTrigger>
-              <TooltipContent className="w-56 text-xs p-3">
-                <p className="mb-1">
-                  The address of the smart contract managing invoice and payment
-                  logic.
-                </p>
-                <a
-                  href="https://sapphiredao.gitbook.io/sapphiredao-docs/technical-docs/core-contracts"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-600 underline"
-                >
-                  Learn more
-                </a>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        </div>
-      );
-    },
+    header: () => (
+      <HeaderWithInfo
+        label="Contract"
+        description="The address of the smart contract managing invoice and payment logic."
+        link="https://sapphiredao.gitbook.io/sapphiredao-docs/technical-docs/core-contracts"
+      />
+    ),
     cell: ({ row }) => {
       const contractAddress = row.getValue("contract");
       return (
@@ -127,33 +112,13 @@ const baseColumns: ColumnDef<Invoice>[] = [
   },
   {
     accessorKey: "seller",
-    header: () => {
-      return (
-        <div className="text-center flex items-center justify-center gap-1">
-          <span>Seller</span>
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Info className="w-4 h-4 text-muted-foreground cursor-pointer" />
-              </TooltipTrigger>
-              <TooltipContent className="w-56 text-xs p-3">
-                <p className="mb-1">
-                  The address designated to receive payment for the invoice.
-                </p>
-                <a
-                  href="https://sapphiredao.gitbook.io/sapphiredao-docs/user-docs/publish-your-docs#seller"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-600 underline"
-                >
-                  Learn more
-                </a>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        </div>
-      );
-    },
+    header: () => (
+      <HeaderWithInfo
+        label="Seller"
+        description="The address designated to receive payment for the invoice."
+        link="https://sapphiredao.gitbook.io/sapphiredao-docs/user-docs/publish-your-docs#seller"
+      />
+    ),
     cell: ({ row }) => {
       const payment = row.original;
       const sellersAddress = row.getValue("seller");
@@ -179,33 +144,13 @@ const baseColumns: ColumnDef<Invoice>[] = [
   },
   {
     accessorKey: "buyer",
-    header: () => {
-      return (
-        <div className="text-center flex items-center justify-center gap-1">
-          <span>Buyer</span>
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Info className="w-4 h-4 text-muted-foreground cursor-pointer" />
-              </TooltipTrigger>
-              <TooltipContent className="w-56 text-xs p-3">
-                <p className="mb-1">
-                  The address responsible for making the payment.
-                </p>
-                <a
-                  href="https://sapphiredao.gitbook.io/sapphiredao-docs/user-docs/publish-your-docs#buyer"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-600 underline"
-                >
-                  Learn more
-                </a>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        </div>
-      );
-    },
+    header: () => (
+      <HeaderWithInfo
+        label="Buyer"
+        description="The address responsible for making the payment."
+        link="https://sapphiredao.gitbook.io/sapphiredao-docs/user-docs/publish-your-docs#buyer"
+      />
+    ),
     cell: ({ row }) => {
       const { type } = row.original;
       const buyersAddress = row.getValue("buyer") as string | undefined;
@@ -231,33 +176,12 @@ const baseColumns: ColumnDef<Invoice>[] = [
   },
   {
     accessorKey: "paymentTxHash",
-    header: () => {
-      return (
-        <div className="text-center flex items-center justify-center gap-1">
-          <span>Payment</span>
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Info className="w-4 h-4 text-muted-foreground cursor-pointer" />
-              </TooltipTrigger>
-              <TooltipContent className="w-56 text-xs p-3">
-                <p className="mb-1">
-                  The transaction hash showing when payment was sent.
-                </p>
-                {/* <a
-                  href="https://docs.sapphiredao.xyz/docs/payment-processor"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-600 underline"
-                >
-                  Learn more
-                </a> */}
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        </div>
-      );
-    },
+    header: () => (
+      <HeaderWithInfo
+        label="Payment"
+        description="The transaction hash showing when payment was sent."
+      />
+    ),
     cell: ({ row }) => {
       const paymentHash = row.getValue("paymentTxHash");
 
@@ -285,33 +209,12 @@ const baseColumns: ColumnDef<Invoice>[] = [
   },
   {
     accessorKey: "paymentToken",
-    header: () => {
-      return (
-        <div className="text-center flex items-center justify-center gap-1">
-          <span>Payment Token</span>
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Info className="w-4 h-4 text-muted-foreground cursor-pointer" />
-              </TooltipTrigger>
-              <TooltipContent className="w-56 text-xs p-3">
-                <p className="mb-1">
-                  The asset used for payment, such as ETH or an ERC-20 token.
-                </p>
-                {/* <a
-                  href="https://docs.sapphiredao.xyz/docs/payment-processor"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-600 underline"
-                >
-                  Learn more
-                </a> */}
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        </div>
-      );
-    },
+    header: () => (
+      <HeaderWithInfo
+        label="Payment Token"
+        description="The asset used for payment, such as ETH or an ERC-20 token."
+      />
+    ),
     cell: ({ row }) => {
       const paymentToken = row.getValue("paymentToken") as string;
       const paymentTokenAddress = row.getValue("paymentToken") as Address;
@@ -346,67 +249,24 @@ const baseColumns: ColumnDef<Invoice>[] = [
   },
   {
     accessorKey: "createdAt",
-    header: () => {
-      return (
-        <div className="text-center flex items-center justify-center gap-1">
-          <span>Time Created</span>
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Info className="w-4 h-4 text-muted-foreground cursor-pointer" />
-              </TooltipTrigger>
-              <TooltipContent className="w-56 text-xs p-3">
-                <p className="mb-1">
-                  The moment the invoice was generated on-chain.
-                </p>
-                {/* <a
-                  href="https://docs.sapphiredao.xyz/docs/payment-processor"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-600 underline"
-                >
-                  Learn more
-                </a> */}
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        </div>
-      );
-    },
+    header: () => (
+      <HeaderWithInfo
+        label="Time Created"
+        description="The moment the invoice was generated on-chain."
+      />
+    ),
     cell: ({ row }) => (
       <div className="text-center">{row.getValue("createdAt")}</div>
     ),
   },
   {
     accessorKey: "releaseHash",
-    header: () => {
-      return (
-        <div className="text-center flex items-center justify-center gap-1">
-          <span>Release</span>
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Info className="w-4 h-4 text-muted-foreground cursor-pointer" />
-              </TooltipTrigger>
-              <TooltipContent className="w-56 text-xs p-3">
-                <p className="mb-1">
-                  Either the release transaction hash or countdown to scheduled
-                  release.
-                </p>
-                {/* <a
-                  href="https://docs.sapphiredao.xyz/docs/payment-processor"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-600 underline"
-                >
-                  Learn more
-                </a> */}
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        </div>
-      );
-    },
+    header: () => (
+      <HeaderWithInfo
+        label="Release"
+        description="Either the release transaction hash or countdown to scheduled release."
+      />
+    ),
     cell: ({ row }) => {
       const releaseHash = row.getValue("releaseHash");
       const status = row.original?.status; // Fetch invoice status
@@ -461,33 +321,12 @@ const baseColumns: ColumnDef<Invoice>[] = [
   },
   {
     accessorKey: "paidAt",
-    header: () => {
-      return (
-        <div className="text-center flex items-center justify-center gap-1">
-          <span>Decision Window</span>
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Info className="w-4 h-4 text-muted-foreground cursor-pointer" />
-              </TooltipTrigger>
-              <TooltipContent className="w-56 text-xs p-3">
-                <p className="mb-1">
-                  Time left to accept or reject an invoice.
-                </p>
-                {/* <a
-                  href="https://docs.sapphiredao.xyz/docs/payment-processor"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-600 underline"
-                >
-                  Learn more
-                </a> */}
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        </div>
-      );
-    },
+    header: () => (
+      <HeaderWithInfo
+        label="Decision Window"
+        description="Time left to accept or reject an invoice."
+      />
+    ),
     cell: ({ row }) => {
       const payment = row.original;
 
@@ -503,33 +342,12 @@ const baseColumns: ColumnDef<Invoice>[] = [
   },
   {
     accessorKey: "status",
-    header: () => {
-      return (
-        <div className="text-center flex items-center justify-center gap-1">
-          <span>State</span>
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Info className="w-4 h-4 text-muted-foreground cursor-pointer" />
-              </TooltipTrigger>
-              <TooltipContent className="w-56 text-xs p-3">
-                <p className="mb-1">
-                  The current lifecycle stage of the invoice.
-                </p>
-                {/* <a
-                  href="https://docs.sapphiredao.xyz/docs/payment-processor"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-600 underline"
-                >
-                  Learn more
-                </a> */}
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        </div>
-      );
-    },
+    header: () => (
+      <HeaderWithInfo
+        label="State"
+        description="The current lifecycle stage of the invoice."
+      />
+    ),
     cell: ({ row }) => {
       const status = row.getValue("status") as string;
       return <div className="text-center capitalize">{status}</div>;
@@ -537,31 +355,12 @@ const baseColumns: ColumnDef<Invoice>[] = [
   },
   {
     accessorKey: "price",
-    header: () => {
-      return (
-        <div className="text-center flex items-center justify-center gap-1">
-          <span>Amount</span>
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Info className="w-4 h-4 text-muted-foreground cursor-pointer" />
-              </TooltipTrigger>
-              <TooltipContent className="w-56 text-xs p-3">
-                <p className="mb-1">The payment value linked to the invoice.</p>
-                {/* <a
-                  href="https://docs.sapphiredao.xyz/docs/payment-processor"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-600 underline"
-                >
-                  Learn more
-                </a> */}
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        </div>
-      );
-    },
+    header: () => (
+      <HeaderWithInfo
+        label="Amount"
+        description="The payment value linked to the invoice."
+      />
+    ),
     cell: ({ row }) => {
       const price = row.getValue("price");
       const source = row.original.source?.toLowerCase();
@@ -575,5 +374,85 @@ const baseColumns: ColumnDef<Invoice>[] = [
     },
   },
 ];
+
+type HeaderWithInfoProps = {
+  label: string;
+  description: string;
+  link?: string;
+};
+
+export function HeaderWithInfo({
+  label,
+  description,
+  link,
+}: HeaderWithInfoProps) {
+  return (
+    <div className="text-center flex items-center justify-center gap-1">
+      <span>{label}</span>
+
+      {/* Tooltip for desktop */}
+      <div className="hidden md:block">
+        <TooltipProvider delayDuration={100}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                aria-label={`${label} info`}
+                className="cursor-pointer flex items-center"
+              >
+                <Info className="w-4 h-4 text-muted-foreground" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent className="w-56 text-xs p-3">
+              <InfoBody description={description} link={link} />
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </div>
+
+      {/* Popover for mobile */}
+      <div className="md:hidden">
+        <Popover>
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              aria-label={`${label} info`}
+              className="cursor-pointer flex items-center"
+            >
+              <Info className="w-4 h-4 text-muted-foreground" />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent className="w-64 text-xs p-3">
+            <InfoBody description={description} link={link} />
+          </PopoverContent>
+        </Popover>
+      </div>
+    </div>
+  );
+}
+
+function InfoBody({
+  description,
+  link,
+}: {
+  description: string;
+  link?: string;
+}) {
+  return (
+    <div>
+      <p className="mb-1">{description}</p>
+      {link && (
+        <a
+          href={link}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-blue-600 underline"
+        >
+          Learn more
+        </a>
+      )}
+    </div>
+  );
+}
 
 export default baseColumns;
