@@ -15,9 +15,9 @@ export async function POST(req: Request) {
 
     const data = await res.json();
     return NextResponse.json({ success: true, data });
-  } catch (err: any) {
+  } catch (err) {
     return NextResponse.json(
-      { success: false, error: err.message },
+      { success: false, error: err },
       { status: 500 }
     );
   }
