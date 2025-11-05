@@ -93,11 +93,13 @@ export default function CreateInvoiceDialog() {
   const { createInvoice, refetchInvoiceData, isLoading } =
     useContext(ContractContext);
 
-  const isAmountValid = useMemo(
-    () => !!amount && !isNaN(Number(amount)) && Number(amount) > 0,
-    // && !!note,
-    [amount, note]
-  );
+  const isAmountValid =
+    !!amount && !isNaN(Number(amount)) && Number(amount) > 0;
+  // && !!note,
+  //   () =>
+  //   // && !!note,
+  //   [amount, note]
+  // );
 
   const handleClick = useCallback(async () => {
     if (!isAmountValid) return;
@@ -116,6 +118,7 @@ export default function CreateInvoiceDialog() {
       } else {
         toast.error("Failed to create invoice");
       }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       console.error("Create invoice error:", error);
       toast.error(error?.message || "Transaction failed");

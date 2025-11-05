@@ -61,9 +61,9 @@ export const useInvoiceData = () => {
             ? unixToGMT(list.releasedAt)
             : "Pending",
         fee: list.fee || "0",
-        state: list.status,
+        state: list.status === "CREATED" ? "AWAITING PAYMENT" : list.status,
         releaseHash: list.releaseHash,
-        status: list.state,
+        status: list.status === "CREATED" ? "AWAITING PAYMENT" : list.status,
         creationTxHash: list.creationTxHash,
         commisionTxHash: list.commisionTxHash,
       }));
@@ -94,7 +94,7 @@ export const useInvoiceData = () => {
           fee: list.fee || "0",
           state: list.status,
           releaseHash: list.releaseHash,
-          status: list.state,
+          status: list.state === "CREATED" ? "AWAITING PAYMENT" : list.status,
           creationTxHash: list.creationTxHash,
           commisionTxHash: list.commisionTxHash,
         })
@@ -136,7 +136,8 @@ export const useInvoiceData = () => {
           orderId: invoice.id,
           createdAt: invoice.createdAt ? unixToGMT(invoice.createdAt) : null,
           paidAt: invoice.paidAt || "Not Paid",
-          status: invoice.state || "Unknown",
+          status:
+            invoice.state === "CREATED" ? "AWAITING PAYMENT" : invoice.state,
           price: invoice.price ? formatEther(invoice.price) : null,
           amountPaid: invoice.amountPaid
             ? formatEther(invoice.amountPaid)
@@ -144,8 +145,8 @@ export const useInvoiceData = () => {
           type: "Seller",
           contract: invoice.contract,
           paymentTxHash: invoice.paymentTxHash,
-          seller: invoice.seller === null ? "" : invoice.seller.id,
-          buyer: invoice.buyer === null ? "" : invoice.buyer.id,
+          seller: invoice.seller?.id ?? "",
+          buyer: invoice.buyer?.id ?? "",
           releaseHash: invoice.releaseHash,
           releaseAt: invoice.releasedAt,
           source: "Simple",
@@ -159,17 +160,18 @@ export const useInvoiceData = () => {
           orderId: invoice.id,
           createdAt: invoice.createdAt ? unixToGMT(invoice.createdAt) : null,
           paidAt: invoice.paidAt || "Not Paid",
-          status: invoice.state || "Unknown",
+          status:
+            invoice.state === "CREATED" ? "AWAITING PAYMENT" : invoice.state,
           price: invoice.price ? formatEther(invoice.price) : null,
           amountPaid: invoice.amountPaid
             ? formatEther(invoice.amountPaid)
             : null,
           type: "Buyer",
-          seller: invoice.seller.id,
+          seller: invoice.seller?.id ?? "",
           contract: invoice.contract,
           paymentTxHash: invoice.paymentTxHash,
           releaseAt: invoice.releasedAt,
-          buyer: invoice.buyer === null ? "" : invoice.buyer.id,
+          buyer: invoice.buyer?.id ?? "",
           source: "Simple",
         })
       );
@@ -181,7 +183,8 @@ export const useInvoiceData = () => {
           orderId: invoice.id,
           createdAt: invoice.createdAt ? unixToGMT(invoice.createdAt) : null,
           paidAt: invoice.paidAt || "Not Paid",
-          status: invoice.state || "Unknown",
+          status:
+            invoice.state === "CREATED" ? "AWAITING PAYMENT" : invoice.status,
           price: invoice.price ? invoice.price : null,
           amountPaid: invoice.amountPaid
             ? formatEther(invoice.amountPaid)
@@ -189,12 +192,12 @@ export const useInvoiceData = () => {
           type: "IssuedInvoice",
           contract: invoice.contract,
           paymentTxHash: invoice.paymentTxHash,
-          seller: invoice.seller === null ? "" : invoice.seller.id,
+          seller: invoice.seller?.id ?? "",
           releaseHash: invoice.releaseHash,
           releaseAt: invoice.releasedAt,
-          buyer: invoice.buyer === null ? "" : invoice.buyer.id,
+          buyer: invoice.buyer?.id ?? "",
           source: "Marketplace",
-          paymentToken: invoice.paymentToken.id,
+          paymentToken: invoice.paymentToken?.id ?? "",
           cancelAt: invoice.cancelAt,
         })
       );
@@ -206,19 +209,20 @@ export const useInvoiceData = () => {
           orderId: invoice.id,
           createdAt: invoice.createdAt ? unixToGMT(invoice.createdAt) : null,
           paidAt: invoice.paidAt || "Not Paid",
-          status: invoice.state || "Unknown",
+          status:
+            invoice.state === "CREATED" ? "AWAITING PAYMENT" : invoice.status,
           price: invoice.price ? invoice.price : null,
           amountPaid: invoice.amountPaid
             ? formatEther(invoice.amountPaid)
             : null,
           type: "ReceivedInvoice",
-          seller: invoice.seller.id,
+          seller: invoice.seller?.id ?? "",
           contract: invoice.contract,
           paymentTxHash: invoice.paymentTxHash,
           releaseAt: invoice.releasedAt,
-          buyer: invoice.buyer === null ? "" : invoice.buyer.id,
+          buyer: invoice.buyer?.id ?? "",
           source: "Marketplace",
-          paymentToken: invoice.paymentToken.id,
+          paymentToken: invoice.paymentToken?.id ?? "",
           cancelAt: invoice.cancelAt,
         }));
 

@@ -9,7 +9,7 @@ import {
   CreateInvoiceCard,
 } from "./invoice-cards/index";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Invoice, Note } from "@/model/model";
+import {  Note } from "@/model/model";
 
 export default function IndexRecentPayment({
   isMarketplaceTab,
@@ -83,29 +83,32 @@ export default function IndexRecentPayment({
             return false;
           });
 
+          console.log(tab);
+
           return (
             <TabsContent key={tab} value={tab}>
               {/* Create Invoice (only in seller tab) */}
-              {!isMarketplaceTab && tab === "seller" && <CreateInvoiceCard />}
+              {!isMarketplaceTab && (tab === "seller" || tab === "all") && (
+                <CreateInvoiceCard />
+              )}
 
               {/* Filter */}
               <FilterTabs
                 filters={[
                   "All",
-                  "Created",
-                  "Awaiting Payment",
-                  "Paid",
-                  "Accepted",
-                  "Rejected",
-                  "Cancelled",
-                  "Released",
+                  "AWAITING PAYMENT",
+                  "PAID",
+                  "ACCEPTED",
+                  "REJECTED",
+                  "CANCELLED",
+                  "RELEASED",
                 ]}
                 onSelect={setFilter}
               />
 
               {/* Cards Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                {filteredInvoices.map((invoice) => (
+                {tabInvoices.map((invoice) => (
                   <InvoiceCard
                     key={invoice.id}
                     invoice={invoice}
