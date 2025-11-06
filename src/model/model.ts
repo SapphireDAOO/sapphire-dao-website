@@ -24,6 +24,7 @@ export type Invoice = {
   cancelAt?: string;
   creationTxHash?: string;
   notes?: Note[];
+  history?: string[];
 };
 
 export interface Note {

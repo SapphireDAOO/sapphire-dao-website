@@ -9,7 +9,7 @@ import {
   CreateInvoiceCard,
 } from "./invoice-cards/index";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {  Note } from "@/model/model";
+import { Note } from "@/model/model";
 
 export default function IndexRecentPayment({
   isMarketplaceTab,
@@ -107,16 +107,26 @@ export default function IndexRecentPayment({
               />
 
               {/* Cards Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                {tabInvoices.map((invoice) => (
-                  <InvoiceCard
-                    key={invoice.id}
-                    invoice={invoice}
-                    isExpanded={expandedId === String(invoice.id)}
-                    onToggle={() => handleToggle(String(invoice.id))}
-                    onAddNote={handleAddNote}
-                  />
-                ))}
+              <div className="flex flex-wrap gap-5">
+                {tabInvoices.length > 0 ? (
+                  tabInvoices.map((invoice) => (
+                    <div
+                      key={invoice.id}
+                      className="w-full md:w-[48%] lg:w-[31%]"
+                    >
+                      <InvoiceCard
+                        invoice={invoice}
+                        isExpanded={expandedId === String(invoice.id)}
+                        onToggle={() => handleToggle(String(invoice.id))}
+                        onAddNote={handleAddNote}
+                      />
+                    </div>
+                  ))
+                ) : (
+                  <div className="w-full text-center py-10 text-gray-500 border rounded-lg">
+                    No Invoice found
+                  </div>
+                )}
               </div>
             </TabsContent>
           );

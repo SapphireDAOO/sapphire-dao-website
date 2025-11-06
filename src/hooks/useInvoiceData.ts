@@ -150,6 +150,7 @@ export const useInvoiceData = () => {
           releaseHash: invoice.releaseHash,
           releaseAt: invoice.releasedAt,
           source: "Simple",
+          history: invoice.history
         })
       );
 
@@ -173,6 +174,7 @@ export const useInvoiceData = () => {
           releaseAt: invoice.releasedAt,
           buyer: invoice.buyer?.id ?? "",
           source: "Simple",
+          history: invoice.history
         })
       );
 

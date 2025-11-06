@@ -6,7 +6,7 @@ import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { ChevronDown, ChevronUp } from "lucide-react";
-import { Invoice, Note } from "@/model/model";
+import { Invoice } from "@/model/model";
 import { formatAddress, timeLeft } from "@/utils";
 import { toast } from "sonner";
 import generateSecureLink from "@/lib/generate-link";
@@ -14,14 +14,16 @@ import { QRCodeSVG } from "qrcode.react";
 import SellersAction from "../invoices-components/sellers-action";
 import CancelInvoice from "../invoices-components/cancel-payment";
 
-const mockNote: Note = {
-  id: "note-001",
-  sender: "0xA13f...B7E9",
-  message: "Payment confirmed. Shipping will begin tomorrow.",
-  timestamp: new Date().toLocaleString(),
-};
+// const mockNote: Note = {
+//   id: "note-001",
+//   sender: "0xA13f...B7E9",
+//   message: "Payment confirmed. Shipping will begin tomorrow.",
+//   timestamp: new Date().toLocaleString(),
+// };
 
-const notes: Note[] = [mockNote];
+// const notes: Note[] = [mockNote];
+
+const THREE_DAYS_IN_MILISECONDS = 259_200_000;
 
 export function InvoiceCard({
   invoice,
@@ -53,14 +55,12 @@ export function InvoiceCard({
 
       if (invoice.status === "ACCEPTED" && invoice.releaseAt) {
         updatedTime = timeLeft(invoice.paidAt ?? 0, Number(invoice.releaseAt));
-      } else if (invoice.status === "AWAITING PAYMENT" && invoice.holdPeriod) {
-        // show decision window (time left to accept/reject)
-        updatedTime = timeLeft(invoice.paidAt ?? 0, Number(invoice.holdPeriod));
+      } else if (invoice.status === "PAID" && invoice.paidAt) {
+        updatedTime = timeLeft(invoice.paidAt ?? 0, THREE_DAYS_IN_MILISECONDS);
       }
 
       setCountdown(updatedTime);
 
-      // ⏹ stop ticking once time is over
       if (updatedTime === "Time Elapsed") {
         clearInterval(interval);
       }
@@ -95,7 +95,6 @@ export function InvoiceCard({
   }, [paymentUrl]);
 
   // Always show status, fallback to "Unknown"
-  console.log("status is", invoice.status);
   const displayStatus = invoice.status || "Unknown";
 
   if (invoice.status == "CREATED") {
@@ -175,69 +174,93 @@ export function InvoiceCard({
       </CardHeader>
 
       {isExpanded && (
-        <CardContent className="border-t pt-4 space-y-4">
+        <CardContent className="border-t pt-4 space-y-5 text-sm text-gray-800">
+          {/* Contract Info */}
           {invoice.contract && (
-            <p>Contract: {renderContractLink(invoice.contract)}</p>
+            <p>
+              <strong>Contract:</strong> {renderContractLink(invoice.contract)}
+            </p>
           )}
+
+          {/* Seller */}
           {invoice.seller && (
-            <p>Creator: {renderContractLink(invoice.seller)}</p>
+            <p>
+              <strong>Creator:</strong> {renderContractLink(invoice.seller)}
+            </p>
           )}
+
+          {/* Amount Paid */}
           {invoice.amountPaid && (
-            <p>Payment Amount: {invoice.amountPaid} ETH</p>
+            <p>
+              <strong>Amount Paid:</strong> {invoice.amountPaid} ETH
+            </p>
           )}
+
+          {/* State History */}
+          {invoice.history && invoice.history.length > 0 && (
+            <div>
+              <p className="font-semibold mb-1">State History:</p>
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                {invoice.history.map((status, idx) => (
+                  <div key={idx} className="flex items-center gap-1">
+                    <span className="bg-gray-100 border border-gray-300 rounded-full px-3 py-1">
+                      {status}
+                    </span>
+                    {invoice.history && idx < invoice.history.length - 1 && (
+                      <span className="text-gray-400">→</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Notes */}
-          <div className="space-y-2">
-            {(invoice.notes && invoice.notes.length > 0
-              ? invoice.notes
-              : notes ?? []
-            ).map((note) => (
-              <div key={note.id} className="rounded bg-gray-50 p-3 text-xs">
+          <div className="space-y-3">
+            {invoice.notes?.map((note) => (
+              <div key={note.id} className="bg-gray-100 p-3 rounded-md text-xs">
                 <p className="font-medium text-gray-700">{note.sender}</p>
                 <p className="text-gray-600">{note.message}</p>
-                <p className="mt-1 text-xs text-gray-400">{note.timestamp}</p>
+                <p className="text-gray-400 text-[10px] mt-1">
+                  {note.timestamp}
+                </p>
               </div>
             ))}
+
+            {/* Optional Note Input */}
+            <div className="flex items-center gap-2">
+              <Input
+                placeholder="Write a note..."
+                value={noteInput}
+                onChange={(e) => setNoteInput(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleAddNote()}
+                className="flex-1 text-sm"
+              />
+              <Button size="sm" onClick={handleAddNote}>
+                Send
+              </Button>
+            </div>
           </div>
 
-          {/* Add Note */}
-          <div className="flex gap-2">
-            <Input
-              placeholder="Add a note..."
-              value={noteInput}
-              onChange={(e) => setNoteInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleAddNote()}
-              className="flex-1 text-xs"
-            />
-            <Button size="sm" onClick={handleAddNote}>
-              Send
-            </Button>
-          </div>
-
-          {/* QR + Copy Link */}
+          {/* QR Code + Link */}
           {paymentUrl && invoice.status === "AWAITING PAYMENT" && (
-            <div className="my-4 flex flex-col items-center gap-3">
-              <div className="flex h-32 w-32 items-center justify-center rounded-xl border-2 border-dashed bg-gray-50 p-2">
+            <div className="mt-4 flex flex-col items-center gap-3">
+              <div className="border border-dashed p-2 rounded-xl bg-gray-50">
                 <QRCodeSVG value={paymentUrl} size={120} level="H" />
               </div>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={handleCopyLink}
-                className="text-blue-600 hover:text-blue-700"
-              >
+              <Button size="sm" variant="outline" onClick={handleCopyLink}>
                 Copy Payment Link
               </Button>
             </div>
           )}
 
-          {/* Actions */}
-          <div className="flex justify-end gap-2">
-            {/* {invoice.status === "AWAITING PAYMENT" && (
-              <Button size="sm">Pay Now</Button>
-            )} */}
-
+          {/* Action Buttons */}
+          <div className="flex justify-end gap-2 mt-3">
             {invoice.status === "Accepted" && (
-              <Button size="sm" className="bg-purple-600 hover:bg-purple-700">
+              <Button
+                size="sm"
+                className="bg-purple-600 hover:bg-purple-700 text-white"
+              >
                 Release Funds
               </Button>
             )}
