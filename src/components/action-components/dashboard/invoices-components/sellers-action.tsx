@@ -1,43 +1,59 @@
 "use client";
-import { useContext } from "react";
+
+import { useContext, useState } from "react";
 import { ContractContext } from "@/context/contract-context";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 
-const SellersAction = ({
-  orderId,
-  state,
-  text,
-}: {
+interface SellersActionProps {
   orderId: bigint;
   state: boolean;
   text: string;
-}) => {
-  const { sellerAction, isLoading } = useContext(ContractContext);
+}
 
-  const handleClick = async () => {
-    await sellerAction(orderId, state);
+const SellersAction = ({ orderId, state, text }: SellersActionProps) => {
+  const { sellerAction, isLoading } = useContext(ContractContext);
+  const [localLoading, setLocalLoading] = useState(false);
+
+  const handleClick = async (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation();
+    setLocalLoading(true);
+
+    try {
+      await sellerAction(orderId, state);
+    } catch (err) {
+      console.error("Seller action failed:", err);
+    } finally {
+      setLocalLoading(false);
+    }
   };
-  const isActionLoading = state
-    ? isLoading === "accepted"
-    : isLoading === "rejected";
+
+  const isActionLoading =
+    localLoading ||
+    (state && isLoading === "accepted") ||
+    (!state && isLoading === "rejected");
+
   return (
-    <>
-      <Button
-        variant={`${state ? "default" : "destructive"}`}
-        onClick={handleClick}
-        className="w-full"
-      >
-        {isActionLoading ? (
-          <>
-            <p>processing...</p>
-            <Loader2 className="animate-spin" size={10} color="#cee7d6" />
-          </>
-        ) : (
-          text
-        )}
-      </Button>
-    </>
+    <Button
+      size="sm"
+      onClick={handleClick}
+      disabled={isActionLoading}
+      className={`min-w-[130px] justify-center ${
+        state
+          ? "bg-green-600 hover:bg-green-700"
+          : "bg-red-600 hover:bg-red-700"
+      } text-white font-medium shadow-sm hover:shadow-md transition-all duration-200 rounded-lg px-4 py-1.5`}
+    >
+      {isActionLoading ? (
+        <>
+          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          Processing...
+        </>
+      ) : (
+        text
+      )}
+    </Button>
   );
 };
+
 export default SellersAction;

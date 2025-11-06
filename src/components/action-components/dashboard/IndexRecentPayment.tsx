@@ -1,189 +1,137 @@
+// IndexRecentPayment.tsx (or wherever you render InvoiceCard)
 "use client";
 
-import { useContext } from "react";
-import DataTable from "./DataTable";
+import { useContext, useState, useMemo } from "react";
 import { ContractContext } from "@/context/contract-context";
+import {
+  FilterTabs,
+  InvoiceCard,
+  CreateInvoiceCard,
+} from "./invoice-cards/index";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import baseColumns from "./baseColumns";
-import invoiceActions from "./invoices-components/InvoiceActions";
-import marketplaceActions from "./marketplace-components/MarketplaceActions";
+import { Note } from "@/model/model";
 
-const IndexRecentPayment = ({
+export default function IndexRecentPayment({
   isMarketplaceTab,
 }: {
   isMarketplaceTab: boolean;
-}) => {
+}) {
   const { invoiceData } = useContext(ContractContext);
+  const [filter, setFilter] = useState("All");
 
-  // const [currentTab, setCurrentTab] = useState("seller");
+  // Track ONLY ONE expanded card
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  const allSimpleInvoices = {
-    seller: invoiceData.filter(
-      (invoice) => invoice.type === "Seller" && invoice.source === "Simple"
-    ),
-    buyer: invoiceData.filter(
-      (invoice) => invoice.type === "Buyer" && invoice.source === "Simple"
-    ),
-    all: invoiceData.filter((invoice) => invoice.source === "Simple"),
+  const handleToggle = (id: string) => {
+    setExpandedId((prev) => (prev === id ? null : id)); // collapse if same
   };
 
-  const allMarketplaceInvoices = {
-    seller: invoiceData.filter(
-      (invoice) =>
-        invoice.type === "IssuedInvoice" && invoice.source === "Marketplace"
-    ),
-    buyer: invoiceData.filter(
-      (invoice) =>
-        invoice.type === "ReceivedInvoice" && invoice.source === "Marketplace"
-    ),
-    all: invoiceData.filter((invoice) => invoice.source === "Marketplace"),
+  // Local notes
+  const [localNotes, setLocalNotes] = useState<Record<string, Note[]>>({});
+
+  const handleAddNote = (invoiceId: string, message: string) => {
+    if (!message.trim()) return;
+    const note: Note = {
+      id: crypto.randomUUID(),
+      sender: "You",
+      message,
+      timestamp: new Date().toLocaleString(),
+    };
+    setLocalNotes((prev) => ({
+      ...prev,
+      [invoiceId]: [...(prev[invoiceId] || []), note],
+    }));
   };
 
-  const dropdownStatusesByTab = {
-    simple: {
-      seller: [
-        { label: "All", value: "ALL" },
-        { label: "Created", value: "CREATED" },
-        { label: "Accepted", value: "ACCEPTED" },
-        { label: "Paid", value: "PAID" },
-        { label: "Rejected", value: "REJECTED" },
-        { label: "Cancelled", value: "CANCELLED" },
-        { label: "Refunded", value: "REFUNDED" },
-        { label: "Released", value: "RELEASED" },
-      ],
-      buyer: [
-        { label: "All", value: "ALL" },
-        { label: "Accepted", value: "ACCEPTED" },
-        { label: "Paid", value: "PAID" },
-        { label: "Rejected", value: "REJECTED" },
-        { label: "Refunded", value: "REFUNDED" },
-        { label: "Released", value: "RELEASED" },
-      ],
-      all: [
-        { label: "All", value: "ALL" },
-        { label: "Created", value: "CREATED" },
-        { label: "Accepted", value: "ACCEPTED" },
-        { label: "Paid", value: "PAID" },
-        { label: "Rejected", value: "REJECTED" },
-        { label: "Cancelled", value: "CANCELLED" },
-        { label: "Refunded", value: "REFUNDED" },
-        { label: "Released", value: "RELEASED" },
-      ],
-    },
+  // Filter invoices
+  const filteredInvoices = useMemo(() => {
+    let invoices = isMarketplaceTab
+      ? invoiceData.filter((i) => i.source === "Marketplace")
+      : invoiceData.filter((i) => i.source === "Simple");
 
-    marketplace: {
-      all: [
-        { label: "All", value: "ALL" },
-        { label: "Created", value: "CREATED" },
-        { label: "Accepted", value: "ACCEPTED" },
-        { label: "Paid", value: "PAID" },
-        { label: "Rejected", value: "REJECTED" },
-        { label: "Cancelled", value: "CANCELED" },
-        { label: "Released", value: "RELEASED" },
-        { label: "Disputed", value: "DISPUTED" },
-        { label: "Dispute Resolved", value: "DISPUTE RESOLVED" },
-        { label: "Dispute Dismissed", value: "DISPUTE DISMISSED" },
-        { label: "Dispute Settled", value: "DISPUTE SETTLED" },
-        { label: "Cancelation Requested", value: "CANCELATION REQUESTED" },
-        { label: "Cancelation Accepted", value: "CANCELATION_ACCEPTED" },
-        { label: "Cancelation Rejected", value: "CANCELATION_REJECTED" },
-      ],
-      seller: [
-        { label: "All", value: "ALL" },
-        { label: "Created", value: "CREATED" },
-        { label: "Accepted", value: "ACCEPTED" },
-        { label: "Paid", value: "PAID" },
-        { label: "Rejected", value: "REJECTED" },
-      ],
-      buyer: [
-        { label: "All", value: "ALL" },
-        { label: "Paid", value: "PAID" },
-        { label: "Released", value: "RELEASED" },
-        { label: "Disputed", value: "DISPUTED" },
-      ],
-    },
-  };
+    if (filter !== "All") {
+      invoices = invoices.filter((i) => i.status === filter);
+    }
 
-  const tabItems = [
-    {
-      value: "all",
-      label: "All",
-    },
-    {
-      value: "seller",
-      label: isMarketplaceTab ? "Issued Invoices" : "Created by me",
-    },
-    {
-      value: "buyer",
-      label: isMarketplaceTab ? "Received Invoices" : "Paid by me",
-    },
-  ];
+    return invoices.map((inv) => ({
+      ...inv,
+      notes: [...(inv.notes || []), ...(localNotes[inv.id] || [])],
+    }));
+  }, [invoiceData, isMarketplaceTab, filter, localNotes]);
 
-  // const includeSeller = false;
-  const invoiceColumns = [
-    ...invoiceActions,
-    ...baseColumns.filter(
-      (col) => !("accessorKey" in col && col.accessorKey === "paymentToken")
-    ),
-  ];
-
-  const invoicesByTab = isMarketplaceTab
-    ? allMarketplaceInvoices
-    : allSimpleInvoices;
-  const sourceKey = isMarketplaceTab ? "marketplace" : "simple";
   return (
-    <div className="container mx-auto">
-      <Tabs defaultValue="seller">
-        <TabsList>
-          {tabItems.map((tab) => (
-            <TabsTrigger key={tab.value} value={tab.value}>
-              {tab.label}
-            </TabsTrigger>
-          ))}
+    <div className="container mx-auto mt-8">
+      {/* Tabs */}
+      <Tabs defaultValue="all">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="all">All</TabsTrigger>
+          <TabsTrigger value="seller">
+            {isMarketplaceTab ? "Issued" : "Created by me"}
+          </TabsTrigger>
+          <TabsTrigger value="buyer">
+            {isMarketplaceTab ? "Received" : "Paid by me"}
+          </TabsTrigger>
         </TabsList>
 
-        {tabItems.map((tab) => {
-          const activeMarketplaceColumns = [
-            ...baseColumns.filter((col) => {
-              const key = "accessorKey" in col ? col.accessorKey : null;
+        {["all", "seller", "buyer"].map((tab) => {
+          const tabInvoices = filteredInvoices.filter((inv) => {
+            if (tab === "all") return true;
+            if (tab === "seller")
+              return inv.type === "Seller" || inv.type === "IssuedInvoice";
+            if (tab === "buyer")
+              return inv.type === "Buyer" || inv.type === "ReceivedInvoice";
+            return false;
+          });
 
-              if (key === "buyer") {
-                return tab.value !== "buyer";
-              }
-
-              if (key === "seller") {
-                return tab.value !== "seller";
-              }
-
-              return true;
-            }),
-            ...marketplaceActions,
-          ];
+          console.log(tab);
 
           return (
-            <TabsContent key={tab.value} value={tab.value}>
-              <DataTable
-                columns={
-                  isMarketplaceTab ? activeMarketplaceColumns : invoiceColumns
-                }
-                data={
-                  tab.value === "all"
-                    ? invoicesByTab.seller.concat(invoicesByTab.buyer)
-                    : invoicesByTab[tab.value as "seller" | "buyer"]
-                }
-                statuses={
-                  dropdownStatusesByTab[sourceKey][
-                    tab.value as "seller" | "buyer" | "all"
-                  ]
-                }
-                currentTab={tab.value === "buyer" ? "buyer" : undefined}
+            <TabsContent key={tab} value={tab}>
+              {/* Create Invoice (only in seller tab) */}
+              {!isMarketplaceTab && (tab === "seller" || tab === "all") && (
+                <CreateInvoiceCard />
+              )}
+
+              {/* Filter */}
+              <FilterTabs
+                filters={[
+                  "All",
+                  "AWAITING PAYMENT",
+                  "PAID",
+                  "ACCEPTED",
+                  "REJECTED",
+                  "CANCELLED",
+                  "RELEASED",
+                ]}
+                onSelect={setFilter}
               />
+
+              {/* Cards Grid */}
+              <div className="flex flex-wrap gap-5">
+                {tabInvoices.length > 0 ? (
+                  tabInvoices.map((invoice) => (
+                    <div
+                      key={invoice.id}
+                      className="w-full md:w-[48%] lg:w-[31%]"
+                    >
+                      <InvoiceCard
+                        invoice={invoice}
+                        isExpanded={expandedId === String(invoice.id)}
+                        onToggle={() => handleToggle(String(invoice.id))}
+                        onAddNote={handleAddNote}
+                      />
+                    </div>
+                  ))
+                ) : (
+                  <div className="w-full text-center py-10 text-gray-500 border rounded-lg">
+                    No Invoice found
+                  </div>
+                )}
+              </div>
             </TabsContent>
           );
         })}
       </Tabs>
     </div>
   );
-};
-
-export default IndexRecentPayment;
+}

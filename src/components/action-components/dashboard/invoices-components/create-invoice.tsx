@@ -46,8 +46,6 @@ const CreateInvoiceDialog = () => {
       setOpen(true);
     }
   };
-  // const formatedFee = data ? parseInt(data.toString()) / 100 : "0";
-  // const formatedFee = "0";
   const isAmountValid = true;
   return (
     <>

@@ -23,7 +23,21 @@ export type Invoice = {
   paymentToken?: string;
   cancelAt?: string;
   creationTxHash?: string;
+  notes?: Note[];
+  history?: string[];
 };
+
+export interface Note {
+  id: string;
+  sender: string;
+  message: string;
+  timestamp: string;
+}
+
+export interface InvoiceCardProps {
+  invoice: Invoice;
+  onAddNote?: (invoiceId: string, message: string) => void;
+}
 
 export type AllInvoice = {
   id: string;

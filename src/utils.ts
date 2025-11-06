@@ -15,10 +15,10 @@ export const timeLeft = (
     return "-";
   }
 
-
-
   const paidAtTime = Number(paidAtTimestamp) * 1000;
   const expiryTime = expiresAt ? expiresAt : paidAtTime + extra;
+
+  console.log(paidAtTime, extra);
 
   const currentTime = Date.now();
 
