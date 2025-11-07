@@ -53,6 +53,8 @@ export default function IndexRecentPayment({
       invoices = invoices.filter((i) => i.status === filter);
     }
 
+    console.log(invoices)
+
     return invoices.map((inv) => ({
       ...inv,
       notes: [...(inv.notes || []), ...(localNotes[inv.id] || [])],
@@ -82,8 +84,6 @@ export default function IndexRecentPayment({
               return inv.type === "Buyer" || inv.type === "ReceivedInvoice";
             return false;
           });
-
-          console.log(tab);
 
           return (
             <TabsContent key={tab} value={tab}>

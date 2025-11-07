@@ -25,15 +25,18 @@ import { QRCodeSVG } from "qrcode.react";
 import { toast } from "sonner";
 import generateSecureLink from "@/lib/generate-link";
 import React from "react";
+import { ETHEREUM_SEPOLIA, SIMPLE_PAYMENT_PROCESSOR } from "@/constants";
+import { InvoiceField, renderContractLink } from "./InvoiceCard";
 
 interface InvoiceQRLinkProps {
   open: boolean;
   setOpen: React.Dispatch<React.SetStateAction<boolean>>;
   orderId: bigint;
+  contractAddress?: string;
 }
 
 const InvoiceQRLink = React.memo(
-  ({ open, setOpen, orderId }: InvoiceQRLinkProps) => {
+  ({ open, setOpen, orderId, contractAddress }: InvoiceQRLinkProps) => {
     const domain = useMemo(() => window.location.origin, []);
 
     const encodedEncryptedData = useMemo(
@@ -55,14 +58,30 @@ const InvoiceQRLink = React.memo(
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="w-1/2 max-w-lg">
           <DialogHeader>
-            <DialogTitle className="text-2xl">Invoice Created!</DialogTitle>
+            <DialogTitle className="text-2xl font-bold">
+              Invoice Created!
+            </DialogTitle>
             <DialogDescription className="text-sm text-muted-foreground">
               Scan the QR code or share the link to receive payment
             </DialogDescription>
           </DialogHeader>
 
-          <div className="flex items-center justify-center py-6">
+          <div className="flex flex-col items-center justify-center py-6 space-y-3">
             <QRCodeSVG value={paymentUrl} size={200} level="H" includeMargin />
+
+            {contractAddress && (
+              <p className="text-sm text-gray-700 text-center">
+                Contract:{" "}
+                <a
+                  href={`https://sepolia.etherscan.io/address/${contractAddress}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 underline hover:text-blue-800"
+                >
+                  {contractAddress.slice(0, 6)}...{contractAddress.slice(-4)}
+                </a>
+              </p>
+            )}
           </div>
 
           <DialogFooter className="flex gap-3 sm:justify-between">
@@ -82,7 +101,7 @@ InvoiceQRLink.displayName = "InvoiceQRLink";
 export default function CreateInvoiceDialog() {
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
-  const { address } = useAccount();
+  const { chainId, address } = useAccount();
   const { data: formatedFee } = useGetFeeRate();
 
   const [openCreate, setOpenCreate] = useState(false);
@@ -93,13 +112,10 @@ export default function CreateInvoiceDialog() {
   const { createInvoice, refetchInvoiceData, isLoading } =
     useContext(ContractContext);
 
+  const contractAddress = SIMPLE_PAYMENT_PROCESSOR[chainId || ETHEREUM_SEPOLIA];
+
   const isAmountValid =
     !!amount && !isNaN(Number(amount)) && Number(amount) > 0;
-  // && !!note,
-  //   () =>
-  //   // && !!note,
-  //   [amount, note]
-  // );
 
   const handleClick = useCallback(async () => {
     if (!isAmountValid) return;
@@ -111,6 +127,7 @@ export default function CreateInvoiceDialog() {
 
       if (response) {
         setOrderId(response);
+
         await refetchInvoiceData?.();
         setOpenCreate(false);
         setOpenQR(true);
@@ -150,6 +167,15 @@ export default function CreateInvoiceDialog() {
             </DialogDescription>
           </DialogHeader>
 
+          {contractAddress && (
+            <InvoiceField
+              label="Contract"
+              value={renderContractLink(contractAddress)}
+              description="The deployed invoice smart contract that manages escrow and release logic."
+              link={`https://sepolia.etherscan.io/address/${contractAddress}`}
+            />
+          )}
+
           <div className="grid gap-5 py-4">
             <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-3">
               <Label htmlFor="amount" className="text-left sm:text-right">
@@ -159,7 +185,7 @@ export default function CreateInvoiceDialog() {
                 id="amount"
                 type="number"
                 value={amount}
-                placeholder="0.05"
+                placeholder="0.05 ETH"
                 onChange={(e) => setAmount(e.target.value)}
                 className="sm:col-span-3 w-full"
                 min="0"
@@ -213,7 +239,12 @@ export default function CreateInvoiceDialog() {
 
       {/* Only mount QR dialog when needed */}
       {openQR && (
-        <InvoiceQRLink open={openQR} setOpen={setOpenQR} orderId={orderId} />
+        <InvoiceQRLink
+          open={openQR}
+          setOpen={setOpenQR}
+          orderId={orderId}
+          contractAddress={contractAddress}
+        />
       )}
     </>
   );

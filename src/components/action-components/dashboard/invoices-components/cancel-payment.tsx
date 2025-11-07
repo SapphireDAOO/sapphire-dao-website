@@ -43,7 +43,7 @@ const CancelInvoice = ({ orderId }: CancelInvoiceProps) => {
             Canceling...
           </>
         ) : (
-          "Cancel Invoice"
+          "Cancel"
         )}
       </Button>
     </div>

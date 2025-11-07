@@ -18,8 +18,6 @@ export const timeLeft = (
   const paidAtTime = Number(paidAtTimestamp) * 1000;
   const expiryTime = expiresAt ? expiresAt : paidAtTime + extra;
 
-  console.log(paidAtTime, extra);
-
   const currentTime = Date.now();
 
   if (currentTime > expiryTime) {

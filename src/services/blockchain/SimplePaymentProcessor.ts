@@ -148,6 +148,7 @@ export const sellerAction = async (
 
     if (receipt?.status) {
       toast.dismiss(progressToastId);
+      // fix
       toast.success(`Successfully ${action} the invoice.`);
       await getInvoiceData();
       success = true;

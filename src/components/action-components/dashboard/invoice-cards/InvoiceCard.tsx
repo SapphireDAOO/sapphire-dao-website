@@ -5,25 +5,29 @@ import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { ChevronDown, ChevronUp } from "lucide-react";
-import { Invoice } from "@/model/model";
-import { formatAddress, timeLeft } from "@/utils";
+import { ChevronDown, ChevronUp, Info } from "lucide-react";
+import { Invoice, Note } from "@/model/model";
+import { formatAddress, timeLeft, unixToGMT } from "@/utils";
 import { toast } from "sonner";
 import generateSecureLink from "@/lib/generate-link";
 import { QRCodeSVG } from "qrcode.react";
 import SellersAction from "../invoices-components/sellers-action";
 import CancelInvoice from "../invoices-components/cancel-payment";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
-// const mockNote: Note = {
-//   id: "note-001",
-//   sender: "0xA13f...B7E9",
-//   message: "Payment confirmed. Shipping will begin tomorrow.",
-//   timestamp: new Date().toLocaleString(),
-// };
+const mockNote: Note = {
+  id: "note-001",
+  sender: "0xA13f...B7E9",
+  message: "Payment confirmed. Shipping will begin tomorrow.",
+  timestamp: new Date().toLocaleString(),
+};
 
-// const notes: Note[] = [mockNote];
-
-const THREE_DAYS_IN_MILISECONDS = 259_200_000;
+const THREE_DAYS_IN_MS = 259_200_000;
 
 export function InvoiceCard({
   invoice,
@@ -37,33 +41,28 @@ export function InvoiceCard({
   onAddNote: (invoiceId: string, message: string) => void;
 }) {
   const [noteInput, setNoteInput] = useState("");
-
   const [countdown, setCountdown] = useState<string>("—");
 
   const isSellerView =
     invoice.type === "Seller" || invoice.type === "IssuedInvoice";
 
-  // const isBuyerView =
-  // invoice.type === "Buyer" || invoice.type === "ReceivedInvoice";
+  const isBuyerView =
+    invoice.type === "Buyer" || invoice.type === "ReceivedInvoice";
 
-  // Auto-update countdown every second if invoice has timing info
+  // Update countdown every second (only when necessary)
   useEffect(() => {
     if (!invoice.paidAt && !invoice.releaseAt && !invoice.holdPeriod) return;
 
     const interval = setInterval(() => {
-      let updatedTime = "—";
-
+      let updated = "—";
       if (invoice.status === "ACCEPTED" && invoice.releaseAt) {
-        updatedTime = timeLeft(invoice.paidAt ?? 0, Number(invoice.releaseAt));
+        updated = timeLeft(invoice.paidAt ?? 0, Number(invoice.releaseAt));
       } else if (invoice.status === "PAID" && invoice.paidAt) {
-        updatedTime = timeLeft(invoice.paidAt ?? 0, THREE_DAYS_IN_MILISECONDS);
+        updated = timeLeft(invoice.paidAt ?? 0, THREE_DAYS_IN_MS);
       }
 
-      setCountdown(updatedTime);
-
-      if (updatedTime === "Time Elapsed") {
-        clearInterval(interval);
-      }
+      setCountdown(updated);
+      if (updated === "Time Elapsed") clearInterval(interval);
     }, 1000);
 
     return () => clearInterval(interval);
@@ -80,13 +79,15 @@ export function InvoiceCard({
     if (!isExpanded || !invoice.orderId) return "";
     try {
       const domain = window.location.origin;
-      const id = invoice.orderId.toString();
-      const encoded = generateSecureLink(id);
+      const encoded = generateSecureLink(invoice.orderId.toString());
       return `${domain}/pay/?data=${encoded}`;
     } catch {
       return "";
     }
   }, [isExpanded, invoice.orderId]);
+
+  const notesToDisplay =
+    invoice.notes && invoice.notes.length > 0 ? invoice.notes : [mockNote];
 
   const handleCopyLink = useCallback(() => {
     if (!paymentUrl) return;
@@ -94,12 +95,10 @@ export function InvoiceCard({
     toast.success("Payment link copied!");
   }, [paymentUrl]);
 
-  // Always show status, fallback to "Unknown"
-  const displayStatus = invoice.status || "Unknown";
-
-  if (invoice.status == "CREATED") {
-    invoice.status = "AWAITING PAYMENT";
-  }
+  const displayStatus =
+    invoice.status === "CREATED"
+      ? "AWAITING PAYMENT"
+      : invoice.status || "Unknown";
 
   const statusColors: Record<string, string> = {
     CREATED: "bg-blue-100 text-blue-800",
@@ -115,7 +114,7 @@ export function InvoiceCard({
     Unknown: "bg-gray-100 text-gray-600",
   };
 
-  const badgeColor = statusColors[displayStatus] || "bg-gray-100 text-gray-600";
+  const badgeColor = statusColors[displayStatus] ?? "bg-gray-100 text-gray-600";
 
   return (
     <Card className="transition-shadow hover:shadow-md">
@@ -123,8 +122,13 @@ export function InvoiceCard({
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-semibold">#{invoice.id}</h3>
           <div className="flex items-center gap-2">
-            {/* Always visible badge */}
-            <Badge className={badgeColor}>{displayStatus}</Badge>
+            <Badge
+              className={`${badgeColor} cursor-default select-none hover:bg-inherit hover:text-inherit`}
+              onClick={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
+            >
+              {displayStatus}
+            </Badge>
             {isExpanded ? (
               <ChevronUp className="h-4 w-4 text-gray-400" />
             ) : (
@@ -137,32 +141,83 @@ export function InvoiceCard({
           {invoice.status === "PAID" && isSellerView
             ? `Decision window: ${countdown}`
             : invoice.status === "PAID"
-            ? `Paid: ${invoice.paidAt}`
+            ? `Paid At: ${unixToGMT(invoice.paidAt)}`
             : invoice.status === "ACCEPTED"
             ? `Release in: ${countdown}`
             : "—"}
         </p>
 
-        <div className="mt-1 space-y-2 text-xs text-gray-600">
+        <div className="mt-2 space-y-2 text-xs text-gray-600">
           {invoice.price && (
             <p>
               Amount: <span className="text-black">{invoice.price} ETH</span>
             </p>
           )}
 
+          {invoice.status === "REJECTED" && (
+            <>
+              <InvoiceField
+                label="Contract"
+                value={renderContractLink(invoice.contract)}
+                description="Smart contract handling escrow and release logic."
+                link="https://sapphiredao.gitbook.io/sapphiredao-docs/technical-docs/core-contracts"
+              />
+
+              <InvoiceField
+                label="Creator"
+                value={renderContractLink(invoice.seller)}
+                description="Seller or issuer who created this invoice."
+                link="https://sapphiredao.gitbook.io/sapphiredao-docs/user-docs/publish-your-docs#seller"
+              />
+
+              <InvoiceField
+                label="Amount Paid"
+                value={`${invoice.amountPaid} ETH`}
+                description="The amount already paid into escrow by the buyer."
+              />
+
+              {isBuyerView && (
+                <p className="text-xs text-red-600 font-medium mt-2">
+                  Order rejected by{" "}
+                  <a
+                    href={`https://sepolia.etherscan.io/address/${invoice.contract}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline text-red-700 hover:text-red-800"
+                  >
+                    {invoice.contract
+                      ? `${invoice.contract.slice(
+                          0,
+                          6
+                        )}...${invoice.contract.slice(-4)}`
+                      : "Unknown Contract"}
+                  </a>{" "}
+                  — refund initiated.
+                </p>
+              )}
+
+              {notesToDisplay.map((note) => (
+                <div
+                  key={note.id}
+                  className="bg-gray-100 p-3 rounded-md text-xs"
+                >
+                  <p className="font-medium text-gray-700">{note.sender}</p>
+                  <p className="text-gray-600">{note.message}</p>
+                  <p className="text-gray-400 text-[10px] mt-1">
+                    {note.timestamp}
+                  </p>
+                </div>
+              ))}
+            </>
+          )}
+
           {invoice.status === "AWAITING PAYMENT" && (
-            <div>
-              <CancelInvoice orderId={invoice.orderId} />
-            </div>
+            <CancelInvoice orderId={invoice.orderId} />
           )}
 
           {invoice.status === "PAID" && isSellerView && (
             <div className="pt-4 mt-3 border-t border-gray-200 flex justify-end gap-3">
-              <SellersAction
-                orderId={invoice.orderId}
-                state={true}
-                text="Accept Payment"
-              />
+              <SellersAction orderId={invoice.orderId} state text="Accept" />
               <SellersAction
                 orderId={invoice.orderId}
                 state={false}
@@ -174,60 +229,86 @@ export function InvoiceCard({
       </CardHeader>
 
       {isExpanded && (
-        <CardContent className="border-t pt-4 space-y-5 text-sm text-gray-800">
-          {/* Contract Info */}
-          {invoice.contract && (
-            <p>
-              <strong>Contract:</strong> {renderContractLink(invoice.contract)}
-            </p>
+        <CardContent className="border-t pt-4 space-y-3 text-sm text-gray-800">
+          {invoice.contract && invoice.status !== "REJECTED" && (
+            <InvoiceField
+              label="Contract"
+              value={renderContractLink(invoice.contract)}
+              description="Smart contract handling invoice creation, escrow, and release."
+              link="https://sapphiredao.gitbook.io/sapphiredao-docs/technical-docs/core-contracts"
+            />
           )}
 
-          {/* Seller */}
-          {invoice.seller && (
-            <p>
-              <strong>Creator:</strong> {renderContractLink(invoice.seller)}
-            </p>
+          {invoice.seller && invoice.status !== "REJECTED" && (
+            <InvoiceField
+              label="Creator"
+              value={renderContractLink(invoice.seller)}
+              description="The seller or issuer who created this invoice."
+              link="https://sapphiredao.gitbook.io/sapphiredao-docs/user-docs/publish-your-docs#seller"
+            />
           )}
 
-          {/* Amount Paid */}
-          {invoice.amountPaid && (
-            <p>
-              <strong>Amount Paid:</strong> {invoice.amountPaid} ETH
-            </p>
+          {invoice.buyer && invoice.status !== "REJECTED" && (
+            <InvoiceField
+              label="Payer"
+              value={renderContractLink(invoice.buyer)}
+              description="The buyer or payer responsible for completing the transaction."
+              link="https://sapphiredao.gitbook.io/sapphiredao-docs/user-docs/publish-your-docs#buyer"
+            />
           )}
 
-          {/* State History */}
-          {invoice.history && invoice.history.length > 0 && (
-            <div>
-              <p className="font-semibold mb-1">State History:</p>
-              <div className="flex flex-wrap items-center gap-2 text-xs">
-                {invoice.history.map((status, idx) => (
-                  <div key={idx} className="flex items-center gap-1">
-                    <span className="bg-gray-100 border border-gray-300 rounded-full px-3 py-1">
-                      {status}
-                    </span>
-                    {invoice.history && idx < invoice.history.length - 1 && (
-                      <span className="text-gray-400">→</span>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
+          {invoice.price && invoice.status !== "REJECTED" && (
+            <InvoiceField
+              label="Invoice Amount"
+              value={`${invoice.price} ETH`}
+              description="Total amount requested by the seller (excluding gas and protocol fees)."
+            />
           )}
 
-          {/* Notes */}
+          {invoice.amountPaid && invoice.status !== "REJECTED" && (
+            <InvoiceField
+              label="Amount Paid"
+              value={`${invoice.amountPaid} ETH`}
+              description="The amount already paid into escrow by the buyer."
+            />
+          )}
+
+          {invoice.history && invoice.history?.length > 0 && invoice.status !== "REJECTED" && (
+            <InvoiceField
+              label="State History"
+              value={
+                <div className="flex flex-wrap items-center gap-2 text-xs">
+                  {invoice.history.map((status, idx) => (
+                    <div key={idx} className="flex items-center gap-1">
+                      <span className="bg-gray-100 border border-gray-300 rounded-full px-3 py-1">
+                        {status}
+                      </span>
+                      {idx < invoice.history!.length - 1 && (
+                        <span className="text-gray-400">→</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              }
+              description="All state transitions this invoice has gone through."
+            />
+          )}
+
           <div className="space-y-3">
-            {invoice.notes?.map((note) => (
-              <div key={note.id} className="bg-gray-100 p-3 rounded-md text-xs">
-                <p className="font-medium text-gray-700">{note.sender}</p>
-                <p className="text-gray-600">{note.message}</p>
-                <p className="text-gray-400 text-[10px] mt-1">
-                  {note.timestamp}
-                </p>
-              </div>
-            ))}
+            {invoice.status !== "REJECTED" &&
+              notesToDisplay.map((note) => (
+                <div
+                  key={note.id}
+                  className="bg-gray-100 p-3 rounded-md text-xs"
+                >
+                  <p className="font-medium text-gray-700">{note.sender}</p>
+                  <p className="text-gray-600">{note.message}</p>
+                  <p className="text-gray-400 text-[10px] mt-1">
+                    {note.timestamp}
+                  </p>
+                </div>
+              ))}
 
-            {/* Optional Note Input */}
             <div className="flex items-center gap-2">
               <Input
                 placeholder="Write a note..."
@@ -242,7 +323,6 @@ export function InvoiceCard({
             </div>
           </div>
 
-          {/* QR Code + Link */}
           {paymentUrl && invoice.status === "AWAITING PAYMENT" && (
             <div className="mt-4 flex flex-col items-center gap-3">
               <div className="border border-dashed p-2 rounded-xl bg-gray-50">
@@ -253,27 +333,15 @@ export function InvoiceCard({
               </Button>
             </div>
           )}
-
-          {/* Action Buttons */}
-          <div className="flex justify-end gap-2 mt-3">
-            {invoice.status === "Accepted" && (
-              <Button
-                size="sm"
-                className="bg-purple-600 hover:bg-purple-700 text-white"
-              >
-                Release Funds
-              </Button>
-            )}
-          </div>
         </CardContent>
       )}
     </Card>
   );
 }
 
-const renderContractLink = (address?: string) => {
+/* Helper for contract link */
+export const renderContractLink = (address?: string) => {
   if (!address) return <span className="text-gray-500">—</span>;
-
   return (
     <a
       href={`https://sepolia.etherscan.io/address/${address}`}
@@ -283,5 +351,57 @@ const renderContractLink = (address?: string) => {
     >
       {formatAddress(address)}
     </a>
+  );
+};
+
+/* Small reusable field row with info icon */
+export const InvoiceField = ({
+  label,
+  value,
+  description,
+  link,
+}: {
+  label: string;
+  value: React.ReactNode;
+  description: string;
+  link?: string;
+}) => {
+  return (
+    <div className="text-sm text-gray-800 flex flex-wrap items-center gap-1">
+      <span className="font-semibold">{label}</span>
+
+      {/* Info icon with tooltip (desktop) and popover (mobile) */}
+      <div className="flex items-center">
+        <TooltipProvider delayDuration={150}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                aria-label={`${label} info`}
+                className="cursor-pointer flex items-center focus:outline-none"
+              >
+                <Info className="w-3.5 h-3.5 text-gray-500 hover:text-gray-700 transition" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent className="w-60 text-xs p-3 bg-white border border-gray-200 rounded-md shadow-md text-gray-700">
+              <p>{description}</p>
+              {link && (
+                <a
+                  href={link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 underline hover:text-blue-800 mt-2 inline-block"
+                >
+                  View Details
+                </a>
+              )}
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </div>
+
+      <span>:</span>
+      <span className="truncate">{value}</span>
+    </div>
   );
 };
