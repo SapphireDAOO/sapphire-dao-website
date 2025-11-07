@@ -180,7 +180,7 @@ export function InvoiceCard({
                 <p className="text-xs text-red-600 font-medium mt-2">
                   Order rejected by{" "}
                   <a
-                    href={`https://sepolia.etherscan.io/address/${invoice.contract}`}
+                    href={`https://sepolia.etherscan.io/address/${invoice.buyer}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="underline text-red-700 hover:text-red-800"
