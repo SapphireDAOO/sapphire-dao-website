@@ -78,6 +78,7 @@ export const invoiceQuery = `query ($address: String!) {
         id
       }
       history
+      historyTime
     }
     paidInvoices {
       amountPaid
@@ -99,6 +100,7 @@ export const invoiceQuery = `query ($address: String!) {
         id
       }
       history
+      historyTime
     }
     issuedInvoices {
       amountPaid

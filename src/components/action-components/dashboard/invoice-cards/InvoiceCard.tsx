@@ -180,16 +180,15 @@ export function InvoiceCard({
                 <p className="text-xs text-red-600 font-medium mt-2">
                   Order rejected by{" "}
                   <a
-                    href={`https://sepolia.etherscan.io/address/${invoice.buyer}`}
+                    href={`https://sepolia.etherscan.io/address/${invoice.seller}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="underline text-red-700 hover:text-red-800"
                   >
-                    {invoice.contract
-                      ? `${invoice.contract.slice(
-                          0,
-                          6
-                        )}...${invoice.contract.slice(-4)}`
+                    {invoice.seller
+                      ? `${invoice.seller.slice(0, 6)}...${invoice.seller.slice(
+                          -4
+                        )}`
                       : "Unknown Contract"}
                   </a>{" "}
                   — refund initiated.
@@ -272,27 +271,33 @@ export function InvoiceCard({
               description="The amount already paid into escrow by the buyer."
             />
           )}
-
-          {invoice.history && invoice.history?.length > 0 && invoice.status !== "REJECTED" && (
-            <InvoiceField
-              label="State History"
-              value={
-                <div className="flex flex-wrap items-center gap-2 text-xs">
-                  {invoice.history.map((status, idx) => (
-                    <div key={idx} className="flex items-center gap-1">
-                      <span className="bg-gray-100 border border-gray-300 rounded-full px-3 py-1">
-                        {status}
-                      </span>
-                      {idx < invoice.history!.length - 1 && (
-                        <span className="text-gray-400">→</span>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              }
-              description="All state transitions this invoice has gone through."
-            />
-          )}
+          {invoice.history &&
+            invoice.history.length > 0 &&
+            invoice.status !== "REJECTED" && (
+              <InvoiceField
+                label="State History"
+                value={
+                  <div className="flex flex-wrap items-center gap-2 text-xs">
+                    {invoice.history.map((entry, idx) => (
+                      <div key={idx} className="flex items-center gap-1">
+                        <span className="bg-gray-100 border border-gray-300 rounded-full px-3 py-1">
+                          {entry.status}
+                          <span className="ml-2 text-[10px] text-gray-500">
+                            {entry.time
+                              ? unixToGMT(entry.time).toLocaleString()
+                              : ""}
+                          </span>
+                        </span>
+                        {idx < invoice.history!.length - 1 && (
+                          <span className="text-gray-400">→</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                }
+                description="All state transitions this invoice has gone through with their timestamps."
+              />
+            )}
 
           <div className="space-y-3">
             {invoice.status !== "REJECTED" &&
