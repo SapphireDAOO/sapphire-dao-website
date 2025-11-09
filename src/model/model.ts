@@ -24,8 +24,13 @@ export type Invoice = {
   cancelAt?: string;
   creationTxHash?: string;
   notes?: Note[];
-  history?: string[];
+  history?: History[];
 };
+
+export interface History {
+  status: string;
+  time: string;
+}
 
 export interface Note {
   id: string;

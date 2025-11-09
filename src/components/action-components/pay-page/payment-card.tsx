@@ -1,4 +1,5 @@
 "use client";
+
 import { useAccount } from "wagmi";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -21,14 +22,13 @@ import {
   Dialog,
   DialogContent,
   DialogTitle,
-  DialogDescription,
   DialogOverlay,
   DialogPortal,
 } from "@/components/ui/dialog";
-
 import { toast } from "sonner";
 import { formatEther } from "viem";
 import { useGetInvoiceData } from "@/hooks/useGetInvoiceData";
+
 const PaymentCard = ({ data }: PaymentCardProps) => {
   const { address } = useAccount();
   const router = useRouter();
@@ -41,33 +41,40 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
   const { getInvoiceOwner, makeInvoicePayment, isLoading } =
     useContext(ContractContext);
 
-  // Check if the connected user is the creator of the invoice
-
+  //  Check if connected user is the invoice creator
   const isCreator = useCallback(async () => {
+    if (!orderId) return false;
     const creator = await getInvoiceOwner(orderId.toString());
-    return address?.toLowerCase() === creator.toLowerCase();
+    return address?.toLowerCase() === creator?.toLowerCase();
   }, [address, getInvoiceOwner, orderId]);
 
   useEffect(() => {
-    const checkCreator = async () => {
+    const check = async () => {
       if (address && orderId) {
-        const creatorCheck = await isCreator();
-        setUserIsCreator(creatorCheck);
+        const result = await isCreator();
+        setUserIsCreator(result);
       }
     };
-
-    checkCreator();
+    check();
   }, [address, orderId, isCreator]);
 
-  const handleClick = async () => {
+  // Handle payment
+  const handlePayment = async () => {
     if (!invoiceData?.price) {
       toast.error("Invoice price is not available.");
       return;
     }
+
     const success = await makeInvoicePayment(invoiceData.price, orderId);
     if (success) {
-      setOpen(true);
-      toast.success("Payment successful!");
+      setOpen(true); // Show popup
+      toast.success("Payment successful", {
+        duration: 2000,
+        onAutoClose: () => {
+          setOpen(false);
+          router.push("/dashboard?tab=buyer");
+        },
+      });
     }
   };
 
@@ -75,13 +82,16 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
 
   return (
     <>
+      {/* Invoice Payment Card */}
       <Card className="w-[350px]">
         <CardHeader>
-          <CardTitle>Pay invoice </CardTitle>
-          <CardDescription>Make your invoice payment</CardDescription>
+          <CardTitle>Pay Invoice</CardTitle>
+          <CardDescription>Complete your payment</CardDescription>
         </CardHeader>
+
         <CardContent>
           <div className="grid w-full items-center gap-4">
+            {/* Invoice ID */}
             <div className="flex flex-col space-y-2">
               <Label htmlFor="id">Invoice ID</Label>
               <Input
@@ -91,35 +101,36 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
               />
             </div>
 
+            {/* Requested Amount */}
             <div className="flex flex-col space-y-2 mt-3">
               <Label htmlFor="price">Requested Amount</Label>
               <Input
                 id="price"
-                placeholder={`${
-                  formatEther(invoiceData?.price ?? BigInt(0)) || "N/A"
-                } ETH`}
+                value={`${formatEther(invoiceData?.price ?? BigInt(0))} ETH`}
                 disabled
               />
             </div>
           </div>
         </CardContent>
-        <CardFooter className="flex">
+
+        <CardFooter>
           {address ? (
             <Button
-              onClick={handleClick}
+              onClick={handlePayment}
               className="w-full"
-              disabled={invoiceData?.status !== 1 || userIsCreator || !orderId}
+              disabled={
+                currStatus !== 1 ||
+                userIsCreator ||
+                !orderId ||
+                isLoading === "makeInvoicePayment"
+              }
             >
               {isLoading === "makeInvoicePayment" ? (
                 <>
-                  <p>processing...</p>
-                  <Loader2
-                    className="inline-flex animate-spin"
-                    size={10}
-                    color="#cee7d6"
-                  />
+                  <span>Processing...</span>
+                  <Loader2 className="ml-2 h-4 w-4 animate-spin" />
                 </>
-              ) : currStatus && currStatus !== 1 ? (
+              ) : currStatus !== 1 ? (
                 "RESOLVED"
               ) : (
                 "Make Payment"
@@ -131,34 +142,31 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
         </CardFooter>
       </Card>
 
-      <Dialog open={open} onOpenChange={() => {}}>
+      {/* Auto-Redirect Popup */}
+      <Dialog open={open} onOpenChange={setOpen}>
         <DialogPortal>
           <DialogOverlay className="fixed inset-0 bg-black/50" />
-          <DialogContent className="fixed left-1/2  top-1/2 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-md p-8 text-gray-900 shadow bg-white">
-            <DialogTitle className="text-xl font-bold">
+          <DialogContent className="fixed left-1/2 top-1/2 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white p-8 text-center shadow-lg">
+            <DialogTitle className="text-2xl font-bold text-green-700">
               Payment Successful
             </DialogTitle>
-            <DialogDescription></DialogDescription>
-            <div className="flex flex-col items-center gap-4 mt-8">
-              <p className="items-center">
-                <CircleCheckBig
-                  size={100}
-                  color="#3baa2c"
-                  strokeWidth={3}
-                  absoluteStrokeWidth
-                  className="circle-check-animate"
-                />
-              </p>
-              <p>Your payment has been successfully processed.</p>
-              <Button
-                onClick={() => {
-                  setOpen(false);
-                  router.push("/dashboard");
-                }}
-              >
-                Go to Dashboard
-              </Button>
+
+            <div className="my-6">
+              <CircleCheckBig
+                size={80}
+                color="#22c55e"
+                strokeWidth={2.5}
+                className="mx-auto animate-pulse"
+              />
             </div>
+
+            <p className="text-gray-600 mb-2">
+              Your payment has been processed successfully.
+            </p>
+            <p className="text-sm text-gray-500">
+              Redirecting to <span className="font-medium">“Dashboard”</span>
+              ...
+            </p>
           </DialogContent>
         </DialogPortal>
       </Dialog>

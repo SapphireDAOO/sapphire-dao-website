@@ -17,6 +17,7 @@ import {
   UserReceivedInvoicesInvoice,
   AllInvoicesData,
   Invoice,
+  History,
 } from "@/model/model";
 
 import { formatEther } from "viem";
@@ -150,7 +151,7 @@ export const useInvoiceData = () => {
           releaseHash: invoice.releaseHash,
           releaseAt: invoice.releasedAt,
           source: "Simple",
-          history: invoice.history
+          history: sortHistory(invoice.history, invoice.historyTime),
         })
       );
 
@@ -174,7 +175,7 @@ export const useInvoiceData = () => {
           releaseAt: invoice.releasedAt,
           buyer: invoice.buyer?.id ?? "",
           source: "Simple",
-          history: invoice.history
+          history: sortHistory(invoice.history, invoice.historyTime),
         })
       );
 
@@ -313,4 +314,24 @@ export const useInvoiceData = () => {
     },
     refetchInvoiceData: getInvoiceData,
   };
+};
+
+const sortHistory = (status?: string[], time?: string[]): History[] => {
+  const history: History[] = [];
+
+  if (!status || !Array.isArray(status) || status.length === 0) return history;
+  if (!time || !Array.isArray(time) || time.length === 0) {
+    return status.map((s) => ({ status: s, time: "" }));
+  }
+
+  const length = Math.min(status.length, time.length);
+
+  for (let i = 0; i < length; i++) {
+    history.push({
+      status: status[i],
+      time: time[i],
+    });
+  }
+
+  return history;
 };
