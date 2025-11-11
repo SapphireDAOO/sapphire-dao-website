@@ -49,7 +49,7 @@ export function InvoiceCard({
   const isBuyerView =
     invoice.type === "Buyer" || invoice.type === "ReceivedInvoice";
 
-  // Update countdown every second (only when necessary)
+  // Update countdown every second
   useEffect(() => {
     if (!invoice.paidAt && !invoice.releaseAt && !invoice.holdPeriod) return;
 
@@ -116,6 +116,16 @@ export function InvoiceCard({
 
   const badgeColor = statusColors[displayStatus] ?? "bg-gray-100 text-gray-600";
 
+  // Shared countdown label
+  const countdownLabel =
+    invoice.status === "PAID" && isSellerView
+      ? "Decision window"
+      : invoice.status === "PAID" && isBuyerView
+      ? "Decision window"
+      : invoice.status === "ACCEPTED"
+      ? "Release in"
+      : null;
+
   return (
     <Card className="transition-shadow hover:shadow-md">
       <CardHeader className="cursor-pointer select-none" onClick={onToggle}>
@@ -137,98 +147,125 @@ export function InvoiceCard({
           </div>
         </div>
 
-        <p className="mt-1 text-xs text-gray-500">
-          {invoice.status === "PAID" && isSellerView
-            ? `Decision window: ${countdown}`
-            : invoice.status === "PAID"
-            ? `Paid At: ${unixToGMT(invoice.paidAt)}`
-            : invoice.status === "ACCEPTED"
-            ? `Release in: ${countdown}`
-            : "—"}
-        </p>
+        {/* Consistent countdown in header */}
+        {countdownLabel && (
+          <InvoiceField
+            label={countdownLabel}
+            value={countdown}
+            description={
+              isSellerView
+                ? "You have this time to accept or reject the payment."
+                : "Creator has this time to accept payment or it will be refunded."
+            }
+          />
+        )}
 
-        <div className="mt-2 space-y-2 text-xs text-gray-600">
-          {invoice.price && (
-            <p>
-              Amount: <span className="text-black">{invoice.price} ETH</span>
-            </p>
-          )}
+        {/* Paid timestamp in header */}
+        {invoice.status === "PAID" && invoice.paidAt && (
+          <InvoiceField
+            label="Paid At"
+            value={unixToGMT(invoice.paidAt)}
+            description="Timestamp when payment was received in escrow."
+          />
+        )}
 
-          {invoice.status === "REJECTED" && (
-            <>
-              <InvoiceField
-                label="Contract"
-                value={renderContractLink(invoice.contract)}
-                description="Smart contract handling escrow and release logic."
-                link="https://sapphiredao.gitbook.io/sapphiredao-docs/technical-docs/core-contracts"
-              />
+        {/* Amount always shown */}
+        {invoice.price && (
+          <InvoiceField
+            label="Amount"
+            value={`${invoice.price} ETH`}
+            description="Total invoice amount (excluding fees)."
+          />
+        )}
 
-              <InvoiceField
-                label="Creator"
-                value={renderContractLink(invoice.seller)}
-                description="Seller or issuer who created this invoice."
-                link="https://sapphiredao.gitbook.io/sapphiredao-docs/user-docs/publish-your-docs#seller"
-              />
+        {/* Seller view: show payer */}
+        {invoice.status === "PAID" && isSellerView && invoice.buyer && (
+          <InvoiceField
+            label="Payer"
+            value={renderContractLink(invoice.buyer)}
+            description="The buyer who sent the payment."
+            link="https://sapphiredao.gitbook.io/sapphiredao-docs/user-docs/publish-your-docs#buyer"
+          />
+        )}
 
-              <InvoiceField
-                label="Amount Paid"
-                value={`${invoice.amountPaid} ETH`}
-                description="The amount already paid into escrow by the buyer."
-              />
-
-              {isBuyerView && (
-                <p className="text-xs text-red-600 font-medium mt-2">
-                  Order rejected by{" "}
-                  <a
-                    href={`https://sepolia.etherscan.io/address/${invoice.seller}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="underline text-red-700 hover:text-red-800"
-                  >
-                    {invoice.seller
-                      ? `${invoice.seller.slice(0, 6)}...${invoice.seller.slice(
-                          -4
-                        )}`
-                      : "Unknown Contract"}
-                  </a>{" "}
-                  — refund initiated.
-                </p>
-              )}
-
-              {notesToDisplay.map((note) => (
-                <div
-                  key={note.id}
-                  className="bg-gray-100 p-3 rounded-md text-xs"
+        {/* Rejected state: show rejection info */}
+        {invoice.status === "REJECTED" && (
+          <>
+            <InvoiceField
+              label="Contract"
+              value={renderContractLink(invoice.contract)}
+              description="Smart contract handling escrow and release logic."
+              link="https://sapphiredao.gitbook.io/sapphiredao-docs/technical-docs/core-contracts"
+            />
+            <InvoiceField
+              label="Creator"
+              value={renderContractLink(invoice.seller)}
+              description="Seller or issuer who created this invoice."
+              link="https://sapphiredao.gitbook.io/sapphiredao-docs/user-docs/publish-your-docs#seller"
+            />
+            <InvoiceField
+              label="Amount Paid"
+              value={`${invoice.amountPaid} ETH`}
+              description="The amount already paid into escrow by the buyer."
+            />
+            {isBuyerView && (
+              <p className="text-xs text-red-600 font-medium mt-2">
+                Order rejected by{" "}
+                <a
+                  href={`https://sepolia.etherscan.io/address/${invoice.seller}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline text-red-700 hover:text-red-800"
                 >
-                  <p className="font-medium text-gray-700">{note.sender}</p>
-                  <p className="text-gray-600">{note.message}</p>
-                  <p className="text-gray-400 text-[10px] mt-1">
-                    {note.timestamp}
-                  </p>
-                </div>
-              ))}
-            </>
-          )}
+                  {invoice.seller
+                    ? `${invoice.seller.slice(0, 6)}...${invoice.seller.slice(
+                        -4
+                      )}`
+                    : "Unknown Contract"}
+                </a>{" "}
+                — refund initiated.
+              </p>
+            )}
+          </>
+        )}
 
-          {invoice.status === "AWAITING PAYMENT" && (
-            <CancelInvoice orderId={invoice.orderId} />
-          )}
-
-          {invoice.status === "PAID" && isSellerView && (
-            <div className="pt-4 mt-3 border-t border-gray-200 flex justify-end gap-3">
-              <SellersAction orderId={invoice.orderId} state text="Accept" />
-              <SellersAction
-                orderId={invoice.orderId}
-                state={false}
-                text="Reject"
-              />
+        {/* Notes in collapsed view (only for REJECTED or with notes) */}
+        {invoice.status === "REJECTED" &&
+          notesToDisplay.map((note) => (
+            <div
+              key={note.id}
+              className="bg-gray-100 p-3 rounded-md text-xs mt-2"
+            >
+              <p className="font-medium text-gray-700">{note.sender}</p>
+              <p className="text-gray-600">{note.message}</p>
+              <p className="text-gray-400 text-[10px] mt-1">{note.timestamp}</p>
             </div>
-          )}
-        </div>
+          ))}
+
+        {/* Cancel button in header */}
+        {invoice.status === "AWAITING PAYMENT" && (
+          <div className="mt-3">
+            <CancelInvoice orderId={invoice.orderId} />
+          </div>
+        )}
+
+        {/* Seller actions in header */}
+        {invoice.status === "PAID" && isSellerView && (
+          <div className="pt-3 mt-3 border-t border-gray-200 flex justify-end gap-3">
+            <SellersAction orderId={invoice.orderId} state text="Accept" />
+            <SellersAction
+              orderId={invoice.orderId}
+              state={false}
+              text="Reject"
+            />
+          </div>
+        )}
       </CardHeader>
 
+      {/* Expanded Content */}
       {isExpanded && (
-        <CardContent className="border-t pt-4 space-y-3 text-sm text-gray-800">
+        <CardContent className="border-t pt-4 space-y-4 text-sm text-gray-800">
+          {/* Core Fields */}
           {invoice.contract && invoice.status !== "REJECTED" && (
             <InvoiceField
               label="Contract"
@@ -271,6 +308,8 @@ export function InvoiceCard({
               description="The amount already paid into escrow by the buyer."
             />
           )}
+
+          {/* State History */}
           {invoice.history &&
             invoice.history.length > 0 &&
             invoice.status !== "REJECTED" && (
@@ -283,9 +322,7 @@ export function InvoiceCard({
                         <span className="bg-gray-100 border border-gray-300 rounded-full px-3 py-1">
                           {entry.status}
                           <span className="ml-2 text-[10px] text-gray-500">
-                            {entry.time
-                              ? unixToGMT(entry.time).toLocaleString()
-                              : ""}
+                            {entry.time ? unixToGMT(entry.time) : ""}
                           </span>
                         </span>
                         {idx < invoice.history!.length - 1 && (
@@ -299,20 +336,17 @@ export function InvoiceCard({
               />
             )}
 
+          {/* Notes Section */}
           <div className="space-y-3">
-            {invoice.status !== "REJECTED" &&
-              notesToDisplay.map((note) => (
-                <div
-                  key={note.id}
-                  className="bg-gray-100 p-3 rounded-md text-xs"
-                >
-                  <p className="font-medium text-gray-700">{note.sender}</p>
-                  <p className="text-gray-600">{note.message}</p>
-                  <p className="text-gray-400 text-[10px] mt-1">
-                    {note.timestamp}
-                  </p>
-                </div>
-              ))}
+            {notesToDisplay.map((note) => (
+              <div key={note.id} className="bg-gray-100 p-3 rounded-md text-xs">
+                <p className="font-medium text-gray-700">{note.sender}</p>
+                <p className="text-gray-600">{note.message}</p>
+                <p className="text-gray-400 text-[10px] mt-1">
+                  {note.timestamp}
+                </p>
+              </div>
+            ))}
 
             <div className="flex items-center gap-2">
               <Input
@@ -328,6 +362,7 @@ export function InvoiceCard({
             </div>
           </div>
 
+          {/* Payment Link & QR */}
           {paymentUrl && invoice.status === "AWAITING PAYMENT" && (
             <div className="mt-4 flex flex-col items-center gap-3">
               <div className="border border-dashed p-2 rounded-xl bg-gray-50">
@@ -372,41 +407,36 @@ export const InvoiceField = ({
   link?: string;
 }) => {
   return (
-    <div className="text-sm text-gray-800 flex flex-wrap items-center gap-1">
-      <span className="font-semibold">{label}</span>
-
-      {/* Info icon with tooltip (desktop) and popover (mobile) */}
-      <div className="flex items-center">
-        <TooltipProvider delayDuration={150}>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                type="button"
-                aria-label={`${label} info`}
-                className="cursor-pointer flex items-center focus:outline-none"
+    <div className="text-xs text-gray-500 flex flex-wrap items-center gap-1 mt-1">
+      <span className="font-medium text-gray-700">{label}</span>
+      <TooltipProvider delayDuration={150}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              aria-label={`${label} info`}
+              className="cursor-pointer flex items-center focus:outline-none"
+            >
+              <Info className="w-3.5 h-3.5 text-gray-500 hover:text-gray-700 transition" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent className="w-60 text-xs p-3 bg-white border border-gray-200 rounded-md shadow-md text-gray-700">
+            <p>{description}</p>
+            {link && (
+              <a
+                href={link}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 underline hover:text-blue-800 mt-2 inline-block"
               >
-                <Info className="w-3.5 h-3.5 text-gray-500 hover:text-gray-700 transition" />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent className="w-60 text-xs p-3 bg-white border border-gray-200 rounded-md shadow-md text-gray-700">
-              <p>{description}</p>
-              {link && (
-                <a
-                  href={link}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-600 underline hover:text-blue-800 mt-2 inline-block"
-                >
-                  View Details
-                </a>
-              )}
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-      </div>
-
+                View Details
+              </a>
+            )}
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
       <span>:</span>
-      <span className="truncate">{value}</span>
+      <span className="text-gray-800">{value}</span>
     </div>
   );
 };
