@@ -1,6 +1,6 @@
 "use client";
 
-import { useContext, useState, useMemo, useCallback } from "react";
+import { useContext, useState, useMemo, useCallback, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ContractContext } from "@/context/contract-context";
 import {
@@ -32,19 +32,28 @@ export default function IndexRecentPayment({
   isMarketplaceTab: boolean;
 }) {
   const { invoiceData } = useContext(ContractContext);
+
   const [filter, setFilter] = useState("All");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
 
+  const [page, setPage] = useState(1);
+  const pageSize = 9;
+
+  // Reset pagination when filters or tabs change
+  useEffect(() => {
+    setPage(1);
+  }, [filter, selectedDate, isMarketplaceTab]);
+
   const params = useSearchParams();
   const router = useRouter();
-
   const defaultTab = params.get("tab") || "all";
   const [activeTab, setActiveTab] = useState(defaultTab);
 
   const handleTabChange = useCallback(
     (value: string) => {
       setActiveTab(value);
+      setPage(1);
       if (value === "all") {
         router.replace("/dashboard", { scroll: false });
       } else {
@@ -74,6 +83,7 @@ export default function IndexRecentPayment({
     }));
   };
 
+  // Filtering logic
   const filteredInvoices = useMemo(() => {
     let invoices = isMarketplaceTab
       ? invoiceData.filter((i) => i.source === "Marketplace")
@@ -115,7 +125,6 @@ export default function IndexRecentPayment({
 
   return (
     <div className="container mx-auto mt-8">
-      {/* Tabs that reflect URL state */}
       <Tabs defaultValue={activeTab} onValueChange={handleTabChange}>
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="all">All</TabsTrigger>
@@ -137,6 +146,11 @@ export default function IndexRecentPayment({
             return false;
           });
 
+          // Pagination slice for this tab
+          const start = (page - 1) * pageSize;
+          const end = start + pageSize;
+          const paginatedInvoices = tabInvoices.slice(start, end);
+
           return (
             <TabsContent key={tab} value={tab}>
               {!isMarketplaceTab && (tab === "seller" || tab === "all") && (
@@ -153,12 +167,15 @@ export default function IndexRecentPayment({
                   "CANCELLED",
                   "RELEASED",
                 ]}
-                onSelect={setFilter}
+                onSelect={(value) => {
+                  setFilter(value);
+                  setPage(1);
+                }}
               />
 
+              {/* Top Filters Row */}
               <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
                 <div className="flex items-center justify-end gap-2 w-full">
-                  {/* Calendar */}
                   <Popover>
                     <PopoverTrigger asChild>
                       <Button
@@ -186,7 +203,6 @@ export default function IndexRecentPayment({
                     </PopoverContent>
                   </Popover>
 
-                  {/* Wallet filter */}
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button variant="outline" size="sm">
@@ -205,13 +221,13 @@ export default function IndexRecentPayment({
                           onChange={(e) => {
                             const wallet = e.target.value.trim().toLowerCase();
                             setFilter("wallet:" + wallet);
+                            setPage(1);
                           }}
                         />
                       </div>
                     </DropdownMenuContent>
                   </DropdownMenu>
 
-                  {/* Clear Date */}
                   {selectedDate && (
                     <Button
                       variant="ghost"
@@ -224,10 +240,10 @@ export default function IndexRecentPayment({
                 </div>
               </div>
 
-              {/* Cards Grid */}
+              {/* Invoice Cards Grid */}
               <div className="flex flex-wrap gap-5">
-                {tabInvoices.length > 0 ? (
-                  tabInvoices.map((invoice) => (
+                {paginatedInvoices.length > 0 ? (
+                  paginatedInvoices.map((invoice) => (
                     <div
                       key={invoice.id}
                       className="w-full md:w-[48%] lg:w-[31%]"
@@ -248,6 +264,40 @@ export default function IndexRecentPayment({
                   </div>
                 )}
               </div>
+
+              {/* Pagination Controls */}
+              {tabInvoices.length > pageSize && (
+                <div className="w-full flex justify-center items-center gap-4 mt-8">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={page === 1}
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  >
+                    Previous
+                  </Button>
+
+                  <span className="text-sm text-gray-600">
+                    Page {page} of {Math.ceil(tabInvoices.length / pageSize)}
+                  </span>
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={page >= Math.ceil(tabInvoices.length / pageSize)}
+                    onClick={() =>
+                      setPage((p) =>
+                        Math.min(
+                          p + 1,
+                          Math.ceil(tabInvoices.length / pageSize)
+                        )
+                      )
+                    }
+                  >
+                    Next
+                  </Button>
+                </div>
+              )}
             </TabsContent>
           );
         })}

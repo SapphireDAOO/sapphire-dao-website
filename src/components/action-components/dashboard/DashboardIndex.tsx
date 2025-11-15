@@ -2,7 +2,6 @@ import Container from "@/components/Container";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import DashboardHeader from "./Header";
 import RecentPayment from "./IndexRecentPayment";
-import CreateInvoiceDialog from "./invoices-components/create-invoice";
 
 const DashboardIndex = () => {
   return (
@@ -10,23 +9,25 @@ const DashboardIndex = () => {
       <Tabs defaultValue="invoices">
         <div className="flex items-center justify-center mt-10">
           <TabsList>
-            <TabsTrigger value="invoices" >Invoices</TabsTrigger>
+            <TabsTrigger value="invoices">Invoices</TabsTrigger>
             <TabsTrigger value="marketplace">Marketplace</TabsTrigger>
           </TabsList>
         </div>
+
         <TabsContent value="invoices">
           <Container>
-            <DashboardHeader
-              title="INVOICES"
-              rightContent={<CreateInvoiceDialog />}
-            />
-            <RecentPayment isMarketplaceTab={false} />
+            <div className="mt-8 pb-8">
+              <RecentPayment isMarketplaceTab={false} />
+            </div>
           </Container>
         </TabsContent>
+
         <TabsContent value="marketplace">
           <Container>
-            <DashboardHeader title="MARKETPLACE" rightContent={""} />
-            <RecentPayment isMarketplaceTab={true} />
+            <div className="mt-8 pb-8">
+              <DashboardHeader title="" rightContent="" />
+              <RecentPayment isMarketplaceTab={true} />
+            </div>
           </Container>
         </TabsContent>
       </Tabs>
