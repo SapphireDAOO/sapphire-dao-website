@@ -56,7 +56,11 @@ export function InvoiceCard({
     const interval = setInterval(() => {
       let updated = "—";
       if (invoice.status === "ACCEPTED" && invoice.releaseAt) {
-        updated = timeLeft(invoice.paidAt ?? 0, Number(invoice.releaseAt));
+        updated = timeLeft(
+          invoice.paidAt ? Number(invoice.paidAt) : null,
+          0,
+          Number(invoice.releaseAt) * 1000
+        );
       } else if (invoice.status === "PAID" && invoice.paidAt) {
         updated = timeLeft(invoice.paidAt ?? 0, THREE_DAYS_IN_MS);
       }
@@ -118,9 +122,7 @@ export function InvoiceCard({
 
   // Shared countdown label
   const countdownLabel =
-    invoice.status === "PAID" && isSellerView
-      ? "Decision window"
-      : invoice.status === "PAID" && isBuyerView
+    invoice.status === "PAID"
       ? "Decision window"
       : invoice.status === "ACCEPTED"
       ? "Release in"
@@ -153,9 +155,11 @@ export function InvoiceCard({
             label={countdownLabel}
             value={countdown}
             description={
-              isSellerView
-                ? "You have this time to accept or reject the payment."
-                : "Creator has this time to accept payment or it will be refunded."
+              countdownLabel === "Decision window"
+                ? isSellerView
+                  ? "You have this time to accept or reject the payment."
+                  : "Creator has this time to accept payment or it will be refunded."
+                : "Time when payment will be released to the seller"
             }
           />
         )}
