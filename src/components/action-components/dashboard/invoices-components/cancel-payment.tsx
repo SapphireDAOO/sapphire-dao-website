@@ -10,7 +10,8 @@ interface CancelInvoiceProps {
 }
 
 const CancelInvoice = ({ orderId }: CancelInvoiceProps) => {
-  const { cancelInvoice, isLoading } = useContext(ContractContext);
+  const { cancelInvoice, isLoading, refetchInvoiceData } =
+    useContext(ContractContext);
   const [localLoading, setLocalLoading] = useState(false);
 
   const handleClick = async (e: React.MouseEvent<HTMLButtonElement>) => {
@@ -18,7 +19,11 @@ const CancelInvoice = ({ orderId }: CancelInvoiceProps) => {
     setLocalLoading(true);
 
     try {
-      await cancelInvoice(orderId);
+      const successful = await cancelInvoice(orderId);
+
+      if (successful) {
+        await refetchInvoiceData?.();
+      }
     } catch (err) {
       console.error("Cancel invoice failed:", err);
     } finally {

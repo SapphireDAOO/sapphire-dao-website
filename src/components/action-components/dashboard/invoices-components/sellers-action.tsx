@@ -12,7 +12,9 @@ interface SellersActionProps {
 }
 
 const SellersAction = ({ orderId, state, text }: SellersActionProps) => {
-  const { sellerAction, isLoading } = useContext(ContractContext);
+  const { sellerAction, isLoading, refetchInvoiceData } =
+    useContext(ContractContext);
+
   const [localLoading, setLocalLoading] = useState(false);
 
   const handleClick = async (e: React.MouseEvent<HTMLButtonElement>) => {
@@ -20,7 +22,11 @@ const SellersAction = ({ orderId, state, text }: SellersActionProps) => {
     setLocalLoading(true);
 
     try {
-      await sellerAction(orderId, state);
+      const successful = await sellerAction(orderId, state);
+
+      if (successful) {
+        await refetchInvoiceData?.();
+      }
     } catch (err) {
       console.error("Seller action failed:", err);
     } finally {

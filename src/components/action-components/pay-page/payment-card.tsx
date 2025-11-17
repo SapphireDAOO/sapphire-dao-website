@@ -38,7 +38,7 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
   const orderId = data?.orderId;
   const { data: invoiceData } = useGetInvoiceData(orderId);
 
-  const { getInvoiceOwner, makeInvoicePayment, isLoading } =
+  const { getInvoiceOwner, makeInvoicePayment, isLoading, refetchInvoiceData } =
     useContext(ContractContext);
 
   //  Check if connected user is the invoice creator
@@ -68,6 +68,7 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
     const success = await makeInvoicePayment(invoiceData.price, orderId);
     if (success) {
       setOpen(true); // Show popup
+      await refetchInvoiceData?.();
       toast.success("Payment successful", {
         duration: 2000,
         onAutoClose: () => {
