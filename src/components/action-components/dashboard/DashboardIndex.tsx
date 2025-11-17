@@ -1,16 +1,36 @@
+"use client";
+
 import Container from "@/components/Container";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import DashboardHeader from "./Header";
 import RecentPayment from "./IndexRecentPayment";
+import { useRouter } from "next/navigation";
 
-const DashboardIndex = () => {
+const DashboardIndex = ({
+  isMarketplaceTab,
+}: {
+  isMarketplaceTab: boolean;
+}) => {
+  const router = useRouter();
+
   return (
     <div className="container mx-auto">
-      <Tabs defaultValue="invoices">
+      <Tabs defaultValue={isMarketplaceTab ? "marketplace" : "invoices"}>
         <div className="flex items-center justify-center mt-10">
           <TabsList>
-            <TabsTrigger value="invoices">Invoices</TabsTrigger>
-            <TabsTrigger value="marketplace">Marketplace</TabsTrigger>
+            <TabsTrigger
+              value="invoices"
+              onClick={() => router.push("/dashboard")}
+            >
+              Invoices
+            </TabsTrigger>
+
+            <TabsTrigger
+              value="marketplace"
+              onClick={() => router.push("/marketplace-dashboard")}
+            >
+              Marketplace
+            </TabsTrigger>
           </TabsList>
         </div>
 

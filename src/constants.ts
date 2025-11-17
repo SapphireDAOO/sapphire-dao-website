@@ -20,7 +20,7 @@ export const ADVANCED_PAYMENT_PROCESSOR: Record<number, Address> = {
 
 export const THE_GRAPH_API_URL: Record<number, string> = {
   [sepolia.id]:
-    "https://api.studio.thegraph.com/query/100227/payment-processor/version/latest",
+    "https://gateway.thegraph.com/api/subgraphs/id/5FMSgm467RA54KRzH7h7DwupDLTLqQxFvHaiCGP1bF3z",
 };
 
 export const errorMessages: ErrorMessages = {

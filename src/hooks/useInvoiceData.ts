@@ -114,6 +114,8 @@ export const useInvoiceData = () => {
         .query(invoiceQuery, { address: address?.toLowerCase() })
         .toPromise();
 
+      console.log("data", data);
+
       if (error) {
         console.log(error.message);
       }
@@ -187,7 +189,7 @@ export const useInvoiceData = () => {
           createdAt: invoice.createdAt ? unixToGMT(invoice.createdAt) : null,
           paidAt: invoice.paidAt || "Not Paid",
           status:
-            invoice.state === "CREATED" ? "AWAITING PAYMENT" : invoice.status,
+            invoice.state === "CREATED" ? "AWAITING PAYMENT" : invoice.state,
           price: invoice.price ? invoice.price : null,
           amountPaid: invoice.amountPaid
             ? formatEther(invoice.amountPaid)
@@ -213,7 +215,7 @@ export const useInvoiceData = () => {
           createdAt: invoice.createdAt ? unixToGMT(invoice.createdAt) : null,
           paidAt: invoice.paidAt || "Not Paid",
           status:
-            invoice.state === "CREATED" ? "AWAITING PAYMENT" : invoice.status,
+            invoice.state === "CREATED" ? "AWAITING PAYMENT" : invoice.state,
           price: invoice.price ? invoice.price : null,
           amountPaid: invoice.amountPaid
             ? formatEther(invoice.amountPaid)

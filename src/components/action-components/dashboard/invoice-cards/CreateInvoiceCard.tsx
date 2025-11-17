@@ -20,13 +20,19 @@ import { useGetFeeRate } from "@/hooks/useGetFeeRate";
 import { ContractContext } from "@/context/contract-context";
 import { ConnectKitButton } from "connectkit";
 import { parseUnits } from "viem";
-import { Loader2 } from "lucide-react";
+import { Info, Loader2 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { toast } from "sonner";
 import generateSecureLink from "@/lib/generate-link";
 import React from "react";
 import { ETHEREUM_SEPOLIA, SIMPLE_PAYMENT_PROCESSOR } from "@/constants";
-import { InvoiceField, renderContractLink } from "./InvoiceCard";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@radix-ui/react-tooltip";
+import { formatAddress } from "@/utils";
 
 interface InvoiceQRLinkProps {
   open: boolean;
@@ -34,6 +40,67 @@ interface InvoiceQRLinkProps {
   orderId: bigint;
   contractAddress?: string;
 }
+
+export const renderContractLink = (address?: string) => {
+  if (!address) return <span className="text-gray-500">—</span>;
+  return (
+    <a
+      href={`https://sepolia.etherscan.io/address/${address}`}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="text-blue-600 underline hover:text-blue-800"
+    >
+      {formatAddress(address)}
+    </a>
+  );
+};
+
+/* Small reusable field row with info icon */
+export const InvoiceField = ({
+  label,
+  value,
+  description,
+  link,
+}: {
+  label: string;
+  value: React.ReactNode;
+  description: string;
+  link?: string;
+}) => {
+  return (
+    <div className="text-xs text-gray-500 flex flex-wrap items-center gap-1 mt-1">
+      <span className="font-medium text-gray-700">{label}</span>
+      <TooltipProvider delayDuration={150}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              aria-label={`${label} info`}
+              className="cursor-pointer flex items-center focus:outline-none"
+            >
+              <Info className="w-3.5 h-3.5 text-gray-500 hover:text-gray-700 transition" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent className="w-60 text-xs p-3 bg-white border border-gray-200 rounded-md shadow-md text-gray-700">
+            <p>{description}</p>
+            {link && (
+              <a
+                href={link}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 underline hover:text-blue-800 mt-2 inline-block"
+              >
+                View Details
+              </a>
+            )}
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+      <span>:</span>
+      <span className="text-gray-800">{value}</span>
+    </div>
+  );
+};
 
 const InvoiceQRLink = React.memo(
   ({ open, setOpen, orderId, contractAddress }: InvoiceQRLinkProps) => {

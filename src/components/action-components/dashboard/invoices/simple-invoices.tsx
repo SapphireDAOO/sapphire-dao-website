@@ -43,11 +43,9 @@ export function InvoiceCard({
   const [noteInput, setNoteInput] = useState("");
   const [countdown, setCountdown] = useState<string>("—");
 
-  const isSellerView =
-    invoice.type === "Seller" || invoice.type === "IssuedInvoice";
+  const isSellerView = invoice.type === "Seller";
 
-  const isBuyerView =
-    invoice.type === "Buyer" || invoice.type === "ReceivedInvoice";
+  const isBuyerView = invoice.type === "Buyer";
 
   // Update countdown every second
   useEffect(() => {
@@ -314,31 +312,29 @@ export function InvoiceCard({
           )}
 
           {/* State History */}
-          {invoice.history &&
-            invoice.history.length > 0 &&
-            invoice.status !== "REJECTED" && (
-              <InvoiceField
-                label="State History"
-                value={
-                  <div className="flex flex-wrap items-center gap-2 text-xs">
-                    {invoice.history.map((entry, idx) => (
-                      <div key={idx} className="flex items-center gap-1">
-                        <span className="bg-gray-100 border border-gray-300 rounded-full px-3 py-1">
-                          {entry.status}
-                          <span className="ml-2 text-[10px] text-gray-500">
-                            {entry.time ? unixToGMT(entry.time) : ""}
-                          </span>
+          {invoice.history && invoice.history.length > 0 && (
+            <InvoiceField
+              label="State History"
+              value={
+                <div className="flex flex-wrap items-center gap-2 text-xs">
+                  {invoice.history.map((entry, idx) => (
+                    <div key={idx} className="flex items-center gap-1">
+                      <span className="bg-gray-100 border border-gray-300 rounded-full px-3 py-1">
+                        {entry.status}
+                        <span className="ml-2 text-[10px] text-gray-500">
+                          {entry.time ? unixToGMT(entry.time) : ""}
                         </span>
-                        {idx < invoice.history!.length - 1 && (
-                          <span className="text-gray-400">→</span>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                }
-                description="All state transitions this invoice has gone through with their timestamps."
-              />
-            )}
+                      </span>
+                      {idx < invoice.history!.length - 1 && (
+                        <span className="text-gray-400">→</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              }
+              description="All state transitions this invoice has gone through with their timestamps."
+            />
+          )}
 
           {/* Notes Section */}
           <div className="space-y-3">

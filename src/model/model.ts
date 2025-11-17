@@ -117,7 +117,7 @@ export type ErrorMessages = {
 
 export interface TokenData {
   name: string;
-  id: bigint;
+  id: string;
   decimals: number;
 }
 export interface InvoiceDetails {

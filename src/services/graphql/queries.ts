@@ -147,6 +147,16 @@ export const invoiceQuery = `query ($address: String!) {
   }
 }`;
 
+export const paymentTokenQuery = `
+  query PaymentToken($id: ID!) {
+    paymentToken(id: $id) {
+      id
+      name
+      decimal
+    }
+  }
+`;
+
 export const invoiceOwnerQuery = `query Invoice($id: String!) {
   invoice(id: $id) {
     seller {

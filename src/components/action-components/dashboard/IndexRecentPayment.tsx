@@ -3,11 +3,7 @@
 import { useContext, useState, useMemo, useCallback, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ContractContext } from "@/context/contract-context";
-import {
-  FilterTabs,
-  InvoiceCard,
-  CreateInvoiceCard,
-} from "./invoice-cards/index";
+import { FilterTabs, CreateInvoiceCard } from "./invoice-cards/index";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Note } from "@/model/model";
 import {
@@ -25,6 +21,8 @@ import {
 import { Calendar } from "@/components/ui/calendar";
 import { CalendarDays } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { MarketplaceCard } from "./invoices/advanced-invoices";
+import { InvoiceCard } from "./invoices/simple-invoices";
 
 export default function IndexRecentPayment({
   isMarketplaceTab,
@@ -50,17 +48,18 @@ export default function IndexRecentPayment({
   const defaultTab = params.get("tab") || "all";
   const [activeTab, setActiveTab] = useState(defaultTab);
 
+  const basePath = isMarketplaceTab ? "/marketplace-dashboard" : "/dashboard";
+
   const handleTabChange = useCallback(
     (value: string) => {
       setActiveTab(value);
       setPage(1);
-      if (value === "all") {
-        router.replace("/dashboard", { scroll: false });
-      } else {
-        router.replace(`/dashboard?tab=${value}`, { scroll: false });
-      }
+
+      router.replace(value === "all" ? basePath : `${basePath}?tab=${value}`, {
+        scroll: false,
+      });
     },
-    [router]
+    [router, basePath]
   );
 
   const handleToggle = (id: string) => {
@@ -248,12 +247,21 @@ export default function IndexRecentPayment({
                       key={invoice.id}
                       className="w-full md:w-[48%] lg:w-[31%]"
                     >
-                      <InvoiceCard
-                        invoice={invoice}
-                        isExpanded={expandedId === String(invoice.id)}
-                        onToggle={() => handleToggle(String(invoice.id))}
-                        onAddNote={handleAddNote}
-                      />
+                      {isMarketplaceTab ? (
+                        <MarketplaceCard
+                          invoice={invoice}
+                          isExpanded={expandedId === String(invoice.id)}
+                          onToggle={() => handleToggle(String(invoice.id))}
+                          onAddNote={handleAddNote}
+                        />
+                      ) : (
+                        <InvoiceCard
+                          invoice={invoice}
+                          isExpanded={expandedId === String(invoice.id)}
+                          onToggle={() => handleToggle(String(invoice.id))}
+                          onAddNote={handleAddNote}
+                        />
+                      )}
                     </div>
                   ))
                 ) : (
