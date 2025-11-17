@@ -114,8 +114,6 @@ export const useInvoiceData = () => {
         .query(invoiceQuery, { address: address?.toLowerCase() })
         .toPromise();
 
-      console.log("data", data);
-
       if (error) {
         console.log(error.message);
       }

@@ -52,8 +52,6 @@ export function MarketplaceCard({
 
   const amount = Number(invoice.price ?? 0) / Math.pow(10, 8);
 
-  console.log("data", invoice.price!, tokenData.decimals);
-
   // Update countdown every second
   useEffect(() => {
     if (!invoice.paidAt && !invoice.releaseAt && !invoice.holdPeriod) return;
@@ -103,8 +101,6 @@ export function MarketplaceCard({
     invoice.status === "CREATED"
       ? "AWAITING PAYMENT"
       : invoice.status || "Unknown";
-
-  console.log("invoice status", invoice);
 
   const statusColors: Record<string, string> = {
     CREATED: "bg-blue-100 text-blue-800",

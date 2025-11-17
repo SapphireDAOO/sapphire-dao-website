@@ -114,7 +114,7 @@ export const sellerAction = async (
   setIsLoading: (value: string) => void,
   getInvoiceData: () => Promise<void>
 ): Promise<boolean> => {
-  const action = state ? "acceptPayment" : "rejectPayment";
+  const action = state ? "Accepted" : "Rejected";
   setIsLoading(action);
   let success = false;
   let progressToastId: string | number | undefined;
@@ -127,7 +127,7 @@ export const sellerAction = async (
       to: SIMPLE_PAYMENT_PROCESSOR[chainId],
       data: encodeFunctionData({
         abi: paymentProcessor,
-        functionName: action,
+        functionName: state ? "acceptPayment" : "rejectPayment",
         args: [orderId],
       }),
       gasPrice,

@@ -67,12 +67,12 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
 
     const success = await makeInvoicePayment(invoiceData.price, orderId);
     if (success) {
-      setOpen(true); // Show popup
+      setOpen(true);
       await refetchInvoiceData?.();
-      toast.success("Payment successful");
       setTimeout(() => {
         setOpen(false);
         router.push("/dashboard?tab=buyer");
+        router.refresh();
       }, 2000);
     }
   };
