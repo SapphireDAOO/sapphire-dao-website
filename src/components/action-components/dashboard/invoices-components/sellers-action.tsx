@@ -4,7 +4,7 @@ import { useContext, useState } from "react";
 import { ContractContext } from "@/context/contract-context";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
-import { revalidatePathAction } from "@/app/actions/revalidate";
+import { toast } from "sonner";
 
 interface SellersActionProps {
   orderId: bigint;
@@ -13,7 +13,8 @@ interface SellersActionProps {
 }
 
 const SellersAction = ({ orderId, state, text }: SellersActionProps) => {
-  const { sellerAction, isLoading } = useContext(ContractContext);
+  const { sellerAction, isLoading, refetchInvoiceData } =
+    useContext(ContractContext);
 
   const [localLoading, setLocalLoading] = useState(false);
 
@@ -22,10 +23,12 @@ const SellersAction = ({ orderId, state, text }: SellersActionProps) => {
     setLocalLoading(true);
 
     try {
-      const successful = await sellerAction(orderId, state);
+      if (await sellerAction(orderId, state)) {
+        await refetchInvoiceData?.();
 
-      if (successful) {
-        await revalidatePathAction(window.location.pathname);
+        toast.success(
+          `Successfully ${state ? "Accepted" : "Rejected"} the invoice.`
+        );
       }
     } catch (err) {
       console.error("Seller action failed:", err);

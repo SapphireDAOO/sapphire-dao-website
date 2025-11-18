@@ -57,7 +57,13 @@ const WalletProvider = ({ children }: Props) => {
         invoiceData,
         allInvoiceData,
         createInvoice: (invoicePrice: bigint) =>
-          createInvoice(wagmiClients, invoicePrice, chainId, setIsLoading, getInvoiceData),
+          createInvoice(
+            wagmiClients,
+            invoicePrice,
+            chainId,
+            setIsLoading,
+            getInvoiceData
+          ),
         makeInvoicePayment: (amount: bigint, orderId: bigint) =>
           makeInvoicePayment(
             wagmiClients,
@@ -89,22 +95,9 @@ const WalletProvider = ({ children }: Props) => {
         setMarketplaceAddress: (address: Address) =>
           setMarketplaceAddress(wagmiClients, address, chainId, setIsLoading),
         sellerAction: (orderId: bigint, state: boolean) =>
-          sellerAction(
-            wagmiClients,
-            orderId,
-            state,
-            chainId,
-            setIsLoading,
-            getInvoiceData
-          ),
+          sellerAction(wagmiClients, orderId, state, chainId, setIsLoading),
         cancelInvoice: (orderId: bigint) =>
-          cancelInvoice(
-            wagmiClients,
-            orderId,
-            chainId,
-            setIsLoading,
-            getInvoiceData
-          ),
+          cancelInvoice(wagmiClients, orderId, chainId, setIsLoading),
         releaseInvoice: (orderId: bigint) =>
           releaseInvoice(
             wagmiClients,

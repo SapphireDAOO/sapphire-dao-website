@@ -21,13 +21,9 @@ const CancelInvoice = ({ orderId }: CancelInvoiceProps) => {
     setLocalLoading(true);
 
     try {
-      const successful = await cancelInvoice(orderId);
-
-      if (successful) {
-        toast.success("Invoice canceled");
-        setTimeout(() => {
-          refetchInvoiceData?.();
-        }, 2000);
+      if (await cancelInvoice(orderId)) {
+        await refetchInvoiceData?.();
+        toast.success("Invoice successfully cancelled");
       }
     } catch (err) {
       console.error("Cancel invoice failed:", err);

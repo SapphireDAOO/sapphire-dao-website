@@ -36,7 +36,7 @@ export const useInvoiceData = () => {
   const getAllInvoiceData = useCallback(async (): Promise<AllInvoicesData> => {
     try {
       const { data, error } = await client(chainId)
-        .query(GET_ALL_INVOICES, {})
+        .query(GET_ALL_INVOICES, {}, { requestPolicy: "network-only" })
         .toPromise();
 
       if (error) {
@@ -111,7 +111,11 @@ export const useInvoiceData = () => {
   const getInvoiceData = useCallback(async () => {
     try {
       const { data, error } = await client(chainId)
-        .query(invoiceQuery, { address: address?.toLowerCase() })
+        .query(
+          invoiceQuery,
+          { address: address?.toLowerCase() },
+          { requestPolicy: "network-only" }
+        )
         .toPromise();
 
       if (error) {
@@ -242,7 +246,9 @@ export const useInvoiceData = () => {
         ...receivedInvoicesData,
       ];
 
-      setInvoiceData(allInvoiceData || []);
+      console.log("result after set", allInvoiceData);
+
+      setInvoiceData([...allInvoiceData]);
     } catch (error) {
       console.error("Error fetching invoice data:", error);
     }
@@ -250,7 +256,7 @@ export const useInvoiceData = () => {
 
   const getInvoiceOwner = async (id: string): Promise<string> => {
     const { data, error } = await client(chainId)
-      .query(invoiceOwnerQuery, { id })
+      .query(invoiceOwnerQuery, { id }, { requestPolicy: "network-only" })
       .toPromise();
 
     if (error) {
@@ -267,7 +273,7 @@ export const useInvoiceData = () => {
     type: "smartInvoice" | "metaInvoice"
   ): Promise<any> => {
     const { data, error } = await client(chainId)
-      .query(query, { id: orderId })
+      .query(query, { id: orderId }, { requestPolicy: "network-only" })
       .toPromise();
 
     if (error) {
