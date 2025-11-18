@@ -44,7 +44,7 @@ export const createInvoice = async (
       hash: tx,
     });
     if (receipt?.status) {
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      await new Promise((resolve) => setTimeout(resolve, 6000));
       await getInvoiceData();
 
       toast.success("Invoice successfully created");
@@ -150,7 +150,7 @@ export const sellerAction = async (
     });
 
     if (receipt?.status) {
-      await new Promise((resolve) => setTimeout(resolve, 3000));
+      await new Promise((resolve) => setTimeout(resolve, 6000));
 
       toast.dismiss(progressToastId);
 
@@ -205,7 +205,7 @@ export const cancelInvoice = async (
     });
 
     if (receipt?.status) {
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      await new Promise((resolve) => setTimeout(resolve, 6000));
       toast.dismiss(progressToastId);
 
       success = true;

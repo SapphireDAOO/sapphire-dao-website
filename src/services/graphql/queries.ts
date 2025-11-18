@@ -58,7 +58,7 @@ export const GET_ALL_INVOICES = `
 // GraphQL query to fetch invoices for a specific user
 export const invoiceQuery = `query ($address: String!) {
   user (id: $address) {
-    ownedInvoices (orderBy: createdAt, orderDirection: desc) {
+    ownedInvoices (orderBy: lastActionTime, orderDirection: desc) {
       amountPaid
       contract
       createdAt
@@ -80,7 +80,7 @@ export const invoiceQuery = `query ($address: String!) {
       history
       historyTime
     }
-    paidInvoices (orderBy: createdAt, orderDirection: desc) {
+    paidInvoices (orderBy: lastActionTime, orderDirection: desc) {
       amountPaid
       contract
       createdAt
@@ -102,7 +102,7 @@ export const invoiceQuery = `query ($address: String!) {
       history
       historyTime
     }
-    issuedInvoices (orderBy: createdAt, orderDirection: desc) {
+    issuedInvoices (orderBy: lastActionTime, orderDirection: desc) {
       amountPaid
       contract
       createdAt
@@ -123,7 +123,7 @@ export const invoiceQuery = `query ($address: String!) {
         id
       }
     }
-    receivedInvoices (orderBy: createdAt, orderDirection: desc) {
+    receivedInvoices (orderBy: lastActionTime, orderDirection: desc) {
       amountPaid
       contract
       createdAt
