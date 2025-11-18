@@ -4,17 +4,17 @@ import { useContext, useState } from "react";
 import { ContractContext } from "@/context/contract-context";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
-import { useRouter } from "next/navigation";
+
+import { toast } from "sonner";
 
 interface CancelInvoiceProps {
   orderId: bigint;
 }
 
 const CancelInvoice = ({ orderId }: CancelInvoiceProps) => {
-  const { cancelInvoice, isLoading } =
+  const { cancelInvoice, isLoading, refetchInvoiceData } =
     useContext(ContractContext);
   const [localLoading, setLocalLoading] = useState(false);
-  const router = useRouter();
 
   const handleClick = async (e: React.MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
@@ -24,7 +24,10 @@ const CancelInvoice = ({ orderId }: CancelInvoiceProps) => {
       const successful = await cancelInvoice(orderId);
 
       if (successful) {
-        router.refresh();
+        toast.success("Invoice canceled");
+        setTimeout(() => {
+          refetchInvoiceData?.();
+        }, 2000);
       }
     } catch (err) {
       console.error("Cancel invoice failed:", err);

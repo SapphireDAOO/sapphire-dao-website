@@ -18,7 +18,8 @@ export const createInvoice = async (
   { walletClient, publicClient }: WagmiClient,
   invoicePrice: bigint,
   chainId: number,
-  setIsLoading: (value: string) => void
+  setIsLoading: (value: string) => void,
+  getInvoiceData: () => Promise<void>
 ): Promise<bigint | undefined> => {
   setIsLoading("createInvoice");
   try {
@@ -43,6 +44,10 @@ export const createInvoice = async (
       hash: tx,
     });
     if (receipt?.status) {
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+
+      await getInvoiceData();
+
       toast.success("Invoice successfully created");
       return receipt?.logs[0].topics[1];
     } else {
@@ -147,10 +152,13 @@ export const sellerAction = async (
     });
 
     if (receipt?.status) {
-      toast.dismiss(progressToastId);
-      // fix
-      toast.success(`Successfully ${action} the invoice.`);
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+
       await getInvoiceData();
+
+      toast.dismiss(progressToastId);
+      toast.success(`Successfully ${action} the invoice.`);
+
       success = true;
     } else {
       toast.dismiss(progressToastId);
@@ -203,9 +211,13 @@ export const cancelInvoice = async (
     });
 
     if (receipt?.status) {
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+
+      await getInvoiceData();
+
       toast.dismiss(progressToastId);
       toast.success("Invoice successfully cancelled");
-      await getInvoiceData();
+
       success = true;
     } else {
       toast.dismiss(progressToastId);

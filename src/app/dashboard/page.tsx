@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import DashboardIndex from "@/components/action-components/dashboard/DashboardIndex";
-export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export default function DashboardPage() {
   return (

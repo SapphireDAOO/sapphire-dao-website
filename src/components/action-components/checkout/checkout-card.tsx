@@ -76,15 +76,10 @@ const CheckoutCard = ({ data, isMetaInvoice }: CheckoutCardProps) => {
 
     if (success) {
       setOpen(true);
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      
       await refetchInvoiceData?.();
-
-      toast.success("Payment successful!", {
-        duration: 4000,
-        onAutoClose: () => {
-          setOpen(false);
-          router.push("marketplace-dashboard/?tab=buyer");
-        },
-      });
+      router.push("marketplace-dashboard/?tab=buyer");
     }
   };
 

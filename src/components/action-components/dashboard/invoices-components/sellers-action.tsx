@@ -4,7 +4,7 @@ import { useContext, useState } from "react";
 import { ContractContext } from "@/context/contract-context";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { revalidatePathAction } from "@/app/actions/revalidate";
 
 interface SellersActionProps {
   orderId: bigint;
@@ -16,7 +16,6 @@ const SellersAction = ({ orderId, state, text }: SellersActionProps) => {
   const { sellerAction, isLoading } = useContext(ContractContext);
 
   const [localLoading, setLocalLoading] = useState(false);
-  const router = useRouter();
 
   const handleClick = async (e: React.MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
@@ -26,7 +25,7 @@ const SellersAction = ({ orderId, state, text }: SellersActionProps) => {
       const successful = await sellerAction(orderId, state);
 
       if (successful) {
-        router.refresh();
+        await revalidatePathAction(window.location.pathname);
       }
     } catch (err) {
       console.error("Seller action failed:", err);

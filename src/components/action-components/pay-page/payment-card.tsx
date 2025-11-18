@@ -28,6 +28,7 @@ import {
 import { toast } from "sonner";
 import { formatEther } from "viem";
 import { useGetInvoiceData } from "@/hooks/useGetInvoiceData";
+import { useInvoiceData } from "@/hooks/useInvoiceData";
 
 const PaymentCard = ({ data }: PaymentCardProps) => {
   const { address } = useAccount();
@@ -38,8 +39,10 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
   const orderId = data?.orderId;
   const { data: invoiceData } = useGetInvoiceData(orderId);
 
-  const { getInvoiceOwner, makeInvoicePayment, isLoading, refetchInvoiceData } =
+  const { getInvoiceOwner, makeInvoicePayment, isLoading } =
     useContext(ContractContext);
+
+  const { getInvoiceData } = useInvoiceData();
 
   //  Check if connected user is the invoice creator
   const isCreator = useCallback(async () => {
@@ -68,12 +71,11 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
     const success = await makeInvoicePayment(invoiceData.price, orderId);
     if (success) {
       setOpen(true);
-      await refetchInvoiceData?.();
-      setTimeout(() => {
-        setOpen(false);
-        router.push("/dashboard?tab=buyer");
-        router.refresh();
-      }, 2000);
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+
+      await getInvoiceData();
+
+      router.push("/dashboard?tab=buyer");
     }
   };
 
