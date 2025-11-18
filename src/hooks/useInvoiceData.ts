@@ -246,8 +246,6 @@ export const useInvoiceData = () => {
         ...receivedInvoicesData,
       ];
 
-      console.log("result after set", allInvoiceData);
-
       setInvoiceData([...allInvoiceData]);
     } catch (error) {
       console.error("Error fetching invoice data:", error);

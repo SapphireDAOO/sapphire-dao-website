@@ -67,7 +67,7 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
 
     if (await makeInvoicePayment(invoiceData.price, orderId)) {
       setOpen(true);
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      await new Promise((resolve) => setTimeout(resolve, 6000));
 
       await refetchInvoiceData?.();
 
