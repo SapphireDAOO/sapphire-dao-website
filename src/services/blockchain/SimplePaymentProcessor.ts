@@ -18,8 +18,7 @@ export const createInvoice = async (
   { walletClient, publicClient }: WagmiClient,
   invoicePrice: bigint,
   chainId: number,
-  setIsLoading: (value: string) => void,
-  getInvoiceData: () => Promise<void>
+  setIsLoading: (value: string) => void
 ): Promise<bigint | undefined> => {
   setIsLoading("createInvoice");
   try {
@@ -44,10 +43,6 @@ export const createInvoice = async (
       hash: tx,
     });
     if (receipt?.status) {
-      await new Promise((resolve) => setTimeout(resolve, 6000));
-      await getInvoiceData();
-
-      toast.success("Invoice successfully created");
       return receipt?.logs[0].topics[1];
     } else {
       toast.error("Error creating invoice, Please try again.");

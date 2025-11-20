@@ -164,3 +164,12 @@ export const invoiceOwnerQuery = `query Invoice($id: String!) {
     }
   }
 }`;
+
+export const META_QUERY = `{
+  _meta {
+    block {
+      number
+      hash
+    }
+  }
+}`;

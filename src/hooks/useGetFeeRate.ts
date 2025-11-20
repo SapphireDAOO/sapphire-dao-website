@@ -1,7 +1,7 @@
 import { PAYMENT_PROCESSOR_STORAGE } from "@/constants";
 
 import { sepolia } from "wagmi/chains";
-import { useAccount, useChainId, useReadContract } from "wagmi";
+import { useChainId, useReadContract } from "wagmi";
 import { PaymentProcessorStorage } from "@/abis/PaymentProcessorStorage";
 
 /**
@@ -14,7 +14,6 @@ import { PaymentProcessorStorage } from "@/abis/PaymentProcessorStorage";
  */
 export const useGetFeeRate = () => {
   // Get the connected user's wallet address using the wagmi `useAccount` hook
-  const { address } = useAccount();
 
   // Get the current chain ID using the wagmi `useChainId` hook
   const chainId = useChainId();
@@ -24,7 +23,6 @@ export const useGetFeeRate = () => {
     chainId: sepolia.id,
     address: PAYMENT_PROCESSOR_STORAGE[chainId],
     functionName: "getFeeRate",
-    account: address,
   });
 
   return { data, refetch, isLoading };

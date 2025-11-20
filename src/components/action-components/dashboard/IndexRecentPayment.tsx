@@ -29,7 +29,7 @@ export default function IndexRecentPayment({
 }: {
   isMarketplaceTab: boolean;
 }) {
-  const { invoiceData } = useContext(ContractContext);
+  const { invoiceData, refetchInvoiceData } = useContext(ContractContext);
 
   const [filter, setFilter] = useState("All");
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -38,21 +38,26 @@ export default function IndexRecentPayment({
   const [page, setPage] = useState(1);
   const pageSize = 9;
 
-  // Reset pagination when filters or tabs change
-  useEffect(() => {
-    setPage(1);
-  }, [filter, selectedDate, isMarketplaceTab]);
-
   const params = useSearchParams();
   const router = useRouter();
   const defaultTab = params.get("tab") || "all";
   const [activeTab, setActiveTab] = useState(defaultTab);
 
+  useEffect(() => {
+    setActiveTab(defaultTab);
+  }, [defaultTab]);
+
   const basePath = isMarketplaceTab ? "/marketplace-dashboard" : "/dashboard";
+
+  useEffect(() => {
+    setPage(1);
+    refetchInvoiceData?.(); // <-- Force fetch on tab switch
+  }, [filter, selectedDate, isMarketplaceTab, activeTab, refetchInvoiceData]);
 
   const handleTabChange = useCallback(
     (value: string) => {
       setActiveTab(value);
+      setFilter("All");
       setPage(1);
 
       router.replace(value === "all" ? basePath : `${basePath}?tab=${value}`, {
@@ -66,7 +71,6 @@ export default function IndexRecentPayment({
     setExpandedId((prev) => (prev === id ? null : id));
   };
 
-  // Local notes
   const [localNotes, setLocalNotes] = useState<Record<string, Note[]>>({});
   const handleAddNote = (invoiceId: string, message: string) => {
     if (!message.trim()) return;
@@ -82,7 +86,6 @@ export default function IndexRecentPayment({
     }));
   };
 
-  // Filtering logic
   const filteredInvoices = useMemo(() => {
     let invoices = isMarketplaceTab
       ? invoiceData.filter((i) => i.source === "Marketplace")
@@ -124,7 +127,7 @@ export default function IndexRecentPayment({
 
   return (
     <div className="container mx-auto mt-8">
-      <Tabs defaultValue={activeTab} onValueChange={handleTabChange}>
+      <Tabs value={activeTab} onValueChange={handleTabChange}>
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="all">All</TabsTrigger>
           <TabsTrigger value="seller">
@@ -145,7 +148,6 @@ export default function IndexRecentPayment({
             return false;
           });
 
-          // Pagination slice for this tab
           const start = (page - 1) * pageSize;
           const end = start + pageSize;
           const paginatedInvoices = tabInvoices.slice(start, end);
@@ -172,7 +174,6 @@ export default function IndexRecentPayment({
                 }}
               />
 
-              {/* Top Filters Row */}
               <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
                 <div className="flex items-center justify-end gap-2 w-full">
                   <Popover>
@@ -211,7 +212,6 @@ export default function IndexRecentPayment({
                     <DropdownMenuContent align="end" className="w-60 p-2">
                       <DropdownMenuLabel>Filter by</DropdownMenuLabel>
                       <DropdownMenuSeparator />
-
                       <div className="px-2 py-1">
                         <input
                           type="text"
@@ -239,7 +239,6 @@ export default function IndexRecentPayment({
                 </div>
               </div>
 
-              {/* Invoice Cards Grid */}
               <div className="flex flex-wrap gap-5">
                 {paginatedInvoices.length > 0 ? (
                   paginatedInvoices.map((invoice) => (
@@ -273,7 +272,6 @@ export default function IndexRecentPayment({
                 )}
               </div>
 
-              {/* Pagination Controls */}
               {tabInvoices.length > pageSize && (
                 <div className="w-full flex justify-center items-center gap-4 mt-8">
                   <Button

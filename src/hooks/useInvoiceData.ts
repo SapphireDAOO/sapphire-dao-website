@@ -4,8 +4,9 @@ import {
   GET_ALL_INVOICES,
   invoiceQuery,
   invoiceOwnerQuery,
+  META_QUERY,
 } from "@/services/graphql/queries";
-import { useAccount } from "wagmi";
+import { useAccount, usePublicClient } from "wagmi";
 import { unixToGMT } from "@/utils";
 import { ETHEREUM_SEPOLIA } from "@/constants";
 import {
@@ -26,6 +27,7 @@ import { client } from "@/services/graphql/client";
 export const useInvoiceData = () => {
   const { chain, address } = useAccount();
   const chainId = chain?.id || ETHEREUM_SEPOLIA;
+  const publicClient = usePublicClient();
   const [invoiceData, setInvoiceData] = useState<Invoice[]>([]);
   const [allInvoiceData, setAllInvoiceData] = useState<AllInvoicesData>({
     invoices: [],
@@ -121,6 +123,39 @@ export const useInvoiceData = () => {
       if (error) {
         console.log(error.message);
       }
+
+      const { data: meta } = await client(chainId)
+        .query(META_QUERY, {}, { requestPolicy: "network-only" })
+        .toPromise();
+
+      const subgraphBlock = meta?._meta?.block?.number;
+      const latestChainBlock = await publicClient?.getBlockNumber();
+
+      let isSynced;
+      if (latestChainBlock) {
+        isSynced = Number(subgraphBlock) >= Number(latestChainBlock) - 1;
+
+        if (!isSynced) {
+          let retries = 5;
+          while (retries > 0 && !isSynced) {
+            await new Promise((r) => setTimeout(r, 3000));
+            console.log(retries);
+            const { data: meta } = await client(chainId)
+              .query(META_QUERY, {}, { requestPolicy: "network-only" })
+              .toPromise();
+
+            const updatedSubgraphBlock = meta?._meta?.block?.number;
+            isSynced = updatedSubgraphBlock >= latestChainBlock - BigInt(2);
+            retries--;
+          }
+
+          if (!isSynced) {
+            console.warn("Subgraph still not synced after retries.");
+          }
+        }
+      }
+
+      //
 
       // Process created invoices
       const createdInvoice: UserCreatedInvoice[] =
@@ -250,7 +285,7 @@ export const useInvoiceData = () => {
     } catch (error) {
       console.error("Error fetching invoice data:", error);
     }
-  }, [address, chainId]);
+  }, [address, chainId, publicClient]);
 
   const getInvoiceOwner = async (id: string): Promise<string> => {
     const { data, error } = await client(chainId)

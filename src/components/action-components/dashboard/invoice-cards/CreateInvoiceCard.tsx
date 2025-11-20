@@ -194,8 +194,9 @@ export default function CreateInvoiceDialog() {
 
       if (response) {
         setOrderId(response);
+        // await new Promise((resolve) => setTimeout(resolve, 8000));
 
-        await refetchInvoiceData?.();
+        for (let i = 0; i < 2; i++) await refetchInvoiceData?.();
         setOpenCreate(false);
         setOpenQR(true);
         toast.success("Invoice created successfully!");

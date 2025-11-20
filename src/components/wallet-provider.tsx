@@ -57,13 +57,7 @@ const WalletProvider = ({ children }: Props) => {
         invoiceData,
         allInvoiceData,
         createInvoice: (invoicePrice: bigint) =>
-          createInvoice(
-            wagmiClients,
-            invoicePrice,
-            chainId,
-            setIsLoading,
-            getInvoiceData
-          ),
+          createInvoice(wagmiClients, invoicePrice, chainId, setIsLoading),
         makeInvoicePayment: (amount: bigint, orderId: bigint) =>
           makeInvoicePayment(
             wagmiClients,
