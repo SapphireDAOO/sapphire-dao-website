@@ -70,8 +70,7 @@ const WalletProvider = ({ children }: Props) => {
             amount,
             orderId,
             chainId,
-            setIsLoading,
-            getInvoiceData
+            setIsLoading
           ),
         payAdvancedInvoice: (
           paymentType: "paySingleInvoice" | "payMetaInvoice",

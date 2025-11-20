@@ -66,8 +66,7 @@ export const makeInvoicePayment = async (
   amount: bigint,
   orderId: bigint,
   chainId: number,
-  setIsLoading: (value: string) => void,
-  getInvoiceData: () => Promise<void>
+  setIsLoading: (value: string) => void
 ): Promise<boolean> => {
   setIsLoading("makeInvoicePayment");
 
@@ -97,8 +96,6 @@ export const makeInvoicePayment = async (
     });
 
     if (receipt?.status === "success") {
-      toast.success("Invoice Payment Successful");
-      await getInvoiceData();
       success = true;
     } else {
       toast.error("Transaction failed. Please try again.");

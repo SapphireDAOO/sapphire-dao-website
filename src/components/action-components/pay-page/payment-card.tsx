@@ -35,13 +35,14 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
   const [open, setOpen] = useState(false);
   const [userIsCreator, setUserIsCreator] = useState(false);
 
+  const [countdown, setCountdown] = useState(6);
+
   const orderId = data?.orderId;
   const { data: invoiceData } = useGetInvoiceData(orderId);
 
   const { getInvoiceOwner, makeInvoicePayment, isLoading, refetchInvoiceData } =
     useContext(ContractContext);
 
-  //  Check if connected user is the invoice creator
   const isCreator = useCallback(async () => {
     if (!orderId) return false;
     const creator = await getInvoiceOwner(orderId.toString());
@@ -58,20 +59,37 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
     check();
   }, [address, orderId, isCreator]);
 
-  // Handle payment
   const handlePayment = async () => {
-    if (!invoiceData?.price) {
-      toast.error("Invoice price is not available.");
+    if (!invoiceData?.price || !orderId) {
+      toast.error("Invoice is missing price or order ID.");
       return;
     }
 
-    if (await makeInvoicePayment(invoiceData.price, orderId)) {
-      setOpen(true);
-      await new Promise((resolve) => setTimeout(resolve, 6000));
+    try {
+      if (await makeInvoicePayment(invoiceData.price, orderId)) {
+        setOpen(true);
 
-      await refetchInvoiceData?.();
+        setCountdown(6);
 
-      router.push("/dashboard?tab=buyer");
+        const interval = setInterval(() => {
+          setCountdown((prev) => {
+            const next = prev - 1;
+
+            if (next <= 0) {
+              clearInterval(interval);
+
+              (async () => {
+                await refetchInvoiceData?.();
+                router.push("/dashboard?tab=buyer");
+              })();
+            }
+
+            return next;
+          });
+        }, 1000);
+      }
+    } catch (err) {
+      console.error("Payment failed:", err);
     }
   };
 
@@ -79,7 +97,6 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
 
   return (
     <>
-      {/* Invoice Payment Card */}
       <Card className="w-[350px]">
         <CardHeader>
           <CardTitle>Pay Invoice</CardTitle>
@@ -88,7 +105,6 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
 
         <CardContent>
           <div className="grid w-full items-center gap-4">
-            {/* Invoice ID */}
             <div className="flex flex-col space-y-2">
               <Label htmlFor="id">Invoice ID</Label>
               <Input
@@ -98,7 +114,6 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
               />
             </div>
 
-            {/* Requested Amount */}
             <div className="flex flex-col space-y-2 mt-3">
               <Label htmlFor="price">Requested Amount</Label>
               <Input
@@ -139,7 +154,7 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
         </CardFooter>
       </Card>
 
-      {/* Auto-Redirect Popup */}
+      {/* Popup */}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogPortal>
           <DialogOverlay className="fixed inset-0 bg-black/50" />
@@ -160,9 +175,11 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
             <p className="text-gray-600 mb-2">
               Your payment has been processed successfully.
             </p>
+
+            {/* NEW Countdown display */}
             <p className="text-sm text-gray-500">
-              Redirecting to <span className="font-medium">“Dashboard”</span>
-              ...
+              Redirecting to <span className="font-medium">Dashboard</span> in{" "}
+              <span className="font-bold">{countdown}</span>s...
             </p>
           </DialogContent>
         </DialogPortal>
