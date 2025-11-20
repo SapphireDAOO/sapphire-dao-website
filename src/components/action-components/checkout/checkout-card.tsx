@@ -45,8 +45,11 @@ interface CheckoutCardProps {
 const CheckoutCard = ({ data, isMetaInvoice }: CheckoutCardProps) => {
   const router = useRouter();
   const { address } = useAccount();
+
   const [open, setOpen] = useState(false);
   const [selectedToken, setSelectedToken] = useState("");
+
+  const [countdown, setCountdown] = useState(6);
 
   const { payAdvancedInvoice, isLoading, refetchInvoiceData } =
     useContext(ContractContext);
@@ -67,25 +70,33 @@ const CheckoutCard = ({ data, isMetaInvoice }: CheckoutCardProps) => {
     const tokenAddress = selectedToken as Address;
     const amount = BigInt(data.price);
 
-    const success = await payAdvancedInvoice(
-      paymentType,
-      amount,
-      data.orderId,
-      tokenAddress
-    );
-
-    if (success) {
+    if (
+      await payAdvancedInvoice(paymentType, amount, data.orderId, tokenAddress)
+    ) {
       setOpen(true);
-      await new Promise((resolve) => setTimeout(resolve, 6000));
-      
-      await refetchInvoiceData?.();
-      router.push("marketplace-dashboard/?tab=buyer");
+      setCountdown(6);
+
+      const interval = setInterval(() => {
+        setCountdown((prev) => {
+          const next = prev - 1;
+
+          if (next <= 0) {
+            clearInterval(interval);
+
+            (async () => {
+              await refetchInvoiceData?.();
+              router.push("/marketplace-dashboard/?tab=buyer");
+            })();
+          }
+
+          return next;
+        });
+      }, 1000);
     }
   };
 
   return (
     <>
-      {/* Main Checkout Card */}
       <Card className="w-[350px]">
         <CardHeader>
           <CardTitle>Pay Invoice</CardTitle>
@@ -94,6 +105,7 @@ const CheckoutCard = ({ data, isMetaInvoice }: CheckoutCardProps) => {
 
         <CardContent>
           <div className="grid gap-4">
+            {/* Request Amount */}
             <div className="flex flex-col space-y-2">
               <Label>Request Amount</Label>
               <Input
@@ -106,6 +118,7 @@ const CheckoutCard = ({ data, isMetaInvoice }: CheckoutCardProps) => {
               />
             </div>
 
+            {/* Token Selector */}
             <div className="flex flex-col space-y-2 mt-3">
               <Label>Payment Token</Label>
               <Select value={selectedToken} onValueChange={setSelectedToken}>
@@ -154,7 +167,7 @@ const CheckoutCard = ({ data, isMetaInvoice }: CheckoutCardProps) => {
         </CardFooter>
       </Card>
 
-      {/* Success Popup (PaymentCard style) */}
+      {/* SUCCESS POPUP */}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogPortal>
           <DialogOverlay className="fixed inset-0 bg-black/50" />
@@ -175,8 +188,11 @@ const CheckoutCard = ({ data, isMetaInvoice }: CheckoutCardProps) => {
             <p className="text-gray-600 mb-2">
               Your payment has been processed successfully.
             </p>
+
+            {/* Countdown */}
             <p className="text-sm text-gray-500">
-              Redirecting to <span className="font-medium">Dashboard</span>...
+              Redirecting to <span className="font-medium">Dashboard</span> in{" "}
+              <span className="font-bold">{countdown}</span>s...
             </p>
           </DialogContent>
         </DialogPortal>

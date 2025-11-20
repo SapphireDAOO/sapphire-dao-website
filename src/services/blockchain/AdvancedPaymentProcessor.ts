@@ -21,7 +21,6 @@ export const payAdvancedInvoice = async (
   chainId: number,
   owner: Address,
   setIsLoading: (value: string) => void,
-  getInvoiceData: () => Promise<void>
 ): Promise<boolean> => {
   setIsLoading(paymentType);
 
@@ -73,8 +72,6 @@ export const payAdvancedInvoice = async (
     });
 
     if (receipt?.status === "success") {
-      toast.success("Invoice Payment Successful");
-      await getInvoiceData();
       success = true;
     } else {
       toast.error("Transaction failed. Please try again.");

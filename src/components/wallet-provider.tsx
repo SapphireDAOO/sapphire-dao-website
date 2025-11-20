@@ -87,8 +87,7 @@ const WalletProvider = ({ children }: Props) => {
                 paymentToken,
                 chainId,
                 address,
-                setIsLoading,
-                getInvoiceData
+                setIsLoading
               )
             : Promise.resolve(false),
         setMarketplaceAddress: (address: Address) =>
