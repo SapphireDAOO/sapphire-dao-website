@@ -35,7 +35,7 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
   const [open, setOpen] = useState(false);
   const [userIsCreator, setUserIsCreator] = useState(false);
 
-  const [countdown, setCountdown] = useState(6);
+  const [countdown, setCountdown] = useState(8);
 
   const orderId = data?.orderId;
   const { data: invoiceData } = useGetInvoiceData(orderId);
@@ -69,7 +69,7 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
       if (await makeInvoicePayment(invoiceData.price, orderId)) {
         setOpen(true);
 
-        setCountdown(6);
+        setCountdown(8);
 
         const interval = setInterval(() => {
           setCountdown((prev) => {

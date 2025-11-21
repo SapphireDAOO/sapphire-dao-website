@@ -142,7 +142,7 @@ export const sellerAction = async (
     });
 
     if (receipt?.status) {
-      await new Promise((resolve) => setTimeout(resolve, 6000));
+      await new Promise((resolve) => setTimeout(resolve, 8000));
 
       toast.dismiss(progressToastId);
 
@@ -197,7 +197,7 @@ export const cancelInvoice = async (
     });
 
     if (receipt?.status) {
-      await new Promise((resolve) => setTimeout(resolve, 6000));
+      await new Promise((resolve) => setTimeout(resolve, 8000));
       toast.dismiss(progressToastId);
 
       success = true;

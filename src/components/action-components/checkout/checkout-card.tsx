@@ -49,7 +49,7 @@ const CheckoutCard = ({ data, isMetaInvoice }: CheckoutCardProps) => {
   const [open, setOpen] = useState(false);
   const [selectedToken, setSelectedToken] = useState("");
 
-  const [countdown, setCountdown] = useState(6);
+  const [countdown, setCountdown] = useState(8);
 
   const { payAdvancedInvoice, isLoading, refetchInvoiceData } =
     useContext(ContractContext);
@@ -74,7 +74,7 @@ const CheckoutCard = ({ data, isMetaInvoice }: CheckoutCardProps) => {
       await payAdvancedInvoice(paymentType, amount, data.orderId, tokenAddress)
     ) {
       setOpen(true);
-      setCountdown(6);
+      setCountdown(8);
 
       const interval = setInterval(() => {
         setCountdown((prev) => {
