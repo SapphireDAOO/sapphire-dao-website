@@ -19,7 +19,7 @@ import {
   PopoverContent,
 } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { CalendarDays } from "lucide-react";
+import { CalendarDays, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MarketplaceCard } from "./invoices/advanced-invoices";
 import { InvoiceCard } from "./invoices/simple-invoices";
@@ -34,6 +34,7 @@ export default function IndexRecentPayment({
   const [filter, setFilter] = useState("All");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   const [page, setPage] = useState(1);
   const pageSize = 9;
@@ -51,7 +52,12 @@ export default function IndexRecentPayment({
 
   useEffect(() => {
     setPage(1);
-    refetchInvoiceData?.(); // <-- Force fetch on tab switch
+
+    (async () => {
+      setIsLoading(true);
+      await refetchInvoiceData?.();
+      setIsLoading(false);
+    })();
   }, [filter, selectedDate, isMarketplaceTab, activeTab, refetchInvoiceData]);
 
   const handleTabChange = useCallback(
@@ -174,6 +180,17 @@ export default function IndexRecentPayment({
                 }}
               />
 
+              <div className="w-full flex justify-end mt-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => refetchInvoiceData?.()}
+                  className="flex items-center gap-2"
+                >
+                  <RotateCcw className="h-4 w-4" />
+                </Button>
+              </div>
+
               <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
                 <div className="flex items-center justify-end gap-2 w-full">
                   <Popover>
@@ -265,9 +282,17 @@ export default function IndexRecentPayment({
                   ))
                 ) : (
                   <div className="w-full text-center py-10 text-gray-500 border rounded-lg">
-                    {selectedDate
-                      ? `No invoices found on ${selectedDate.toDateString()}`
-                      : "No Invoice found"}
+                    {isLoading ? (
+                      <div className="w-full text-center py-10 text-gray-500 border rounded-lg">
+                        <span className="animate-pulse">Loading...</span>
+                      </div>
+                    ) : (
+                      <div className="w-full text-center py-10 text-gray-500 border rounded-lg">
+                        {selectedDate
+                          ? `No invoices found on ${selectedDate.toDateString()}`
+                          : "No Invoice found"}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
