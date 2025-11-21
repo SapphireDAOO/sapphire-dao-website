@@ -80,6 +80,7 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
 
               (async () => {
                 await refetchInvoiceData?.();
+                await new Promise((resolve) => setTimeout(resolve, 1500));
                 router.push("/dashboard?tab=buyer");
               })();
             }
