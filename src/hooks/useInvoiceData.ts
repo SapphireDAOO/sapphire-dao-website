@@ -4,7 +4,6 @@ import {
   GET_ALL_INVOICES,
   invoiceQuery,
   invoiceOwnerQuery,
-  META_QUERY,
 } from "@/services/graphql/queries";
 import { useAccount, usePublicClient } from "wagmi";
 import { unixToGMT } from "@/utils";
@@ -123,39 +122,6 @@ export const useInvoiceData = () => {
       if (error) {
         console.log(error.message);
       }
-
-      const { data: meta } = await client(chainId)
-        .query(META_QUERY, {}, { requestPolicy: "network-only" })
-        .toPromise();
-
-      const subgraphBlock = meta?._meta?.block?.number;
-      const latestChainBlock = await publicClient?.getBlockNumber();
-
-      let isSynced;
-      if (latestChainBlock) {
-        isSynced = Number(subgraphBlock) >= Number(latestChainBlock) - 1;
-
-        if (!isSynced) {
-          let retries = 5;
-          while (retries > 0 && !isSynced) {
-            await new Promise((r) => setTimeout(r, 3000));
-            console.log(retries);
-            const { data: meta } = await client(chainId)
-              .query(META_QUERY, {}, { requestPolicy: "network-only" })
-              .toPromise();
-
-            const updatedSubgraphBlock = meta?._meta?.block?.number;
-            isSynced = updatedSubgraphBlock >= latestChainBlock - BigInt(2);
-            retries--;
-          }
-
-          if (!isSynced) {
-            console.warn("Subgraph still not synced after retries.");
-          }
-        }
-      }
-
-      //
 
       // Process created invoices
       const createdInvoice: UserCreatedInvoice[] =

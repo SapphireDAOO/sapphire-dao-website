@@ -20,7 +20,7 @@ export const payAdvancedInvoice = async (
   paymentToken: Address,
   chainId: number,
   owner: Address,
-  setIsLoading: (value: string) => void,
+  setIsLoading: (value: string) => void
 ): Promise<boolean> => {
   setIsLoading(paymentType);
 
@@ -69,6 +69,7 @@ export const payAdvancedInvoice = async (
 
     const receipt = await publicClient?.waitForTransactionReceipt({
       hash: tx,
+      confirmations: 1,
     });
 
     if (receipt?.status === "success") {
@@ -120,6 +121,7 @@ export const createDispute = async (
 
     const receipt = await publicClient?.waitForTransactionReceipt({
       hash: tx,
+      confirmations: 3,
     });
 
     if (receipt?.status) {

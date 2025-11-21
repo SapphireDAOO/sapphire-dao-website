@@ -7,10 +7,9 @@ const walletConnectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID!;
 const config = createConfig(
   getDefaultConfig({
     chains: [sepolia],
+
     transports: {
-      [sepolia.id]: fallback([
-        http(`https://sepolia.infura.io/v3/${apiKey}`),
-      ]),
+      [sepolia.id]: fallback([http(`https://sepolia.infura.io/v3/${apiKey}`)]),
     },
     // Define the application name displayed in wallets
     appName: "Sapphire DAO Invoice",
@@ -18,4 +17,5 @@ const config = createConfig(
     walletConnectProjectId: walletConnectId,
   })
 );
+
 export default config;

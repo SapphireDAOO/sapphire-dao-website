@@ -41,7 +41,9 @@ export const createInvoice = async (
 
     const receipt = await publicClient?.waitForTransactionReceipt({
       hash: tx,
+      confirmations: 3,
     });
+
     if (receipt?.status) {
       return receipt?.logs[0].topics[1];
     } else {
@@ -88,6 +90,7 @@ export const makeInvoicePayment = async (
 
     const receipt = await publicClient?.waitForTransactionReceipt({
       hash: tx,
+      confirmations: 3,
     });
 
     if (receipt?.status === "success") {
@@ -139,11 +142,10 @@ export const sellerAction = async (
 
     const receipt = await publicClient?.waitForTransactionReceipt({
       hash: tx,
+      confirmations: 3,
     });
 
     if (receipt?.status) {
-      await new Promise((resolve) => setTimeout(resolve, 8000));
-
       toast.dismiss(progressToastId);
 
       success = true;
@@ -194,10 +196,10 @@ export const cancelInvoice = async (
 
     const receipt = await publicClient?.waitForTransactionReceipt({
       hash: tx,
+      confirmations: 3,
     });
 
     if (receipt?.status) {
-      await new Promise((resolve) => setTimeout(resolve, 8000));
       toast.dismiss(progressToastId);
 
       success = true;
