@@ -170,7 +170,7 @@ export default function IndexRecentPayment({
                   "AWAITING PAYMENT",
                   "PAID",
                   "ACCEPTED",
-                  "REJECTED",
+                  "REFUNDED",
                   "CANCELLED",
                   "RELEASED",
                 ]}

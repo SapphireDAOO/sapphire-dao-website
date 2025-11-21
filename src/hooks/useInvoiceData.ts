@@ -142,8 +142,7 @@ export const useInvoiceData = () => {
           orderId: invoice.id,
           createdAt: invoice.createdAt ? unixToGMT(invoice.createdAt) : null,
           paidAt: invoice.paidAt || "Not Paid",
-          status:
-            invoice.state === "CREATED" ? "AWAITING PAYMENT" : invoice.state,
+          status: sortState(invoice.state),
           price: invoice.price ? formatEther(invoice.price) : null,
           amountPaid: invoice.amountPaid
             ? formatEther(invoice.amountPaid)
@@ -167,8 +166,7 @@ export const useInvoiceData = () => {
           orderId: invoice.id,
           createdAt: invoice.createdAt ? unixToGMT(invoice.createdAt) : null,
           paidAt: invoice.paidAt || "Not Paid",
-          status:
-            invoice.state === "CREATED" ? "AWAITING PAYMENT" : invoice.state,
+          status: sortState(invoice.state),
           price: invoice.price ? formatEther(invoice.price) : null,
           amountPaid: invoice.amountPaid
             ? formatEther(invoice.amountPaid)
@@ -339,4 +337,16 @@ const sortHistory = (status?: string[], time?: string[]): History[] => {
   }
 
   return history;
+};
+
+const sortState = (state: string): string => {
+  if (state === "CREATED") {
+    return "AWAITING PAYMENT";
+  }
+
+  if (state === "REJECTED") {
+    return "REFUNDED";
+  }
+
+  return state;
 };

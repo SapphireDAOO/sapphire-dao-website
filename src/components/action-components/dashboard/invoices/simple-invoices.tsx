@@ -107,11 +107,10 @@ export function InvoiceCard({
     "AWAITING PAYMENT": "bg-yellow-100 text-yellow-800",
     PAID: "bg-orange-100 text-orange-800",
     ACCEPTED: "bg-green-100 text-green-800",
-    REJECTED: "bg-red-100 text-red-800",
+    // REJECTED: "bg-red-100 text-red-800",
     CANCELLED: "bg-gray-100 text-gray-800",
     RELEASED: "bg-purple-100 text-purple-800",
     REFUNDED: "bg-indigo-100 text-indigo-800",
-    DISPUTED: "bg-pink-100 text-pink-800",
     "Dispute Resolved": "bg-teal-100 text-teal-800",
     Unknown: "bg-gray-100 text-gray-600",
   };
@@ -191,7 +190,7 @@ export function InvoiceCard({
         )}
 
         {/* Rejected state: show rejection info */}
-        {invoice.status === "REJECTED" && (
+        {invoice.status === "REFUNDED" && (
           <>
             <InvoiceField
               label="Contract"
@@ -232,7 +231,7 @@ export function InvoiceCard({
         )}
 
         {/* Notes in collapsed view (only for REJECTED or with notes) */}
-        {invoice.status === "REJECTED" &&
+        {invoice.status === "REFUNDED" &&
           notesToDisplay.map((note) => (
             <div
               key={note.id}
@@ -268,7 +267,7 @@ export function InvoiceCard({
       {isExpanded && (
         <CardContent className="border-t pt-4 space-y-4 text-sm text-gray-800">
           {/* Core Fields */}
-          {invoice.contract && invoice.status !== "REJECTED" && (
+          {invoice.contract && invoice.status !== "REFUNDED" && (
             <InvoiceField
               label="Contract"
               value={renderContractLink(invoice.contract)}
@@ -277,7 +276,7 @@ export function InvoiceCard({
             />
           )}
 
-          {invoice.seller && invoice.status !== "REJECTED" && (
+          {invoice.seller && invoice.status !== "REFUNDED" && (
             <InvoiceField
               label="Creator"
               value={renderContractLink(invoice.seller)}
@@ -286,7 +285,7 @@ export function InvoiceCard({
             />
           )}
 
-          {invoice.buyer && invoice.status !== "REJECTED" && (
+          {invoice.buyer && invoice.status !== "REFUNDED" && (
             <InvoiceField
               label="Payer"
               value={renderContractLink(invoice.buyer)}
@@ -295,7 +294,7 @@ export function InvoiceCard({
             />
           )}
 
-          {invoice.price && invoice.status !== "REJECTED" && (
+          {invoice.price && invoice.status !== "REFUNDED" && (
             <InvoiceField
               label="Invoice Amount"
               value={`${invoice.price} ETH`}
@@ -303,7 +302,7 @@ export function InvoiceCard({
             />
           )}
 
-          {invoice.amountPaid && invoice.status !== "REJECTED" && (
+          {invoice.amountPaid && invoice.status !== "REFUNDED" && (
             <InvoiceField
               label="Amount Paid"
               value={`${invoice.amountPaid} ETH`}
