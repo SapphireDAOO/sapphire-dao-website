@@ -24,6 +24,25 @@ import { Button } from "@/components/ui/button";
 import { MarketplaceCard } from "./invoices/advanced-invoices";
 import { InvoiceCard } from "./invoices/simple-invoices";
 
+const marketplaceFilters = [
+  "All",
+  "AWAITING PAYMENT",
+  "PAID",
+  "REFUNDED",
+  "CANCELLED",
+  "RELEASED",
+];
+
+const simpleFilters = [
+  "All",
+  "AWAITING PAYMENT",
+  "PAID",
+  "ACCEPTED",
+  "REFUNDED",
+  "CANCELLED",
+  "RELEASED",
+];
+
 export default function IndexRecentPayment({
   isMarketplaceTab,
 }: {
@@ -165,15 +184,7 @@ export default function IndexRecentPayment({
               )}
 
               <FilterTabs
-                filters={[
-                  "All",
-                  "AWAITING PAYMENT",
-                  "PAID",
-                  "ACCEPTED",
-                  "REFUNDED",
-                  "CANCELLED",
-                  "RELEASED",
-                ]}
+                filters={isMarketplaceTab ? marketplaceFilters : simpleFilters}
                 onSelect={(value) => {
                   setFilter(value);
                   setPage(1);

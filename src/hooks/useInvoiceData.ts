@@ -5,7 +5,7 @@ import {
   invoiceQuery,
   invoiceOwnerQuery,
 } from "@/services/graphql/queries";
-import { useAccount, usePublicClient } from "wagmi";
+import { useAccount } from "wagmi";
 import { unixToGMT } from "@/utils";
 import { ETHEREUM_SEPOLIA } from "@/constants";
 import {
@@ -26,7 +26,6 @@ import { client } from "@/services/graphql/client";
 export const useInvoiceData = () => {
   const { chain, address } = useAccount();
   const chainId = chain?.id || ETHEREUM_SEPOLIA;
-  const publicClient = usePublicClient();
   const [invoiceData, setInvoiceData] = useState<Invoice[]>([]);
   const [allInvoiceData, setAllInvoiceData] = useState<AllInvoicesData>({
     invoices: [],
@@ -68,6 +67,7 @@ export const useInvoiceData = () => {
         status: list.status === "CREATED" ? "AWAITING PAYMENT" : list.status,
         creationTxHash: list.creationTxHash,
         commisionTxHash: list.commisionTxHash,
+        refundTxHash: list.refundTxHash,
       }));
 
       const actions: AdminAction[] = rawAdminActions.map((list: any) => ({
@@ -99,6 +99,7 @@ export const useInvoiceData = () => {
           status: list.state === "CREATED" ? "AWAITING PAYMENT" : list.status,
           creationTxHash: list.creationTxHash,
           commisionTxHash: list.commisionTxHash,
+          refundTxHash: list.refundTxHash,
         })
       );
 
@@ -156,6 +157,7 @@ export const useInvoiceData = () => {
           releaseAt: invoice.releasedAt,
           source: "Simple",
           history: sortHistory(invoice.history, invoice.historyTime),
+          refundTxHash: invoice.refundTxHash,
         })
       );
 
@@ -179,6 +181,7 @@ export const useInvoiceData = () => {
           buyer: invoice.buyer?.id ?? "",
           source: "Simple",
           history: sortHistory(invoice.history, invoice.historyTime),
+          refundTxHash: invoice.refundTxHash,
         })
       );
 
@@ -205,6 +208,7 @@ export const useInvoiceData = () => {
           source: "Marketplace",
           paymentToken: invoice.paymentToken?.id ?? "",
           cancelAt: invoice.cancelAt,
+          refundTxHash: invoice.refundTxHash,
         })
       );
 
@@ -230,6 +234,7 @@ export const useInvoiceData = () => {
           source: "Marketplace",
           paymentToken: invoice.paymentToken?.id ?? "",
           cancelAt: invoice.cancelAt,
+          refundTxHash: invoice.refundTxHash,
         }));
 
       // Combine created and paid invoices into a single list
@@ -249,7 +254,7 @@ export const useInvoiceData = () => {
     } catch (error) {
       console.error("Error fetching invoice data:", error);
     }
-  }, [address, chainId, publicClient]);
+  }, [address, chainId]);
 
   const getInvoiceOwner = async (id: string): Promise<string> => {
     const { data, error } = await client(chainId)

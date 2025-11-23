@@ -353,6 +353,20 @@ export const renderContractLink = (address?: string) => {
   );
 };
 
+export const renderTx = (txHash?: string, display?: string) => {
+  if (!txHash) return <span className="text-gray-500">—</span>;
+  return (
+    <a
+      href={`https://sepolia.etherscan.io/tx/${txHash}`}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="text-blue-600 underline hover:text-blue-800"
+    >
+      {display ? display : txHash}
+    </a>
+  );
+};
+
 export const InvoiceField = ({
   label,
   value,

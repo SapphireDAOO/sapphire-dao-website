@@ -19,6 +19,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { renderTx } from "./advanced-invoices";
 
 const mockNote: Note = {
   id: "note-001",
@@ -206,7 +207,10 @@ export function InvoiceCard({
             />
             <InvoiceField
               label="Amount Paid"
-              value={`${invoice.amountPaid} ETH`}
+              value={renderTx(
+                invoice.refundTxHash,
+                `${invoice.amountPaid} ETH`
+              )}
               description="The amount already paid into escrow by the buyer."
             />
             {isBuyerView && (
@@ -305,7 +309,10 @@ export function InvoiceCard({
           {invoice.amountPaid && invoice.status !== "REFUNDED" && (
             <InvoiceField
               label="Amount Paid"
-              value={`${invoice.amountPaid} ETH`}
+              value={renderTx(
+                invoice.paymentTxHash!,
+                `${invoice.amountPaid} ETH`
+              )}
               description="The amount already paid into escrow by the buyer."
             />
           )}
