@@ -70,6 +70,7 @@ export const invoiceQuery = `query ($address: String!) {
       price
       releaseHash
       releasedAt
+      refundTxHash
       state
       buyer {
         id
@@ -91,6 +92,7 @@ export const invoiceQuery = `query ($address: String!) {
       paymentTxHash
       price
       releaseHash
+      refundTxHash
       releasedAt
       state
       seller {
@@ -112,6 +114,7 @@ export const invoiceQuery = `query ($address: String!) {
       price
       releasedAt
       state
+      refundTxHash
       paymentToken {
         id
       }
@@ -133,6 +136,7 @@ export const invoiceQuery = `query ($address: String!) {
       price
       releasedAt
       state
+      refundTxHash
       paymentToken {
         id
       }

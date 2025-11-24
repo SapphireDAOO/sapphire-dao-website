@@ -298,14 +298,6 @@ export function InvoiceCard({
             />
           )}
 
-          {invoice.price && invoice.status !== "REFUNDED" && (
-            <InvoiceField
-              label="Invoice Amount"
-              value={`${invoice.price} ETH`}
-              description="Total amount requested by the seller (excluding gas and protocol fees)."
-            />
-          )}
-
           {invoice.amountPaid && invoice.status !== "REFUNDED" && (
             <InvoiceField
               label="Amount Paid"

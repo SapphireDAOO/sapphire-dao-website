@@ -253,13 +253,6 @@ export function MarketplaceCard({
             />
           )}
 
-          {/* Amount */}
-          <InvoiceField
-            label="Invoice Amount"
-            value={`$${amount}`}
-            description="Total requested by seller."
-          />
-
           {/* Amount Paid */}
           {invoice.amountPaid && (
             <InvoiceField
