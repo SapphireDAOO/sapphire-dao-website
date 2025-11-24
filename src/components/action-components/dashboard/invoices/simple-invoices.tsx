@@ -205,14 +205,27 @@ export function InvoiceCard({
               description="Seller or issuer who created this invoice."
               link="https://sapphiredao.gitbook.io/sapphiredao-docs/user-docs/publish-your-docs#seller"
             />
+
             <InvoiceField
               label="Amount Paid"
               value={renderTx(
-                invoice.refundTxHash,
+                invoice.paymentTxHash,
                 `${invoice.amountPaid} ETH`
               )}
               description="The amount already paid into escrow by the buyer."
             />
+
+            {invoice.status == "REFUNDED" && (
+              <InvoiceField
+                label="Amount Refunded"
+                value={renderTx(
+                  invoice.refundTxHash!,
+                  `${invoice.amountPaid} ETH`
+                )}
+                description="The amount returned to the buyer after refund."
+              />
+            )}
+
             {isBuyerView && (
               <p className="text-xs text-red-600 font-medium mt-2">
                 Order rejected by{" "}
