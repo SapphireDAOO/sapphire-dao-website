@@ -6,7 +6,7 @@ import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { ChevronDown, ChevronUp, Info } from "lucide-react";
-import { Invoice, Note } from "@/model/model";
+import { Invoice } from "@/model/model";
 import { formatAddress, timeLeft, unixToGMT } from "@/utils";
 import { toast } from "sonner";
 import generateSecureLink from "@/lib/generate-link";
@@ -20,13 +20,6 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { renderTx } from "./advanced-invoices";
-
-const mockNote: Note = {
-  id: "note-001",
-  sender: "0xA13f...B7E9",
-  message: "Payment confirmed. Shipping will begin tomorrow.",
-  timestamp: new Date().toLocaleString(),
-};
 
 const THREE_DAYS_IN_MS = 259_200_000;
 
@@ -79,7 +72,8 @@ export function InvoiceCard({
   }, [noteInput, onAddNote, invoice.id]);
 
   const paymentUrl = useMemo(() => {
-    if (!isExpanded || !invoice.orderId) return "";
+    if (!isExpanded || !invoice.orderId || typeof window === "undefined")
+      return "";
     try {
       const domain = window.location.origin;
       const encoded = generateSecureLink(invoice.orderId.toString());
@@ -89,8 +83,7 @@ export function InvoiceCard({
     }
   }, [isExpanded, invoice.orderId]);
 
-  const notesToDisplay =
-    invoice.notes && invoice.notes.length > 0 ? invoice.notes : [mockNote];
+  const notesToDisplay = invoice.notes && invoice.notes.length > 0 ? invoice.notes : [];
 
   const handleCopyLink = useCallback(() => {
     if (!paymentUrl) return;
@@ -215,7 +208,7 @@ export function InvoiceCard({
               description="The amount already paid into escrow by the buyer."
             />
 
-            {invoice.buyer && invoice.status == "REFUNDED" && (
+            {invoice.buyer && invoice.status !== "REFUNDED" && (
               <InvoiceField
                 label="Payer"
                 value={renderContractLink(invoice.buyer)}
