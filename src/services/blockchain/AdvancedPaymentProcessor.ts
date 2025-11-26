@@ -69,7 +69,7 @@ export const payAdvancedInvoice = async (
 
     const receipt = await publicClient?.waitForTransactionReceipt({
       hash: tx,
-      confirmations: 3,
+      confirmations: 2,
     });
 
     if (receipt?.status === "success") {
@@ -121,7 +121,7 @@ export const createDispute = async (
 
     const receipt = await publicClient?.waitForTransactionReceipt({
       hash: tx,
-      confirmations: 3,
+      confirmations: 2,
     });
 
     if (receipt?.status) {

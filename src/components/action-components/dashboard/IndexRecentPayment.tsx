@@ -19,7 +19,7 @@ import {
   PopoverContent,
 } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { CalendarDays, RotateCcw } from "lucide-react";
+import { CalendarDays } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MarketplaceCard } from "./invoices/advanced-invoices";
 import { InvoiceCard } from "./invoices/simple-invoices";
@@ -190,17 +190,6 @@ export default function IndexRecentPayment({
                   setPage(1);
                 }}
               />
-
-              <div className="w-full flex justify-end mt-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => refetchInvoiceData?.()}
-                  className="flex items-center gap-2"
-                >
-                  <RotateCcw className="h-4 w-4" />
-                </Button>
-              </div>
 
               <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
                 <div className="flex items-center justify-end gap-2 w-full">

@@ -60,7 +60,10 @@ export const useInvoiceData = () => {
   }, []);
 
   const getAllInvoiceData = useCallback(async (): Promise<AllInvoicesData> => {
-    if (Date.now() < nextAllowedRequestRef.current) {
+    if (
+      Date.now() < nextAllowedRequestRef.current &&
+      allInvoiceData.invoices.length > 0
+    ) {
       return allInvoiceData;
     }
 
@@ -176,7 +179,7 @@ export const useInvoiceData = () => {
   }, [chainId, allInvoiceData, handleRateLimit]);
 
   const getInvoiceData = useCallback(async () => {
-    if (Date.now() < nextAllowedRequestRef.current) {
+    if (Date.now() < nextAllowedRequestRef.current && invoiceData.length > 0) {
       return;
     }
 
@@ -355,7 +358,7 @@ export const useInvoiceData = () => {
         handleRateLimit((error as any).message);
       }
     }
-  }, [address, chainId, handleRateLimit]);
+  }, [address, chainId, handleRateLimit, invoiceData.length]);
 
   const getInvoiceOwner = async (id: string): Promise<string> => {
     // Respect rate-limit backoff
