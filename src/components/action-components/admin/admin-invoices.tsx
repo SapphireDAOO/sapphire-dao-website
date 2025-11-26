@@ -1,6 +1,6 @@
 "use client";
 
-import { useContext } from "react";
+import { useContext, useEffect } from "react";
 import { ContractContext } from "@/context/contract-context";
 import { formatAddress } from "@/utils";
 import {
@@ -18,6 +18,7 @@ import allMarketplaceInvoices from "./allMarketplaceInvoicesColumns";
 
 import { useGetBalance } from "@/hooks/useGetBalance";
 import { Address } from "viem";
+import { useBlockNumber } from "wagmi";
 
 /**
  * Props for the ContractLink component.
@@ -69,7 +70,17 @@ const ContractLink: React.FC<ContractLinkProps> = ({
 };
 
 const AdminInvoices = () => {
-  const { allInvoiceData } = useContext(ContractContext);
+  const { allInvoiceData, refreshAdminData } = useContext(ContractContext);
+  const { data: latestBlock } = useBlockNumber({ watch: true });
+
+  useEffect(() => {
+    refreshAdminData?.(true);
+  }, [refreshAdminData]);
+
+  useEffect(() => {
+    if (latestBlock === undefined) return;
+    refreshAdminData?.();
+  }, [latestBlock, refreshAdminData]);
 
   return (
     <div className="container mx-auto">

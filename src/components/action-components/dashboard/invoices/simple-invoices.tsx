@@ -215,6 +215,15 @@ export function InvoiceCard({
               description="The amount already paid into escrow by the buyer."
             />
 
+            {invoice.buyer && invoice.status == "REFUNDED" && (
+              <InvoiceField
+                label="Payer"
+                value={renderContractLink(invoice.buyer)}
+                description="The buyer or payer responsible for completing the transaction."
+                link="https://sapphiredao.gitbook.io/sapphiredao-docs/user-docs/publish-your-docs#buyer"
+              />
+            )}
+
             {invoice.status == "REFUNDED" && (
               <InvoiceField
                 label="Amount Refunded"

@@ -69,7 +69,7 @@ export const payAdvancedInvoice = async (
 
     const receipt = await publicClient?.waitForTransactionReceipt({
       hash: tx,
-      confirmations: 1,
+      confirmations: 3,
     });
 
     if (receipt?.status === "success") {
@@ -94,7 +94,7 @@ export const createDispute = async (
 ): Promise<boolean> => {
   setIsLoading("createDispute");
   let success = false;
-  let progressToastId: string | number | undefined;
+  // let progressToastId: string | number | undefined;
 
   try {
     const gasPrice = await fetchGasPrice(publicClient, chainId);
@@ -115,9 +115,9 @@ export const createDispute = async (
       return false;
     }
 
-    progressToastId = toast.info("Transaction in progress...", {
-      duration: Infinity,
-    });
+    // progressToastId = toast.info("Transaction in progress...", {
+    //   duration: Infinity,
+    // });
 
     const receipt = await publicClient?.waitForTransactionReceipt({
       hash: tx,
@@ -125,16 +125,16 @@ export const createDispute = async (
     });
 
     if (receipt?.status) {
-      toast.dismiss(progressToastId);
+      // toast.dismiss(progressToastId);
       toast.success("Dispute Raised");
       await getInvoiceData();
       success = true;
     } else {
-      toast.dismiss(progressToastId);
+      // toast.dismiss(progressToastId);
       toast.error("An unexpected error occurred. Please try again");
     }
   } catch (error) {
-    toast.dismiss(progressToastId);
+    // toast.dismiss(progressToastId);
     getError(error);
   }
   setIsLoading("");
@@ -149,7 +149,7 @@ export const setMarketplaceAddress = async (
 ): Promise<any> => {
   setIsLoading("setMarketplaceAddress");
   let success = false;
-  let progressToastId: string | number | undefined;
+  // let progressToastId: string | number | undefined;
 
   try {
     const gasPrice = await fetchGasPrice(publicClient, chainId);
@@ -170,24 +170,24 @@ export const setMarketplaceAddress = async (
       return false;
     }
 
-    progressToastId = toast.info("Transaction in progress...", {
-      duration: Infinity,
-    });
+    // progressToastId = toast.info("Transaction in progress...", {
+    //   duration: Infinity,
+    // });
 
     const receipt = await publicClient?.waitForTransactionReceipt({
       hash: tx,
     });
 
     if (receipt?.status) {
-      toast.dismiss(progressToastId);
+      // toast.dismiss(progressToastId);
       toast.success("Successfully set new address");
       success = true;
     } else {
-      toast.dismiss(progressToastId);
+      // toast.dismiss(progressToastId);
       toast.error("Failed to set new address. Please try again");
     }
   } catch (error) {
-    toast.dismiss(progressToastId);
+    // toast.dismiss(progressToastId);
     getError(error);
   }
   setIsLoading("");

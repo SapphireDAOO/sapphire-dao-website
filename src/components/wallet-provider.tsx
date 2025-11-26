@@ -48,6 +48,7 @@ const WalletProvider = ({ children }: Props) => {
     refetchAllInvoiceData,
     refetchInvoiceData,
     getInvoiceData,
+    refreshAdminData,
   } = useInvoiceData();
 
   return (
@@ -159,6 +160,7 @@ const WalletProvider = ({ children }: Props) => {
         ) => fetchAdvancedInvoiceData(orderId, query, type),
         refetchAllInvoiceData,
         refetchInvoiceData,
+        refreshAdminData,
       }}
     >
       {children}

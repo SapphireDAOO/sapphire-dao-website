@@ -1,6 +1,18 @@
 export const GET_ALL_INVOICES = `
-  query {
-    invoices {
+  query GetAllInvoices(
+    $skipInvoices: Int! = 0
+    $firstInvoices: Int! = 50
+    $skipActions: Int! = 0
+    $firstActions: Int! = 50
+    $skipSmartInvoices: Int! = 0
+    $firstSmartInvoices: Int! = 50
+  ) {
+    invoices(
+      first: $firstInvoices
+      skip: $skipInvoices
+      orderBy: createdAt
+      orderDirection: desc
+    ) {
       contract
       createdAt
       fee
@@ -22,7 +34,12 @@ export const GET_ALL_INVOICES = `
         id
       }
     }
-    adminActions {
+    adminActions(
+      first: $firstActions
+      skip: $skipActions
+      orderBy: time
+      orderDirection: desc
+    ) {
       id
       invoiceId
       time
@@ -31,7 +48,12 @@ export const GET_ALL_INVOICES = `
       balance
       txHash
     }
-  smartInvoices {
+    smartInvoices(
+      first: $firstSmartInvoices
+      skip: $skipSmartInvoices
+      orderBy: createdAt
+      orderDirection: desc
+    ) {
       contract
       createdAt
       id
@@ -56,9 +78,24 @@ export const GET_ALL_INVOICES = `
 `;
 
 // GraphQL query to fetch invoices for a specific user
-export const invoiceQuery = `query ($address: String!) {
+export const invoiceQuery = `query (
+  $address: String!
+  $firstOwned: Int! = 50
+  $skipOwned: Int! = 0
+  $firstPaid: Int! = 50
+  $skipPaid: Int! = 0
+  $firstIssued: Int! = 50
+  $skipIssued: Int! = 0
+  $firstReceived: Int! = 50
+  $skipReceived: Int! = 0
+) {
   user (id: $address) {
-    ownedInvoices (orderBy: lastActionTime, orderDirection: desc) {
+    ownedInvoices (
+      first: $firstOwned
+      skip: $skipOwned
+      orderBy: lastActionTime
+      orderDirection: desc
+    ) {
       amountPaid
       contract
       createdAt
@@ -81,7 +118,12 @@ export const invoiceQuery = `query ($address: String!) {
       history
       historyTime
     }
-    paidInvoices (orderBy: lastActionTime, orderDirection: desc) {
+    paidInvoices (
+      first: $firstPaid
+      skip: $skipPaid
+      orderBy: lastActionTime
+      orderDirection: desc
+    ) {
       amountPaid
       contract
       createdAt
@@ -104,7 +146,12 @@ export const invoiceQuery = `query ($address: String!) {
       history
       historyTime
     }
-    issuedInvoices (orderBy: lastActionTime, orderDirection: desc) {
+    issuedInvoices (
+      first: $firstIssued
+      skip: $skipIssued
+      orderBy: lastActionTime
+      orderDirection: desc
+    ) {
       amountPaid
       contract
       createdAt
@@ -126,7 +173,12 @@ export const invoiceQuery = `query ($address: String!) {
         id
       }
     }
-    receivedInvoices (orderBy: lastActionTime, orderDirection: desc) {
+    receivedInvoices (
+      first: $firstReceived
+      skip: $skipReceived
+      orderBy: lastActionTime
+      orderDirection: desc
+    ) {
       amountPaid
       contract
       createdAt
@@ -177,3 +229,30 @@ export const META_QUERY = `{
     }
   }
 }`;
+
+export const INVOICE_SUBSCRIPTION = `
+subscription {
+  invoices {
+    id
+    invoiceId
+    contract
+    seller {
+      id
+    }
+    buyer {
+      id
+    }
+    state
+    createdAt
+    paidAt
+    releasedAt
+    paymentTxHash
+    releaseHash
+    price
+    amountPaid
+    fee
+    creationTxHash
+    commisionTxHash
+  }
+}
+`;

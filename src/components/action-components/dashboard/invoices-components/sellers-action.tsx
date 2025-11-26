@@ -37,16 +37,17 @@ const SellersAction = ({ orderId, state, text }: SellersActionProps) => {
     }
   };
 
-  const isActionLoading =
-    localLoading ||
-    (state && isLoading === "accepted") ||
-    (!state && isLoading === "rejected");
+  const actionType = state ? "Accepted" : "Rejected";
+  const isSellerActionInFlight =
+    isLoading === "Accepted" || isLoading === "Rejected";
+  const isActionLoading = localLoading || isLoading === actionType;
+  const disableButton = isSellerActionInFlight || isActionLoading;
 
   return (
     <Button
       size="sm"
       onClick={handleClick}
-      disabled={isActionLoading}
+      disabled={disableButton}
       className={`min-w-[130px] justify-center ${
         state
           ? "bg-green-600 hover:bg-green-700"

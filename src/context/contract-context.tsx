@@ -44,6 +44,7 @@ export interface ContractContextData {
   setMarketplaceAddress: (marketplaceAddress: Address) => Promise<any>;
   refetchInvoiceData?: () => Promise<void>;
   refetchAllInvoiceData?: () => Promise<void>;
+  refreshAdminData?: (force?: boolean) => Promise<void>;
 }
 
 export const contractContextDefaults: ContractContextData = {
@@ -70,6 +71,7 @@ export const contractContextDefaults: ContractContextData = {
   setMinimumInvoiceValue: async () => Promise.resolve(false),
   refetchInvoiceData: async () => Promise.resolve(),
   refetchAllInvoiceData: async () => Promise.resolve(),
+  refreshAdminData: async () => Promise.resolve(),
   getInvoiceOwner: async () => Promise.resolve(""),
   getAdvancedInvoiceData: async () => Promise.resolve(""),
 };
