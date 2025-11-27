@@ -5,9 +5,10 @@ import { TokenData } from "@/model/model";
 import { client } from "@/services/graphql/client";
 import { paymentTokenQuery } from "@/services/graphql/queries";
 import { useChainId } from "wagmi";
+import { ETHEREUM_SEPOLIA } from "@/constants";
 
 export const useGetPaymentTokenData = (tokenId: string) => {
-  const chainId = useChainId();
+  const chainId = useChainId() || ETHEREUM_SEPOLIA;
   const [token, setToken] = useState<TokenData>({
     name: "",
     id: "",

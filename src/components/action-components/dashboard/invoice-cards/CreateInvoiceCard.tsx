@@ -18,7 +18,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useGetFeeRate } from "@/hooks/useGetFeeRate";
 import { ContractContext } from "@/context/contract-context";
-import { ConnectKitButton } from "connectkit";
+import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { parseUnits } from "viem";
 import { Info, Loader2 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
@@ -123,7 +123,7 @@ const InvoiceQRLink = React.memo(
 
     return (
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="w-1/2 max-w-lg">
+        <DialogContent className="w-[95vw] max-w-md sm:max-w-lg p-6 sm:p-8 rounded-xl">
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold">
               Invoice Created!
@@ -133,8 +133,8 @@ const InvoiceQRLink = React.memo(
             </DialogDescription>
           </DialogHeader>
 
-          <div className="flex flex-col items-center justify-center py-6 space-y-3">
-            <QRCodeSVG value={paymentUrl} size={200} level="H" includeMargin />
+          <div className="flex flex-col items-center justify-center py-6 space-y-4">
+            <QRCodeSVG value={paymentUrl} size={180} level="H" includeMargin />
 
             {contractAddress && (
               <p className="text-sm text-gray-700 text-center">
@@ -151,11 +151,15 @@ const InvoiceQRLink = React.memo(
             )}
           </div>
 
-          <DialogFooter className="flex gap-3 sm:justify-between">
+          <DialogFooter className="flex flex-col sm:flex-row gap-3 sm:justify-between">
             <DialogClose asChild>
-              <Button variant="secondary">Close</Button>
+              <Button variant="secondary" className="w-full sm:w-auto">
+                Close
+              </Button>
             </DialogClose>
-            <Button onClick={handleCopyLink}>Copy Link</Button>
+            <Button onClick={handleCopyLink} className="w-full sm:w-auto">
+              Copy Link
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -195,9 +199,10 @@ export default function CreateInvoiceDialog() {
       if (response) {
         setOrderId(response);
 
-        await refetchInvoiceData?.();
         setOpenCreate(false);
         setOpenQR(true);
+        // Refresh dashboard data after showing the QR to keep timing in sync
+        void refetchInvoiceData?.();
         toast.success("Invoice created successfully!");
       } else {
         toast.error("Failed to create invoice");
@@ -297,7 +302,7 @@ export default function CreateInvoiceDialog() {
               </Button>
             ) : (
               <div className="w-full sm:w-auto flex justify-center">
-                <ConnectKitButton mode="dark" />
+                <ConnectButton chainStatus="icon" showBalance={false} />
               </div>
             )}
           </DialogFooter>

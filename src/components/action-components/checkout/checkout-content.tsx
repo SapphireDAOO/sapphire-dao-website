@@ -86,10 +86,15 @@ const CheckoutPage = () => {
   const ZERO: bigint = BigInt(0);
   const { data: invoiceInfo } = useGetMarketplaceInvoiceData(orderId || ZERO);
   const { data: metaInvoice } = useGetMetaInvoice(orderId || ZERO);
+  const metaInvoicePrice =
+    (metaInvoice as { price?: bigint } | undefined)?.price;
+  const marketplaceInvoice = invoiceInfo as
+    | { invoiceId?: bigint; price?: bigint; paymentToken?: string }
+    | undefined;
 
   const isMetaInvoice = useMemo(() => {
-    return metaInvoice?.price != BigInt(0);
-  }, [metaInvoice]);
+    return metaInvoicePrice !== undefined && metaInvoicePrice !== BigInt(0);
+  }, [metaInvoicePrice]);
 
   // Step 3: Fetch invoice data dynamically
   useEffect(() => {
@@ -117,9 +122,9 @@ const CheckoutPage = () => {
           };
         } else {
           structured = {
-            id: invoiceInfo?.invoiceId.toString() ?? "",
+            id: marketplaceInvoice?.invoiceId?.toString() ?? "",
             orderId: orderId,
-            price: invoiceInfo?.price.toString() ?? "0",
+            price: marketplaceInvoice?.price?.toString() ?? "0",
             tokenList: paymentTokens,
           };
         }
@@ -132,12 +137,12 @@ const CheckoutPage = () => {
     loadInvoice();
   }, [
     orderId,
-    metaInvoice,
+    metaInvoicePrice,
     isMetaInvoice,
     getAdvancedInvoiceData,
-    invoiceInfo?.invoiceId,
-    invoiceInfo?.paymentToken,
-    invoiceInfo?.price,
+    marketplaceInvoice?.invoiceId,
+    marketplaceInvoice?.paymentToken,
+    marketplaceInvoice?.price,
   ]);
 
   // UI

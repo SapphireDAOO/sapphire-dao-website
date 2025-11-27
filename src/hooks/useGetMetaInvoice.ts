@@ -2,7 +2,9 @@ import { advancedPaymentProcessor } from "@/abis/AdvancedPaymentProcessor";
 import { ADVANCED_PAYMENT_PROCESSOR } from "@/constants";
 
 import { sepolia } from "viem/chains";
-import { useAccount, useChainId, useReadContract } from "wagmi";
+import { useAccount, useChainId } from "wagmi";
+import { useViemReadContract } from "./useViemReadContract";
+import { ETHEREUM_SEPOLIA } from "@/constants";
 
 /**
  * Custom hook to fetch a meta invoice from the AdvancedPaymentProcessor smart contract.
@@ -20,10 +22,10 @@ export const useGetMetaInvoice = (orderId: bigint) => {
   const { address } = useAccount();
 
   // Get the current chain ID using the wagmi `useChainId` hook
-  const chainId = useChainId();
+  const chainId = useChainId() || ETHEREUM_SEPOLIA;
 
   // Use the wagmi `useReadContract` hook to interact with the `getMetaInvoice` function of the AdvancedPaymentProcessor contract
-  const { data, refetch, isLoading } = useReadContract({
+  const { data, refetch, isLoading } = useViemReadContract({
     abi: advancedPaymentProcessor,
     chainId: sepolia.id,
     address: ADVANCED_PAYMENT_PROCESSOR[chainId],

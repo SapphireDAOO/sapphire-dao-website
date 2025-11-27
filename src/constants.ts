@@ -1,6 +1,6 @@
 import { ErrorMessages } from "./model/model";
 import type { Address } from "viem";
-import { sepolia } from "wagmi/chains";
+import { sepolia } from "viem/chains";
 
 export const POLYGON = 137;
 export const POLYGON_AMOY = 80_002;

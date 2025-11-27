@@ -1,7 +1,8 @@
 import { PaymentProcessorStorage } from "@/abis/PaymentProcessorStorage";
-import { PAYMENT_PROCESSOR_STORAGE } from "@/constants";
+import { ETHEREUM_SEPOLIA, PAYMENT_PROCESSOR_STORAGE } from "@/constants";
 import { sepolia } from "viem/chains";
-import { useChainId, useReadContract } from "wagmi";
+import { useChainId } from "wagmi";
+import { useViemReadContract } from "./useViemReadContract";
 
 /**
  * Custom hook to retrieve the fee receiver address from the PaymentProcessor smart contract.
@@ -13,10 +14,10 @@ import { useChainId, useReadContract } from "wagmi";
  */
 export const useGetFeeReceiver = () => {
   // Get the current chain ID using the wagmi `useChainId` hook
-  const chainId = useChainId();
+  const chainId = useChainId() || ETHEREUM_SEPOLIA;
 
   // Use the wagmi `useReadContract` hook to interact with the `getFeeReceiver` function of the PaymentProcessor contract
-  const { data, refetch, isLoading } = useReadContract({
+  const { data, refetch, isLoading } = useViemReadContract<string>({
     abi: PaymentProcessorStorage,
     chainId: sepolia.id,
     address: PAYMENT_PROCESSOR_STORAGE[chainId],

@@ -1,12 +1,35 @@
 "use client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { WagmiProvider } from "wagmi";
+import { RainbowKitProvider, darkTheme } from "@rainbow-me/rainbowkit";
 import config from "@/config";
-import { ConnectKitProvider } from "connectkit";
 import WalletProvider from "./wallet-provider";
 
 // Create a new QueryClient instance for React Query
 const queryClient = new QueryClient();
+
+const blackTheme = (() => {
+  const base = darkTheme({
+    accentColor: "#000000",
+    accentColorForeground: "#ffffff",
+    borderRadius: "large",
+  });
+
+  return {
+    ...base,
+    colors: {
+      ...base.colors,
+      accentColor: "#000000",
+      accentColorForeground: "#ffffff",
+      connectButtonBackground: "#000000",
+      connectButtonText: "#ffffff",
+      profileForeground: "#0a0a0a",
+      modalBackground: "#0a0a0a",
+      modalBorder: "#111111",
+      generalBorder: "#111111",
+    },
+  };
+})();
 
 /**
  * Web3Provider Component
@@ -20,9 +43,9 @@ const Web3Provider = ({ children }: { children: React.ReactNode }) => {
   return (
     <WagmiProvider config={config}>
       <QueryClientProvider client={queryClient}>
-        <ConnectKitProvider debugMode>
+        <RainbowKitProvider theme={blackTheme}>
           <WalletProvider>{children}</WalletProvider>
-        </ConnectKitProvider>
+        </RainbowKitProvider>
       </QueryClientProvider>
     </WagmiProvider>
   );

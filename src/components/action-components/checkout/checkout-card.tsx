@@ -16,7 +16,7 @@ import { Label } from "@/components/ui/label";
 import { ContractContext } from "@/context/contract-context";
 import { CircleCheckBig, Loader2 } from "lucide-react";
 import { useContext, useState } from "react";
-import { ConnectKitButton } from "connectkit";
+import { ConnectButton } from "@rainbow-me/rainbowkit";
 import {
   Select,
   SelectContent,
@@ -162,7 +162,7 @@ const CheckoutCard = ({ data, isMetaInvoice }: CheckoutCardProps) => {
               )}
             </Button>
           ) : (
-            <ConnectKitButton mode="dark" />
+            <ConnectButton chainStatus="icon" showBalance={false} />
           )}
         </CardFooter>
       </Card>

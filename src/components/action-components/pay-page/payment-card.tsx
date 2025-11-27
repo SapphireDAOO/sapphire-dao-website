@@ -16,7 +16,7 @@ import { Label } from "@/components/ui/label";
 import { ContractContext } from "@/context/contract-context";
 import { CircleCheckBig, Loader2 } from "lucide-react";
 import { useCallback, useContext, useEffect, useState } from "react";
-import { ConnectKitButton } from "connectkit";
+import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { PaymentCardProps } from "@/model/model";
 import {
   Dialog,
@@ -39,6 +39,9 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
 
   const orderId = data?.orderId;
   const { data: invoiceData } = useGetInvoiceData(orderId);
+  const invoice = invoiceData as
+    | { price?: bigint; invoiceId?: bigint; status?: number }
+    | undefined;
 
   const { getInvoiceOwner, makeInvoicePayment, isLoading, refetchInvoiceData } =
     useContext(ContractContext);
@@ -60,13 +63,13 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
   }, [address, orderId, isCreator]);
 
   const handlePayment = async () => {
-    if (!invoiceData?.price || !orderId) {
+    if (!invoice?.price || !orderId) {
       toast.error("Invoice is missing price or order ID.");
       return;
     }
 
     try {
-      if (await makeInvoicePayment(invoiceData.price, orderId)) {
+      if (await makeInvoicePayment(invoice.price, orderId)) {
         setOpen(true);
 
         setCountdown(3);
@@ -93,7 +96,7 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
     }
   };
 
-  const currStatus = invoiceData?.status;
+  const currStatus = invoice?.status;
 
   return (
     <>
@@ -109,7 +112,7 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
               <Label htmlFor="id">Invoice ID</Label>
               <Input
                 id="id"
-                placeholder={`${invoiceData?.invoiceId || "N/A"}`}
+                placeholder={`${invoice?.invoiceId || "N/A"}`}
                 disabled
               />
             </div>
@@ -118,7 +121,7 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
               <Label htmlFor="price">Requested Amount</Label>
               <Input
                 id="price"
-                value={`${formatEther(invoiceData?.price ?? BigInt(0))} ETH`}
+                value={`${formatEther(invoice?.price ?? BigInt(0))} ETH`}
                 disabled
               />
             </div>
@@ -149,7 +152,7 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
               )}
             </Button>
           ) : (
-            <ConnectKitButton mode="dark" />
+            <ConnectButton chainStatus="icon" showBalance={false} />
           )}
         </CardFooter>
       </Card>

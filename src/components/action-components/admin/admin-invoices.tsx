@@ -18,7 +18,7 @@ import allMarketplaceInvoices from "./allMarketplaceInvoicesColumns";
 
 import { useGetBalance } from "@/hooks/useGetBalance";
 import { Address } from "viem";
-import { useBlockNumber } from "wagmi";
+import { useViemBlockNumber } from "@/hooks/useViemBlockNumber";
 
 /**
  * Props for the ContractLink component.
@@ -71,7 +71,7 @@ const ContractLink: React.FC<ContractLinkProps> = ({
 
 const AdminInvoices = () => {
   const { allInvoiceData, refreshAdminData } = useContext(ContractContext);
-  const { data: latestBlock } = useBlockNumber({ watch: true });
+  const { data: latestBlock } = useViemBlockNumber(sepolia.id);
 
   useEffect(() => {
     refreshAdminData?.(true);

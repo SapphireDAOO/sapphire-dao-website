@@ -1,8 +1,10 @@
-import { PAYMENT_PROCESSOR_STORAGE } from "@/constants";
-import { sepolia } from "wagmi/chains";
-import { useAccount, useChainId, useReadContract, useBalance } from "wagmi";
-import { formatEther } from "ethers";
+import { ETHEREUM_SEPOLIA, PAYMENT_PROCESSOR_STORAGE } from "@/constants";
+import { sepolia } from "viem/chains";
+import { useAccount, useChainId } from "wagmi";
+import { Address, formatEther } from "viem";
 import { PaymentProcessorStorage } from "@/abis/PaymentProcessorStorage";
+import { useViemReadContract } from "./useViemReadContract";
+import { useViemBalance } from "./useViemBalance";
 
 /**
  * Custom hook to retrieve the balance of POL in the marketplace wallet.
@@ -16,14 +18,14 @@ export const useGetBalance = () => {
   const { address } = useAccount();
 
   // Retrieve the current chain ID using the wagmi `useChainId` hook
-  const chainId = useChainId();
+  const chainId = useChainId() || ETHEREUM_SEPOLIA;
 
   // Fetch the marketplace address from the AdvancedPaymentProcessor contract
   const {
     data: marketplaceAddress,
     isLoading: isLoadingAddress,
     refetch: refetchAddress,
-  } = useReadContract({
+  } = useViemReadContract({
     abi: PaymentProcessorStorage,
     chainId: sepolia.id,
     address: PAYMENT_PROCESSOR_STORAGE[chainId],
@@ -36,15 +38,13 @@ export const useGetBalance = () => {
     data: balanceData,
     isLoading: isLoadingBalance,
     refetch: refetchBalance,
-  } = useBalance({
-    address: marketplaceAddress,
+  } = useViemBalance({
+    address: marketplaceAddress as Address | undefined,
     chainId: sepolia.id,
   });
 
   // Format the balance in ether (from wei)
-  const formattedBalance = balanceData
-    ? formatEther(balanceData.value)
-    : undefined;
+  const formattedBalance = balanceData ? formatEther(balanceData) : undefined;
 
   // Combine refetch functions
   const refetch = async () => {

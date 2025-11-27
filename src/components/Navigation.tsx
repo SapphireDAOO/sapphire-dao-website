@@ -1,6 +1,6 @@
 "use client";
 
-import { ConnectKitButton } from "connectkit";
+import { ConnectButton } from "@rainbow-me/rainbowkit";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { buttonVariants } from "./ui/button";
@@ -83,7 +83,7 @@ const Navbar = () => {
                   </div>
                 )}
 
-                <ConnectKitButton />
+                <ConnectButton chainStatus="icon" showBalance={false} />
               </div>
             )}
           </div>

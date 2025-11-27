@@ -1,6 +1,6 @@
-import { sepolia } from "wagmi/chains";
-import { useReadContract } from "wagmi";
+import { sepolia } from "viem/chains";
 import { Address, erc20Abi } from "viem";
+import { useViemReadContract } from "./useViemReadContract";
 
 /**
  * Custom hook to retrieve the owner address of the PaymentProcessor smart contract.
@@ -11,7 +11,7 @@ import { Address, erc20Abi } from "viem";
  *   - `isLoading`: A boolean indicating whether the contract data is still being fetched.
  */
 export const useGetTokenName = (tokenAddress: Address) => {
-  const { data, refetch, isLoading, error } = useReadContract({
+  const { data, refetch, isLoading, error } = useViemReadContract<string>({
     abi: erc20Abi,
     chainId: sepolia.id,
     address: tokenAddress,

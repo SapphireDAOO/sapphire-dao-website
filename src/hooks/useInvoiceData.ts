@@ -6,7 +6,7 @@ import {
   invoiceOwnerQuery,
   META_QUERY,
 } from "@/services/graphql/queries";
-import { useAccount, useBlockNumber } from "wagmi";
+import { useAccount } from "wagmi";
 import { unixToGMT } from "@/utils";
 import { ETHEREUM_SEPOLIA } from "@/constants";
 import {
@@ -23,6 +23,7 @@ import {
 
 import { formatEther } from "viem";
 import { client } from "@/services/graphql/client";
+import { useViemBlockNumber } from "./useViemBlockNumber";
 
 const MIN_META_INTERVAL_MS = 7_000;
 const ERROR_BACKOFF_MS = 15_000;
@@ -30,10 +31,9 @@ const PAGE_SIZE = 50;
 
 export const useInvoiceData = () => {
   const { chain, address } = useAccount();
-  const { data: latestBlock } = useBlockNumber({
-    chainId: chain?.id || ETHEREUM_SEPOLIA,
-    watch: true,
-  });
+  const { data: latestBlock } = useViemBlockNumber(
+    chain?.id || ETHEREUM_SEPOLIA
+  );
 
   const chainId = chain?.id || ETHEREUM_SEPOLIA;
 

@@ -1,7 +1,8 @@
-import { PAYMENT_PROCESSOR_STORAGE } from "@/constants";
-import { sepolia } from "wagmi/chains";
-import { useChainId, useReadContract } from "wagmi";
+import { ETHEREUM_SEPOLIA, PAYMENT_PROCESSOR_STORAGE } from "@/constants";
+import { sepolia } from "viem/chains";
+import { useChainId } from "wagmi";
 import { PaymentProcessorStorage } from "@/abis/PaymentProcessorStorage";
+import { useViemReadContract } from "./useViemReadContract";
 
 /**
  * Custom hook to retrieve the default hold period from the PaymentProcessor smart contract.
@@ -13,10 +14,10 @@ import { PaymentProcessorStorage } from "@/abis/PaymentProcessorStorage";
  */
 export const useGetDefaultHoldPeriod = () => {
   // Retrieve the current chain ID using the wagmi `useChainId` hook
-  const chainId = useChainId();
+  const chainId = useChainId() || ETHEREUM_SEPOLIA;
 
   // Use the `useReadContract` hook to call the `getDefaultHoldPeriod` function from the PaymentProcessor contract
-  const { data, refetch, isLoading } = useReadContract({
+  const { data, refetch, isLoading } = useViemReadContract({
     abi: PaymentProcessorStorage,
     chainId: sepolia.id,
     address: PAYMENT_PROCESSOR_STORAGE[chainId],
