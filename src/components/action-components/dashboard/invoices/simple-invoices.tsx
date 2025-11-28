@@ -21,8 +21,6 @@ import {
 } from "@/components/ui/tooltip";
 import { renderTx } from "./advanced-invoices";
 
-const THREE_DAYS_IN_MS = 259_200_000;
-
 export function InvoiceCard({
   invoice,
   isExpanded,
@@ -43,7 +41,14 @@ export function InvoiceCard({
 
   // Update countdown every second
   useEffect(() => {
-    if (!invoice.paidAt && !invoice.releaseAt && !invoice.holdPeriod) return;
+    if (
+      !invoice.paidAt &&
+      !invoice.releaseAt &&
+      !invoice.holdPeriod &&
+      !invoice.expiresAt &&
+      !invoice.invalidateAt
+    )
+      return;
 
     const interval = setInterval(() => {
       let updated = "—";
@@ -54,7 +59,9 @@ export function InvoiceCard({
           Number(invoice.releaseAt) * 1000
         );
       } else if (invoice.status === "PAID" && invoice.paidAt) {
-        updated = timeLeft(invoice.paidAt ?? 0, THREE_DAYS_IN_MS);
+        updated = timeLeft(Number(invoice.expiresAt) ?? 0, 0);
+      } else if (invoice.status === "AWAITING PAYMENT") {
+        updated = timeLeft(Number(invoice.invalidateAt) ?? 0, 0);
       }
 
       setCountdown(updated);
@@ -62,7 +69,14 @@ export function InvoiceCard({
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [invoice.status, invoice.paidAt, invoice.releaseAt, invoice.holdPeriod]);
+  }, [
+    invoice.status,
+    invoice.paidAt,
+    invoice.releaseAt,
+    invoice.holdPeriod,
+    invoice.expiresAt,
+    invoice.invalidateAt,
+  ]);
 
   const handleAddNote = useCallback(() => {
     const trimmed = noteInput.trim();
@@ -83,7 +97,8 @@ export function InvoiceCard({
     }
   }, [isExpanded, invoice.orderId]);
 
-  const notesToDisplay = invoice.notes && invoice.notes.length > 0 ? invoice.notes : [];
+  const notesToDisplay =
+    invoice.notes && invoice.notes.length > 0 ? invoice.notes : [];
 
   const handleCopyLink = useCallback(() => {
     if (!paymentUrl) return;
@@ -169,6 +184,15 @@ export function InvoiceCard({
           <InvoiceField
             label="Amount"
             value={`${invoice.price} ETH`}
+            description="Total invoice amount (excluding fees)."
+          />
+        )}
+
+        {invoice.status === "AWAITING PAYMENT" && (
+          <InvoiceField
+            label="Void in"
+            // label={countdownLabel}
+            value={countdown}
             description="Total invoice amount (excluding fees)."
           />
         )}

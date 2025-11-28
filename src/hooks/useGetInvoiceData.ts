@@ -33,8 +33,10 @@ export const useGetInvoiceData = (orderId: bigint) => {
     chainId: sepolia.id,
     address: SIMPLE_PAYMENT_PROCESSOR[chainId],
     functionName: "getInvoiceData",
-    args: [orderId],
+    args: orderId ? [orderId] : undefined,
     account: address,
+    enabled: Boolean(orderId),
+    queryKey: ["invoice-data", chainId, orderId],
   });
 
   return { data, refetch, isLoading };

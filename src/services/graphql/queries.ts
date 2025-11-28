@@ -23,6 +23,8 @@ export const GET_ALL_INVOICES = `
       price
       releaseHash
       releasedAt
+      invalidateAt
+      expiresAt
       state
       amountPaid
       creationTxHash
@@ -108,6 +110,8 @@ export const invoiceQuery = `query (
       releaseHash
       releasedAt
       refundTxHash
+      invalidateAt
+      expiresAt
       state
       buyer {
         id
@@ -136,6 +140,8 @@ export const invoiceQuery = `query (
       releaseHash
       refundTxHash
       releasedAt
+      invalidateAt
+      expiresAt
       state
       seller {
         id

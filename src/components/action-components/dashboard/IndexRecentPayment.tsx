@@ -1,6 +1,12 @@
 "use client";
 
-import { useContext, useState, useMemo, useCallback, useEffect } from "react";
+import {
+  useContext,
+  useState,
+  useMemo,
+  useCallback,
+  useEffect,
+} from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ContractContext } from "@/context/contract-context";
 import { FilterTabs, CreateInvoiceCard } from "./invoice-cards/index";
@@ -23,6 +29,7 @@ import { CalendarDays } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MarketplaceCard } from "./invoices/advanced-invoices";
 import { InvoiceCard } from "./invoices/simple-invoices";
+import { toast } from "sonner";
 
 const marketplaceFilters = [
   "All",
@@ -54,6 +61,7 @@ export default function IndexRecentPayment({
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const [page, setPage] = useState(1);
   const pageSize = 9;
@@ -71,13 +79,50 @@ export default function IndexRecentPayment({
 
   useEffect(() => {
     setPage(1);
+  }, [filter, selectedDate, isMarketplaceTab, activeTab]);
 
-    (async () => {
-      setIsLoading(true);
+  const refreshInvoices = useCallback(async () => {
+    setLoadError(null);
+    setIsLoading(true);
+
+    try {
       await refetchInvoiceData?.();
+    } catch (err) {
+      console.error("Failed to refresh invoices", err);
+      setLoadError("Unable to load invoices right now. Please try again.");
+      toast.error("Unable to load invoices. Please try again.");
+    } finally {
       setIsLoading(false);
-    })();
-  }, [filter, selectedDate, isMarketplaceTab, activeTab, refetchInvoiceData]);
+    }
+  }, [refetchInvoiceData]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const timeoutId = window.setTimeout(() => {
+      if (!cancelled) {
+        setLoadError((prev) =>
+          prev ??
+          "Fetching invoices is taking longer than expected. You can retry."
+        );
+      }
+    }, 12000);
+
+    refreshInvoices().finally(() => {
+      if (!cancelled) {
+        clearTimeout(timeoutId);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timeoutId);
+    };
+  }, [refreshInvoices, filter, selectedDate, isMarketplaceTab, activeTab]);
+
+  const handleRetry = useCallback(() => {
+    refreshInvoices();
+  }, [refreshInvoices]);
 
   const handleTabChange = useCallback(
     (value: string) => {
@@ -285,6 +330,20 @@ export default function IndexRecentPayment({
                     {isLoading ? (
                       <div className="w-full text-center py-10 text-gray-500 border rounded-lg">
                         <span className="animate-pulse">Loading...</span>
+                      </div>
+                    ) : loadError ? (
+                      <div className="flex flex-col items-center gap-3">
+                        <span className="text-sm text-gray-600">
+                          {loadError}
+                        </span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleRetry}
+                          disabled={isLoading}
+                        >
+                          Retry
+                        </Button>
                       </div>
                     ) : (
                       <div className="w-full text-center py-10 text-gray-500 border rounded-lg">

@@ -17,6 +17,8 @@ export type Invoice = {
   releaseHash?: string;
   refundTxHash?: string;
   contract?: string;
+  invalidateAt?: string;
+  expiresAt?: string;
   fee?: string;
   buyer?: string;
   seller?: string;

@@ -235,7 +235,7 @@ export const useInvoiceData = () => {
             orderId: invoice.id,
             createdAt: invoice.createdAt ? unixToGMT(invoice.createdAt) : null,
             paidAt: invoice.paidAt || "Not Paid",
-            status: sortState(invoice.state),
+            status: sortState(invoice.state, invoice.invalidateAt),
             price: invoice.price ? formatEther(invoice.price) : null,
             amountPaid: invoice.amountPaid
               ? formatEther(invoice.amountPaid)
@@ -243,6 +243,8 @@ export const useInvoiceData = () => {
             type: "Seller" as const,
             contract: invoice.contract,
             paymentTxHash: invoice.paymentTxHash,
+            invalidateAt: invoice.invalidateAt,
+            expiresAt: invoice.expiresAt,
             seller: invoice.seller?.id ?? "",
             buyer: invoice.buyer?.id ?? "",
             releaseHash: invoice.releaseHash,
@@ -259,7 +261,7 @@ export const useInvoiceData = () => {
             orderId: invoice.id,
             createdAt: invoice.createdAt ? unixToGMT(invoice.createdAt) : null,
             paidAt: invoice.paidAt || "Not Paid",
-            status: sortState(invoice.state),
+            status: sortState(invoice.state, invoice.invalidateAt),
             price: invoice.price ? formatEther(invoice.price) : null,
             amountPaid: invoice.amountPaid
               ? formatEther(invoice.amountPaid)
@@ -267,6 +269,8 @@ export const useInvoiceData = () => {
             type: "Buyer" as const,
             seller: invoice.seller?.id ?? "",
             contract: invoice.contract,
+            invalidateAt: invoice.invalidateAt,
+            expiresAt: invoice.expiresAt,
             paymentTxHash: invoice.paymentTxHash,
             releaseAt: invoice.releasedAt,
             buyer: invoice.buyer?.id ?? "",
@@ -563,7 +567,7 @@ const sortHistory = (status?: string[], time?: string[]): History[] => {
   return history;
 };
 
-const sortState = (state: string): string => {
+const sortState = (state: string, voidAt?: string): string => {
   if (state === "CREATED") {
     return "AWAITING PAYMENT";
   }
@@ -572,5 +576,7 @@ const sortState = (state: string): string => {
     return "REFUNDED";
   }
 
+  if (state == "CREATED" && Date.now() > Number(voidAt) * 1000)
+    return "EXPIRED";
   return state;
 };

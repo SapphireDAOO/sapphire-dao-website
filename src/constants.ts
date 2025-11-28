@@ -7,15 +7,15 @@ export const POLYGON_AMOY = 80_002;
 export const ETHEREUM_SEPOLIA = 11_155_111;
 
 export const PAYMENT_PROCESSOR_STORAGE: Record<number, Address> = {
-  [sepolia.id]: "0x91cf5a72635156E7a94F0ed9b300b54067d2d2c2",
+  [sepolia.id]: "0x42833d30D3028A0D1f0E26531fdA1a7C762ba14D",
 };
 
 export const SIMPLE_PAYMENT_PROCESSOR: Record<number, Address> = {
-  [sepolia.id]: "0xdD4fB097651cd0d339e4E177CE6B9CF1dD4680b8",
+  [sepolia.id]: "0xe3F738B16E30960F6cE5357A44c2a8f1dB0293a6",
 };
 
 export const ADVANCED_PAYMENT_PROCESSOR: Record<number, Address> = {
-  [sepolia.id]: "0xE1F99AB577dd2C97f98b7f77962b0A259cFfadcc",
+  [sepolia.id]: "0xD2167A3aE1B93dDB90e3F9E5d6b358c52252D1b4",
 };
 
 export const THE_GRAPH_API_URL: Record<number, string> = {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useContext, useState } from "react";
+import { useContext, useRef, useState } from "react";
 import { ContractContext } from "@/context/contract-context";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
@@ -17,10 +17,18 @@ const SellersAction = ({ orderId, state, text }: SellersActionProps) => {
     useContext(ContractContext);
 
   const [localLoading, setLocalLoading] = useState(false);
+  const pendingToastId = useRef<string | number | undefined>(undefined);
 
   const handleClick = async (e: React.MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
     setLocalLoading(true);
+    if (pendingToastId.current) {
+      toast.dismiss(pendingToastId.current);
+    }
+    pendingToastId.current = toast.loading(
+      "Processing your response. Keep the tab open — this may take a minute.",
+      { duration: Infinity }
+    );
 
     try {
       if (await sellerAction(orderId, state)) {
@@ -32,7 +40,12 @@ const SellersAction = ({ orderId, state, text }: SellersActionProps) => {
       }
     } catch (err) {
       console.error("Seller action failed:", err);
+      toast.error("Action failed. Please try again.");
     } finally {
+      if (pendingToastId.current) {
+        toast.dismiss(pendingToastId.current);
+        pendingToastId.current = undefined;
+      }
       setLocalLoading(false);
     }
   };
@@ -44,25 +57,33 @@ const SellersAction = ({ orderId, state, text }: SellersActionProps) => {
   const disableButton = isSellerActionInFlight || isActionLoading;
 
   return (
-    <Button
-      size="sm"
-      onClick={handleClick}
-      disabled={disableButton}
-      className={`min-w-[130px] justify-center ${
-        state
-          ? "bg-green-600 hover:bg-green-700"
-          : "bg-red-600 hover:bg-red-700"
-      } text-white font-medium shadow-sm hover:shadow-md transition-all duration-200 rounded-lg px-4 py-1.5`}
-    >
-      {isActionLoading ? (
-        <>
-          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          Processing...
-        </>
-      ) : (
-        text
+    <div className="flex flex-col gap-2">
+      <Button
+        size="sm"
+        onClick={handleClick}
+        disabled={disableButton}
+        className={`min-w-[130px] justify-center ${
+          state
+            ? "bg-green-600 hover:bg-green-700"
+            : "bg-red-600 hover:bg-red-700"
+        } text-white font-medium shadow-sm hover:shadow-md transition-all duration-200 rounded-lg px-4 py-1.5`}
+      >
+        {isActionLoading ? (
+          <>
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            Processing...
+          </>
+        ) : (
+          text
+        )}
+      </Button>
+      {isActionLoading && (
+        <p className="text-[11px] text-gray-500">
+          Action pending. Keep this tab open—confirmations can take up to a
+          minute.
+        </p>
       )}
-    </Button>
+    </div>
   );
 };
 
