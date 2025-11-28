@@ -669,6 +669,102 @@ export const setMinimumInvoiceValue = async (
   return success;
 };
 
+export const setDecisionWindow = async (
+  { walletClient, publicClient }: WagmiClient,
+  newDecisionWindow: bigint,
+  chainId: number,
+  setIsLoading: (value: string) => void,
+  getInvoiceData: () => Promise<void>
+): Promise<boolean> => {
+  setIsLoading("setDecisionWindow");
+  let success = false;
+
+  try {
+    const gasPrice = await fetchGasPrice(publicClient, chainId);
+
+    const tx = await walletClient?.sendTransaction({
+      chain: sepolia,
+      to: SIMPLE_PAYMENT_PROCESSOR[chainId],
+      data: encodeFunctionData({
+        abi: paymentProcessor,
+        functionName: "setDecisionWindow",
+        args: [newDecisionWindow],
+      }),
+      gasPrice,
+    });
+
+    if (!tx) {
+      toast.error("Transaction failed to initiate");
+      return false;
+    }
+
+    const receipt = await publicClient?.waitForTransactionReceipt({
+      hash: tx,
+    });
+
+    if (receipt?.status) {
+      toast.success("Decision window updated");
+      await getInvoiceData();
+      success = true;
+    } else {
+      toast.error("Failed to update decision window. Please try again");
+    }
+  } catch (error) {
+    getError(error);
+  }
+
+  setIsLoading("");
+  return success;
+};
+
+export const setValidPeriod = async (
+  { walletClient, publicClient }: WagmiClient,
+  newValidPeriod: bigint,
+  chainId: number,
+  setIsLoading: (value: string) => void,
+  getInvoiceData: () => Promise<void>
+): Promise<boolean> => {
+  setIsLoading("setValidPeriod");
+  let success = false;
+
+  try {
+    const gasPrice = await fetchGasPrice(publicClient, chainId);
+
+    const tx = await walletClient?.sendTransaction({
+      chain: sepolia,
+      to: SIMPLE_PAYMENT_PROCESSOR[chainId],
+      data: encodeFunctionData({
+        abi: paymentProcessor,
+        functionName: "setValidPeriod",
+        args: [newValidPeriod],
+      }),
+      gasPrice,
+    });
+
+    if (!tx) {
+      toast.error("Transaction failed to initiate");
+      return false;
+    }
+
+    const receipt = await publicClient?.waitForTransactionReceipt({
+      hash: tx,
+    });
+
+    if (receipt?.status) {
+      toast.success("Invoice validity period updated");
+      await getInvoiceData();
+      success = true;
+    } else {
+      toast.error("Failed to update invoice validity period. Please try again");
+    }
+  } catch (error) {
+    getError(error);
+  }
+
+  setIsLoading("");
+  return success;
+};
+
 export const getInvoiceOwner = async (
   id: string,
   chainId: number

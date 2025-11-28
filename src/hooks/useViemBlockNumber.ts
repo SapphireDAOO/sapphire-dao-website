@@ -3,16 +3,18 @@
 import { useEffect, useState } from "react";
 import { usePublicClient } from "wagmi";
 
-export const useViemBlockNumber = (chainId?: number) => {
+export const useViemBlockNumber = (chainId?: number, enabled = true) => {
   const publicClient = usePublicClient({ chainId });
   const [blockNumber, setBlockNumber] = useState<bigint>();
 
   useEffect(() => {
-    if (!publicClient) return;
+    if (!publicClient || !enabled) return;
 
     const unwatch = publicClient.watchBlockNumber({
       emitMissed: true,
       emitOnBegin: true,
+      poll: true,
+      pollingInterval: 12000,
       onBlockNumber: setBlockNumber,
       onError: (err) => console.error("blockNumber watch error", err),
     });
@@ -20,7 +22,7 @@ export const useViemBlockNumber = (chainId?: number) => {
     return () => {
       unwatch?.();
     };
-  }, [publicClient]);
+  }, [publicClient, enabled]);
 
   return { data: blockNumber };
 };

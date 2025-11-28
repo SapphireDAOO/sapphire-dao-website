@@ -19,7 +19,14 @@ const config =
     chains: [sepolia],
     ssr: true,
     transports: {
-      [sepolia.id]: fallback([http(`https://sepolia.infura.io/v3/${apiKey}`)]),
+      [sepolia.id]: fallback(
+        [
+          http(`https://sepolia.infura.io/v3/${apiKey}`),
+          http("https://ethereum-sepolia-rpc.publicnode.com"),
+          http("https://sepolia.gateway.tenderly.co"),
+        ],
+        { rank: true }
+      ),
     },
   });
 

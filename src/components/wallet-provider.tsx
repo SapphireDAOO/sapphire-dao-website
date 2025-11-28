@@ -15,6 +15,8 @@ import {
   setDefaultHoldPeriod,
   setFee,
   setMinimumInvoiceValue,
+  setDecisionWindow,
+  setValidPeriod,
 } from "@/services/blockchain/SimplePaymentProcessor";
 import {
   payAdvancedInvoice,
@@ -138,6 +140,22 @@ const WalletProvider = ({ children }: Props) => {
           setDefaultHoldPeriod(
             wagmiClients,
             newDefaultHoldPeriod,
+            chainId,
+            setIsLoading,
+            getInvoiceData
+          ),
+        setDecisionWindow: (newWindow: bigint) =>
+          setDecisionWindow(
+            wagmiClients,
+            newWindow,
+            chainId,
+            setIsLoading,
+            getInvoiceData
+          ),
+        setValidPeriod: (newValidPeriod: bigint) =>
+          setValidPeriod(
+            wagmiClients,
+            newValidPeriod,
             chainId,
             setIsLoading,
             getInvoiceData

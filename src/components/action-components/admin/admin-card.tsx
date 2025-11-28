@@ -20,6 +20,8 @@ import { useGetDefaultHoldPeriod } from "@/hooks/useGetDefaultHoldPeriod";
 import { useGetMinimumInvoiceValue } from "@/hooks/useGetMinimumInvoiceValue";
 import { ethers } from "ethers";
 import { useGetMarketplaceWallet } from "@/hooks/useGetMarketplaceWallet";
+import { useGetDecisionWindow } from "@/hooks/useGetDecisionWindow";
+import { useGetValidPeriod } from "@/hooks/useGetValidPeriod";
 
 // Utility function to truncate addresses
 const truncateAddress = (address: string | undefined) =>
@@ -32,6 +34,8 @@ const AdminCard = () => {
   const { data: minimumInvoiceValue } = useGetMinimumInvoiceValue();
   const { data: marketplaceKeeperAddress } = useGetMarketplaceWallet();
   const { data: feeReceiver } = useGetFeeReceiver();
+  const { data: decisionWindow } = useGetDecisionWindow();
+  const { data: validPeriod } = useGetValidPeriod();
 
   const [receiversAdd, setReceiverAdd] = useState("");
   const [ownerAddr, setOwnerAddr] = useState("");
@@ -41,6 +45,8 @@ const AdminCard = () => {
   const [sDaoFee, setDaoFee] = useState("");
   const [value, setValue] = useState("");
   const [marketplaceAddress, setMarketplaceKeeper] = useState("");
+  const [decisionWindowInput, setDecisionWindowInput] = useState("");
+  const [validPeriodInput, setValidPeriodInput] = useState("");
 
   const {
     setFeeReceiversAddress,
@@ -50,6 +56,8 @@ const AdminCard = () => {
     transferOwnership,
     setMinimumInvoiceValue,
     setMarketplaceAddress,
+    setDecisionWindow,
+    setValidPeriod,
     isLoading,
   } = useContext(ContractContext);
 
@@ -73,6 +81,20 @@ const AdminCard = () => {
   const handleDefaultPeriod = async () => {
     const defaultPeriodInSecond = BigInt(Number(defaultPeriod) * 24 * 60 * 60);
     await setDefaultHoldPeriod(defaultPeriodInSecond);
+  };
+
+  const handleDecisionWindow = async () => {
+    const minutes = Number(decisionWindowInput);
+    if (isNaN(minutes) || minutes <= 0) return;
+    const windowInSeconds = BigInt(Math.round(minutes * 60));
+    await setDecisionWindow(windowInSeconds);
+  };
+
+  const handleValidPeriod = async () => {
+    const hours = Number(validPeriodInput);
+    if (isNaN(hours) || hours <= 0) return;
+    const periodInSeconds = BigInt(Math.round(hours * 60 * 60));
+    await setValidPeriod(periodInSeconds);
   };
 
   const handleDaoFee = async () => {
@@ -143,6 +165,22 @@ const AdminCard = () => {
             <span className="font-mono text-primary">
               {defaultHoldPeriod
                 ? (Number(defaultHoldPeriod) / 60).toFixed(2) + " minutes"
+                : "Loading..."}
+            </span>
+          </p>
+          <p className="text-sm font-medium">
+            <span className="text-muted-foreground">Decision Window: </span>
+            <span className="font-mono text-primary">
+              {decisionWindow
+                ? (Number(decisionWindow) / 60).toFixed(2) + " minutes"
+                : "Loading..."}
+            </span>
+          </p>
+          <p className="text-sm font-medium">
+            <span className="text-muted-foreground">Validity Period: </span>
+            <span className="font-mono text-primary">
+              {validPeriod
+                ? (Number(validPeriod) / 3600).toFixed(2) + " hours"
                 : "Loading..."}
             </span>
           </p>
@@ -300,6 +338,73 @@ const AdminCard = () => {
               className="text-sm text-muted-foreground"
             >
               Updates the default hold period for all new invoices.
+            </p>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="decisionWindow">Decision Window (minutes)</Label>
+            <div className="flex gap-2">
+              <Input
+                id="decisionWindow"
+                type="number"
+                placeholder="Enter minutes"
+                value={decisionWindowInput}
+                onChange={(e) => setDecisionWindowInput(e.target.value)}
+                aria-describedby="decisionWindowDescription"
+                className="w-full"
+                min={1}
+              />
+              <Button
+                onClick={handleDecisionWindow}
+                disabled={isLoading === "setDecisionWindow"}
+                aria-busy={isLoading === "setDecisionWindow"}
+              >
+                {isLoading === "setDecisionWindow" ? (
+                  <Loader2 className="inline-flex animate-spin h-4 w-4 text-green-300" />
+                ) : (
+                  "Set Decision Window"
+                )}
+              </Button>
+            </div>
+            <p
+              id="decisionWindowDescription"
+              className="text-sm text-muted-foreground"
+            >
+              Time allowed for sellers to accept/reject after payment (minutes).
+            </p>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="validPeriod">Invoice Validity Period (hours)</Label>
+            <div className="flex gap-2">
+              <Input
+                id="validPeriod"
+                type="number"
+                placeholder="Enter hours"
+                value={validPeriodInput}
+                onChange={(e) => setValidPeriodInput(e.target.value)}
+                aria-describedby="validPeriodDescription"
+                className="w-full"
+                min={1}
+              />
+              <Button
+                onClick={handleValidPeriod}
+                disabled={isLoading === "setValidPeriod"}
+                aria-busy={isLoading === "setValidPeriod"}
+              >
+                {isLoading === "setValidPeriod" ? (
+                  <Loader2 className="inline-flex animate-spin h-4 w-4 text-green-300" />
+                ) : (
+                  "Set Validity"
+                )}
+              </Button>
+            </div>
+            <p
+              id="validPeriodDescription"
+              className="text-sm text-muted-foreground"
+            >
+              How long newly created invoices stay payable before expiring
+              (hours).
             </p>
           </div>
 

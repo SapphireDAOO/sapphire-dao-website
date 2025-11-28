@@ -1,0 +1,21 @@
+import { SIMPLE_PAYMENT_PROCESSOR, ETHEREUM_SEPOLIA } from "@/constants";
+import { sepolia } from "viem/chains";
+import { useChainId } from "wagmi";
+import { paymentProcessor } from "@/abis/PaymentProcessor";
+import { useViemReadContract } from "./useViemReadContract";
+
+/**
+ * Fetches the current decision window (in seconds) from the PaymentProcessor contract.
+ */
+export const useGetDecisionWindow = () => {
+  const chainId = useChainId() || ETHEREUM_SEPOLIA;
+
+  const { data, refetch, isLoading } = useViemReadContract({
+    abi: paymentProcessor,
+    chainId: sepolia.id,
+    address: SIMPLE_PAYMENT_PROCESSOR[chainId],
+    functionName: "decisionWindow",
+  });
+
+  return { data, refetch, isLoading };
+};

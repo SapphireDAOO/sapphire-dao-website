@@ -34,6 +34,8 @@ export interface ContractContextData {
     orderId: bigint,
     holdPeriod: bigint
   ) => Promise<boolean>;
+  setDecisionWindow: (newWindow: bigint) => Promise<boolean>;
+  setValidPeriod: (newValidPeriod: bigint) => Promise<boolean>;
   setDefaultHoldPeriod: (newDefaultHoldPeriod: bigint) => Promise<boolean>;
   setFee: (newFee: bigint) => Promise<boolean>;
   getAdvancedInvoiceData: (
@@ -65,6 +67,8 @@ export const contractContextDefaults: ContractContextData = {
   refundBuyerAfterWindow: async () => Promise.resolve(false),
   setFeeReceiversAddress: async () => Promise.resolve(false),
   setInvoiceHoldPeriod: async () => Promise.resolve(false),
+  setDecisionWindow: async () => Promise.resolve(false),
+  setValidPeriod: async () => Promise.resolve(false),
   setDefaultHoldPeriod: async () => Promise.resolve(false),
   setMarketplaceAddress: async () => Promise.resolve(""),
   setFee: async () => Promise.resolve(false),

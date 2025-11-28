@@ -32,7 +32,8 @@ const PAGE_SIZE = 50;
 export const useInvoiceData = () => {
   const { chain, address } = useAccount();
   const { data: latestBlock } = useViemBlockNumber(
-    chain?.id || ETHEREUM_SEPOLIA
+    chain?.id || ETHEREUM_SEPOLIA,
+    Boolean(address)
   );
 
   const chainId = chain?.id || ETHEREUM_SEPOLIA;
