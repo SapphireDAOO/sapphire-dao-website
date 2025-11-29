@@ -66,10 +66,13 @@ export const unixToGMT = (unixTimestamp: any) => {
 
   // Extract parts in GMT
   const day = String(date.getUTCDate()).padStart(2, "0");
+
   const month = monthAbbr[date.getUTCMonth()];
   const year = date.getUTCFullYear();
   const hours = String(date.getUTCHours()).padStart(2, "0");
   const minutes = String(date.getUTCMinutes()).padStart(2, "0");
+
+  if (!month || !Number.isFinite(year)) return "";
 
   return `${day}-${month}-${year} ${hours}:${minutes}`;
 };
