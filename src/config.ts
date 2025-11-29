@@ -1,9 +1,12 @@
+"use client";
+
 import { getDefaultConfig } from "@rainbow-me/rainbowkit";
 import {
   metaMaskWallet,
   rainbowWallet,
   safeWallet,
   walletConnectWallet,
+  zerionWallet,
 } from "@rainbow-me/rainbowkit/wallets";
 import { http, webSocket, fallback } from "viem";
 import { sepolia } from "viem/chains";
@@ -20,7 +23,13 @@ const globalForConfig = globalThis as GlobalWithConfig;
 const wallets = [
   {
     groupName: "Popular",
-    wallets: [safeWallet, rainbowWallet, metaMaskWallet, walletConnectWallet],
+    wallets: [
+      metaMaskWallet,
+      safeWallet,
+      rainbowWallet,
+      walletConnectWallet,
+      zerionWallet,
+    ],
   },
 ];
 
@@ -31,7 +40,7 @@ const config =
     projectId: walletConnectId,
     chains: [sepolia],
     wallets,
-    ssr: true,
+    ssr: false,
     transports: {
       [sepolia.id]: fallback(
         [
