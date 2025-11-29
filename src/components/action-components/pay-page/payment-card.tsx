@@ -15,7 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ContractContext } from "@/context/contract-context";
 import { CircleCheckBig, Loader2 } from "lucide-react";
-import { useCallback, useContext, useEffect, useRef, useState } from "react";
+import { useCallback, useContext, useEffect, useState } from "react";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { PaymentCardProps } from "@/model/model";
 import {
@@ -36,7 +36,6 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
   const [userIsCreator, setUserIsCreator] = useState(false);
 
   const [countdown, setCountdown] = useState(3);
-  const pendingToastId = useRef<string | number | undefined>(undefined);
 
   const orderId = data?.orderId;
   const { data: invoiceData } = useGetInvoiceData(orderId);
@@ -63,22 +62,6 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
     check();
   }, [address, orderId, isCreator]);
 
-  const showPendingToast = useCallback((message: string) => {
-    if (pendingToastId.current) {
-      toast.dismiss(pendingToastId.current);
-    }
-    pendingToastId.current = toast.loading(message, {
-      duration: Infinity,
-    });
-  }, []);
-
-  const clearPendingToast = useCallback(() => {
-    if (pendingToastId.current) {
-      toast.dismiss(pendingToastId.current);
-      pendingToastId.current = undefined;
-    }
-  }, []);
-
   const handlePayment = async () => {
     if (!invoice?.price || !orderId) {
       toast.error("Invoice is missing price or order ID.");
@@ -86,12 +69,7 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
     }
 
     try {
-      showPendingToast(
-        "Processing payment. Keep this tab open — this can take up to a minute."
-      );
-
       if (await makeInvoicePayment(invoice.price, orderId)) {
-        clearPendingToast();
         setOpen(true);
 
         setCountdown(3);
@@ -116,8 +94,6 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
     } catch (err) {
       console.error("Payment failed:", err);
       toast.error("Payment failed. Please try again.");
-    } finally {
-      clearPendingToast();
     }
   };
 

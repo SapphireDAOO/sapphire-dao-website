@@ -4,7 +4,6 @@ import {
   GET_ALL_INVOICES,
   invoiceQuery,
   invoiceOwnerQuery,
-  META_QUERY,
 } from "@/services/graphql/queries";
 import { useAccount } from "wagmi";
 import { unixToGMT } from "@/utils";
@@ -23,18 +22,23 @@ import {
 
 import { formatEther } from "viem";
 import { client } from "@/services/graphql/client";
-import { useViemBlockNumber } from "./useViemBlockNumber";
+import { usePublicClient } from "wagmi";
+import {
+  ADVANCED_PAYMENT_PROCESSOR,
+  SIMPLE_PAYMENT_PROCESSOR,
+} from "@/constants";
+import { paymentProcessor } from "@/abis/PaymentProcessor";
+import { advancedPaymentProcessor } from "@/abis/AdvancedPaymentProcessor";
 
-const MIN_META_INTERVAL_MS = 7_000;
 const ERROR_BACKOFF_MS = 15_000;
 const PAGE_SIZE = 50;
+const REFRESH_DELAY_MS = 5000;
 
 export const useInvoiceData = () => {
   const { chain, address } = useAccount();
-  const { data: latestBlock } = useViemBlockNumber(
-    chain?.id || ETHEREUM_SEPOLIA,
-    Boolean(address)
-  );
+  const publicClient = usePublicClient({
+    chainId: chain?.id || ETHEREUM_SEPOLIA,
+  });
 
   const chainId = chain?.id || ETHEREUM_SEPOLIA;
 
@@ -44,11 +48,13 @@ export const useInvoiceData = () => {
     actions: [],
     marketplaceInvoices: [],
   });
+  const refreshScheduledRef = useRef(false);
+  const pendingRefreshTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
 
   // refs for meta + throttling
-  const lastIndexedBlockRef = useRef<number>(0);
   const isFetchingRef = useRef(false);
-  const lastMetaCheckRef = useRef<number>(0);
   const nextAllowedRequestRef = useRef<number>(0);
 
   const handleRateLimit = useCallback((message?: string) => {
@@ -114,7 +120,7 @@ export const useInvoiceData = () => {
               list.releasedAt && !isNaN(list.releasedAt)
                 ? unixToGMT(list.releasedAt)
                 : "Pending",
-            fee: list.fee || "0",
+            fee: list.fee ? formatEther(BigInt(list.fee)) : "0",
             state: list.status === "CREATED" ? "AWAITING PAYMENT" : list.status,
             releaseHash: list.releaseHash,
             status:
@@ -150,7 +156,7 @@ export const useInvoiceData = () => {
               list.releasedAt && !isNaN(list.releasedAt)
                 ? unixToGMT(list.releasedAt)
                 : "Pending",
-            fee: list.fee || "0",
+            fee: list.fee ? formatEther(BigInt(list.fee)) : "0",
             state: list.status,
             releaseHash: list.releaseHash,
             status: list.state === "CREATED" ? "AWAITING PAYMENT" : list.status,
@@ -237,9 +243,9 @@ export const useInvoiceData = () => {
             createdAt: invoice.createdAt ? unixToGMT(invoice.createdAt) : null,
             paidAt: invoice.paidAt || "Not Paid",
             status: sortState(invoice.state, invoice.invalidateAt),
-            price: invoice.price ? formatEther(invoice.price) : null,
+            price: invoice.price ? formatEther(BigInt(invoice.price)) : null,
             amountPaid: invoice.amountPaid
-              ? formatEther(invoice.amountPaid)
+              ? formatEther(BigInt(invoice.amountPaid))
               : null,
             type: "Seller" as const,
             contract: invoice.contract,
@@ -263,9 +269,9 @@ export const useInvoiceData = () => {
             createdAt: invoice.createdAt ? unixToGMT(invoice.createdAt) : null,
             paidAt: invoice.paidAt || "Not Paid",
             status: sortState(invoice.state, invoice.invalidateAt),
-            price: invoice.price ? formatEther(invoice.price) : null,
+            price: invoice.price ? formatEther(BigInt(invoice.price)) : null,
             amountPaid: invoice.amountPaid
-              ? formatEther(invoice.amountPaid)
+              ? formatEther(BigInt(invoice.amountPaid))
               : null,
             type: "Buyer" as const,
             seller: invoice.seller?.id ?? "",
@@ -289,9 +295,9 @@ export const useInvoiceData = () => {
             paidAt: invoice.paidAt || "Not Paid",
             status:
               invoice.state === "CREATED" ? "AWAITING PAYMENT" : invoice.state,
-            price: invoice.price ? invoice.price : null,
+            price: invoice.price ? formatEther(BigInt(invoice.price)) : null,
             amountPaid: invoice.amountPaid
-              ? formatEther(invoice.amountPaid)
+              ? formatEther(BigInt(invoice.amountPaid))
               : null,
             type: "IssuedInvoice" as const,
             contract: invoice.contract,
@@ -315,9 +321,9 @@ export const useInvoiceData = () => {
             paidAt: invoice.paidAt || "Not Paid",
             status:
               invoice.state === "CREATED" ? "AWAITING PAYMENT" : invoice.state,
-            price: invoice.price ? invoice.price : null,
+            price: invoice.price ? formatEther(BigInt(invoice.price)) : null,
             amountPaid: invoice.amountPaid
-              ? formatEther(invoice.amountPaid)
+              ? formatEther(BigInt(invoice.amountPaid))
               : null,
             type: "ReceivedInvoice" as const,
             seller: invoice.seller?.id ?? "",
@@ -356,7 +362,17 @@ export const useInvoiceData = () => {
         ...receivedInvoicesData,
       ];
 
-      setInvoiceData(allInvoiceDataCombined);
+      const sortedInvoiceData = allInvoiceDataCombined.sort((a, b) => {
+        const timeA = getLastActionTime(a);
+        const timeB = getLastActionTime(b);
+
+        if (timeA === timeB) return 0;
+        if (!timeA) return 1;
+        if (!timeB) return -1;
+        return timeB.localeCompare(timeA);
+      });
+
+      setInvoiceData(sortedInvoiceData);
     } catch (error) {
       console.error("Error fetching invoice data:", error);
       if (typeof error === "object" && error !== null && "message" in error) {
@@ -412,6 +428,16 @@ export const useInvoiceData = () => {
     setAllInvoiceData(fetchedInvoices);
   }, [getAllInvoiceData]);
 
+  const scheduleUserRefresh = useCallback(() => {
+    if (refreshScheduledRef.current || pendingRefreshTimeoutRef.current) return;
+    refreshScheduledRef.current = true;
+    pendingRefreshTimeoutRef.current = setTimeout(() => {
+      getInvoiceData();
+      refreshScheduledRef.current = false;
+      pendingRefreshTimeoutRef.current = null;
+    }, REFRESH_DELAY_MS);
+  }, [getInvoiceData]);
+
   const fetchLatestInvoices = useCallback(
     async (
       force = false,
@@ -434,67 +460,6 @@ export const useInvoiceData = () => {
     [getInvoiceData, refetchAllInvoiceData]
   );
 
-  const getSubgraphBlockNumber = useCallback(
-    async (force = false): Promise<number | null> => {
-      // Respect rate-limit backoff
-      if (Date.now() < nextAllowedRequestRef.current) {
-        return lastIndexedBlockRef.current || null;
-      }
-
-      const now = Date.now();
-      // Throttle meta calls
-      if (!force && now - lastMetaCheckRef.current < MIN_META_INTERVAL_MS) {
-        return lastIndexedBlockRef.current || null;
-      }
-
-      try {
-        const { data, error } = await client(chainId)
-          .query(META_QUERY, {})
-          .toPromise();
-
-        lastMetaCheckRef.current = now;
-
-        if (error) {
-          console.error("GraphQL Error: meta", error.message);
-          handleRateLimit(error.message);
-          return lastIndexedBlockRef.current || null;
-        }
-
-        const blockNum = data?._meta?.block?.number;
-        return typeof blockNum === "number"
-          ? blockNum
-          : lastIndexedBlockRef.current || null;
-      } catch (err: any) {
-        console.error("Error fetching subgraph meta:", err);
-        if (err?.message) {
-          handleRateLimit(err.message);
-        }
-        return lastIndexedBlockRef.current || null;
-      }
-    },
-    [chainId, handleRateLimit]
-  );
-
-  const refreshIfIndexed = useCallback(
-    async (force = false, mode: "user" | "admin" | "both" = "user") => {
-      const subgraphBlock = await getSubgraphBlockNumber(force);
-      if (subgraphBlock === null) {
-        if (force) {
-          await fetchLatestInvoices(true, mode);
-        }
-        return;
-      }
-
-      if (!force && subgraphBlock <= lastIndexedBlockRef.current) {
-        return;
-      }
-
-      lastIndexedBlockRef.current = subgraphBlock;
-      await fetchLatestInvoices(force, mode);
-    },
-    [fetchLatestInvoices, getSubgraphBlockNumber]
-  );
-
   // Initial fetch / address or chain change
   useEffect(() => {
     if (!address || !chain) {
@@ -504,33 +469,312 @@ export const useInvoiceData = () => {
         actions: [],
         marketplaceInvoices: [],
       });
-      lastIndexedBlockRef.current = 0;
       return;
     }
 
-    // Force refresh on initial load / account change
-    refreshIfIndexed(true, "user");
-  }, [address, chain, refreshIfIndexed]);
+    fetchLatestInvoices(true, "user");
+  }, [address, chain, fetchLatestInvoices]);
 
-  // React to new blocks (throttled inside getSubgraphBlockNumber)
+  // Realtime status updates for simple invoices via websocket events
   useEffect(() => {
-    if (!address || !chain || latestBlock === undefined) return;
-    refreshIfIndexed(false, "user");
-  }, [address, chain, latestBlock, refreshIfIndexed]);
+    if (!publicClient || !address) return;
 
-  // When tab becomes visible again, force a check
-  useEffect(() => {
-    if (!address || !chain) return;
+    const simpleInvoiceIds = new Set(
+      invoiceData
+        .filter((inv) => inv.source === "Simple")
+        .map((inv) => inv.orderId.toString())
+    );
 
-    const onVisibility = () => {
-      if (!document.hidden) {
-        refreshIfIndexed(true, "user");
-      }
+    const statusFromEvent: Record<string, Invoice["status"]> = {
+      InvoicePaid: "PAID",
+      InvoiceAccepted: "ACCEPTED",
+      InvoiceRejected: "REFUNDED",
+      InvoiceRefunded: "REFUNDED",
+      InvoiceReleased: "RELEASED",
+      InvoiceCanceled: "CANCELED",
     };
 
-    document.addEventListener("visibilitychange", onVisibility);
-    return () => document.removeEventListener("visibilitychange", onVisibility);
-  }, [address, chain, refreshIfIndexed]);
+    const eventNames: (keyof typeof statusFromEvent | "InvoiceCreated")[] = [
+      "InvoicePaid",
+      "InvoiceAccepted",
+      "InvoiceRejected",
+      "InvoiceRefunded",
+      "InvoiceReleased",
+      "InvoiceCanceled",
+      "InvoiceCreated",
+    ];
+
+    const unwatch = eventNames.map((name) =>
+      publicClient.watchContractEvent({
+        address: SIMPLE_PAYMENT_PROCESSOR[chainId],
+        abi: paymentProcessor,
+        eventName: name as
+          | "InvoicePaid"
+          | "InvoiceAccepted"
+          | "InvoiceRejected"
+          | "InvoiceRefunded"
+          | "InvoiceReleased"
+          | "InvoiceCanceled"
+          | "InvoiceCreated",
+        onLogs: (logs) => {
+          setInvoiceData((prev) => {
+            let updated = prev;
+            let shouldRefresh = false;
+            for (const log of logs) {
+              const orderId = (
+                log.args?.orderId as bigint | undefined
+              )?.toString();
+              const invoice = (log.args as any)?.invoice as
+                | {
+                    buyer?: string;
+                    seller?: string;
+                    price?: bigint;
+                    amountPaid?: bigint;
+                    createdAt?: bigint;
+                    paidAt?: bigint;
+                  }
+                | undefined;
+
+              if (name === "InvoiceCreated") {
+                const buyer = invoice?.buyer?.toLowerCase?.();
+                const seller = invoice?.seller?.toLowerCase?.();
+                if (
+                  address &&
+                  (buyer === address.toLowerCase() ||
+                    seller === address.toLowerCase())
+                ) {
+                  const alreadyExists = updated.some(
+                    (inv) => inv.orderId.toString() === orderId
+                  );
+                  if (!alreadyExists && orderId) {
+                    updated = [
+                      {
+                        id: orderId,
+                        orderId: BigInt(orderId),
+                        createdAt: invoice?.createdAt
+                          ? unixToGMT(Number(invoice.createdAt))
+                          : null,
+                        paidAt:
+                          invoice?.paidAt && invoice.paidAt
+                            ? unixToGMT(Number(invoice.paidAt))
+                            : "Not Paid",
+                        status: "AWAITING PAYMENT",
+                        price: invoice?.price
+                          ? formatEther(invoice.price)
+                          : null,
+                        amountPaid: invoice?.amountPaid
+                          ? formatEther(invoice.amountPaid)
+                          : "0",
+                        type:
+                          seller === address.toLowerCase()
+                            ? ("Seller" as const)
+                            : ("Buyer" as const),
+                        contract: SIMPLE_PAYMENT_PROCESSOR[chainId],
+                        buyer: invoice?.buyer ?? "",
+                        seller: invoice?.seller ?? "",
+                        source: "Simple",
+                      },
+                      ...updated,
+                    ];
+                  }
+                  shouldRefresh = true;
+                }
+                continue;
+              }
+
+              if (!orderId || !simpleInvoiceIds.has(orderId)) continue;
+
+              const status = statusFromEvent[name];
+              if (!status) continue;
+
+              updated = updated.map((inv) =>
+                inv.orderId.toString() === orderId ? { ...inv, status } : inv
+              );
+              shouldRefresh = true;
+            }
+            if (shouldRefresh) {
+              scheduleUserRefresh();
+            }
+            return updated;
+          });
+        },
+        onError: (err) =>
+          console.error("invoice status subscription error", err),
+      })
+    );
+
+    return () => {
+      unwatch.forEach((u) => u?.());
+    };
+  }, [publicClient, invoiceData, address, chainId, scheduleUserRefresh]);
+
+  // Realtime status updates for marketplace (advanced) invoices via websocket events
+  useEffect(() => {
+    if (!publicClient || !address) return;
+
+    const marketplaceIds = new Set(
+      invoiceData
+        .filter((inv) => inv.source === "Marketplace")
+        .map((inv) => inv.orderId.toString())
+    );
+
+    const statusFromEvent: Record<string, Invoice["status"]> = {
+      InvoicePaid: "PAID",
+      InvoiceCanceled: "CANCELED",
+      PaymentReleased: "RELEASED",
+      Refunded: "REFUNDED",
+      DisputeCreated: "DISPUTED",
+      DisputeResolved: "DISPUTE_RESOLVED",
+      DisputeDismissed: "DISPUTE_DISMISSED",
+      DisputeSettled: "DISPUTE_SETTLED",
+      InvoiceCreated: "AWAITING PAYMENT",
+    };
+
+    const eventNames: (keyof typeof statusFromEvent | "UpdateReleaseTime")[] = [
+      "InvoicePaid",
+      "InvoiceCanceled",
+      "PaymentReleased",
+      "Refunded",
+      "DisputeCreated",
+      "DisputeResolved",
+      "DisputeDismissed",
+      "DisputeSettled",
+      "InvoiceCreated",
+      "UpdateReleaseTime",
+    ];
+
+    const unwatch = eventNames.map((name) =>
+      publicClient.watchContractEvent({
+        address: ADVANCED_PAYMENT_PROCESSOR[chainId],
+        abi: advancedPaymentProcessor,
+        eventName: name as
+          | "InvoicePaid"
+          | "InvoiceCanceled"
+          | "PaymentReleased"
+          | "Refunded"
+          | "DisputeCreated"
+          | "DisputeResolved"
+          | "DisputeDismissed"
+          | "DisputeSettled"
+          | "InvoiceCreated"
+          | "UpdateReleaseTime",
+        onLogs: (logs) => {
+          setInvoiceData((prev) => {
+            let updated = prev;
+            let shouldRefresh = false;
+            for (const log of logs) {
+              const orderId = (
+                log.args?.orderId as bigint | undefined
+              )?.toString();
+              if (name === "InvoiceCreated") {
+                const invoice = (log.args as any)?.invoice as
+                  | {
+                      buyer?: string;
+                      seller?: string;
+                      price?: bigint;
+                      amountPaid?: bigint;
+                      createdAt?: bigint;
+                      paymentToken?: string;
+                      paidAt?: bigint;
+                    }
+                  | undefined;
+                const buyer = invoice?.buyer?.toLowerCase?.();
+                const seller = invoice?.seller?.toLowerCase?.();
+                if (
+                  address &&
+                  (buyer === address.toLowerCase() ||
+                    seller === address.toLowerCase())
+                ) {
+                  const alreadyExists = updated.some(
+                    (inv) => inv.orderId.toString() === orderId
+                  );
+                  if (!alreadyExists && orderId) {
+                    updated = [
+                      {
+                        id: orderId,
+                        orderId: BigInt(orderId),
+                        createdAt: invoice?.createdAt
+                          ? unixToGMT(Number(invoice.createdAt))
+                          : null,
+                        paidAt:
+                          invoice?.paidAt && invoice.paidAt
+                            ? unixToGMT(Number(invoice.paidAt))
+                            : "Not Paid",
+                        status: "AWAITING PAYMENT",
+                        price: invoice?.price
+                          ? formatEther(invoice.price)
+                          : null,
+                        amountPaid: invoice?.amountPaid
+                          ? formatEther(invoice.amountPaid)
+                          : "0",
+                        type:
+                          seller === address.toLowerCase()
+                            ? ("IssuedInvoice" as const)
+                            : ("ReceivedInvoice" as const),
+                        contract: ADVANCED_PAYMENT_PROCESSOR[chainId],
+                        buyer: invoice?.buyer ?? "",
+                        seller: invoice?.seller ?? "",
+                        source: "Marketplace",
+                        paymentToken: invoice?.paymentToken ?? "",
+                      },
+                      ...updated,
+                    ];
+                  }
+                  shouldRefresh = true;
+                }
+              }
+              if (!orderId || !marketplaceIds.has(orderId)) continue;
+
+              const status = statusFromEvent[name as string];
+              let releaseUpdate: bigint | undefined;
+              if (name === "UpdateReleaseTime") {
+                releaseUpdate = (log.args as any)?.newHoldPeriod as
+                  | bigint
+                  | undefined;
+              } else if (name === "InvoiceCreated") {
+                releaseUpdate = (log.args as any)?.invoice?.releaseAt as
+                  | bigint
+                  | undefined;
+              }
+
+              updated = updated.map((inv) =>
+                inv.orderId.toString() === orderId &&
+                inv.source === "Marketplace"
+                  ? {
+                      ...inv,
+                      status: status ?? inv.status,
+                      releaseAt: releaseUpdate
+                        ? releaseUpdate.toString()
+                        : inv.releaseAt,
+                    }
+                  : inv
+              );
+              shouldRefresh = true;
+            }
+            if (shouldRefresh) {
+              scheduleUserRefresh();
+            }
+            return updated;
+          });
+        },
+        onError: (err) =>
+          console.error("marketplace invoice status subscription error", err),
+      })
+    );
+
+    return () => {
+      unwatch.forEach((u) => u?.());
+    };
+  }, [publicClient, invoiceData, address, chainId, scheduleUserRefresh]);
+
+  // Clear any pending refresh timer on unmount
+  useEffect(() => {
+    return () => {
+      if (pendingRefreshTimeoutRef.current) {
+        clearTimeout(pendingRefreshTimeoutRef.current);
+      }
+    };
+  }, []);
 
   return {
     invoiceData,
@@ -543,7 +787,8 @@ export const useInvoiceData = () => {
       const data = await getAllInvoiceData();
       setAllInvoiceData(data);
     },
-    refreshAdminData: async (force = false) => refreshIfIndexed(force, "admin"),
+    refreshAdminData: async (force = false) =>
+      fetchLatestInvoices(force, "admin"),
     refetchInvoiceData: getInvoiceData,
   };
 };
@@ -580,4 +825,14 @@ const sortState = (state: string, voidAt?: string): string => {
   if (state == "CREATED" && Date.now() > Number(voidAt) * 1000)
     return "EXPIRED";
   return state;
+};
+
+const getLastActionTime = (invoice: Invoice): string | undefined => {
+  if (invoice.history && invoice.history.length > 0) {
+    return invoice.history[invoice.history.length - 1].time;
+  }
+  if (invoice.paidAt !== "Not Paid") {
+    return invoice.paidAt;
+  }
+  return invoice.createdAt === null ? undefined : invoice.createdAt;
 };

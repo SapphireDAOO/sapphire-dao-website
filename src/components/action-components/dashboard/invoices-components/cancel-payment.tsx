@@ -1,6 +1,6 @@
 "use client";
 
-import { useContext, useRef, useState } from "react";
+import { useContext, useState } from "react";
 import { ContractContext } from "@/context/contract-context";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
@@ -15,18 +15,10 @@ const CancelInvoice = ({ orderId }: CancelInvoiceProps) => {
   const { cancelInvoice, isLoading, refetchInvoiceData } =
     useContext(ContractContext);
   const [localLoading, setLocalLoading] = useState(false);
-  const pendingToastId = useRef<string | number | undefined>(undefined);
 
   const handleClick = async (e: React.MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
     setLocalLoading(true);
-    if (pendingToastId.current) {
-      toast.dismiss(pendingToastId.current);
-    }
-    pendingToastId.current = toast.loading(
-      "Cancelling invoice. Please keep this tab open; it can take up to a minute.",
-      { duration: Infinity }
-    );
 
     try {
       if (await cancelInvoice(orderId)) {
@@ -37,10 +29,6 @@ const CancelInvoice = ({ orderId }: CancelInvoiceProps) => {
       console.error("Cancel invoice failed:", err);
       toast.error("Unable to cancel the invoice. Please retry.");
     } finally {
-      if (pendingToastId.current) {
-        toast.dismiss(pendingToastId.current);
-        pendingToastId.current = undefined;
-      }
       setLocalLoading(false);
     }
   };

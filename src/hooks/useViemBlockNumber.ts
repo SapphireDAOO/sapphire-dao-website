@@ -13,7 +13,7 @@ export const useViemBlockNumber = (chainId?: number, enabled = true) => {
     const unwatch = publicClient.watchBlockNumber({
       emitMissed: true,
       emitOnBegin: true,
-      poll: true,
+      // Let viem prefer websocket subscriptions; falls back to polling if WS is unavailable.
       pollingInterval: 12000,
       onBlockNumber: setBlockNumber,
       onError: (err) => console.error("blockNumber watch error", err),

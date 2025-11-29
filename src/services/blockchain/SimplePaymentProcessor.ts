@@ -41,7 +41,7 @@ export const createInvoice = async (
 
     const receipt = await publicClient?.waitForTransactionReceipt({
       hash: tx,
-      confirmations: 2,
+      confirmations: 1,
     });
 
     if (receipt?.status) {
@@ -90,7 +90,7 @@ export const makeInvoicePayment = async (
 
     const receipt = await publicClient?.waitForTransactionReceipt({
       hash: tx,
-      confirmations: 2,
+      confirmations: 1,
     });
 
     if (receipt?.status === "success") {
@@ -142,7 +142,7 @@ export const sellerAction = async (
 
     const receipt = await publicClient?.waitForTransactionReceipt({
       hash: tx,
-      confirmations: 2,
+      confirmations: 1,
     });
 
     if (receipt?.status) {
@@ -196,7 +196,7 @@ export const cancelInvoice = async (
 
     const receipt = await publicClient?.waitForTransactionReceipt({
       hash: tx,
-      confirmations: 2,
+      confirmations: 1,
     });
 
     if (receipt?.status) {

@@ -4,11 +4,8 @@
 import { Book, Github } from "lucide-react";
 import Link from "next/link";
 import { buttonVariants } from "./ui/button";
-import { useRouter } from "next/navigation";
 
 const HeroSection = () => {
-  const navigator = useRouter();
-
   return (
     <section className="relative min-h-[calc(100vh-4rem)] flex items-center justify-center">
       <div className="text-center">
@@ -32,19 +29,6 @@ const HeroSection = () => {
           >
             Github <Github />
           </Link>
-
-          <button
-            type="button"
-            className={buttonVariants({ variant: "default" })}
-            onClick={() => {
-              navigator.push("/dashboard");
-              if (typeof window !== "undefined") {
-                window.location.assign("/dashboard");
-              }
-            }}
-          >
-            Open App
-          </button>
 
           <Link
             href="https://sapphiredao.gitbook.io/sapphiredao-docs"

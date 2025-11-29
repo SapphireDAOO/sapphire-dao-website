@@ -36,7 +36,7 @@ const marketplaceFilters = [
   "AWAITING PAYMENT",
   "PAID",
   "REFUNDED",
-  "CANCELLED",
+  "CANCELED",
   "RELEASED",
 ];
 
@@ -46,7 +46,7 @@ const simpleFilters = [
   "PAID",
   "ACCEPTED",
   "REFUNDED",
-  "CANCELLED",
+  "CANCELED",
   "RELEASED",
 ];
 

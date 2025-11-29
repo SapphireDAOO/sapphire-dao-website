@@ -1,6 +1,6 @@
 "use client";
 
-import { useContext, useRef, useState } from "react";
+import { useContext, useState } from "react";
 import { ContractContext } from "@/context/contract-context";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
@@ -17,18 +17,10 @@ const SellersAction = ({ orderId, state, text }: SellersActionProps) => {
     useContext(ContractContext);
 
   const [localLoading, setLocalLoading] = useState(false);
-  const pendingToastId = useRef<string | number | undefined>(undefined);
 
   const handleClick = async (e: React.MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
     setLocalLoading(true);
-    if (pendingToastId.current) {
-      toast.dismiss(pendingToastId.current);
-    }
-    pendingToastId.current = toast.loading(
-      "Processing your response. Keep the tab open — this may take a minute.",
-      { duration: Infinity }
-    );
 
     try {
       if (await sellerAction(orderId, state)) {
@@ -42,10 +34,6 @@ const SellersAction = ({ orderId, state, text }: SellersActionProps) => {
       console.error("Seller action failed:", err);
       toast.error("Action failed. Please try again.");
     } finally {
-      if (pendingToastId.current) {
-        toast.dismiss(pendingToastId.current);
-        pendingToastId.current = undefined;
-      }
       setLocalLoading(false);
     }
   };

@@ -191,9 +191,8 @@ export function InvoiceCard({
         {invoice.status === "AWAITING PAYMENT" && (
           <InvoiceField
             label="Void in"
-            // label={countdownLabel}
             value={countdown}
-            description="Total invoice amount (excluding fees)."
+            description="Time left before the invoice is void."
           />
         )}
 
