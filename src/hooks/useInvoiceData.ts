@@ -5,9 +5,13 @@ import {
   invoiceQuery,
   invoiceOwnerQuery,
 } from "@/services/graphql/queries";
-import { useAccount } from "wagmi";
+import { useAccount, usePublicClient } from "wagmi";
 import { unixToGMT } from "@/utils";
-import { ETHEREUM_SEPOLIA } from "@/constants";
+import {
+  ETHEREUM_SEPOLIA,
+  ADVANCED_PAYMENT_PROCESSOR,
+  SIMPLE_PAYMENT_PROCESSOR,
+} from "@/constants";
 import {
   AllInvoice,
   AdminAction,
@@ -22,25 +26,20 @@ import {
 
 import { formatEther } from "viem";
 import { client } from "@/services/graphql/client";
-import { usePublicClient } from "wagmi";
-import {
-  ADVANCED_PAYMENT_PROCESSOR,
-  SIMPLE_PAYMENT_PROCESSOR,
-} from "@/constants";
 import { paymentProcessor } from "@/abis/PaymentProcessor";
 import { advancedPaymentProcessor } from "@/abis/AdvancedPaymentProcessor";
 
 const ERROR_BACKOFF_MS = 15_000;
 const PAGE_SIZE = 50;
-const REFRESH_DELAY_MS = 5000;
+const REFRESH_DELAY_MS = 5_000;
 
 export const useInvoiceData = () => {
   const { chain, address } = useAccount();
-  const publicClient = usePublicClient({
-    chainId: chain?.id || ETHEREUM_SEPOLIA,
-  });
-
   const chainId = chain?.id || ETHEREUM_SEPOLIA;
+
+  const publicClient = usePublicClient({
+    chainId,
+  });
 
   const [invoiceData, setInvoiceData] = useState<Invoice[]>([]);
   const [allInvoiceData, setAllInvoiceData] = useState<AllInvoicesData>({
@@ -48,12 +47,18 @@ export const useInvoiceData = () => {
     actions: [],
     marketplaceInvoices: [],
   });
+
+  // Keep a ref to invoiceData so callbacks don't depend on it and cause re-subscribe loops
+  const invoiceDataRef = useRef<Invoice[]>([]);
+  useEffect(() => {
+    invoiceDataRef.current = invoiceData;
+  }, [invoiceData]);
+
   const refreshScheduledRef = useRef(false);
   const pendingRefreshTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null
   );
 
-  // refs for meta + throttling
   const isFetchingRef = useRef(false);
   const nextAllowedRequestRef = useRef<number>(0);
 
@@ -186,7 +191,10 @@ export const useInvoiceData = () => {
   }, [chainId, allInvoiceData, handleRateLimit]);
 
   const getInvoiceData = useCallback(async () => {
-    if (Date.now() < nextAllowedRequestRef.current && invoiceData.length > 0) {
+    if (
+      Date.now() < nextAllowedRequestRef.current &&
+      invoiceDataRef.current.length > 0
+    ) {
       return;
     }
 
@@ -229,7 +237,6 @@ export const useInvoiceData = () => {
 
         const createdInvoice: UserCreatedInvoice[] =
           data?.user?.ownedInvoices || [];
-
         const paidInvoices: UserPaidInvoice[] = data?.user?.paidInvoices || [];
         const issuedInvoices: UserIssuedInvoiceInvoice[] =
           data?.user?.issuedInvoices || [];
@@ -372,17 +379,37 @@ export const useInvoiceData = () => {
         return timeB.localeCompare(timeA);
       });
 
-      setInvoiceData(sortedInvoiceData);
+      // avoid overwriting fresher websocket-driven statuses
+      // with stale subgraph data. We merge by (orderId, type, source) and
+      // keep the "later" status based on a defined priority ranking.
+      const existingByKey = new Map<string, Invoice>();
+      invoiceDataRef.current.forEach((inv) => {
+        const key = `${inv.orderId.toString()}-${inv.type}-${inv.source}`;
+        existingByKey.set(key, inv);
+      });
+
+      const mergedInvoiceData = sortedInvoiceData.map((inv) => {
+        const key = `${inv.orderId.toString()}-${inv.type}-${inv.source}`;
+        const existing = existingByKey.get(key);
+        if (!existing) return inv as Invoice;
+
+        return {
+          ...existing,
+          ...inv,
+          status: pickNewerStatus(existing.status ?? "", inv.status!),
+        } as Invoice;
+      });
+
+      setInvoiceData(mergedInvoiceData);
     } catch (error) {
       console.error("Error fetching invoice data:", error);
       if (typeof error === "object" && error !== null && "message" in error) {
         handleRateLimit((error as any).message);
       }
     }
-  }, [address, chainId, handleRateLimit, invoiceData.length]);
+  }, [address, chainId, handleRateLimit]);
 
   const getInvoiceOwner = async (id: string): Promise<string> => {
-    // Respect rate-limit backoff
     if (Date.now() < nextAllowedRequestRef.current) {
       return "";
     }
@@ -405,7 +432,6 @@ export const useInvoiceData = () => {
     query: string,
     type: "smartInvoice" | "metaInvoice"
   ): Promise<any> => {
-    // Respect rate-limit backoff
     if (Date.now() < nextAllowedRequestRef.current) {
       return "";
     }
@@ -479,12 +505,6 @@ export const useInvoiceData = () => {
   useEffect(() => {
     if (!publicClient || !address) return;
 
-    const simpleInvoiceIds = new Set(
-      invoiceData
-        .filter((inv) => inv.source === "Simple")
-        .map((inv) => inv.orderId.toString())
-    );
-
     const statusFromEvent: Record<string, Invoice["status"]> = {
       InvoicePaid: "PAID",
       InvoiceAccepted: "ACCEPTED",
@@ -492,9 +512,10 @@ export const useInvoiceData = () => {
       InvoiceRefunded: "REFUNDED",
       InvoiceReleased: "RELEASED",
       InvoiceCanceled: "CANCELED",
+      InvoiceCreated: "AWAITING PAYMENT",
     };
 
-    const eventNames: (keyof typeof statusFromEvent | "InvoiceCreated")[] = [
+    const eventNames: (keyof typeof statusFromEvent)[] = [
       "InvoicePaid",
       "InvoiceAccepted",
       "InvoiceRejected",
@@ -520,10 +541,12 @@ export const useInvoiceData = () => {
           setInvoiceData((prev) => {
             let updated = prev;
             let shouldRefresh = false;
+
             for (const log of logs) {
               const orderId = (
                 log.args?.orderId as bigint | undefined
               )?.toString();
+
               const invoice = (log.args as any)?.invoice as
                 | {
                     buyer?: string;
@@ -538,6 +561,7 @@ export const useInvoiceData = () => {
               if (name === "InvoiceCreated") {
                 const buyer = invoice?.buyer?.toLowerCase?.();
                 const seller = invoice?.seller?.toLowerCase?.();
+
                 if (
                   address &&
                   (buyer === address.toLowerCase() ||
@@ -546,23 +570,23 @@ export const useInvoiceData = () => {
                   const alreadyExists = updated.some(
                     (inv) => inv.orderId.toString() === orderId
                   );
-                  if (!alreadyExists && orderId) {
+                  if (!alreadyExists && orderId && invoice) {
                     updated = [
                       {
                         id: orderId,
                         orderId: BigInt(orderId),
-                        createdAt: invoice?.createdAt
+                        createdAt: invoice.createdAt
                           ? unixToGMT(Number(invoice.createdAt))
                           : null,
                         paidAt:
-                          invoice?.paidAt && invoice.paidAt
+                          invoice.paidAt && Number(invoice.paidAt) > 0
                             ? unixToGMT(Number(invoice.paidAt))
                             : "Not Paid",
                         status: "AWAITING PAYMENT",
-                        price: invoice?.price
+                        price: invoice.price
                           ? formatEther(invoice.price)
                           : null,
-                        amountPaid: invoice?.amountPaid
+                        amountPaid: invoice.amountPaid
                           ? formatEther(invoice.amountPaid)
                           : "0",
                         type:
@@ -570,10 +594,10 @@ export const useInvoiceData = () => {
                             ? ("Seller" as const)
                             : ("Buyer" as const),
                         contract: SIMPLE_PAYMENT_PROCESSOR[chainId],
-                        buyer: invoice?.buyer ?? "",
-                        seller: invoice?.seller ?? "",
+                        buyer: invoice.buyer ?? "",
+                        seller: invoice.seller ?? "",
                         source: "Simple",
-                      },
+                      } as Invoice,
                       ...updated,
                     ];
                   }
@@ -582,19 +606,26 @@ export const useInvoiceData = () => {
                 continue;
               }
 
-              if (!orderId || !simpleInvoiceIds.has(orderId)) continue;
+              if (!orderId) continue;
 
               const status = statusFromEvent[name];
               if (!status) continue;
+
+              const exists = updated.some(
+                (inv) => inv.orderId.toString() === orderId
+              );
+              if (!exists) continue;
 
               updated = updated.map((inv) =>
                 inv.orderId.toString() === orderId ? { ...inv, status } : inv
               );
               shouldRefresh = true;
             }
+
             if (shouldRefresh) {
               scheduleUserRefresh();
             }
+
             return updated;
           });
         },
@@ -606,17 +637,11 @@ export const useInvoiceData = () => {
     return () => {
       unwatch.forEach((u) => u?.());
     };
-  }, [publicClient, invoiceData, address, chainId, scheduleUserRefresh]);
+  }, [publicClient, address, chainId, scheduleUserRefresh]);
 
   // Realtime status updates for marketplace (advanced) invoices via websocket events
   useEffect(() => {
     if (!publicClient || !address) return;
-
-    const marketplaceIds = new Set(
-      invoiceData
-        .filter((inv) => inv.source === "Marketplace")
-        .map((inv) => inv.orderId.toString())
-    );
 
     const statusFromEvent: Record<string, Invoice["status"]> = {
       InvoicePaid: "PAID",
@@ -662,10 +687,12 @@ export const useInvoiceData = () => {
           setInvoiceData((prev) => {
             let updated = prev;
             let shouldRefresh = false;
+
             for (const log of logs) {
               const orderId = (
                 log.args?.orderId as bigint | undefined
               )?.toString();
+
               if (name === "InvoiceCreated") {
                 const invoice = (log.args as any)?.invoice as
                   | {
@@ -676,10 +703,13 @@ export const useInvoiceData = () => {
                       createdAt?: bigint;
                       paymentToken?: string;
                       paidAt?: bigint;
+                      releaseAt?: bigint;
                     }
                   | undefined;
+
                 const buyer = invoice?.buyer?.toLowerCase?.();
                 const seller = invoice?.seller?.toLowerCase?.();
+
                 if (
                   address &&
                   (buyer === address.toLowerCase() ||
@@ -688,23 +718,23 @@ export const useInvoiceData = () => {
                   const alreadyExists = updated.some(
                     (inv) => inv.orderId.toString() === orderId
                   );
-                  if (!alreadyExists && orderId) {
+                  if (!alreadyExists && orderId && invoice) {
                     updated = [
                       {
                         id: orderId,
                         orderId: BigInt(orderId),
-                        createdAt: invoice?.createdAt
+                        createdAt: invoice.createdAt
                           ? unixToGMT(Number(invoice.createdAt))
                           : null,
                         paidAt:
-                          invoice?.paidAt && invoice.paidAt
+                          invoice.paidAt && Number(invoice.paidAt) > 0
                             ? unixToGMT(Number(invoice.paidAt))
                             : "Not Paid",
                         status: "AWAITING PAYMENT",
-                        price: invoice?.price
+                        price: invoice.price
                           ? formatEther(invoice.price)
                           : null,
-                        amountPaid: invoice?.amountPaid
+                        amountPaid: invoice.amountPaid
                           ? formatEther(invoice.amountPaid)
                           : "0",
                         type:
@@ -712,21 +742,27 @@ export const useInvoiceData = () => {
                             ? ("IssuedInvoice" as const)
                             : ("ReceivedInvoice" as const),
                         contract: ADVANCED_PAYMENT_PROCESSOR[chainId],
-                        buyer: invoice?.buyer ?? "",
-                        seller: invoice?.seller ?? "",
+                        buyer: invoice.buyer ?? "",
+                        seller: invoice.seller ?? "",
                         source: "Marketplace",
-                        paymentToken: invoice?.paymentToken ?? "",
-                      },
+                        paymentToken: invoice.paymentToken ?? "",
+                        releaseAt: invoice.releaseAt
+                          ? invoice.releaseAt.toString()
+                          : undefined,
+                      } as Invoice,
                       ...updated,
                     ];
                   }
                   shouldRefresh = true;
                 }
+                continue;
               }
-              if (!orderId || !marketplaceIds.has(orderId)) continue;
+
+              if (!orderId) continue;
 
               const status = statusFromEvent[name as string];
               let releaseUpdate: bigint | undefined;
+
               if (name === "UpdateReleaseTime") {
                 releaseUpdate = (log.args as any)?.newHoldPeriod as
                   | bigint
@@ -736,6 +772,13 @@ export const useInvoiceData = () => {
                   | bigint
                   | undefined;
               }
+
+              const exists = updated.some(
+                (inv) =>
+                  inv.orderId.toString() === orderId &&
+                  inv.source === "Marketplace"
+              );
+              if (!exists) continue;
 
               updated = updated.map((inv) =>
                 inv.orderId.toString() === orderId &&
@@ -751,9 +794,11 @@ export const useInvoiceData = () => {
               );
               shouldRefresh = true;
             }
+
             if (shouldRefresh) {
               scheduleUserRefresh();
             }
+
             return updated;
           });
         },
@@ -765,7 +810,7 @@ export const useInvoiceData = () => {
     return () => {
       unwatch.forEach((u) => u?.());
     };
-  }, [publicClient, invoiceData, address, chainId, scheduleUserRefresh]);
+  }, [publicClient, address, chainId, scheduleUserRefresh]);
 
   // Clear any pending refresh timer on unmount
   useEffect(() => {
@@ -814,6 +859,11 @@ const sortHistory = (status?: string[], time?: string[]): History[] => {
 };
 
 const sortState = (state: string, voidAt?: string): string => {
+  // If created and already past voidAt, mark as expired first
+  if (state === "CREATED" && voidAt && Date.now() > Number(voidAt) * 1000) {
+    return "EXPIRED";
+  }
+
   if (state === "CREATED") {
     return "AWAITING PAYMENT";
   }
@@ -822,9 +872,36 @@ const sortState = (state: string, voidAt?: string): string => {
     return "REFUNDED";
   }
 
-  if (state == "CREATED" && Date.now() > Number(voidAt) * 1000)
-    return "EXPIRED";
   return state;
+};
+
+// Define a status priority so we can keep the "newer" one when merging
+const STATUS_ORDER = [
+  "AWAITING PAYMENT",
+  "CREATED",
+  "PAID",
+  "ACCEPTED",
+  "RELEASED",
+  "REFUNDED",
+  "CANCELED",
+  "EXPIRED",
+  "DISPUTED",
+  "DISPUTE_RESOLVED",
+  "DISPUTE_DISMISSED",
+  "DISPUTE_SETTLED",
+];
+
+const getStatusRank = (status: string | undefined): number => {
+  if (!status) return -1;
+  const idx = STATUS_ORDER.indexOf(status);
+  return idx === -1 ? STATUS_ORDER.length : idx;
+};
+
+const pickNewerStatus = (existing: string, incoming: string): string => {
+  const existingRank = getStatusRank(existing);
+  const incomingRank = getStatusRank(incoming);
+  // higher/equal rank means "later" or same status; never downgrade
+  return incomingRank >= existingRank ? incoming : existing;
 };
 
 const getLastActionTime = (invoice: Invoice): string | undefined => {
