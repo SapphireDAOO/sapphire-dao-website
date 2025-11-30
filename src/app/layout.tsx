@@ -5,29 +5,28 @@ import Web3Provider from "@/components/Web3Provider";
 import Navbar from "@/components/Navigation";
 import { Toaster } from "sonner";
 
-// Provide a minimal indexedDB shim on the server to satisfy walletconnect during prerender
-// if (typeof globalThis.indexedDB === "undefined") {
-//   const stubIndexedDB = {
-//     open: () => {
-//       const request = {} as IDBOpenDBRequest;
-//       // fail immediately; consumers just need the global to exist during build
-//       setTimeout(() => {
-//         const errorEvent = new Event("error");
-//         request.onerror?.call(request, errorEvent);
-//       }, 0);
-//       return request;
-//     },
-//     deleteDatabase: () => {
-//       const request = {} as IDBOpenDBRequest;
-//       setTimeout(() => {
-//         const errorEvent = new Event("error");
-//         request.onerror?.call(request, errorEvent);
-//       }, 0);
-//       return request;
-//     },
-//   } as unknown as IDBFactory;
-//   (globalThis as { indexedDB: IDBFactory }).indexedDB = stubIndexedDB;
-// }
+if (typeof globalThis.indexedDB === "undefined") {
+  const stubIndexedDB = {
+    open: () => {
+      const request = {} as IDBOpenDBRequest;
+
+      setTimeout(() => {
+        const errorEvent = new Event("error");
+        request.onerror?.call(request, errorEvent);
+      }, 0);
+      return request;
+    },
+    deleteDatabase: () => {
+      const request = {} as IDBOpenDBRequest;
+      setTimeout(() => {
+        const errorEvent = new Event("error");
+        request.onerror?.call(request, errorEvent);
+      }, 0);
+      return request;
+    },
+  } as unknown as IDBFactory;
+  (globalThis as { indexedDB: IDBFactory }).indexedDB = stubIndexedDB;
+}
 
 export const metadata: Metadata = {
   title: "Sapphire DAO App",

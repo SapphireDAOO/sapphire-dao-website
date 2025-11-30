@@ -3,7 +3,6 @@ import { ColumnDef } from "@tanstack/react-table";
 import { AllInvoice } from "@/model/model";
 import { formatAddress } from "@/utils";
 import React from "react";
-import { formatEther } from "viem";
 import CopyableAddress from "@/components/ui/CopyableAddress";
 import { Button } from "@/components/ui/button";
 import { ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
