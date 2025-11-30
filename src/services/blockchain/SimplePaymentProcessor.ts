@@ -337,7 +337,7 @@ export const transferOwnership = async (
 
     const tx = await walletClient?.sendTransaction({
       chain: sepolia,
-      to: SIMPLE_PAYMENT_PROCESSOR[chainId],
+      to: PAYMENT_PROCESSOR_STORAGE[chainId],
       data: encodeFunctionData({
         abi: PaymentProcessorStorage,
         functionName: "transferOwnership",
@@ -392,7 +392,7 @@ export const setFeeReceiversAddress = async (
 
     const tx = await walletClient?.sendTransaction({
       chain: sepolia,
-      to: SIMPLE_PAYMENT_PROCESSOR[chainId],
+      to: PAYMENT_PROCESSOR_STORAGE[chainId],
       data: encodeFunctionData({
         abi: PaymentProcessorStorage,
         functionName: "setFeeReceiver",
@@ -464,7 +464,7 @@ export const setInvoiceHoldPeriod = async (
 
     const tx = await walletClient?.sendTransaction({
       chain: sepolia,
-      to: PaymentProcessorStorage[chainId],
+      to: PAYMENT_PROCESSOR_STORAGE[chainId],
       data: encodeFunctionData({
         abi: PaymentProcessorStorage,
         functionName: "execute",
@@ -575,7 +575,7 @@ export const setFee = async (
 
     const tx = await walletClient?.sendTransaction({
       chain: sepolia,
-      to: SIMPLE_PAYMENT_PROCESSOR[chainId],
+      to: PAYMENT_PROCESSOR_STORAGE[chainId],
       data: encodeFunctionData({
         abi: PaymentProcessorStorage,
         functionName: "setFeeRate",
