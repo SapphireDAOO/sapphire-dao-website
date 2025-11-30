@@ -5,13 +5,16 @@ import { formatAddress } from "@/utils";
 import React from "react";
 import { formatEther } from "viem";
 import { Button } from "@/components/ui/button";
-import { ArrowUpDown } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
 import CopyableAddress from "@/components/ui/CopyableAddress";
 
 const allMarketplaceInvoices: ColumnDef<Invoice>[] = [
   {
     accessorKey: "id",
     header: ({ column }) => {
+      const sorted = column.getIsSorted();
+      const SortIcon =
+        sorted === "asc" ? ArrowUp : sorted === "desc" ? ArrowDown : ArrowUpDown;
       return (
         <div className="text-center w-full">
           <Button
@@ -20,7 +23,7 @@ const allMarketplaceInvoices: ColumnDef<Invoice>[] = [
             className="mx-auto"
           >
             Id
-            <ArrowUpDown className="ml-1 h-4 w-4" />
+            <SortIcon className="ml-1 h-4 w-4" />
           </Button>
         </div>
       );
@@ -37,7 +40,23 @@ const allMarketplaceInvoices: ColumnDef<Invoice>[] = [
 
   {
     accessorKey: "orderId",
-    header: () => <div className="text-center">Invoice Id</div>,
+    header: ({ column }) => {
+      const sorted = column.getIsSorted();
+      const SortIcon =
+        sorted === "asc" ? ArrowUp : sorted === "desc" ? ArrowDown : ArrowUpDown;
+      return (
+        <div className="text-center w-full">
+          <Button
+            variant="ghost"
+            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+            className="mx-auto"
+          >
+            Invoice Id
+            <SortIcon className="ml-1 h-4 w-4" />
+          </Button>
+        </div>
+      );
+    },
     cell: ({ row }) => {
       const orderId: bigint = row.getValue("orderId");
       return (

@@ -32,6 +32,7 @@ import { advancedPaymentProcessor } from "@/abis/AdvancedPaymentProcessor";
 const ERROR_BACKOFF_MS = 15_000;
 const PAGE_SIZE = 50;
 const REFRESH_DELAY_MS = 5_000;
+const MAX_ADMIN_PAGES = 10;
 
 export const useInvoiceData = () => {
   const { chain, address } = useAccount();
@@ -83,20 +84,18 @@ export const useInvoiceData = () => {
     const actions: AdminAction[] = [];
     const marketplaceInvoices: AllInvoice[] = [];
 
-    let skipInvoices = 0;
-    let skipActions = 0;
-    let skipSmartInvoices = 0;
+    let page = 0;
     let hasMore = true;
 
     try {
-      while (hasMore) {
+      while (hasMore && page < MAX_ADMIN_PAGES) {
         const { data, error } = await client(chainId)
           .query(GET_ALL_INVOICES, {
-            skipInvoices,
+            skipInvoices: page * PAGE_SIZE,
             firstInvoices: PAGE_SIZE,
-            skipActions,
+            skipActions: page * PAGE_SIZE,
             firstActions: PAGE_SIZE,
-            skipSmartInvoices,
+            skipSmartInvoices: page * PAGE_SIZE,
             firstSmartInvoices: PAGE_SIZE,
           })
           .toPromise();
@@ -171,10 +170,7 @@ export const useInvoiceData = () => {
           }))
         );
 
-        skipInvoices += rawInvoices.length;
-        skipActions += rawAdminActions.length;
-        skipSmartInvoices += rawMarketplaceInvoices.length;
-
+        page += 1;
         hasMore =
           rawInvoices.length === PAGE_SIZE ||
           rawAdminActions.length === PAGE_SIZE ||

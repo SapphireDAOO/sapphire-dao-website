@@ -10,8 +10,6 @@ export const GET_ALL_INVOICES = `
     invoices(
       first: $firstInvoices
       skip: $skipInvoices
-      orderBy: createdAt
-      orderDirection: desc
     ) {
       contract
       createdAt
@@ -23,8 +21,6 @@ export const GET_ALL_INVOICES = `
       price
       releaseHash
       releasedAt
-      invalidateAt
-      expiresAt
       state
       amountPaid
       creationTxHash
@@ -53,8 +49,6 @@ export const GET_ALL_INVOICES = `
     smartInvoices(
       first: $firstSmartInvoices
       skip: $skipSmartInvoices
-      orderBy: createdAt
-      orderDirection: desc
     ) {
       contract
       createdAt

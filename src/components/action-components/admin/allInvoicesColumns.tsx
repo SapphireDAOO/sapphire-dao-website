@@ -6,21 +6,26 @@ import React from "react";
 import { formatEther } from "viem";
 import CopyableAddress from "@/components/ui/CopyableAddress";
 import { Button } from "@/components/ui/button";
-import { ArrowUpDown } from "lucide-react";
+import { ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 
 const allInvoicesColumns: ColumnDef<AllInvoice>[] = [
   {
     accessorKey: "id",
     header: ({ column }) => {
+      const isSorted = column.getIsSorted();
+      let Icon = ArrowUpDown;
+      if (isSorted === "asc") Icon = ArrowUp;
+      if (isSorted === "desc") Icon = ArrowDown;
+
       return (
         <div className="text-center w-full">
           <Button
             variant="ghost"
-            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+            onClick={() => column.toggleSorting(isSorted === "asc")}
             className="mx-auto"
           >
             Id
-            <ArrowUpDown className="ml-1 h-4 w-4" />
+            <Icon className="ml-1 h-4 w-4" />
           </Button>
         </div>
       );
@@ -200,7 +205,7 @@ const allInvoicesColumns: ColumnDef<AllInvoice>[] = [
     accessorKey: "fee",
     header: () => <div className="text-center">Fee</div>,
     cell: ({ row }) => {
-      const releasedAtTimeStamp: string = formatEther(row.getValue("fee"));
+      const releasedAtTimeStamp: string = row.getValue("fee");
 
       return <div className="text-center">{releasedAtTimeStamp}</div>;
     },
