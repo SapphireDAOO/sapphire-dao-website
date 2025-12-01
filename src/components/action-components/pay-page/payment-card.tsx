@@ -1,6 +1,6 @@
 "use client";
 
-import { useAccount } from "wagmi";
+import { useAccount, usePublicClient } from "wagmi";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,7 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ContractContext } from "@/context/contract-context";
 import { CircleCheckBig, Loader2 } from "lucide-react";
-import { useCallback, useContext, useEffect, useState } from "react";
+import { useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { PaymentCardProps } from "@/model/model";
 import {
@@ -26,11 +26,23 @@ import {
   DialogPortal,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { formatEther } from "viem";
+import { formatEther, parseEther } from "viem";
 import { useGetInvoiceData } from "@/hooks/useGetInvoiceData";
+import { SIMPLE_PAYMENT_PROCESSOR } from "@/constants";
+import { paymentProcessor } from "@/abis/PaymentProcessor";
+import { ETHEREUM_SEPOLIA } from "@/constants";
+
+type InvoiceLike = {
+  price?: string | number | bigint;
+  amount?: string | number | bigint;
+  orderId?: string | number | bigint;
+  invoiceId?: string | number | bigint;
+  status?: string | number;
+};
 
 const PaymentCard = ({ data }: PaymentCardProps) => {
-  const { address } = useAccount();
+  const { address, chain } = useAccount();
+  const publicClient = usePublicClient();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [userIsCreator, setUserIsCreator] = useState(false);
@@ -38,13 +50,103 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
   const [countdown, setCountdown] = useState(3);
 
   const orderId = data?.orderId;
-  const { data: invoiceData } = useGetInvoiceData(orderId);
-  const invoice = invoiceData as
-    | { price?: bigint; invoiceId?: bigint; status?: number }
-    | undefined;
+  const { data: fetchedInvoice } = useGetInvoiceData(orderId);
 
-  const { getInvoiceOwner, makeInvoicePayment, isLoading, refetchInvoiceData } =
+  const { invoiceData, getInvoiceOwner, makeInvoicePayment, isLoading } =
     useContext(ContractContext);
+
+  const liveInvoice = useMemo(() => {
+    if (!orderId) return undefined;
+    return invoiceData.find(
+      (inv) => inv.orderId?.toString() === orderId.toString()
+    );
+  }, [invoiceData, orderId]);
+
+  const resolvedInvoice = liveInvoice ?? fetchedInvoice;
+  const invoiceLike = resolvedInvoice as InvoiceLike | undefined;
+
+  const displayOrderId = invoiceLike?.invoiceId;
+
+  const displayPriceEth =
+    invoiceLike?.price ?? invoiceLike?.amount ?? data?.price ?? null;
+  const statusValue = invoiceLike?.status ?? data?.status;
+  const normalizedStatus =
+    statusValue === undefined || statusValue === null
+      ? undefined
+      : String(statusValue).toUpperCase();
+
+  const [liveStatus, setLiveStatus] = useState<string | undefined>(
+    normalizedStatus
+  );
+
+  useEffect(() => {
+    setLiveStatus(normalizedStatus);
+  }, [normalizedStatus]);
+
+  useEffect(() => {
+    if (!publicClient || !orderId) return;
+
+    const shouldSubscribe =
+      liveStatus === "AWAITING PAYMENT" ||
+      liveStatus === "CREATED" ||
+      liveStatus === "1" ||
+      liveStatus === undefined;
+
+    if (!shouldSubscribe) return;
+
+    const activeChainId = chain?.id || ETHEREUM_SEPOLIA;
+
+    const statusFromEvent: Record<
+      | "InvoicePaid"
+      | "InvoiceAccepted"
+      | "InvoiceRejected"
+      | "InvoiceRefunded"
+      | "InvoiceReleased"
+      | "InvoiceCanceled",
+      string
+    > = {
+      InvoicePaid: "PAID",
+      InvoiceAccepted: "ACCEPTED",
+      InvoiceRejected: "REFUNDED",
+      InvoiceRefunded: "REFUNDED",
+      InvoiceReleased: "RELEASED",
+      InvoiceCanceled: "CANCELED",
+    };
+
+    const eventNames: Array<keyof typeof statusFromEvent> = [
+      "InvoicePaid",
+      "InvoiceAccepted",
+      "InvoiceRejected",
+      "InvoiceRefunded",
+      "InvoiceReleased",
+      "InvoiceCanceled",
+    ];
+
+    const unwatch = eventNames.map((name) =>
+      publicClient.watchContractEvent({
+        address: SIMPLE_PAYMENT_PROCESSOR[activeChainId],
+        abi: paymentProcessor,
+        eventName: name,
+        onLogs: (logs) => {
+          for (const log of logs) {
+            const id = (log.args?.orderId as bigint | undefined)?.toString();
+            if (id !== orderId?.toString()) continue;
+            setLiveStatus(statusFromEvent[name]);
+          }
+        },
+      })
+    );
+
+    return () => {
+      unwatch.forEach((u) => u?.());
+    };
+  }, [publicClient, orderId, chain?.id]);
+
+  const canPay =
+    liveStatus === "AWAITING PAYMENT" ||
+    liveStatus === "CREATED" ||
+    liveStatus === "1" ||
+    liveStatus === undefined;
 
   const isCreator = useCallback(async () => {
     if (!orderId) return false;
@@ -63,13 +165,29 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
   }, [address, orderId, isCreator]);
 
   const handlePayment = async () => {
-    if (!invoice?.price || !orderId) {
+    const priceEth = (() => {
+      const priceVal = invoiceLike?.price;
+      if (typeof priceVal === "bigint") return formatEther(priceVal);
+      if (typeof priceVal === "string") return priceVal;
+      if (typeof priceVal === "number") return priceVal.toString();
+      return data?.price;
+    })();
+
+    if (!priceEth || !orderId) {
       toast.error("Invoice is missing price or order ID.");
       return;
     }
 
+    let priceWei: bigint;
     try {
-      if (await makeInvoicePayment(invoice.price, orderId)) {
+      priceWei = parseEther(priceEth);
+    } catch {
+      toast.error("Invalid invoice amount.");
+      return;
+    }
+
+    try {
+      if (await makeInvoicePayment(priceWei, orderId)) {
         setOpen(true);
 
         setCountdown(3);
@@ -82,7 +200,6 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
               clearInterval(interval);
 
               (async () => {
-                await refetchInvoiceData?.();
                 router.push("/dashboard?tab=buyer");
               })();
             }
@@ -96,8 +213,6 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
       toast.error("Payment failed. Please try again.");
     }
   };
-
-  const currStatus = invoice?.status;
 
   return (
     <>
@@ -113,7 +228,7 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
               <Label htmlFor="id">Invoice ID</Label>
               <Input
                 id="id"
-                placeholder={`${invoice?.invoiceId || "N/A"}`}
+                value={displayOrderId?.toString() ?? "Loading..."}
                 disabled
               />
             </div>
@@ -122,7 +237,19 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
               <Label htmlFor="price">Requested Amount</Label>
               <Input
                 id="price"
-                value={`${formatEther(invoice?.price ?? BigInt(0))} ETH`}
+                value={(() => {
+                  if (!displayPriceEth) return "Loading...";
+                  if (typeof displayPriceEth === "bigint") {
+                    return `${formatEther(displayPriceEth)} ETH`;
+                  }
+                  if (
+                    typeof displayPriceEth === "string" ||
+                    typeof displayPriceEth === "number"
+                  ) {
+                    return `${displayPriceEth} ETH`;
+                  }
+                  return "Loading...";
+                })()}
                 disabled
               />
             </div>
@@ -135,7 +262,7 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
               onClick={handlePayment}
               className="w-full"
               disabled={
-                currStatus !== 1 ||
+                !canPay ||
                 userIsCreator ||
                 !orderId ||
                 isLoading === "makeInvoicePayment"
@@ -146,7 +273,7 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
                   <span>Processing...</span>
                   <Loader2 className="ml-2 h-4 w-4 animate-spin" />
                 </>
-              ) : currStatus !== 1 ? (
+              ) : !canPay ? (
                 "RESOLVED"
               ) : (
                 "Make Payment"
