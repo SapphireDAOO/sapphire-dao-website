@@ -41,7 +41,7 @@ export const createInvoice = async (
 
     const receipt = await publicClient?.waitForTransactionReceipt({
       hash: tx,
-      confirmations: 1,
+      confirmations: 2,
     });
 
     if (receipt?.status) {

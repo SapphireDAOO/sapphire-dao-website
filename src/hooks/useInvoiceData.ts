@@ -125,10 +125,8 @@ export const useInvoiceData = () => {
                 ? unixToGMT(list.releasedAt)
                 : "Pending",
             fee: list.fee ? formatEther(BigInt(list.fee)) : "0",
-            state: list.status === "CREATED" ? "AWAITING PAYMENT" : list.status,
             releaseHash: list.releaseHash,
-            status:
-              list.status === "CREATED" ? "AWAITING PAYMENT" : list.status,
+            status: sortState(list.state, list.invalidateAt),
             creationTxHash: list.creationTxHash,
             commisionTxHash: list.commisionTxHash,
             refundTxHash: list.refundTxHash,
@@ -518,7 +516,6 @@ export const useInvoiceData = () => {
       "InvoiceRefunded",
       "InvoiceReleased",
       "InvoiceCanceled",
-      "InvoiceCreated",
     ];
 
     const unwatch = eventNames.map((name) =>
@@ -531,8 +528,7 @@ export const useInvoiceData = () => {
           | "InvoiceRejected"
           | "InvoiceRefunded"
           | "InvoiceReleased"
-          | "InvoiceCanceled"
-          | "InvoiceCreated",
+          | "InvoiceCanceled",
         onLogs: (logs) => {
           setInvoiceData((prev) => {
             let updated = prev;
@@ -660,7 +656,6 @@ export const useInvoiceData = () => {
       "DisputeResolved",
       "DisputeDismissed",
       "DisputeSettled",
-      "InvoiceCreated",
       "UpdateReleaseTime",
     ];
 
