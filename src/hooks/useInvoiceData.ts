@@ -389,7 +389,34 @@ export const useInvoiceData = () => {
 
         return {
           ...existing,
+
+          amountPaid:
+            inv.amountPaid && inv.amountPaid !== "0"
+              ? inv.amountPaid
+              : existing.amountPaid,
+
+          paidAt:
+            inv.paidAt && inv.paidAt !== "Not Paid"
+              ? inv.paidAt
+              : existing.paidAt,
+
+          paymentTxHash:
+            inv.paymentTxHash !== undefined && inv.paymentTxHash !== null
+              ? inv.paymentTxHash
+              : existing.paymentTxHash,
+
+          refundTxHash:
+            inv.refundTxHash !== undefined && inv.refundTxHash !== null
+              ? inv.refundTxHash
+              : existing.refundTxHash,
+
+          releaseAt:
+            inv.releaseAt !== undefined && inv.releaseAt !== null
+              ? inv.releaseAt
+              : existing.releaseAt,
+
           ...inv,
+
           status: pickNewerStatus(existing.status ?? "", inv.status!),
         } as Invoice;
       });
@@ -608,9 +635,36 @@ export const useInvoiceData = () => {
               );
               if (!exists) continue;
 
-              updated = updated.map((inv) =>
-                inv.orderId.toString() === orderId ? { ...inv, status } : inv
-              );
+              updated = updated.map((inv) => {
+                if (inv.orderId.toString() !== orderId) return inv;
+
+                const updatedFields: Partial<Invoice> = { status };
+
+                // amountPaid (InvoicePaid)
+                if (name === "InvoicePaid" && invoice?.amountPaid) {
+                  updatedFields.amountPaid = formatEther(invoice.amountPaid);
+                  updatedFields.paymentTxHash =
+                    log.transactionHash ?? inv.paymentTxHash;
+                  updatedFields.paidAt = invoice.paidAt
+                    ? unixToGMT(Number(invoice.paidAt))
+                    : inv.paidAt;
+                }
+
+                // refunded amounts (InvoiceRejected / InvoiceRefunded)
+                if (
+                  (name === "InvoiceRejected" || name === "InvoiceRefunded") &&
+                  invoice?.amountPaid
+                ) {
+                  updatedFields.amountPaid = formatEther(invoice.amountPaid);
+                  updatedFields.refundTxHash =
+                    log.transactionHash ?? inv.refundTxHash;
+                }
+
+                return {
+                  ...inv,
+                  ...updatedFields,
+                };
+              });
               shouldRefresh = true;
             }
 
@@ -771,18 +825,45 @@ export const useInvoiceData = () => {
               );
               if (!exists) continue;
 
-              updated = updated.map((inv) =>
-                inv.orderId.toString() === orderId &&
-                inv.source === "Marketplace"
-                  ? {
-                      ...inv,
-                      status: status ?? inv.status,
-                      releaseAt: releaseUpdate
-                        ? releaseUpdate.toString()
-                        : inv.releaseAt,
-                    }
-                  : inv
-              );
+              updated = updated.map((inv) => {
+                if (
+                  inv.orderId.toString() !== orderId ||
+                  inv.source !== "Marketplace"
+                )
+                  return inv;
+
+                const updatedFields: Partial<Invoice> = {
+                  status: status ?? inv.status,
+                };
+
+                // marketplace: InvoicePaid → update amountPaid, paidAt, txHash
+                if (name === "InvoicePaid" && inv?.amountPaid) {
+                  updatedFields.amountPaid = formatEther(
+                    BigInt(inv.amountPaid)
+                  );
+                  updatedFields.paymentTxHash =
+                    inv.paymentTxHash ?? inv.paymentTxHash;
+                  updatedFields.paidAt = inv.paidAt
+                    ? unixToGMT(Number(inv.paidAt))
+                    : inv.paidAt;
+                }
+
+                // marketplace refunds
+                if (name === "Refunded" && inv?.amountPaid) {
+                  updatedFields.amountPaid = formatEther(
+                    BigInt(inv.amountPaid)
+                  );
+                  updatedFields.refundTxHash =
+                    inv.refundTxHash ?? inv.refundTxHash;
+                }
+
+                // release time updates
+                if (releaseUpdate) {
+                  updatedFields.releaseAt = releaseUpdate.toString();
+                }
+
+                return { ...inv, ...updatedFields };
+              });
               shouldRefresh = true;
             }
 

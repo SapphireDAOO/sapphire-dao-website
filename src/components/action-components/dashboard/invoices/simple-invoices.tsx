@@ -33,7 +33,7 @@ export function InvoiceCard({
   onAddNote: (invoiceId: string, message: string) => void;
 }) {
   const [noteInput, setNoteInput] = useState("");
-  const [countdown, setCountdown] = useState<string>("—");
+  const [countdown, setCountdown] = useState<string | undefined>(undefined);
 
   const isSellerView = invoice.type === "Seller";
 
@@ -51,7 +51,8 @@ export function InvoiceCard({
       return;
 
     const interval = setInterval(() => {
-      let updated = "—";
+      let updated: string | undefined = undefined;
+
       if (invoice.status === "ACCEPTED" && invoice.releaseAt) {
         updated = timeLeft(
           invoice.paidAt ? Number(invoice.paidAt) : null,
@@ -243,11 +244,15 @@ export function InvoiceCard({
             {invoice.status == "REFUNDED" && (
               <InvoiceField
                 label="Amount Refunded"
-                value={renderTx(
-                  invoice.refundTxHash!,
-                  `${invoice.amountPaid} ETH`
-                )}
-                description="The amount returned to the buyer after refund."
+                value={
+                  invoice.refundTxHash && invoice.amountPaid
+                    ? renderTx(
+                        invoice.refundTxHash,
+                        `${invoice.amountPaid} ETH`
+                      )
+                    : undefined
+                }
+                description="Amount returned to the buyer."
               />
             )}
 
@@ -339,11 +344,12 @@ export function InvoiceCard({
           {invoice.amountPaid && invoice.status !== "REFUNDED" && (
             <InvoiceField
               label="Amount Paid"
-              value={renderTx(
-                invoice.paymentTxHash!,
-                `${invoice.amountPaid} ETH`
-              )}
-              description="The amount already paid into escrow by the buyer."
+              value={
+                invoice.amountPaid && invoice.paymentTxHash
+                  ? renderTx(invoice.paymentTxHash, `${invoice.amountPaid} ETH`)
+                  : undefined
+              }
+              description="Amount deposited into escrow."
             />
           )}
 
@@ -445,6 +451,7 @@ export const InvoiceField = ({
   return (
     <div className="text-xs text-gray-500 flex flex-wrap items-center gap-1 mt-1">
       <span className="font-medium text-gray-700">{label}</span>
+
       <TooltipProvider delayDuration={150}>
         <Tooltip>
           <TooltipTrigger asChild>
@@ -456,6 +463,7 @@ export const InvoiceField = ({
               <Info className="w-3.5 h-3.5 text-gray-500 hover:text-gray-700 transition" />
             </button>
           </TooltipTrigger>
+
           <TooltipContent className="w-60 text-xs p-3 bg-white border border-gray-200 rounded-md shadow-md text-gray-700">
             <p>{description}</p>
             {link && (
@@ -471,8 +479,17 @@ export const InvoiceField = ({
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>
+
       <span>:</span>
-      <span className="text-gray-800">{value}</span>
+
+      {/* Smart Loader */}
+      <span className="text-gray-800">
+        {value === undefined || value === null || value === "" ? (
+          <span className="animate-pulse text-gray-400">Loading…</span>
+        ) : (
+          value
+        )}
+      </span>
     </div>
   );
 };
