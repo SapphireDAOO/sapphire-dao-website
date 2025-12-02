@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  useContext,
-  useState,
-  useMemo,
-  useCallback,
-  useEffect,
-} from "react";
+import { useContext, useState, useMemo, useCallback, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ContractContext } from "@/context/contract-context";
 import { FilterTabs, CreateInvoiceCard } from "./invoice-cards/index";
@@ -101,9 +95,10 @@ export default function IndexRecentPayment({
 
     const timeoutId = window.setTimeout(() => {
       if (!cancelled) {
-        setLoadError((prev) =>
-          prev ??
-          "Fetching invoices is taking longer than expected. You can retry."
+        setLoadError(
+          (prev) =>
+            prev ??
+            "Fetching invoices is taking longer than expected. You can retry."
         );
       }
     }, 12000);
