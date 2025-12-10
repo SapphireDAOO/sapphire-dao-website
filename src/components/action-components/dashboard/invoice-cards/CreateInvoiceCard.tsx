@@ -194,7 +194,8 @@ export default function CreateInvoiceDialog() {
     setIsCreating(true);
     try {
       const amountValue = parseUnits(amount, 18);
-      const response = await createInvoice(amountValue);
+
+      const response = await createInvoice(amountValue, note.trim());
 
       if (response) {
         setOrderId(response);
@@ -214,7 +215,7 @@ export default function CreateInvoiceDialog() {
     } finally {
       setIsCreating(false);
     }
-  }, [amount, isAmountValid, createInvoice, refetchInvoiceData]);
+  }, [amount, isAmountValid, createInvoice, refetchInvoiceData, note]);
 
   return (
     <>

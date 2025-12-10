@@ -1,11 +1,10 @@
 "use client";
 
-import { useState, useCallback, useMemo, useEffect } from "react";
+import { useState, useCallback, useMemo, useEffect, useContext } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { ChevronDown, ChevronUp, Info } from "lucide-react";
+import { ChevronDown, ChevronUp, Info, Pencil } from "lucide-react";
 import { Invoice } from "@/model/model";
 import { formatAddress, timeLeft, unixToGMT } from "@/utils";
 import { toast } from "sonner";
@@ -13,6 +12,7 @@ import generateSecureLink from "@/lib/generate-link";
 import { QRCodeSVG } from "qrcode.react";
 import SellersAction from "../invoices-components/sellers-action";
 import CancelInvoice from "../invoices-components/cancel-payment";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Tooltip,
   TooltipContent,
@@ -20,24 +20,37 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { renderTx } from "./advanced-invoices";
+import { ContractContext } from "@/context/contract-context";
 
 export function InvoiceCard({
   invoice,
   isExpanded,
   onToggle,
-  onAddNote,
 }: {
   invoice: Invoice;
   isExpanded: boolean;
   onToggle: () => void;
-  onAddNote: (invoiceId: string, message: string) => void;
 }) {
-  const [noteInput, setNoteInput] = useState("");
+  const { setInvoiceNote, isLoading, refetchInvoiceData } =
+    useContext(ContractContext);
   const [countdown, setCountdown] = useState<string | undefined>(undefined);
+  const [isEditingRoleNote, setIsEditingRoleNote] = useState(false);
 
   const isSellerView = invoice.type === "Seller";
 
   const isBuyerView = invoice.type === "Buyer";
+  const roleNote = isSellerView
+    ? invoice.sellerNote
+    : isBuyerView
+    ? invoice.buyerNote
+    : undefined;
+  const [roleNoteDraft, setRoleNoteDraft] = useState(roleNote ?? "");
+  const isSavingNote = isLoading === "setInvoiceNote";
+
+  useEffect(() => {
+    setRoleNoteDraft(roleNote ?? "");
+    setIsEditingRoleNote(false);
+  }, [roleNote]);
 
   // Update countdown every second
   useEffect(() => {
@@ -79,13 +92,6 @@ export function InvoiceCard({
     invoice.invalidateAt,
   ]);
 
-  const handleAddNote = useCallback(() => {
-    const trimmed = noteInput.trim();
-    if (!trimmed) return;
-    onAddNote(invoice.id, trimmed);
-    setNoteInput("");
-  }, [noteInput, onAddNote, invoice.id]);
-
   const paymentUrl = useMemo(() => {
     if (!isExpanded || !invoice.orderId || typeof window === "undefined")
       return "";
@@ -106,6 +112,27 @@ export function InvoiceCard({
     navigator.clipboard.writeText(paymentUrl);
     toast.success("Payment link copied!");
   }, [paymentUrl]);
+
+  const handleSaveRoleNote = useCallback(async () => {
+    const trimmed = roleNoteDraft.trim();
+    if (!trimmed) {
+      toast.error("Note cannot be empty.");
+      return;
+    }
+
+    const success = await setInvoiceNote(invoice.orderId, trimmed);
+    if (success) {
+      toast.success(roleNote ? "Note updated" : "Note added");
+      setIsEditingRoleNote(false);
+      void refetchInvoiceData?.();
+    }
+  }, [
+    roleNoteDraft,
+    setInvoiceNote,
+    invoice.orderId,
+    roleNote,
+    refetchInvoiceData,
+  ]);
 
   const displayStatus =
     invoice.status === "CREATED"
@@ -277,6 +304,82 @@ export function InvoiceCard({
           </>
         )}
 
+        {(isSellerView || isBuyerView) && (
+          <div
+            className="mt-2 space-y-2"
+            onClick={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            {isEditingRoleNote ? (
+              <>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-gray-700">
+                    {"Note"}
+                  </span>
+                </div>
+                <Textarea
+                  value={roleNoteDraft}
+                  onChange={(e) => setRoleNoteDraft(e.target.value)}
+                  placeholder={
+                    isSellerView
+                      ? "Add a note for the buyer (visible on the pay page)."
+                      : "Add a note for the seller."
+                  }
+                  className="text-sm"
+                />
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    onClick={handleSaveRoleNote}
+                    disabled={isSavingNote || !roleNoteDraft.trim()}
+                  >
+                    {isSavingNote ? "Saving..." : "Save Note"}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setIsEditingRoleNote(false);
+                      setRoleNoteDraft(roleNote ?? "");
+                    }}
+                    disabled={isSavingNote}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </>
+            ) : roleNote ? (
+              <div className="flex items-center gap-2">
+                <InvoiceField
+                  label={"Note"}
+                  value={roleNote}
+                  description={
+                    isSellerView
+                      ? "Note you attached when creating this invoice."
+                      : "Note you attached when paying this invoice."
+                  }
+                />
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => setIsEditingRoleNote(true)}
+                  aria-label="Edit note"
+                >
+                  <Pencil className="h-4 w-4" />
+                </Button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setIsEditingRoleNote(true)}
+                className="w-full rounded-lg border border-dashed border-gray-300 bg-gray-50 px-3 py-2 text-xs font-medium text-gray-700 hover:border-gray-400 hover:bg-gray-100 transition mt-2"
+              >
+                {"Add note"}
+              </button>
+            )}
+          </div>
+        )}
+
         {/* Notes in collapsed view (only for REJECTED or with notes) */}
         {invoice.status === "REFUNDED" &&
           notesToDisplay.map((note) => (
@@ -389,19 +492,6 @@ export function InvoiceCard({
                 </p>
               </div>
             ))}
-
-            <div className="flex items-center gap-2">
-              <Input
-                placeholder="Write a note..."
-                value={noteInput}
-                onChange={(e) => setNoteInput(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleAddNote()}
-                className="flex-1 text-sm"
-              />
-              <Button size="sm" onClick={handleAddNote}>
-                Send
-              </Button>
-            </div>
           </div>
 
           {/* Payment Link & QR */}

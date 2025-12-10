@@ -4,7 +4,6 @@ import { useState, useCallback, useMemo, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import { ChevronDown, ChevronUp, Info } from "lucide-react";
 import { Invoice, Note } from "@/model/model";
 import { formatAddress, timeLeft, unixToGMT } from "@/utils";
@@ -32,14 +31,12 @@ export function MarketplaceCard({
   invoice,
   isExpanded,
   onToggle,
-  onAddNote,
 }: {
   invoice: Invoice;
   isExpanded: boolean;
   onToggle: () => void;
   onAddNote: (invoiceId: string, message: string) => void;
 }) {
-  const [noteInput, setNoteInput] = useState("");
   const [countdown, setCountdown] = useState<string>("—");
 
   const isSellerView = invoice.type === "IssuedInvoice";
@@ -131,13 +128,6 @@ export function MarketplaceCard({
   const countdownLabel = displayStatus === "PAID" ? "Release in" : null;
 
   /* ------------------------------- NOTES ------------------------------------ */
-
-  const handleAddNote = useCallback(() => {
-    const trimmed = noteInput.trim();
-    if (!trimmed) return;
-    onAddNote(invoice.id, trimmed);
-    setNoteInput("");
-  }, [noteInput, onAddNote, invoice.id]);
 
   const notesToDisplay =
     invoice.notes && invoice.notes.length > 0 ? invoice.notes : [mockNote];
@@ -298,19 +288,6 @@ export function MarketplaceCard({
                 </p>
               </div>
             ))}
-
-            <div className="flex items-center gap-2">
-              <Input
-                placeholder="Write a note..."
-                value={noteInput}
-                onChange={(e) => setNoteInput(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleAddNote()}
-                className="flex-1 text-sm"
-              />
-              <Button size="sm" onClick={handleAddNote}>
-                Send
-              </Button>
-            </div>
           </div>
 
           {/* Payment Link + QR */}

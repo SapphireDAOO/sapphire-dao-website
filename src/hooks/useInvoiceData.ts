@@ -6,7 +6,7 @@ import {
   invoiceOwnerQuery,
 } from "@/services/graphql/queries";
 import { useAccount, usePublicClient } from "wagmi";
-import { unixToGMT } from "@/utils";
+import { unixToGMT, decryptNoteBlob } from "@/utils";
 import {
   ETHEREUM_SEPOLIA,
   ADVANCED_PAYMENT_PROCESSOR,
@@ -238,54 +238,68 @@ export const useInvoiceData = () => {
           data?.user?.receivedInvoices || [];
 
         createdInvoiceData.push(
-          ...createdInvoice.map((invoice: any) => ({
-            id: invoice.invoiceId,
-            orderId: invoice.id,
-            createdAt: invoice.createdAt ? unixToGMT(invoice.createdAt) : null,
-            paidAt: invoice.paidAt || "Not Paid",
-            status: sortState(invoice.state, invoice.invalidateAt),
-            price: invoice.price ? formatEther(BigInt(invoice.price)) : null,
-            amountPaid: invoice.amountPaid
-              ? formatEther(BigInt(invoice.amountPaid))
-              : null,
-            type: "Seller" as const,
-            contract: invoice.contract,
-            paymentTxHash: invoice.paymentTxHash,
-            invalidateAt: invoice.invalidateAt,
-            expiresAt: invoice.expiresAt,
-            seller: invoice.seller?.id ?? "",
-            buyer: invoice.buyer?.id ?? "",
-            releaseHash: invoice.releaseHash,
-            releaseAt: invoice.releasedAt,
-            source: "Simple" as const,
-            history: sortHistory(invoice.history, invoice.historyTime),
-            refundTxHash: invoice.refundTxHash,
-          }))
+          ...createdInvoice.map((invoice: any) => {
+            const createdAt = invoice.createdAt
+              ? unixToGMT(invoice.createdAt)
+              : null;
+
+            return {
+              id: invoice.invoiceId,
+              orderId: invoice.id,
+              createdAt,
+              paidAt: invoice.paidAt || "Not Paid",
+              status: sortState(invoice.state, invoice.invalidateAt),
+              price: invoice.price ? formatEther(BigInt(invoice.price)) : null,
+              amountPaid: invoice.amountPaid
+                ? formatEther(BigInt(invoice.amountPaid))
+                : null,
+              type: "Seller" as const,
+              contract: invoice.contract,
+              paymentTxHash: invoice.paymentTxHash,
+              invalidateAt: invoice.invalidateAt,
+              expiresAt: invoice.expiresAt,
+              seller: invoice.seller?.id ?? "",
+              buyer: invoice.buyer?.id ?? "",
+              releaseHash: invoice.releaseHash,
+              releaseAt: invoice.releasedAt,
+              source: "Simple" as const,
+              history: sortHistory(invoice.history, invoice.historyTime),
+              refundTxHash: invoice.refundTxHash,
+              sellerNote: decryptNoteBlob(invoice.sellerNote),
+            };
+          })
         );
 
         paidInvoiceData.push(
-          ...paidInvoices.map((invoice: any) => ({
-            id: invoice.invoiceId,
-            orderId: invoice.id,
-            createdAt: invoice.createdAt ? unixToGMT(invoice.createdAt) : null,
-            paidAt: invoice.paidAt || "Not Paid",
-            status: sortState(invoice.state, invoice.invalidateAt),
-            price: invoice.price ? formatEther(BigInt(invoice.price)) : null,
-            amountPaid: invoice.amountPaid
-              ? formatEther(BigInt(invoice.amountPaid))
-              : null,
-            type: "Buyer" as const,
-            seller: invoice.seller?.id ?? "",
-            contract: invoice.contract,
-            invalidateAt: invoice.invalidateAt,
-            expiresAt: invoice.expiresAt,
-            paymentTxHash: invoice.paymentTxHash,
-            releaseAt: invoice.releasedAt,
-            buyer: invoice.buyer?.id ?? "",
-            source: "Simple" as const,
-            history: sortHistory(invoice.history, invoice.historyTime),
-            refundTxHash: invoice.refundTxHash,
-          }))
+          ...paidInvoices.map((invoice: any) => {
+            const createdAt = invoice.createdAt
+              ? unixToGMT(invoice.createdAt)
+              : null;
+
+            return {
+              id: invoice.invoiceId,
+              orderId: invoice.id,
+              createdAt,
+              paidAt: invoice.paidAt || "Not Paid",
+              status: sortState(invoice.state, invoice.invalidateAt),
+              price: invoice.price ? formatEther(BigInt(invoice.price)) : null,
+              amountPaid: invoice.amountPaid
+                ? formatEther(BigInt(invoice.amountPaid))
+                : null,
+              type: "Buyer" as const,
+              seller: invoice.seller?.id ?? "",
+              contract: invoice.contract,
+              invalidateAt: invoice.invalidateAt,
+              expiresAt: invoice.expiresAt,
+              paymentTxHash: invoice.paymentTxHash,
+              releaseAt: invoice.releasedAt,
+              buyer: invoice.buyer?.id ?? "",
+              source: "Simple" as const,
+              history: sortHistory(invoice.history, invoice.historyTime),
+              refundTxHash: invoice.refundTxHash,
+              buyerNote: decryptNoteBlob(invoice.buyerNote),
+            };
+          })
         );
 
         issuedInvoicesData.push(
@@ -616,6 +630,12 @@ export const useInvoiceData = () => {
                         buyer: invoice.buyer ?? "",
                         seller: invoice.seller ?? "",
                         source: "Simple",
+                        // ...(sellerNotes
+                        //   ? {
+                        //       notes: sellerNotes,
+                        //       note: sellerNotes[0]?.message,
+                        //     }
+                        //   : {}),
                       } as Invoice,
                       ...updated,
                     ];

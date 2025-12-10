@@ -13,14 +13,17 @@ import { PaymentProcessorStorage } from "@/abis/PaymentProcessorStorage";
 import { invoiceOwnerQuery } from "../graphql/queries";
 import { WagmiClient } from "./type";
 import { advancedPaymentProcessor } from "@/abis/AdvancedPaymentProcessor";
+import { toEncryptedNoteHex } from "@/utils";
 
 export const createInvoice = async (
   { walletClient, publicClient }: WagmiClient,
   invoicePrice: bigint,
   chainId: number,
-  setIsLoading: (value: string) => void
+  setIsLoading: (value: string) => void,
+  storageRef?: string
 ): Promise<bigint | undefined> => {
   setIsLoading("createInvoice");
+  const storageRefHex = toEncryptedNoteHex(storageRef);
   try {
     const gasPrice = await fetchGasPrice(publicClient, chainId);
     const tx = await walletClient?.sendTransaction({
@@ -29,7 +32,7 @@ export const createInvoice = async (
       data: encodeFunctionData({
         abi: paymentProcessor,
         functionName: "createInvoice",
-        args: [invoicePrice],
+        args: [invoicePrice, storageRefHex],
       }),
       gasPrice,
     });
@@ -63,11 +66,13 @@ export const makeInvoicePayment = async (
   amount: bigint,
   orderId: bigint,
   chainId: number,
-  setIsLoading: (value: string) => void
+  setIsLoading: (value: string) => void,
+  storageRef?: string
 ): Promise<boolean> => {
   setIsLoading("makeInvoicePayment");
 
   let success = false;
+  const storageRefHex = toEncryptedNoteHex(storageRef);
   try {
     const gasPrice = await fetchGasPrice(publicClient, chainId);
 
@@ -77,7 +82,7 @@ export const makeInvoicePayment = async (
       data: encodeFunctionData({
         abi: paymentProcessor,
         functionName: "makeInvoicePayment",
-        args: [orderId],
+        args: [orderId, storageRefHex],
       }),
       value: amount,
       gasPrice,
@@ -101,6 +106,55 @@ export const makeInvoicePayment = async (
   } catch (error) {
     getError(error);
   }
+  setIsLoading("");
+  return success;
+};
+
+export const setInvoiceNote = async (
+  { walletClient, publicClient }: WagmiClient,
+  orderId: bigint,
+  note: string,
+  chainId: number,
+  setIsLoading: (value: string) => void,
+  getInvoiceData?: () => Promise<void>
+): Promise<boolean> => {
+  setIsLoading("setInvoiceNote");
+  let success = false;
+
+  try {
+    const gasPrice = await fetchGasPrice(publicClient, chainId);
+
+    const tx = await walletClient?.sendTransaction({
+      chain: sepolia,
+      to: SIMPLE_PAYMENT_PROCESSOR[chainId],
+      data: encodeFunctionData({
+        abi: paymentProcessor,
+        functionName: "setNotesStorageRef",
+        args: [orderId, toEncryptedNoteHex(note)],
+      }),
+      gasPrice,
+    });
+
+    if (!tx) {
+      toast.error("Transaction failed to initiate");
+      return false;
+    }
+
+    const receipt = await publicClient?.waitForTransactionReceipt({
+      hash: tx,
+      confirmations: 2,
+    });
+
+    if (receipt?.status) {
+      success = true;
+      await getInvoiceData?.();
+    } else {
+      toast.error("Failed to update note. Please try again.");
+    }
+  } catch (error) {
+    getError(error);
+  }
+
   setIsLoading("");
   return success;
 };

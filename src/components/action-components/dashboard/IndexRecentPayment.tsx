@@ -21,6 +21,7 @@ import {
 import { Calendar } from "@/components/ui/calendar";
 import { CalendarDays } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { MarketplaceCard } from "./invoices/advanced-invoices";
 import { InvoiceCard } from "./invoices/simple-invoices";
 import { toast } from "sonner";
@@ -56,6 +57,7 @@ export default function IndexRecentPayment({
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [noteQuery, setNoteQuery] = useState("");
 
   const [page, setPage] = useState(1);
   const pageSize = 9;
@@ -73,7 +75,7 @@ export default function IndexRecentPayment({
 
   useEffect(() => {
     setPage(1);
-  }, [filter, selectedDate, isMarketplaceTab, activeTab]);
+  }, [filter, selectedDate, isMarketplaceTab, activeTab, noteQuery]);
 
   const refreshInvoices = useCallback(async () => {
     setLoadError(null);
@@ -113,7 +115,7 @@ export default function IndexRecentPayment({
       cancelled = true;
       clearTimeout(timeoutId);
     };
-  }, [refreshInvoices, filter, selectedDate, isMarketplaceTab, activeTab]);
+  }, [refreshInvoices, isMarketplaceTab, activeTab]);
 
   const handleRetry = useCallback(() => {
     refreshInvoices();
@@ -184,11 +186,34 @@ export default function IndexRecentPayment({
       });
     }
 
+    const noteSearch = noteQuery.trim().toLowerCase();
+    if (noteSearch) {
+      invoices = invoices.filter((inv) => {
+        const messages = [
+          inv.note,
+          inv.sellerNote,
+          inv.buyerNote,
+          ...(inv.notes?.map((n) => n.message) ?? []),
+          ...(localNotes[inv.id]?.map((n) => n.message) ?? []),
+        ];
+        return messages.some(
+          (msg) => msg && msg.toLowerCase().includes(noteSearch)
+        );
+      });
+    }
+
     return invoices.map((inv) => ({
       ...inv,
       notes: [...(inv.notes || []), ...(localNotes[inv.id] || [])],
     }));
-  }, [invoiceData, isMarketplaceTab, filter, selectedDate, localNotes]);
+  }, [
+    invoiceData,
+    isMarketplaceTab,
+    filter,
+    selectedDate,
+    localNotes,
+    noteQuery,
+  ]);
 
   return (
     <div className="container mx-auto mt-8">
@@ -219,90 +244,102 @@ export default function IndexRecentPayment({
 
           return (
             <TabsContent key={tab} value={tab}>
-              {!isMarketplaceTab && (tab === "seller" || tab === "all") && (
-                <CreateInvoiceCard />
-              )}
-
-              <FilterTabs
-                filters={isMarketplaceTab ? marketplaceFilters : simpleFilters}
-                onSelect={(value) => {
-                  setFilter(value);
-                  setPage(1);
-                }}
-              />
-
-              <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
-                <div className="flex items-center justify-end gap-2 w-full">
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="flex items-center gap-2"
-                      >
-                        <CalendarDays className="h-4 w-4" />
-                        {selectedDate
-                          ? selectedDate.toLocaleDateString()
-                          : "Filter by Date"}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent
-                      side="bottom"
-                      align="end"
-                      className="w-auto p-0"
-                    >
-                      <Calendar
-                        mode="single"
-                        selected={selectedDate ?? undefined}
-                        onSelect={(date) => setSelectedDate(date ?? null)}
-                        className="rounded-md"
-                      />
-                    </PopoverContent>
-                  </Popover>
-
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="outline" size="sm">
-                        More Filters
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-60 p-2">
-                      <DropdownMenuLabel>Filter by</DropdownMenuLabel>
-                      <DropdownMenuSeparator />
-                      <div className="px-2 py-1">
-                        <input
-                          type="text"
-                          placeholder="Enter wallet address"
-                          className="w-full border rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400"
-                          onChange={(e) => {
-                            const wallet = e.target.value.trim().toLowerCase();
-                            setFilter("wallet:" + wallet);
-                            setPage(1);
-                          }}
-                        />
-                      </div>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-
-                  {selectedDate && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setSelectedDate(null)}
-                    >
-                      Clear
-                    </Button>
+              {activeTab === tab && (
+                <>
+                  {!isMarketplaceTab && (tab === "seller" || tab === "all") && (
+                    <CreateInvoiceCard />
                   )}
-                </div>
-              </div>
 
-              <div className="flex flex-wrap gap-5">
-                {paginatedInvoices.length > 0 ? (
-                  paginatedInvoices.map((invoice) => (
-                    <div
-                      key={invoice.id}
-                      className="w-full md:w-[48%] lg:w-[31%]"
-                    >
+                  <FilterTabs
+                    filters={
+                      isMarketplaceTab ? marketplaceFilters : simpleFilters
+                    }
+                    onSelect={(value) => {
+                      setFilter(value);
+                      setPage(1);
+                    }}
+                  />
+
+                  <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+                    <div className="flex items-center justify-end gap-2 w-full">
+                      <Input
+                        placeholder="Search notes"
+                        value={noteQuery}
+                        onChange={(e) => setNoteQuery(e.target.value)}
+                        className="w-48"
+                      />
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="flex items-center gap-2"
+                          >
+                            <CalendarDays className="h-4 w-4" />
+                            {selectedDate
+                              ? selectedDate.toLocaleDateString()
+                              : "Filter by Date"}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent
+                          side="bottom"
+                          align="end"
+                          className="w-auto p-0"
+                        >
+                          <Calendar
+                            mode="single"
+                            selected={selectedDate ?? undefined}
+                            onSelect={(date) => setSelectedDate(date ?? null)}
+                            className="rounded-md"
+                          />
+                        </PopoverContent>
+                      </Popover>
+
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="outline" size="sm">
+                            More Filters
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-60 p-2">
+                          <DropdownMenuLabel>Filter by</DropdownMenuLabel>
+                          <DropdownMenuSeparator />
+                          <div className="px-2 py-1">
+                            <input
+                              type="text"
+                              placeholder="Enter wallet address"
+                              className="w-full border rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400"
+                              onChange={(e) => {
+                                const wallet = e.target.value
+                                  .trim()
+                                  .toLowerCase();
+                                setFilter("wallet:" + wallet);
+                                setPage(1);
+                              }}
+                            />
+                          </div>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+
+                      {selectedDate && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setSelectedDate(null)}
+                        >
+                          Clear
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap gap-5">
+                    {paginatedInvoices.length > 0 ? (
+                      paginatedInvoices.map((invoice) => (
+                        <div
+                          key={invoice.id}
+                          className="w-full md:w-[48%] lg:w-[31%]"
+                        >
                       {isMarketplaceTab ? (
                         <MarketplaceCard
                           invoice={invoice}
@@ -315,73 +352,77 @@ export default function IndexRecentPayment({
                           invoice={invoice}
                           isExpanded={expandedId === String(invoice.id)}
                           onToggle={() => handleToggle(String(invoice.id))}
-                          onAddNote={handleAddNote}
                         />
                       )}
                     </div>
                   ))
-                ) : (
-                  <div className="w-full text-center py-10 text-gray-500 border rounded-lg">
-                    {isLoading ? (
-                      <div className="w-full text-center py-10 text-gray-500 border rounded-lg">
-                        <span className="animate-pulse">Loading...</span>
-                      </div>
-                    ) : loadError ? (
-                      <div className="flex flex-col items-center gap-3">
-                        <span className="text-sm text-gray-600">
-                          {loadError}
-                        </span>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={handleRetry}
-                          disabled={isLoading}
-                        >
-                          Retry
-                        </Button>
-                      </div>
                     ) : (
                       <div className="w-full text-center py-10 text-gray-500 border rounded-lg">
-                        {selectedDate
-                          ? `No invoices found on ${selectedDate.toDateString()}`
-                          : "No Invoice found"}
+                        {isLoading ? (
+                          <div className="w-full text-center py-10 text-gray-500 border rounded-lg">
+                            <span className="animate-pulse">Loading...</span>
+                          </div>
+                        ) : loadError ? (
+                          <div className="flex flex-col items-center gap-3">
+                            <span className="text-sm text-gray-600">
+                              {loadError}
+                            </span>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={handleRetry}
+                              disabled={isLoading}
+                            >
+                              Retry
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="w-full text-center py-10 text-gray-500 border rounded-lg">
+                            {selectedDate
+                              ? `No invoices found on ${selectedDate.toDateString()}`
+                              : "No Invoice found"}
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
-                )}
-              </div>
 
-              {tabInvoices.length > pageSize && (
-                <div className="w-full flex justify-center items-center gap-4 mt-8">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={page === 1}
-                    onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  >
-                    Previous
-                  </Button>
+                  {tabInvoices.length > pageSize && (
+                    <div className="w-full flex justify-center items-center gap-4 mt-8">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={page === 1}
+                        onClick={() => setPage((p) => Math.max(1, p - 1))}
+                      >
+                        Previous
+                      </Button>
 
-                  <span className="text-sm text-gray-600">
-                    Page {page} of {Math.ceil(tabInvoices.length / pageSize)}
-                  </span>
+                      <span className="text-sm text-gray-600">
+                        Page {page} of{" "}
+                        {Math.ceil(tabInvoices.length / pageSize)}
+                      </span>
 
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={page >= Math.ceil(tabInvoices.length / pageSize)}
-                    onClick={() =>
-                      setPage((p) =>
-                        Math.min(
-                          p + 1,
-                          Math.ceil(tabInvoices.length / pageSize)
-                        )
-                      )
-                    }
-                  >
-                    Next
-                  </Button>
-                </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={
+                          page >= Math.ceil(tabInvoices.length / pageSize)
+                        }
+                        onClick={() =>
+                          setPage((p) =>
+                            Math.min(
+                              p + 1,
+                              Math.ceil(tabInvoices.length / pageSize)
+                            )
+                          )
+                        }
+                      >
+                        Next
+                      </Button>
+                    </div>
+                  )}
+                </>
               )}
             </TabsContent>
           );

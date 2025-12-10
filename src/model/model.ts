@@ -27,7 +27,10 @@ export type Invoice = {
   cancelAt?: string;
   creationTxHash?: string;
   notes?: Note[];
+  note?: string;
   history?: History[];
+  buyerNote?: string;
+  sellerNote?: string;
 };
 
 export interface History {

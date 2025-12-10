@@ -7,20 +7,20 @@ export const POLYGON_AMOY = 80_002;
 export const ETHEREUM_SEPOLIA = 11_155_111;
 
 export const PAYMENT_PROCESSOR_STORAGE: Record<number, Address> = {
-  [sepolia.id]: "0x42833d30D3028A0D1f0E26531fdA1a7C762ba14D",
+  [sepolia.id]: "0xcFC87C438DD3771b2DA6987284f0d1ffD5c822Af",
 };
 
 export const SIMPLE_PAYMENT_PROCESSOR: Record<number, Address> = {
-  [sepolia.id]: "0xe3F738B16E30960F6cE5357A44c2a8f1dB0293a6",
+  [sepolia.id]: "0x9c2160baf66f43f35db35e4a2d3c9bc5ba4f262c",
 };
 
 export const ADVANCED_PAYMENT_PROCESSOR: Record<number, Address> = {
-  [sepolia.id]: "0xD2167A3aE1B93dDB90e3F9E5d6b358c52252D1b4",
+  [sepolia.id]: "0x85d126a43bee78ae25626498806c0b3a55b80abf",
 };
 
 export const THE_GRAPH_API_URL: Record<number, string> = {
   [sepolia.id]:
-    "https://gateway.thegraph.com/api/subgraphs/id/H67nz7ap8JxhykAkFYVV3brDSex9W2hCztNgnnbSSRhE",
+    "https://api.studio.thegraph.com/query/100227/payment-processor-indexer/version/latest",
 };
 
 export const errorMessages: ErrorMessages = {

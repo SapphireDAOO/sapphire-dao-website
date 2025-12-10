@@ -17,6 +17,7 @@ import {
   setMinimumInvoiceValue,
   setDecisionWindow,
   setValidPeriod,
+  setInvoiceNote,
 } from "@/services/blockchain/SimplePaymentProcessor";
 import {
   payAdvancedInvoice,
@@ -59,15 +60,26 @@ const WalletProvider = ({ children }: Props) => {
         isLoading,
         invoiceData,
         allInvoiceData,
-        createInvoice: (invoicePrice: bigint) =>
-          createInvoice(wagmiClients, invoicePrice, chainId, setIsLoading),
-        makeInvoicePayment: (amount: bigint, orderId: bigint) =>
+        createInvoice: (invoicePrice: bigint, storageRef?: string) =>
+          createInvoice(
+            wagmiClients,
+            invoicePrice,
+            chainId,
+            setIsLoading,
+            storageRef
+          ),
+        makeInvoicePayment: (
+          amount: bigint,
+          orderId: bigint,
+          storageRef?: string
+        ) =>
           makeInvoicePayment(
             wagmiClients,
             amount,
             orderId,
             chainId,
-            setIsLoading
+            setIsLoading,
+            storageRef
           ),
         payAdvancedInvoice: (
           paymentType: "paySingleInvoice" | "payMetaInvoice",
@@ -166,6 +178,15 @@ const WalletProvider = ({ children }: Props) => {
           setMinimumInvoiceValue(
             wagmiClients,
             newValue,
+            chainId,
+            setIsLoading,
+            getInvoiceData
+          ),
+        setInvoiceNote: (orderId: bigint, note: string) =>
+          setInvoiceNote(
+            wagmiClients,
+            orderId,
+            note,
             chainId,
             setIsLoading,
             getInvoiceData

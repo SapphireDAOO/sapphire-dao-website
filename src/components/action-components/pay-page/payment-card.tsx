@@ -31,13 +31,17 @@ import { useGetInvoiceData } from "@/hooks/useGetInvoiceData";
 import { SIMPLE_PAYMENT_PROCESSOR } from "@/constants";
 import { paymentProcessor } from "@/abis/PaymentProcessor";
 import { ETHEREUM_SEPOLIA } from "@/constants";
+import { Textarea } from "@/components/ui/textarea";
 
 type InvoiceLike = {
+  id?: string | number | bigint;
   price?: string | number | bigint;
   amount?: string | number | bigint;
   orderId?: string | number | bigint;
   invoiceId?: string | number | bigint;
   status?: string | number;
+  note?: string;
+  notes?: { message?: string }[];
 };
 
 const PaymentCard = ({ data }: PaymentCardProps) => {
@@ -48,6 +52,7 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
   const [userIsCreator, setUserIsCreator] = useState(false);
 
   const [countdown, setCountdown] = useState(3);
+  const [paymentNote, setPaymentNote] = useState("");
 
   const orderId = data?.orderId;
   const { data: fetchedInvoice } = useGetInvoiceData(orderId);
@@ -65,7 +70,8 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
   const resolvedInvoice = liveInvoice ?? fetchedInvoice;
   const invoiceLike = resolvedInvoice as InvoiceLike | undefined;
 
-  const displayOrderId = invoiceLike?.invoiceId;
+  const displayOrderId =
+    invoiceLike?.invoiceId ?? invoiceLike?.id ?? invoiceLike?.orderId ?? "";
 
   const displayPriceEth =
     invoiceLike?.price ?? invoiceLike?.amount ?? data?.price ?? null;
@@ -74,6 +80,11 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
     statusValue === undefined || statusValue === null
       ? undefined
       : String(statusValue).toUpperCase();
+  const invoiceNote =
+    (invoiceLike as InvoiceLike | undefined)?.note ??
+    invoiceLike?.notes?.[0]?.message ??
+    (fetchedInvoice as InvoiceLike | undefined)?.note ??
+    (fetchedInvoice as InvoiceLike | undefined)?.notes?.[0]?.message;
 
   const [liveStatus, setLiveStatus] = useState<string | undefined>(
     normalizedStatus
@@ -140,7 +151,7 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
     return () => {
       unwatch.forEach((u) => u?.());
     };
-  }, [publicClient, orderId, chain?.id]);
+  }, [publicClient, orderId, chain?.id, liveStatus]);
 
   const canPay =
     liveStatus === "AWAITING PAYMENT" ||
@@ -187,7 +198,7 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
     }
 
     try {
-      if (await makeInvoicePayment(priceWei, orderId)) {
+      if (await makeInvoicePayment(priceWei, orderId, paymentNote.trim())) {
         setOpen(true);
 
         setCountdown(3);
@@ -251,6 +262,29 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
                   return "Loading...";
                 })()}
                 disabled
+              />
+            </div>
+
+            {invoiceNote && (
+              <div className="flex flex-col space-y-2 mt-3">
+                <Label htmlFor="invoiceNote">Invoice Note</Label>
+                <div
+                  id="invoiceNote"
+                  className="rounded-md border bg-muted px-3 py-2 text-sm text-muted-foreground"
+                >
+                  {invoiceNote}
+                </div>
+              </div>
+            )}
+
+            <div className="flex flex-col space-y-2 mt-3">
+              <Label htmlFor="paymentNote">Payment Note (optional)</Label>
+              <Textarea
+                id="paymentNote"
+                value={paymentNote}
+                onChange={(e) => setPaymentNote(e.target.value)}
+                placeholder="Reference or memo for the seller"
+                className="min-h-24"
               />
             </div>
           </div>

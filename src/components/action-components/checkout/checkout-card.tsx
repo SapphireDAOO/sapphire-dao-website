@@ -43,7 +43,6 @@ interface CheckoutCardProps {
 }
 
 const CheckoutCard = ({ data, isMetaInvoice }: CheckoutCardProps) => {
-  console.log(data)
   const router = useRouter();
   const { address } = useAccount();
 
