@@ -10,6 +10,7 @@ import { formatAddress, timeLeft, unixToGMT } from "@/utils";
 import { toast } from "sonner";
 import generateSecureLink from "@/lib/generate-link";
 import { QRCodeSVG } from "qrcode.react";
+import { formatUnits } from "viem";
 
 import {
   Tooltip,
@@ -42,7 +43,27 @@ export function MarketplaceCard({
   const isSellerView = invoice.type === "IssuedInvoice";
 
   const tokenData = useGetPaymentTokenData(invoice.paymentToken ?? "");
-  const amount = Number(invoice.price ?? 0) / Math.pow(10, 8);
+  const amount = useMemo(() => {
+    const raw = invoice.price;
+    const decimals = 8;
+
+    try {
+      if (typeof raw === "bigint") {
+        return Number(formatUnits(raw, decimals));
+      }
+      if (typeof raw === "number") {
+        return raw / Math.pow(10, decimals);
+      }
+      if (typeof raw === "string") {
+        const asBigInt = BigInt(raw);
+        return Number(formatUnits(asBigInt, decimals));
+      }
+    } catch (error) {
+      console.error("Failed to format marketplace price", error);
+    }
+
+    return 0;
+  }, [invoice.price, tokenData?.decimals]);
 
   /* -------------------------- STATUS NORMALIZATION -------------------------- */
 

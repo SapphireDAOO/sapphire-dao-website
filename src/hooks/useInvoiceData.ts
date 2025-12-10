@@ -310,7 +310,7 @@ export const useInvoiceData = () => {
             paidAt: invoice.paidAt || "Not Paid",
             status:
               invoice.state === "CREATED" ? "AWAITING PAYMENT" : invoice.state,
-            price: invoice.price ? formatEther(BigInt(invoice.price)) : null,
+            price: invoice.price ? invoice.price : null,
             amountPaid: invoice.amountPaid
               ? formatEther(BigInt(invoice.amountPaid))
               : null,
