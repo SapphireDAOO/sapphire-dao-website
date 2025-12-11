@@ -63,7 +63,7 @@ export function MarketplaceCard({
     }
 
     return 0;
-  }, [invoice.price, tokenData?.decimals]);
+  }, [invoice.price]);
 
   /* -------------------------- STATUS NORMALIZATION -------------------------- */
 

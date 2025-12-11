@@ -523,7 +523,7 @@ export const useInvoiceData = () => {
 
   // Initial fetch / address or chain change
   useEffect(() => {
-    if (!address || !chain) {
+    if (!address) {
       setInvoiceData([]);
       setAllInvoiceData({
         invoices: [],
@@ -534,7 +534,9 @@ export const useInvoiceData = () => {
     }
 
     fetchLatestInvoices(true, "user");
-  }, [address, chain, fetchLatestInvoices]);
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [address, chainId]);
 
   // Realtime status updates for simple invoices via websocket events
   useEffect(() => {
