@@ -283,7 +283,7 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
                 id="paymentNote"
                 value={paymentNote}
                 onChange={(e) => setPaymentNote(e.target.value)}
-                placeholder="Reference or memo for the seller"
+                placeholder="Add a note for your own reference "
                 className="min-h-24"
               />
             </div>
