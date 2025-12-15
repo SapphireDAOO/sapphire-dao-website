@@ -32,6 +32,10 @@ const marketplaceFilters = [
   "PAID",
   "REFUNDED",
   "CANCELED",
+  "DISPUTED",
+  "DISPUTE RESOLVED",
+  "DISPUTE DISMISSED",
+  "DISPUTE SETTLED",
   "RELEASED",
 ];
 
@@ -138,6 +142,11 @@ export default function IndexRecentPayment({
     setExpandedId((prev) => (prev === id ? null : id));
   };
 
+  const canonicalStatus = useCallback((value?: string | null) => {
+    if (!value) return "";
+    return value.replace(/_/g, " ").toUpperCase().trim();
+  }, []);
+
   const [localNotes, setLocalNotes] = useState<Record<string, Note[]>>({});
   const handleAddNote = (invoiceId: string, message: string) => {
     if (!message.trim()) return;
@@ -158,20 +167,23 @@ export default function IndexRecentPayment({
       ? invoiceData.filter((i) => i.source === "Marketplace")
       : invoiceData.filter((i) => i.source === "Simple");
 
-    if (filter !== "All") {
-      if (filter.startsWith("wallet:")) {
-        const walletQuery = filter.replace("wallet:", "").trim().toLowerCase();
-        if (walletQuery) {
-          invoices = invoices.filter(
+      if (filter !== "All") {
+        if (filter.startsWith("wallet:")) {
+          const walletQuery = filter.replace("wallet:", "").trim().toLowerCase();
+          if (walletQuery) {
+            invoices = invoices.filter(
             (i) =>
               i.buyer?.toLowerCase().includes(walletQuery) ||
               i.seller?.toLowerCase().includes(walletQuery)
+            );
+          }
+        } else {
+          const targetStatus = canonicalStatus(filter);
+          invoices = invoices.filter(
+            (i) => canonicalStatus(i.status) === targetStatus
           );
         }
-      } else {
-        invoices = invoices.filter((i) => i.status === filter);
       }
-    }
 
     if (selectedDate) {
       const startOfDay = new Date(selectedDate);
@@ -340,22 +352,22 @@ export default function IndexRecentPayment({
                           key={invoice.id}
                           className="w-full md:w-[48%] lg:w-[31%]"
                         >
-                      {isMarketplaceTab ? (
-                        <MarketplaceCard
-                          invoice={invoice}
-                          isExpanded={expandedId === String(invoice.id)}
-                          onToggle={() => handleToggle(String(invoice.id))}
-                          onAddNote={handleAddNote}
-                        />
-                      ) : (
-                        <InvoiceCard
-                          invoice={invoice}
-                          isExpanded={expandedId === String(invoice.id)}
-                          onToggle={() => handleToggle(String(invoice.id))}
-                        />
-                      )}
-                    </div>
-                  ))
+                          {isMarketplaceTab ? (
+                            <MarketplaceCard
+                              invoice={invoice}
+                              isExpanded={expandedId === String(invoice.id)}
+                              onToggle={() => handleToggle(String(invoice.id))}
+                              onAddNote={handleAddNote}
+                            />
+                          ) : (
+                            <InvoiceCard
+                              invoice={invoice}
+                              isExpanded={expandedId === String(invoice.id)}
+                              onToggle={() => handleToggle(String(invoice.id))}
+                            />
+                          )}
+                        </div>
+                      ))
                     ) : (
                       <div className="w-full text-center py-10 text-gray-500 border rounded-lg">
                         {isLoading ? (

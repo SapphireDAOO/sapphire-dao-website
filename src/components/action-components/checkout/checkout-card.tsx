@@ -54,6 +54,13 @@ const CheckoutCard = ({ data, isMetaInvoice }: CheckoutCardProps) => {
   const { payAdvancedInvoice, isLoading, refetchInvoiceData } =
     useContext(ContractContext);
 
+  const normalizedStatus = data?.status?.toUpperCase?.();
+  const isPayableStatus =
+    !normalizedStatus ||
+    normalizedStatus === "CREATED" ||
+    normalizedStatus === "INITIATED" ||
+    normalizedStatus === "AWAITING PAYMENT";
+
   const supportedTokens: TokenData[] = Array.isArray(data?.tokenList)
     ? data.tokenList.filter(Boolean)
     : data.tokenList
@@ -61,6 +68,11 @@ const CheckoutCard = ({ data, isMetaInvoice }: CheckoutCardProps) => {
     : [];
 
   const handleClick = async () => {
+    if (!isPayableStatus) {
+      toast.error("This invoice is no longer payable.");
+      return;
+    }
+
     if (!selectedToken) {
       toast.error("Please select a token first.");
       return;
@@ -143,24 +155,33 @@ const CheckoutCard = ({ data, isMetaInvoice }: CheckoutCardProps) => {
 
         <CardFooter>
           {address ? (
-            <Button
-              onClick={handleClick}
-              className="w-full"
-              disabled={
-                isLoading === "paySingleInvoice" ||
-                isLoading === "payMetaInvoice"
-              }
-            >
-              {isLoading === "paySingleInvoice" ||
-              isLoading === "payMetaInvoice" ? (
-                <>
-                  <span>Processing...</span>
-                  <Loader2 className="ml-2 h-4 w-4 animate-spin" />
-                </>
-              ) : (
-                "Make Payment"
+            <div className="w-full flex flex-col gap-2">
+              <Button
+                onClick={handleClick}
+                className="w-full"
+                disabled={
+                  !isPayableStatus ||
+                  isLoading === "paySingleInvoice" ||
+                  isLoading === "payMetaInvoice"
+                }
+              >
+                {isLoading === "paySingleInvoice" ||
+                isLoading === "payMetaInvoice" ? (
+                  <>
+                    <span>Processing...</span>
+                    <Loader2 className="ml-2 h-4 w-4 animate-spin" />
+                  </>
+                ) : (
+                  "Make Payment"
+                )}
+              </Button>
+              {!isPayableStatus && (
+                <p className="text-center text-sm text-red-500">
+                  Invoice is not payable in its current status{" "}
+                  {normalizedStatus ? `(${normalizedStatus})` : ""}.
+                </p>
               )}
-            </Button>
+            </div>
           ) : (
             <ConnectButton chainStatus="icon" showBalance={false} />
           )}

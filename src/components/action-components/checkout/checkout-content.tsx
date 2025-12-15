@@ -119,6 +119,7 @@ const CheckoutPage = () => {
             orderId: invoice.id,
             price: invoice.price,
             tokenList: paymentTokens,
+            status: invoice.state,
           };
         } else {
           structured = {
@@ -126,6 +127,8 @@ const CheckoutPage = () => {
             orderId: orderId,
             price: marketplaceInvoice?.price?.toString() ?? "0",
             tokenList: paymentTokens,
+            status: (marketplaceInvoice as { state?: string } | undefined)
+              ?.state,
           };
         }
         setInvoiceDetails(structured);

@@ -68,11 +68,12 @@ export function MarketplaceCard({
   /* -------------------------- STATUS NORMALIZATION -------------------------- */
 
   const normalizeStatus = (status: string): string => {
-    switch (status) {
+    const normalized = status?.replace(/_/g, " ").toUpperCase();
+    switch (normalized) {
       case "CREATED":
-      case "AWAITING PAYMENT":
       case "INITIATED":
-        return "INITIATED";
+      case "AWAITING PAYMENT":
+        return "AWAITING PAYMENT";
 
       case "PAID":
         return "PAID";
@@ -87,14 +88,14 @@ export function MarketplaceCard({
       case "DISPUTED":
         return "DISPUTED";
 
-      case "DISPUTE_RESOLVED":
-        return "DISPUTE_RESOLVED";
+      case "DISPUTE RESOLVED":
+        return "DISPUTE RESOLVED";
 
-      case "DISPUTE_DISMISSED":
-        return "DISPUTE_DISMISSED";
+      case "DISPUTE DISMISSED":
+        return "DISPUTE DISMISSED";
 
-      case "DISPUTE_SETTLED":
-        return "DISPUTE_SETTLED";
+      case "DISPUTE SETTLED":
+        return "DISPUTE SETTLED";
 
       case "RELEASED":
         return "RELEASED";
@@ -109,14 +110,14 @@ export function MarketplaceCard({
   /* ------------------------------ STATUS COLORS ----------------------------- */
 
   const statusColors: Record<string, string> = {
-    INITIATED: "bg-blue-100 text-blue-800",
+    "AWAITING PAYMENT": "bg-blue-100 text-blue-800",
     PAID: "bg-orange-100 text-orange-800",
     REFUNDED: "bg-indigo-100 text-indigo-800",
     CANCELED: "bg-gray-100 text-gray-800",
     DISPUTED: "bg-pink-100 text-pink-800",
-    DISPUTE_RESOLVED: "bg-teal-100 text-teal-800",
-    DISPUTE_DISMISSED: "bg-yellow-100 text-yellow-800",
-    DISPUTE_SETTLED: "bg-purple-100 text-purple-800",
+    "DISPUTE RESOLVED": "bg-teal-100 text-teal-800",
+    "DISPUTE DISMISSED": "bg-yellow-100 text-yellow-800",
+    "DISPUTE SETTLED": "bg-purple-100 text-purple-800",
     RELEASED: "bg-green-100 text-green-800",
 
     Unknown: "bg-gray-100 text-gray-600",
@@ -312,7 +313,7 @@ export function MarketplaceCard({
           </div>
 
           {/* Payment Link + QR */}
-          {paymentUrl && displayStatus === "INITIATED" && (
+          {paymentUrl && displayStatus === "AWAITING PAYMENT" && (
             <div className="mt-4 flex flex-col items-center gap-3">
               <div className="border border-dashed p-2 rounded-xl bg-gray-50">
                 <QRCodeSVG value={paymentUrl} size={120} level="H" />

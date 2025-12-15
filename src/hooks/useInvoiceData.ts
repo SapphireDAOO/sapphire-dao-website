@@ -161,7 +161,7 @@ export const useInvoiceData = () => {
             fee: list.fee ? formatEther(BigInt(list.fee)) : "0",
             state: list.status,
             releaseHash: list.releaseHash,
-            status: list.state === "CREATED" ? "AWAITING PAYMENT" : list.status,
+            status: sortState(list.state),
             creationTxHash: list.creationTxHash,
             commisionTxHash: list.commisionTxHash,
             refundTxHash: list.refundTxHash,
@@ -308,8 +308,7 @@ export const useInvoiceData = () => {
             orderId: invoice.id,
             createdAt: invoice.createdAt ? unixToGMT(invoice.createdAt) : null,
             paidAt: invoice.paidAt || "Not Paid",
-            status:
-              invoice.state === "CREATED" ? "AWAITING PAYMENT" : invoice.state,
+            status: sortState(invoice.state),
             price: invoice.price ? invoice.price : null,
             amountPaid: invoice.amountPaid
               ? formatEther(BigInt(invoice.amountPaid))
@@ -334,8 +333,7 @@ export const useInvoiceData = () => {
             orderId: invoice.id,
             createdAt: invoice.createdAt ? unixToGMT(invoice.createdAt) : null,
             paidAt: invoice.paidAt || "Not Paid",
-            status:
-              invoice.state === "CREATED" ? "AWAITING PAYMENT" : invoice.state,
+            status: sortState(invoice.state),
             price: invoice.price ? invoice.price : null,
             amountPaid: invoice.amountPaid
               ? formatEther(BigInt(invoice.amountPaid))
@@ -958,7 +956,7 @@ const sortState = (state: string, voidAt?: string): string => {
     return "EXPIRED";
   }
 
-  if (state === "CREATED") {
+  if (state === "CREATED" || state === "INITIATED") {
     return "AWAITING PAYMENT";
   }
 

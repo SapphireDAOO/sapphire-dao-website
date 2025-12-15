@@ -132,6 +132,7 @@ export interface InvoiceDetails {
   price: string;
   paymentToken?: Address;
   tokenList: TokenData[];
+  status?: string;
 }
 
 export interface SmartInvoice {
