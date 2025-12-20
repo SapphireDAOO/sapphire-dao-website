@@ -202,9 +202,6 @@ export default function IndexRecentPayment({
     if (noteSearch) {
       invoices = invoices.filter((inv) => {
         const messages = [
-          inv.note,
-          inv.sellerNote,
-          inv.buyerNote,
           ...(inv.notes?.map((n) => n.message) ?? []),
           ...(localNotes[inv.id]?.map((n) => n.message) ?? []),
         ];
@@ -222,6 +219,7 @@ export default function IndexRecentPayment({
     invoiceData,
     isMarketplaceTab,
     filter,
+    canonicalStatus,
     selectedDate,
     localNotes,
     noteQuery,

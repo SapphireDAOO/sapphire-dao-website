@@ -100,6 +100,9 @@ export function encryptNote(note: string, secretKey: string): string {
 
 export function decryptNote(encryptedNote: string, secretKey: string): string {
   const [ivBase64, encrypted] = encryptedNote.split(":");
+  if (!ivBase64 || !encrypted) {
+    return encryptedNote;
+  }
   const iv = Buffer.from(ivBase64, "base64");
   const key = crypto.createHash("sha256").update(secretKey).digest();
 
@@ -116,14 +119,23 @@ export const decryptNoteBlob = (noteBlob?: string): string | undefined => {
   if (!noteBlob) return undefined;
 
   try {
-    const encryptedString =
-      noteBlob.startsWith("0x") || noteBlob.startsWith("0X")
-        ? hexToString(noteBlob as `0x${string}`)
-        : noteBlob;
+    const trimmed = noteBlob.trim();
+    const isHexLike =
+      /^[0-9a-fA-F]+$/.test(trimmed) && trimmed.length % 2 === 0;
+    const hexValue = trimmed.startsWith("0x") || trimmed.startsWith("0X")
+      ? (trimmed as `0x${string}`)
+      : isHexLike
+      ? (`0x${trimmed}` as `0x${string}`)
+      : undefined;
+    const encryptedString = hexValue ? hexToString(hexValue) : trimmed;
 
     if (!encryptedString) return undefined;
 
     if (!NOTES_SECRET_KEY) return encryptedString;
+
+    if (!encryptedString.includes(":")) {
+      return encryptedString;
+    }
 
     return decryptNote(encryptedString, NOTES_SECRET_KEY);
   } catch (error) {

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ChevronDown, ChevronUp, Info } from "lucide-react";
-import { Invoice, Note } from "@/model/model";
+import { Invoice } from "@/model/model";
 import { formatAddress, timeLeft, unixToGMT } from "@/utils";
 import { toast } from "sonner";
 import generateSecureLink from "@/lib/generate-link";
@@ -20,13 +20,7 @@ import {
 } from "@/components/ui/tooltip";
 
 import { useGetPaymentTokenData } from "@/hooks/useGetPaymentTokenData";
-
-const mockNote: Note = {
-  id: "note-001",
-  sender: "0xA13f...B7E9",
-  message: "Payment confirmed. Shipping will begin tomorrow.",
-  timestamp: new Date().toLocaleString(),
-};
+import { NotesThread } from "./notes-thread";
 
 export function MarketplaceCard({
   invoice,
@@ -149,10 +143,20 @@ export function MarketplaceCard({
 
   const countdownLabel = displayStatus === "PAID" ? "Release in" : null;
 
-  /* ------------------------------- NOTES ------------------------------------ */
+  const ensureExpanded = useCallback(() => {
+    if (!isExpanded) onToggle();
+  }, [isExpanded, onToggle]);
 
-  const notesToDisplay =
-    invoice.notes && invoice.notes.length > 0 ? invoice.notes : [mockNote];
+  const shareLabel = useMemo(() => {
+    if (isSellerView) {
+      return invoice.buyer
+        ? `Share with payer ${formatAddress(invoice.buyer)}`
+        : "Share with payer";
+    }
+    return invoice.seller
+      ? `Share with creator ${formatAddress(invoice.seller)}`
+      : "Share with creator";
+  }, [invoice.buyer, invoice.seller, isSellerView]);
 
   /* ------------------------------ PAYMENT LINK ------------------------------ */
 
@@ -233,6 +237,13 @@ export function MarketplaceCard({
             description="Buyer who completed the payment."
           />
         )}
+
+        <NotesThread
+          orderId={invoice.orderId}
+          isExpanded={isExpanded}
+          onExpand={ensureExpanded}
+          shareLabel={shareLabel}
+        />
       </CardHeader>
 
       {/* Expanded details */}
@@ -298,19 +309,6 @@ export function MarketplaceCard({
               description="Full lifecycle of this invoice."
             />
           )}
-
-          {/* Notes */}
-          <div className="space-y-3">
-            {notesToDisplay.map((note) => (
-              <div key={note.id} className="bg-gray-100 p-3 rounded-md text-xs">
-                <p className="font-medium text-gray-700">{note.sender}</p>
-                <p className="text-gray-600">{note.message}</p>
-                <p className="text-gray-400 text-[10px] mt-1">
-                  {note.timestamp}
-                </p>
-              </div>
-            ))}
-          </div>
 
           {/* Payment Link + QR */}
           {paymentUrl && displayStatus === "AWAITING PAYMENT" && (

@@ -28,12 +28,17 @@ export const payAdvancedInvoice = async (
   try {
     const gasPrice = await fetchGasPrice(publicClient, chainId);
 
-    const amountIntoken = await publicClient?.readContract({
+    const amountIntoken = (await publicClient?.readContract({
       address: ADVANCED_PAYMENT_PROCESSOR[chainId],
       abi: advancedPaymentProcessor,
       functionName: "getTokenValueFromUsd",
       args: [paymentToken, amount],
-    });
+    })) as bigint | undefined;
+
+    if (!amountIntoken) {
+      toast.error("Failed to compute token amount");
+      return false;
+    }
 
     const approved = await handleApproval(
       paymentToken,
@@ -72,11 +77,82 @@ export const payAdvancedInvoice = async (
       confirmations: 1,
     });
 
+    console.log(receipt);
+
     if (receipt?.status === "success") {
       success = true;
-    } else {
-      toast.error("Transaction failed. Please try again.");
+
+      // Always work in ms (UTC)
+      // let blockTimestamp = Date.now();
+      // try {
+      //   if (receipt.blockNumber && publicClient) {
+      //     const block = await publicClient.getBlock({
+      //       blockNumber: receipt.blockNumber,
+      //     });
+      //     blockTimestamp = block?.timestamp
+      //       ? Number(block.timestamp) * 1000
+      //       : blockTimestamp;
+      //   }
+      // } catch (error) {
+      //   console.warn("Could not fetch block timestamp", error);
+      // }
+
+      // // Build the list of target order IDs. For meta invoices, only child orders are sent.
+      // const targetOrderIds: bigint[] = [orderId];
+
+      // if (paymentType === "payMetaInvoice") {
+      //   try {
+      //     const meta = (await publicClient?.readContract({
+      //       address: ADVANCED_PAYMENT_PROCESSOR[chainId],
+      //       abi: advancedPaymentProcessor,
+      //       functionName: "getMetaInvoice",
+      //       args: [orderId],
+      //     })) as { subInvoiceIds?: bigint[] } | undefined;
+
+      //     if (meta?.subInvoiceIds?.length) {
+      //       targetOrderIds.splice(
+      //         0,
+      //         targetOrderIds.length,
+      //         ...meta.subInvoiceIds
+      //       );
+      //     }
+      //   } catch (error) {
+      //     console.warn("Could not fetch meta invoice children", error);
+      //   }
+      // }
+
+      // const totalTxAmount = amountIntoken ?? BigInt(0);
+
+      // for (const childOrderId of targetOrderIds) {
+      //   const snapshot = await fetchInvoiceSnapshot(
+      //     publicClient,
+      //     childOrderId,
+      //     chainId
+      //   );
+
+      //   const resolvedToken = snapshot.paymentToken ?? paymentToken;
+      //   const currency = await resolveCurrency(publicClient, resolvedToken);
+
+      //   const orderTokenAmount = await computeTokenAmount(
+      //     publicClient,
+      //     chainId,
+      //     resolvedToken,
+      //     snapshot.price ?? amount
+      //   );
+
+      //   const payload: PaymentCallbackPayload = {
+      //     currency,
+      //     amount: orderTokenAmount.toString(),
+      //     transactionAmount: (totalTxAmount || orderTokenAmount).toString(),
+      //     timestamp: blockTimestamp,
+      //     releases: snapshot.releaseAt ? Number(snapshot.releaseAt) * 1000 : 0,
+      //   };
+
+      // await notifyAdvancedPaymentCallback(childOrderId, payload);
     }
+    // } else {
+    //   toast.error("Transaction failed. Please try again.");
+    // }
   } catch (error) {
     getError(error);
   }

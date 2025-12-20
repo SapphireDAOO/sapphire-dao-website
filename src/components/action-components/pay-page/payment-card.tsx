@@ -80,11 +80,6 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
     statusValue === undefined || statusValue === null
       ? undefined
       : String(statusValue).toUpperCase();
-  const invoiceNote =
-    (invoiceLike as InvoiceLike | undefined)?.note ??
-    invoiceLike?.notes?.[0]?.message ??
-    (fetchedInvoice as InvoiceLike | undefined)?.note ??
-    (fetchedInvoice as InvoiceLike | undefined)?.notes?.[0]?.message;
 
   const [liveStatus, setLiveStatus] = useState<string | undefined>(
     normalizedStatus
@@ -264,18 +259,6 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
                 disabled
               />
             </div>
-
-            {invoiceNote && (
-              <div className="flex flex-col space-y-2 mt-3">
-                <Label htmlFor="invoiceNote">Invoice Note</Label>
-                <div
-                  id="invoiceNote"
-                  className="rounded-md border bg-muted px-3 py-2 text-sm text-muted-foreground"
-                >
-                  {invoiceNote}
-                </div>
-              </div>
-            )}
 
             <div className="flex flex-col space-y-2 mt-3">
               <Label htmlFor="paymentNote">Payment Note (optional)</Label>

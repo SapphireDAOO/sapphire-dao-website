@@ -143,9 +143,7 @@ const CheckoutPage = () => {
     metaInvoicePrice,
     isMetaInvoice,
     getAdvancedInvoiceData,
-    marketplaceInvoice?.invoiceId,
-    marketplaceInvoice?.paymentToken,
-    marketplaceInvoice?.price,
+    marketplaceInvoice,
   ]);
 
   // UI

@@ -1,0 +1,242 @@
+export const Notes = [
+  {
+    type: "constructor",
+    inputs: [
+      { name: "initialOwner", type: "address", internalType: "address" },
+    ],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    name: "cancelOwnershipHandover",
+    inputs: [],
+    outputs: [],
+    stateMutability: "payable",
+  },
+  {
+    type: "function",
+    name: "completeOwnershipHandover",
+    inputs: [
+      { name: "pendingOwner", type: "address", internalType: "address" },
+    ],
+    outputs: [],
+    stateMutability: "payable",
+  },
+  {
+    type: "function",
+    name: "createNote",
+    inputs: [
+      { name: "orderId", type: "uint216", internalType: "uint216" },
+      { name: "author", type: "address", internalType: "address" },
+      {
+        name: "encryptedContent",
+        type: "bytes",
+        internalType: "bytes",
+      },
+      { name: "share", type: "bool", internalType: "bool" },
+    ],
+    outputs: [{ name: "", type: "uint256", internalType: "uint256" }],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    name: "getNote",
+    inputs: [
+      { name: "orderId", type: "uint216", internalType: "uint216" },
+      { name: "noteId", type: "uint256", internalType: "uint256" },
+    ],
+    outputs: [
+      { name: "", type: "address", internalType: "address" },
+      { name: "", type: "bool", internalType: "bool" },
+      { name: "", type: "bytes", internalType: "bytes" },
+      { name: "", type: "bool", internalType: "bool" },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "getNoteCount",
+    inputs: [{ name: "orderId", type: "uint216", internalType: "uint216" }],
+    outputs: [{ name: "", type: "uint256", internalType: "uint256" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "isOpened",
+    inputs: [
+      { name: "orderId", type: "uint216", internalType: "uint216" },
+      { name: "noteId", type: "uint256", internalType: "uint256" },
+      { name: "user", type: "address", internalType: "address" },
+    ],
+    outputs: [{ name: "", type: "bool", internalType: "bool" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "owner",
+    inputs: [],
+    outputs: [{ name: "result", type: "address", internalType: "address" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "ownershipHandoverExpiresAt",
+    inputs: [
+      { name: "pendingOwner", type: "address", internalType: "address" },
+    ],
+    outputs: [{ name: "result", type: "uint256", internalType: "uint256" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "renounceOwnership",
+    inputs: [],
+    outputs: [],
+    stateMutability: "payable",
+  },
+  {
+    type: "function",
+    name: "requestOwnershipHandover",
+    inputs: [],
+    outputs: [],
+    stateMutability: "payable",
+  },
+  {
+    type: "function",
+    name: "setOpened",
+    inputs: [
+      { name: "orderId", type: "uint216", internalType: "uint216" },
+      { name: "noteId", type: "uint256", internalType: "uint256" },
+      { name: "open", type: "bool", internalType: "bool" },
+    ],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    name: "transferOwnership",
+    inputs: [{ name: "newOwner", type: "address", internalType: "address" }],
+    outputs: [],
+    stateMutability: "payable",
+  },
+  {
+    type: "event",
+    name: "NoteCreated",
+    inputs: [
+      {
+        name: "orderId",
+        type: "uint216",
+        indexed: true,
+        internalType: "uint216",
+      },
+      {
+        name: "noteId",
+        type: "uint256",
+        indexed: true,
+        internalType: "uint256",
+      },
+      {
+        name: "author",
+        type: "address",
+        indexed: true,
+        internalType: "address",
+      },
+      {
+        name: "share",
+        type: "bool",
+        indexed: false,
+        internalType: "bool",
+      },
+      {
+        name: "encryptedContent",
+        type: "bytes",
+        indexed: false,
+        internalType: "bytes",
+      },
+    ],
+    anonymous: false,
+  },
+  {
+    type: "event",
+    name: "NoteStateChanged",
+    inputs: [
+      {
+        name: "orderId",
+        type: "uint216",
+        indexed: true,
+        internalType: "uint216",
+      },
+      {
+        name: "noteId",
+        type: "uint256",
+        indexed: true,
+        internalType: "uint256",
+      },
+      {
+        name: "user",
+        type: "address",
+        indexed: true,
+        internalType: "address",
+      },
+      {
+        name: "opened",
+        type: "bool",
+        indexed: false,
+        internalType: "bool",
+      },
+    ],
+    anonymous: false,
+  },
+  {
+    type: "event",
+    name: "OwnershipHandoverCanceled",
+    inputs: [
+      {
+        name: "pendingOwner",
+        type: "address",
+        indexed: true,
+        internalType: "address",
+      },
+    ],
+    anonymous: false,
+  },
+  {
+    type: "event",
+    name: "OwnershipHandoverRequested",
+    inputs: [
+      {
+        name: "pendingOwner",
+        type: "address",
+        indexed: true,
+        internalType: "address",
+      },
+    ],
+    anonymous: false,
+  },
+  {
+    type: "event",
+    name: "OwnershipTransferred",
+    inputs: [
+      {
+        name: "oldOwner",
+        type: "address",
+        indexed: true,
+        internalType: "address",
+      },
+      {
+        name: "newOwner",
+        type: "address",
+        indexed: true,
+        internalType: "address",
+      },
+    ],
+    anonymous: false,
+  },
+  { type: "error", name: "AlreadyInitialized", inputs: [] },
+  { type: "error", name: "ContentTooLarge", inputs: [] },
+  { type: "error", name: "EmptyContent", inputs: [] },
+  { type: "error", name: "NewOwnerIsZeroAddress", inputs: [] },
+  { type: "error", name: "NoHandoverRequest", inputs: [] },
+  { type: "error", name: "NoteNotFound", inputs: [] },
+  { type: "error", name: "Unauthorized", inputs: [] },
+] as const;
