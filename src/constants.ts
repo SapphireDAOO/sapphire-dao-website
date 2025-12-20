@@ -22,15 +22,12 @@ export const NOTES_CONTRACT: Record<number, Address> = {
   [sepolia.id]: "0x4928d1F9cB35F42c4480A675aE86C238067E0340",
 };
 
-export const NOTES_SIGNER_ADDRESS = process.env.NEXT_PUBLIC_NOTES_SIGNER_ADDRESS;
+export const NOTES_SIGNER_ADDRESS =
+  process.env.NEXT_PUBLIC_NOTES_SIGNER_ADDRESS;
 
 export const THE_GRAPH_API_URL: Record<number, string> = {
   [sepolia.id]:
-    "https://api.studio.thegraph.com/query/100227/payment-processor-indexer/version/latest",
-};
-
-export const NOTES_GRAPH_API_URL: Record<number, string | undefined> = {
-  [sepolia.id]: process.env.NEXT_PUBLIC_NOTES_GRAPH_API_URL,
+    "https://gateway.thegraph.com/api/subgraphs/id/H67nz7ap8JxhykAkFYVV3brDSex9W2hCztNgnnbSSRhE",
 };
 
 export const errorMessages: ErrorMessages = {

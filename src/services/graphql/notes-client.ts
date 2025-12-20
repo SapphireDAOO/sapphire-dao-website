@@ -1,8 +1,8 @@
 import { createClient } from "urql";
-import { NOTES_GRAPH_API_URL } from "@/constants";
+import { THE_GRAPH_API_URL } from "@/constants";
 
 export const notesClient = (chainId: number) => {
-  const url = NOTES_GRAPH_API_URL[chainId];
+  const url = THE_GRAPH_API_URL[chainId];
   if (!url) return null;
 
   return createClient({

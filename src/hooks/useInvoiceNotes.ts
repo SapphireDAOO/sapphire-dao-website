@@ -118,7 +118,7 @@ export const useInvoiceNotes = (orderId?: bigint) => {
         if (!configWarnedRef.current) {
           console.warn("Notes subgraph is not configured.");
           toast.error(
-            "Notes subgraph not configured. Set NEXT_PUBLIC_NOTES_GRAPH_API_URL."
+            "Notes subgraph not configured."
           );
           configWarnedRef.current = true;
         }
@@ -146,7 +146,7 @@ export const useInvoiceNotes = (orderId?: bigint) => {
           if (!configWarnedRef.current) {
             console.warn("Notes subgraph schema mismatch:", message);
             toast.error(
-              "Notes subgraph missing notes fields. Check NEXT_PUBLIC_NOTES_GRAPH_API_URL."
+              "Notes subgraph missing notes fields."
             );
             configWarnedRef.current = true;
           }
