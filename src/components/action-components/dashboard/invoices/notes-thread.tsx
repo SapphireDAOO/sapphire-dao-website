@@ -59,11 +59,6 @@ export function NotesThread({
     setIsComposerOpen(false);
   }, []);
 
-  const createdNotes = notes.filter(
-    (note) => note.isAuthor && !note.hasOpenState
-  );
-  const openNotes = notes.filter((note) => !note.isAuthor || note.hasOpenState);
-
   const renderNotes = (list: ThreadNote[]) =>
     list.map((note) => {
       const isUpdating = pendingNoteIds[note.noteId];
@@ -124,32 +119,7 @@ export function NotesThread({
       ) : notes.length === 0 ? (
         <p className="text-[11px] text-gray-400">No notes yet.</p>
       ) : (
-        <div className="space-y-3">
-          <div className="space-y-2">
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
-              Open Notes
-            </span>
-            {openNotes.length > 0 ? (
-              renderNotes(openNotes)
-            ) : (
-              <p className="text-[11px] text-gray-400">
-                No open notes yet.
-              </p>
-            )}
-          </div>
-          <div className="space-y-2">
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
-              Created Notes
-            </span>
-            {createdNotes.length > 0 ? (
-              renderNotes(createdNotes)
-            ) : (
-              <p className="text-[11px] text-gray-400">
-                No created notes yet.
-              </p>
-            )}
-          </div>
-        </div>
+        <div className="space-y-2">{renderNotes(notes)}</div>
       )}
 
       {isExpanded && isComposerOpen && (
