@@ -288,8 +288,9 @@ export const useInvoiceNotes = (orderId?: bigint) => {
       const current = notesRef.current.find((note) => note.noteId === noteId);
       if (!current) return false;
 
-      const shouldPersistOpen = open && !current.hasOpenState;
-      const nextHasOpenState = current.hasOpenState || shouldPersistOpen;
+      const shouldPersistOpen =
+        open && !current.hasOpenState && current.share;
+      const nextHasOpenState = current.hasOpenState || open;
       const previous = notesRef.current;
 
       setNotes((prev) =>

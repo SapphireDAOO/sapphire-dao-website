@@ -108,9 +108,28 @@ export async function POST(req: Request) {
           logs: receipt.logs,
         });
         const created = parsed[0]?.args?.noteId;
-        noteId = created ? created.toString() : undefined;
+        noteId =
+          created !== undefined && created !== null
+            ? created.toString()
+            : undefined;
       } catch {
         noteId = undefined;
+      }
+
+      if (noteId === undefined) {
+        try {
+          const count = await publicClient.readContract({
+            address: contractAddress,
+            abi: Notes,
+            functionName: "getNoteCount",
+            args: [orderId],
+          });
+          if (typeof count === "bigint" && count > BigInt(0)) {
+            noteId = (count - BigInt(1)).toString();
+          }
+        } catch {
+          noteId = undefined;
+        }
       }
 
       return NextResponse.json({
@@ -152,6 +171,9 @@ export async function POST(req: Request) {
     );
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unexpected error";
-    return NextResponse.json({ success: false, error: message }, { status: 500 });
+    return NextResponse.json(
+      { success: false, error: message },
+      { status: 500 }
+    );
   }
 }
