@@ -6,11 +6,8 @@ export const paymentProcessor = [
         name: "paymentProcessorStorageAddress",
         type: "address",
       },
-      {
-        internalType: "uint256",
-        name: "minimumInvoicePrice",
-        type: "uint256",
-      },
+      { internalType: "uint256", name: "minimumInvoicePrice", type: "uint256" },
+      { internalType: "address", name: "notesAddress", type: "address" },
     ],
     stateMutability: "nonpayable",
     type: "constructor",
@@ -20,11 +17,7 @@ export const paymentProcessor = [
   { inputs: [], name: "FeeTooHigh", type: "error" },
   { inputs: [], name: "FeeValueCanNotBeZero", type: "error" },
   { inputs: [], name: "HoldPeriodHasNotBeenExceeded", type: "error" },
-  {
-    inputs: [],
-    name: "HoldPeriodShouldBeGreaterThanPrevious",
-    type: "error",
-  },
+  { inputs: [], name: "HoldPeriodShouldBeGreaterThanPrevious", type: "error" },
   {
     inputs: [
       { internalType: "uint256", name: "sent", type: "uint256" },
@@ -102,23 +95,14 @@ export const paymentProcessor = [
           { internalType: "uint40", name: "createdAt", type: "uint40" },
           { internalType: "uint40", name: "paidAt", type: "uint40" },
           { internalType: "uint40", name: "releaseAt", type: "uint40" },
-          {
-            internalType: "uint40",
-            name: "invalidateAt",
-            type: "uint40",
-          },
+          { internalType: "uint40", name: "invalidateAt", type: "uint40" },
           { internalType: "uint40", name: "expiresAt", type: "uint40" },
           { internalType: "uint8", name: "status", type: "uint8" },
           { internalType: "address", name: "seller", type: "address" },
           { internalType: "address", name: "buyer", type: "address" },
           { internalType: "address", name: "escrow", type: "address" },
           { internalType: "uint256", name: "price", type: "uint256" },
-          {
-            internalType: "uint256",
-            name: "amountPaid",
-            type: "uint256",
-          },
-          { internalType: "bytes", name: "noteBlob", type: "bytes" },
+          { internalType: "uint256", name: "amountPaid", type: "uint256" },
         ],
         indexed: false,
         internalType: "struct ISimplePaymentProcessor.Invoice",
@@ -210,31 +194,6 @@ export const paymentProcessor = [
       },
       {
         indexed: true,
-        internalType: "uint8",
-        name: "role",
-        type: "uint8",
-      },
-      {
-        indexed: false,
-        internalType: "bytes",
-        name: "blob",
-        type: "bytes",
-      },
-    ],
-    name: "NotesStorageReferenceUpdated",
-    type: "event",
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        internalType: "uint216",
-        name: "orderId",
-        type: "uint216",
-      },
-      {
-        indexed: true,
         internalType: "uint256",
         name: "releaseDueTimestamp",
         type: "uint256",
@@ -254,13 +213,6 @@ export const paymentProcessor = [
     inputs: [],
     name: "BASIS_POINTS",
     outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "BUYER_ROLE",
-    outputs: [{ internalType: "uint8", name: "", type: "uint8" }],
     stateMutability: "view",
     type: "function",
   },
@@ -321,13 +273,6 @@ export const paymentProcessor = [
     type: "function",
   },
   {
-    inputs: [],
-    name: "SELLER_ROLE",
-    outputs: [{ internalType: "uint8", name: "", type: "uint8" }],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
     inputs: [{ internalType: "uint216", name: "orderId", type: "uint216" }],
     name: "acceptPayment",
     outputs: [],
@@ -362,6 +307,7 @@ export const paymentProcessor = [
     inputs: [
       { internalType: "uint256", name: "invoicePrice", type: "uint256" },
       { internalType: "bytes", name: "storageRef", type: "bytes" },
+      { internalType: "bool", name: "share", type: "bool" },
     ],
     name: "createInvoice",
     outputs: [{ internalType: "uint216", name: "", type: "uint216" }],
@@ -392,23 +338,14 @@ export const paymentProcessor = [
           { internalType: "uint40", name: "createdAt", type: "uint40" },
           { internalType: "uint40", name: "paidAt", type: "uint40" },
           { internalType: "uint40", name: "releaseAt", type: "uint40" },
-          {
-            internalType: "uint40",
-            name: "invalidateAt",
-            type: "uint40",
-          },
+          { internalType: "uint40", name: "invalidateAt", type: "uint40" },
           { internalType: "uint40", name: "expiresAt", type: "uint40" },
           { internalType: "uint8", name: "status", type: "uint8" },
           { internalType: "address", name: "seller", type: "address" },
           { internalType: "address", name: "buyer", type: "address" },
           { internalType: "address", name: "escrow", type: "address" },
           { internalType: "uint256", name: "price", type: "uint256" },
-          {
-            internalType: "uint256",
-            name: "amountPaid",
-            type: "uint256",
-          },
-          { internalType: "bytes", name: "noteBlob", type: "bytes" },
+          { internalType: "uint256", name: "amountPaid", type: "uint256" },
         ],
         internalType: "struct ISimplePaymentProcessor.Invoice",
         name: "",
@@ -441,20 +378,11 @@ export const paymentProcessor = [
   },
   {
     inputs: [
-      { internalType: "uint8", name: "role", type: "uint8" },
-      { internalType: "uint216", name: "invoiceId", type: "uint216" },
-    ],
-    name: "getNotesBlob",
-    outputs: [{ internalType: "bytes", name: "blob", type: "bytes" }],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [
       { internalType: "uint216", name: "orderId", type: "uint216" },
       { internalType: "bytes", name: "storageRef", type: "bytes" },
+      { internalType: "bool", name: "share", type: "bool" },
     ],
-    name: "makeInvoicePayment",
+    name: "pay",
     outputs: [{ internalType: "address", name: "", type: "address" }],
     stateMutability: "payable",
     type: "function",
@@ -502,11 +430,7 @@ export const paymentProcessor = [
   },
   {
     inputs: [
-      {
-        internalType: "uint256",
-        name: "newDecisionWindow",
-        type: "uint256",
-      },
+      { internalType: "uint256", name: "newDecisionWindow", type: "uint256" },
     ],
     name: "setDecisionWindow",
     outputs: [],
@@ -515,11 +439,7 @@ export const paymentProcessor = [
   },
   {
     inputs: [
-      {
-        internalType: "address",
-        name: "forwarderAddress",
-        type: "address",
-      },
+      { internalType: "address", name: "forwarderAddress", type: "address" },
     ],
     name: "setForwarderAddress",
     outputs: [],
@@ -545,16 +465,6 @@ export const paymentProcessor = [
       },
     ],
     name: "setMinimumInvoiceValue",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [
-      { internalType: "uint216", name: "invoiceId", type: "uint216" },
-      { internalType: "bytes", name: "blob", type: "bytes" },
-    ],
-    name: "setNotesStorageRef",
     outputs: [],
     stateMutability: "nonpayable",
     type: "function",

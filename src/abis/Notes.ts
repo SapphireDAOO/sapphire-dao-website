@@ -1,16 +1,17 @@
 export const Notes = [
   {
     inputs: [
-      { internalType: "address", name: "initialOwner", type: "address" },
+      {
+        internalType: "address",
+        name: "paymentProcessorStorageAddress",
+        type: "address",
+      },
     ],
     stateMutability: "nonpayable",
     type: "constructor",
   },
-  { inputs: [], name: "AlreadyInitialized", type: "error" },
   { inputs: [], name: "ContentTooLarge", type: "error" },
   { inputs: [], name: "EmptyContent", type: "error" },
-  { inputs: [], name: "NewOwnerIsZeroAddress", type: "error" },
-  { inputs: [], name: "NoHandoverRequest", type: "error" },
   { inputs: [], name: "NoteNotFound", type: "error" },
   { inputs: [], name: "Unauthorized", type: "error" },
   {
@@ -67,64 +68,17 @@ export const Notes = [
     type: "event",
   },
   {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        internalType: "address",
-        name: "pendingOwner",
-        type: "address",
-      },
-    ],
-    name: "OwnershipHandoverCanceled",
-    type: "event",
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        internalType: "address",
-        name: "pendingOwner",
-        type: "address",
-      },
-    ],
-    name: "OwnershipHandoverRequested",
-    type: "event",
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        internalType: "address",
-        name: "oldOwner",
-        type: "address",
-      },
-      {
-        indexed: true,
-        internalType: "address",
-        name: "newOwner",
-        type: "address",
-      },
-    ],
-    name: "OwnershipTransferred",
-    type: "event",
-  },
-  {
     inputs: [],
-    name: "cancelOwnershipHandover",
-    outputs: [],
-    stateMutability: "payable",
+    name: "ALLOWED",
+    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+    stateMutability: "view",
     type: "function",
   },
   {
-    inputs: [
-      { internalType: "address", name: "pendingOwner", type: "address" },
-    ],
-    name: "completeOwnershipHandover",
-    outputs: [],
-    stateMutability: "payable",
+    inputs: [],
+    name: "NOT_ALLOWED",
+    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+    stateMutability: "view",
     type: "function",
   },
   {
@@ -174,32 +128,25 @@ export const Notes = [
   },
   {
     inputs: [],
-    name: "owner",
-    outputs: [{ internalType: "address", name: "result", type: "address" }],
+    name: "ppStorage",
+    outputs: [
+      {
+        internalType: "contract IPaymentProcessorStorage",
+        name: "",
+        type: "address",
+      },
+    ],
     stateMutability: "view",
     type: "function",
   },
   {
     inputs: [
-      { internalType: "address", name: "pendingOwner", type: "address" },
+      { internalType: "address", name: "user", type: "address" },
+      { internalType: "bool", name: "enabled", type: "bool" },
     ],
-    name: "ownershipHandoverExpiresAt",
-    outputs: [{ internalType: "uint256", name: "result", type: "uint256" }],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "renounceOwnership",
+    name: "setAuthorized",
     outputs: [],
-    stateMutability: "payable",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "requestOwnershipHandover",
-    outputs: [],
-    stateMutability: "payable",
+    stateMutability: "nonpayable",
     type: "function",
   },
   {
@@ -211,13 +158,6 @@ export const Notes = [
     name: "setOpened",
     outputs: [],
     stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [{ internalType: "address", name: "newOwner", type: "address" }],
-    name: "transferOwnership",
-    outputs: [],
-    stateMutability: "payable",
     type: "function",
   },
 ] as const;

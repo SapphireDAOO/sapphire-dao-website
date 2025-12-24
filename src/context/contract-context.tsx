@@ -16,12 +16,14 @@ export interface ContractContextData {
   };
   createInvoice: (
     invoicePrice: bigint,
-    storageRef?: string
+    storageRef?: string,
+    share?: boolean
   ) => Promise<bigint | undefined>;
   makeInvoicePayment: (
     amount: bigint,
     orderId: bigint,
-    storageRef?: string
+    storageRef?: string,
+    share?: boolean
   ) => Promise<boolean>;
   payAdvancedInvoice: (
     paymentType: "paySingleInvoice" | "payMetaInvoice",
@@ -45,7 +47,6 @@ export interface ContractContextData {
   setValidPeriod: (newValidPeriod: bigint) => Promise<boolean>;
   setDefaultHoldPeriod: (newDefaultHoldPeriod: bigint) => Promise<boolean>;
   setFee: (newFee: bigint) => Promise<boolean>;
-  setInvoiceNote: (orderId: bigint, note: string) => Promise<boolean>;
   getAdvancedInvoiceData: (
     orderId: bigint,
     query: string,
@@ -81,7 +82,6 @@ export const contractContextDefaults: ContractContextData = {
   setMarketplaceAddress: async () => Promise.resolve(""),
   setFee: async () => Promise.resolve(false),
   setMinimumInvoiceValue: async () => Promise.resolve(false),
-  setInvoiceNote: async () => Promise.resolve(false),
   refetchInvoiceData: async () => Promise.resolve(),
   refetchAllInvoiceData: async () => Promise.resolve(),
   refreshAdminData: async () => Promise.resolve(),

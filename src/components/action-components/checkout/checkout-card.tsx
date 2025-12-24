@@ -36,6 +36,8 @@ import {
 import { toast } from "sonner";
 import { type Address } from "viem";
 import { InvoiceDetails, TokenData } from "@/model/model";
+import { Textarea } from "@/components/ui/textarea";
+import { createNote as createInvoiceNote } from "@/services/notes";
 
 interface CheckoutCardProps {
   data: InvoiceDetails;
@@ -49,6 +51,8 @@ const CheckoutCard = ({ data, isMetaInvoice }: CheckoutCardProps) => {
 
   const [open, setOpen] = useState(false);
   const [selectedToken, setSelectedToken] = useState("");
+  const [paymentNote, setPaymentNote] = useState("");
+  const [shareNote, setShareNote] = useState(false);
 
   const [countdown, setCountdown] = useState(3);
 
@@ -67,6 +71,28 @@ const CheckoutCard = ({ data, isMetaInvoice }: CheckoutCardProps) => {
     : data.tokenList
     ? [data.tokenList]
     : [];
+
+  const savePaymentNote = async () => {
+    const trimmed = paymentNote.trim();
+    if (!trimmed) return;
+
+    if (!address) {
+      toast.error("Connect your wallet to add notes.");
+      return;
+    }
+
+    try {
+      await createInvoiceNote({
+        orderId: data.orderId.toString(),
+        author: address,
+        content: trimmed,
+        share: shareNote,
+      });
+    } catch (error) {
+      console.error("Failed to save payment note:", error);
+      toast.error("Unable to save payment note.");
+    }
+  };
 
   const handleClick = async () => {
     if (!isPayableStatus) {
@@ -87,6 +113,7 @@ const CheckoutCard = ({ data, isMetaInvoice }: CheckoutCardProps) => {
       await payAdvancedInvoice(paymentType, amount, data.orderId, tokenAddress)
     ) {
       setOpen(true);
+      void savePaymentNote();
       setCountdown(3);
 
       const interval = setInterval(() => {
@@ -150,6 +177,29 @@ const CheckoutCard = ({ data, isMetaInvoice }: CheckoutCardProps) => {
                   </SelectGroup>
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="flex flex-col space-y-2 mt-3">
+              <Label htmlFor="paymentNote">Payment Note (optional)</Label>
+              <Textarea
+                id="paymentNote"
+                value={paymentNote}
+                onChange={(e) => setPaymentNote(e.target.value)}
+                placeholder="Add a note about this payment"
+                className="min-h-24"
+              />
+              <label className="flex items-center gap-2 text-[11px] text-gray-600">
+                <input
+                  type="checkbox"
+                  checked={shareNote}
+                  onChange={(e) => setShareNote(e.target.checked)}
+                  className="h-3.5 w-3.5"
+                />
+                <span>
+                  Share with the invoice creator (leave unchecked to keep it
+                  private)
+                </span>
+              </label>
             </div>
           </div>
         </CardContent>

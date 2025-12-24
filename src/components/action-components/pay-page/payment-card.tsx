@@ -28,6 +28,7 @@ import {
 import { toast } from "sonner";
 import { formatEther, parseEther } from "viem";
 import { useGetInvoiceData } from "@/hooks/useGetInvoiceData";
+import { useInvoiceNotes, ThreadNote } from "@/hooks/useInvoiceNotes";
 import { SIMPLE_PAYMENT_PROCESSOR } from "@/constants";
 import { paymentProcessor } from "@/abis/PaymentProcessor";
 import { ETHEREUM_SEPOLIA } from "@/constants";
@@ -40,6 +41,7 @@ type InvoiceLike = {
   orderId?: string | number | bigint;
   invoiceId?: string | number | bigint;
   status?: string | number;
+  seller?: string;
   note?: string;
   notes?: { message?: string }[];
 };
@@ -53,9 +55,11 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
 
   const [countdown, setCountdown] = useState(3);
   const [paymentNote, setPaymentNote] = useState("");
+  const [shareNote, setShareNote] = useState(false);
 
   const orderId = data?.orderId;
   const { data: fetchedInvoice } = useGetInvoiceData(orderId);
+  const { notes: invoiceNotes } = useInvoiceNotes(orderId);
 
   const { invoiceData, getInvoiceOwner, makeInvoicePayment, isLoading } =
     useContext(ContractContext);
@@ -84,6 +88,36 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
   const [liveStatus, setLiveStatus] = useState<string | undefined>(
     normalizedStatus
   );
+
+  const sharedCreatorNote = useMemo(() => {
+    if (!invoiceNotes.length) return undefined;
+
+    const sharedNotes = invoiceNotes.filter((note) => note.share);
+    if (!sharedNotes.length) return undefined;
+
+    const creator =
+      typeof invoiceLike?.seller === "string"
+        ? invoiceLike.seller.toLowerCase()
+        : undefined;
+    if (!creator) return undefined;
+
+    const creatorNotes = sharedNotes.filter(
+      (note) => note.author?.toLowerCase() === creator
+    );
+
+    if (!creatorNotes.length) return undefined;
+
+    return creatorNotes.reduce<ThreadNote | undefined>((earliest, note) => {
+      if (!earliest) return note;
+      try {
+        const earliestId = BigInt(earliest.noteId);
+        const currentId = BigInt(note.noteId);
+        return currentId < earliestId ? note : earliest;
+      } catch {
+        return earliest;
+      }
+    }, undefined);
+  }, [invoiceNotes, invoiceLike?.seller]);
 
   useEffect(() => {
     setLiveStatus(normalizedStatus);
@@ -193,7 +227,14 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
     }
 
     try {
-      if (await makeInvoicePayment(priceWei, orderId, paymentNote.trim())) {
+      if (
+        await makeInvoicePayment(
+          priceWei,
+          orderId,
+          paymentNote.trim(),
+          shareNote
+        )
+      ) {
         setOpen(true);
 
         setCountdown(3);
@@ -260,15 +301,38 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
               />
             </div>
 
+            {sharedCreatorNote && (
+              <div className="mt-3 rounded-md border border-gray-200 bg-gray-50 p-3">
+                <p className="text-xs font-semibold text-gray-600">
+                  Invoice note from creator
+                </p>
+                <p className="mt-1 text-sm text-gray-700">
+                  &quot;{sharedCreatorNote.message}&quot;
+                </p>
+              </div>
+            )}
+
             <div className="flex flex-col space-y-2 mt-3">
               <Label htmlFor="paymentNote">Payment Note (optional)</Label>
               <Textarea
                 id="paymentNote"
                 value={paymentNote}
                 onChange={(e) => setPaymentNote(e.target.value)}
-                placeholder="Add a note for your own reference "
+                placeholder="Add a note about this payment"
                 className="min-h-24"
               />
+              <label className="flex items-center gap-2 text-[11px] text-gray-600">
+                <input
+                  type="checkbox"
+                  checked={shareNote}
+                  onChange={(e) => setShareNote(e.target.checked)}
+                  className="h-3.5 w-3.5"
+                />
+                <span>
+                  Share with the invoice creator (leave unchecked to keep it
+                  private)
+                </span>
+              </label>
             </div>
           </div>
         </CardContent>

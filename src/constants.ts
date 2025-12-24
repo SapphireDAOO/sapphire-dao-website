@@ -7,19 +7,19 @@ export const POLYGON_AMOY = 80_002;
 export const ETHEREUM_SEPOLIA = 11_155_111;
 
 export const PAYMENT_PROCESSOR_STORAGE: Record<number, Address> = {
-  [sepolia.id]: "0xcFC87C438DD3771b2DA6987284f0d1ffD5c822Af",
+  [sepolia.id]: "0xeb57F1F77F873d8481510c1f5Ee44dE340Dc93fe",
 };
 
 export const SIMPLE_PAYMENT_PROCESSOR: Record<number, Address> = {
-  [sepolia.id]: "0x9c2160baf66f43f35db35e4a2d3c9bc5ba4f262c",
+  [sepolia.id]: "0xd4a9E5ac9f54bECcD7C12ca6bD7Bd026BbF0058D",
 };
 
 export const ADVANCED_PAYMENT_PROCESSOR: Record<number, Address> = {
-  [sepolia.id]: "0x85d126a43bee78ae25626498806c0b3a55b80abf",
+  [sepolia.id]: "0x3D07827e8a6BA46f37d129dF8d99f4EE8aa5685f",
 };
 
 export const NOTES_CONTRACT: Record<number, Address> = {
-  [sepolia.id]: "0x4928d1F9cB35F42c4480A675aE86C238067E0340",
+  [sepolia.id]: "0xbE210c16e990e74a92Eb85060bB33Eb03418C565",
 };
 
 export const NOTES_SIGNER_ADDRESS =
@@ -27,7 +27,7 @@ export const NOTES_SIGNER_ADDRESS =
 
 export const THE_GRAPH_API_URL: Record<number, string> = {
   [sepolia.id]:
-    "https://gateway.thegraph.com/api/subgraphs/id/H67nz7ap8JxhykAkFYVV3brDSex9W2hCztNgnnbSSRhE",
+    "https://api.studio.thegraph.com/query/100227/payment-processor-indexer/version/latest",
 };
 
 export const errorMessages: ErrorMessages = {

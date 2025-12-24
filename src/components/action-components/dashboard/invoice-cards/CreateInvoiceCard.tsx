@@ -172,6 +172,7 @@ InvoiceQRLink.displayName = "InvoiceQRLink";
 export default function CreateInvoiceDialog() {
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
+  const [shareNote, setShareNote] = useState(false);
   const { chainId, address } = useAccount();
   const { data: formatedFee } = useGetFeeRate();
 
@@ -195,7 +196,7 @@ export default function CreateInvoiceDialog() {
     try {
       const amountValue = parseUnits(amount, 18);
 
-      const response = await createInvoice(amountValue, note.trim());
+      const response = await createInvoice(amountValue, note.trim(), shareNote);
 
       if (response) {
         setOrderId(response);
@@ -215,7 +216,14 @@ export default function CreateInvoiceDialog() {
     } finally {
       setIsCreating(false);
     }
-  }, [amount, isAmountValid, createInvoice, refetchInvoiceData, note]);
+  }, [
+    amount,
+    isAmountValid,
+    createInvoice,
+    refetchInvoiceData,
+    note,
+    shareNote,
+  ]);
 
   return (
     <>
@@ -270,13 +278,26 @@ export default function CreateInvoiceDialog() {
               <Label htmlFor="note" className="text-left sm:text-right pt-1">
                 Note
               </Label>
-              <Textarea
-                id="note"
-                value={note}
-                placeholder="e.g. MacBook Pro, delivery in 3 days"
-                onChange={(e) => setNote(e.target.value)}
-                className="sm:col-span-3 w-full h-24 resize-none"
-              />
+              <div className="sm:col-span-3 space-y-2">
+                <Textarea
+                  id="note"
+                  value={note}
+                  placeholder="e.g. MacBook Pro, delivery in 3 days"
+                  onChange={(e) => setNote(e.target.value)}
+                  className="w-full h-24 resize-none"
+                />
+                <label className="flex items-center gap-2 text-[11px] text-gray-600">
+                  <input
+                    type="checkbox"
+                    checked={shareNote}
+                    onChange={(e) => setShareNote(e.target.checked)}
+                    className="h-3.5 w-3.5"
+                  />
+                  <span>
+                    Share with the payer (leave unchecked to keep it private)
+                  </span>
+                </label>
+              </div>
             </div>
           </div>
 

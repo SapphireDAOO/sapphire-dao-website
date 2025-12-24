@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAccount, usePublicClient } from "wagmi";
 import { toast } from "sonner";
 import { notesClient } from "@/services/graphql/notes-client";
@@ -45,7 +45,7 @@ const formatNowLabel = () => {
   return unixToGMT(nowSeconds) || new Date().toLocaleString();
 };
 
-export const useInvoiceNotes = (orderId?: bigint) => {
+export const useInvoiceNotes = (orderId?: bigint | string | number) => {
   const { address, chain } = useAccount();
   const chainId = chain?.id || ETHEREUM_SEPOLIA;
   const publicClient = usePublicClient({ chainId });
@@ -60,6 +60,25 @@ export const useInvoiceNotes = (orderId?: bigint) => {
   const notesRef = useRef<ThreadNote[]>([]);
   const blockCacheRef = useRef<Map<string, string>>(new Map());
   const configWarnedRef = useRef(false);
+  const invalidOrderIdRef = useRef(false);
+
+  const normalizedOrderId = useMemo(() => {
+    if (orderId === undefined || orderId === null) return undefined;
+    if (typeof orderId === "bigint") return orderId;
+    if (typeof orderId === "number") {
+      if (!Number.isFinite(orderId)) return undefined;
+      return BigInt(Math.trunc(orderId));
+    }
+
+    const trimmed = orderId.trim();
+    if (!trimmed) return undefined;
+
+    try {
+      return BigInt(trimmed);
+    } catch {
+      return undefined;
+    }
+  }, [orderId]);
 
   useEffect(() => {
     notesRef.current = notes;
@@ -105,11 +124,20 @@ export const useInvoiceNotes = (orderId?: bigint) => {
   );
 
   const fetchNotes = useCallback(async () => {
-    if (!orderId) {
+    if (normalizedOrderId === undefined) {
       setNotes([]);
+      if (
+        orderId !== undefined &&
+        orderId !== null &&
+        !invalidOrderIdRef.current
+      ) {
+        console.warn("Invalid orderId for notes:", orderId);
+        invalidOrderIdRef.current = true;
+      }
       return;
     }
 
+    invalidOrderIdRef.current = false;
     setIsLoading(true);
 
     try {
@@ -132,7 +160,7 @@ export const useInvoiceNotes = (orderId?: bigint) => {
       ).toLowerCase();
       const { data, error } = await graphClient
         .query(NOTES_BY_ORDER_QUERY, {
-          orderId: orderId.toString(),
+          orderId: normalizedOrderId.toString(),
           user: openStateUser,
         })
         .toPromise();
@@ -220,7 +248,7 @@ export const useInvoiceNotes = (orderId?: bigint) => {
     } finally {
       setIsLoading(false);
     }
-  }, [address, chainId, hydrateBlockLabels, orderId]);
+  }, [address, chainId, hydrateBlockLabels, normalizedOrderId, orderId]);
 
   useEffect(() => {
     void fetchNotes();
@@ -232,7 +260,7 @@ export const useInvoiceNotes = (orderId?: bigint) => {
 
   const createNote = useCallback(
     async (content: string, share: boolean) => {
-      if (!orderId) return false;
+      if (normalizedOrderId === undefined) return false;
       if (!address) {
         toast.error("Connect your wallet to add notes.");
         return false;
@@ -248,7 +276,7 @@ export const useInvoiceNotes = (orderId?: bigint) => {
 
       try {
         const result = await createNoteRequest({
-          orderId: orderId.toString(),
+          orderId: normalizedOrderId.toString(),
           author: address,
           content: trimmed,
           share,
@@ -256,7 +284,9 @@ export const useInvoiceNotes = (orderId?: bigint) => {
 
         const noteId = result.noteId || `local-${Date.now()}`;
         const optimistic: ThreadNote = {
-          id: result.noteId ? `${orderId}-${noteId}` : `local-${noteId}`,
+          id: result.noteId
+            ? `${normalizedOrderId.toString()}-${noteId}`
+            : `local-${noteId}`,
           noteId,
           author: address,
           share,
@@ -278,12 +308,12 @@ export const useInvoiceNotes = (orderId?: bigint) => {
         setIsCreating(false);
       }
     },
-    [address, orderId]
+    [address, normalizedOrderId]
   );
 
   const setNoteOpen = useCallback(
     async (noteId: string, open: boolean) => {
-      if (!orderId) return false;
+      if (normalizedOrderId === undefined) return false;
 
       const current = notesRef.current.find((note) => note.noteId === noteId);
       if (!current) return false;
@@ -309,7 +339,7 @@ export const useInvoiceNotes = (orderId?: bigint) => {
 
       try {
         await setNoteOpenState({
-          orderId: orderId.toString(),
+          orderId: normalizedOrderId.toString(),
           noteId,
           open: true,
         });
@@ -327,7 +357,7 @@ export const useInvoiceNotes = (orderId?: bigint) => {
         });
       }
     },
-    [orderId]
+    [normalizedOrderId]
   );
 
   return {
