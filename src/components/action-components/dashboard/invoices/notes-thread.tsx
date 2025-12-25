@@ -94,7 +94,7 @@ export function NotesThread({
 
           {isExpanded && note.opened && (
             <p className="mt-2 text-[11px] text-gray-600">
-              &quot;{note.message}&quot;
+              {note.message}
             </p>
           )}
         </div>

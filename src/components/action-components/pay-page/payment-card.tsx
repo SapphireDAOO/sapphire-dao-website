@@ -307,7 +307,7 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
                   Invoice note from creator
                 </p>
                 <p className="mt-1 text-sm text-gray-700">
-                  &quot;{sharedCreatorNote.message}&quot;
+                  {sharedCreatorNote.message}
                 </p>
               </div>
             )}

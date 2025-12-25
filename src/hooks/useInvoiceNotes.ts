@@ -203,7 +203,7 @@ export const useInvoiceNotes = (orderId?: bigint | string | number) => {
               share,
               message,
               createdAtLabel: formatNowLabel(),
-              opened: isAuthor,
+              opened: false,
               hasOpenState: isAuthor,
               isAuthor,
               isPending: false,
@@ -400,7 +400,7 @@ export const useInvoiceNotes = (orderId?: bigint | string | number) => {
             : "-";
 
           const previousOpened = openStateMap.get(note.noteId);
-          const opened = previousOpened ?? (isAuthor ? true : false);
+          const opened = previousOpened ?? false;
           const hasOpenState =
             stateSet.has(note.noteId) ||
             hasOpenedMap.get(note.noteId) === true ||
@@ -478,21 +478,21 @@ export const useInvoiceNotes = (orderId?: bigint | string | number) => {
           typeof result.txHash === "string"
             ? result.txHash.toLowerCase()
             : undefined;
-        const optimistic: ThreadNote = {
-          id: result.noteId
-            ? `${normalizedOrderId.toString()}-${resolvedNoteId}`
-            : `local-${resolvedNoteId}`,
-          noteId: resolvedNoteId,
-          author: address,
-          share,
-          message: trimmed,
-          createdAtLabel: formatNowLabel(),
-          opened: true,
-          hasOpenState: true,
-          isAuthor: true,
-          isPending: !result.noteId,
-          txHash: result.txHash,
-        };
+          const optimistic: ThreadNote = {
+            id: result.noteId
+              ? `${normalizedOrderId.toString()}-${resolvedNoteId}`
+              : `local-${resolvedNoteId}`,
+            noteId: resolvedNoteId,
+            author: address,
+            share,
+            message: trimmed,
+            createdAtLabel: formatNowLabel(),
+            opened: false,
+            hasOpenState: true,
+            isAuthor: true,
+            isPending: !result.noteId,
+            txHash: result.txHash,
+          };
 
         setNotes((prev) => {
           if (
