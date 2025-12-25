@@ -8,7 +8,12 @@ import {
   setNoteOpenState,
 } from "@/services/notes";
 import { decryptNoteBlob, unixToGMT } from "@/utils";
-import { ETHEREUM_SEPOLIA, NOTES_SIGNER_ADDRESS } from "@/constants";
+import {
+  ETHEREUM_SEPOLIA,
+  NOTES_CONTRACT,
+  NOTES_SIGNER_ADDRESS,
+} from "@/constants";
+import { Notes } from "@/abis/Notes";
 
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 
@@ -38,6 +43,7 @@ export type ThreadNote = {
   hasOpenState: boolean;
   isAuthor: boolean;
   isPending: boolean;
+  txHash?: string;
 };
 
 const formatNowLabel = () => {
@@ -83,6 +89,184 @@ export const useInvoiceNotes = (orderId?: bigint | string | number) => {
   useEffect(() => {
     notesRef.current = notes;
   }, [notes]);
+
+  useEffect(() => {
+    if (!publicClient || normalizedOrderId === undefined) return;
+
+    const contractAddress = NOTES_CONTRACT[chainId];
+    if (!contractAddress) return;
+
+    const viewer = (address || ZERO_ADDRESS).toLowerCase();
+    const openStateUser = (NOTES_SIGNER_ADDRESS || viewer).toLowerCase();
+
+    const unwatchCreated = publicClient.watchContractEvent({
+      address: contractAddress,
+      abi: Notes,
+      eventName: "NoteCreated",
+      onLogs: (logs) => {
+        logs.forEach((log) => {
+          const args = log.args as
+            | {
+                orderId?: bigint;
+                noteId?: bigint;
+                author?: string;
+                share?: boolean;
+                encryptedContent?: string;
+              }
+            | undefined;
+
+          if (!args?.orderId || !args.noteId) return;
+          if (args.orderId.toString() !== normalizedOrderId.toString()) return;
+
+          const share = Boolean(args.share);
+          const author = (args.author || "").toLowerCase();
+          const isAuthor = Boolean(address && author === address.toLowerCase());
+
+          if (!share && !isAuthor) return;
+
+          const noteId = args.noteId.toString();
+          const message =
+            decryptNoteBlob(args.encryptedContent) || "Encrypted note";
+          const txHash = log.transactionHash;
+          const authorAddress = args.author || "";
+
+          setNotes((prev) => {
+            if (prev.some((note) => note.noteId === noteId)) return prev;
+
+            let pendingIndex = -1;
+
+            if (txHash) {
+              pendingIndex = prev.findIndex(
+                (note) =>
+                  note.isPending &&
+                  note.txHash?.toLowerCase() === txHash.toLowerCase()
+              );
+            }
+
+            if (pendingIndex < 0) {
+              pendingIndex = prev.findIndex(
+                (note) =>
+                  note.isPending &&
+                  note.share === share &&
+                  note.author?.toLowerCase() === author &&
+                  note.message === message
+              );
+            }
+
+            if (pendingIndex < 0) {
+              const pendingByAuthor = prev.filter(
+                (note) =>
+                  note.isPending &&
+                  note.share === share &&
+                  note.author?.toLowerCase() === author
+              );
+              if (pendingByAuthor.length === 1) {
+                pendingIndex = prev.indexOf(pendingByAuthor[0]);
+              }
+            }
+
+            if (pendingIndex >= 0) {
+              const pending = prev[pendingIndex];
+              const updated: ThreadNote = {
+                ...pending,
+                id: `${normalizedOrderId.toString()}-${noteId}`,
+                noteId,
+                author: authorAddress || pending.author,
+                share,
+                message,
+                createdAtLabel: pending.createdAtLabel || formatNowLabel(),
+                opened: pending.opened,
+                hasOpenState: pending.hasOpenState || isAuthor,
+                isAuthor,
+                isPending: false,
+                txHash: txHash || pending.txHash,
+              };
+
+              const next = [...prev];
+              next[pendingIndex] = updated;
+              return next.sort((a, b) => {
+                try {
+                  const aKey = BigInt(a.noteId);
+                  const bKey = BigInt(b.noteId);
+                  if (aKey === bKey) return 0;
+                  return aKey > bKey ? -1 : 1;
+                } catch {
+                  return 0;
+                }
+              });
+            }
+
+            const nextNote: ThreadNote = {
+              id: `${normalizedOrderId.toString()}-${noteId}`,
+              noteId,
+              author: authorAddress,
+              share,
+              message,
+              createdAtLabel: formatNowLabel(),
+              opened: isAuthor,
+              hasOpenState: isAuthor,
+              isAuthor,
+              isPending: false,
+              txHash,
+            };
+
+            return [nextNote, ...prev].sort((a, b) => {
+              try {
+                const aKey = BigInt(a.noteId);
+                const bKey = BigInt(b.noteId);
+                if (aKey === bKey) return 0;
+                return aKey > bKey ? -1 : 1;
+              } catch {
+                return 0;
+              }
+            });
+          });
+        });
+      },
+    });
+
+    const unwatchState = publicClient.watchContractEvent({
+      address: contractAddress,
+      abi: Notes,
+      eventName: "NoteStateChanged",
+      onLogs: (logs) => {
+        logs.forEach((log) => {
+          const args = log.args as
+            | {
+                orderId?: bigint;
+                noteId?: bigint;
+                user?: string;
+                opened?: boolean;
+              }
+            | undefined;
+
+          if (!args?.orderId || !args.noteId || !args.user) return;
+          if (args.orderId.toString() !== normalizedOrderId.toString()) return;
+          if (args.user.toLowerCase() !== openStateUser) return;
+
+          const noteId = args.noteId.toString();
+          const opened = Boolean(args.opened);
+
+          setNotes((prev) =>
+            prev.map((note) =>
+              note.noteId === noteId
+                ? {
+                    ...note,
+                    opened,
+                    hasOpenState: note.hasOpenState || opened,
+                  }
+                : note
+            )
+          );
+        });
+      },
+    });
+
+    return () => {
+      unwatchCreated?.();
+      unwatchState?.();
+    };
+  }, [address, chainId, normalizedOrderId, publicClient]);
 
   const hydrateBlockLabels = useCallback(
     async (blockNumbers: string[]) => {
@@ -215,6 +399,13 @@ export const useInvoiceNotes = (orderId?: bigint | string | number) => {
               `Block ${note.createdAtBlock}`
             : "-";
 
+          const previousOpened = openStateMap.get(note.noteId);
+          const opened = previousOpened ?? (isAuthor ? true : false);
+          const hasOpenState =
+            stateSet.has(note.noteId) ||
+            hasOpenedMap.get(note.noteId) === true ||
+            isAuthor;
+
           return {
             id: note.id,
             noteId: note.noteId,
@@ -222,10 +413,8 @@ export const useInvoiceNotes = (orderId?: bigint | string | number) => {
             share: note.share,
             message,
             createdAtLabel,
-            opened: openStateMap.get(note.noteId) ?? false,
-            hasOpenState:
-              stateSet.has(note.noteId) ||
-              hasOpenedMap.get(note.noteId) === true,
+            opened,
+            hasOpenState,
             isAuthor: Boolean(isAuthor),
             isPending: false,
           } as ThreadNote;
@@ -282,23 +471,42 @@ export const useInvoiceNotes = (orderId?: bigint | string | number) => {
           share,
         });
 
-        const noteId = result.noteId || `local-${Date.now()}`;
+        const noteId = result.noteId?.toString?.() ?? result.noteId;
+        const resolvedNoteId =
+          noteId || `local-${Date.now().toString()}`;
+        const resolvedTxHash =
+          typeof result.txHash === "string"
+            ? result.txHash.toLowerCase()
+            : undefined;
         const optimistic: ThreadNote = {
           id: result.noteId
-            ? `${normalizedOrderId.toString()}-${noteId}`
-            : `local-${noteId}`,
-          noteId,
+            ? `${normalizedOrderId.toString()}-${resolvedNoteId}`
+            : `local-${resolvedNoteId}`,
+          noteId: resolvedNoteId,
           author: address,
           share,
           message: trimmed,
           createdAtLabel: formatNowLabel(),
-          opened: false,
-          hasOpenState: false,
+          opened: true,
+          hasOpenState: true,
           isAuthor: true,
           isPending: !result.noteId,
+          txHash: result.txHash,
         };
 
-        setNotes((prev) => [optimistic, ...prev]);
+        setNotes((prev) => {
+          if (
+            prev.some(
+              (note) =>
+                note.noteId === resolvedNoteId ||
+                (resolvedTxHash &&
+                  note.txHash?.toLowerCase() === resolvedTxHash)
+            )
+          ) {
+            return prev;
+          }
+          return [optimistic, ...prev];
+        });
         return true;
       } catch (error) {
         console.error("Failed to create note", error);
