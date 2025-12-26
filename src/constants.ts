@@ -27,7 +27,7 @@ export const NOTES_SIGNER_ADDRESS =
 
 export const THE_GRAPH_API_URL: Record<number, string> = {
   [sepolia.id]:
-    "https://api.studio.thegraph.com/query/100227/payment-processor-indexer/version/latest",
+    "https://gateway.thegraph.com/api/subgraphs/id/H67nz7ap8JxhykAkFYVV3brDSex9W2hCztNgnnbSSRhE",
 };
 
 export const errorMessages: ErrorMessages = {
