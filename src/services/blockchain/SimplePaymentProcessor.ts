@@ -122,7 +122,7 @@ export const sellerAction = async (
   setIsLoading: (value: string) => void
 ): Promise<boolean> => {
   const action = state ? "Accepted" : "Rejected";
-  setIsLoading(action);
+  setIsLoading(`${action}:${orderId.toString()}`);
   let success = false;
   // let progressToastId: string | number | undefined;
 

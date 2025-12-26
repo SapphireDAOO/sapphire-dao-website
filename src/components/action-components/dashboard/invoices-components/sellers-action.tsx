@@ -39,10 +39,12 @@ const SellersAction = ({ orderId, state, text }: SellersActionProps) => {
   };
 
   const actionType = state ? "Accepted" : "Rejected";
-  const isSellerActionInFlight =
-    isLoading === "Accepted" || isLoading === "Rejected";
-  const isActionLoading = localLoading || isLoading === actionType;
-  const disableButton = isSellerActionInFlight || isActionLoading;
+  const actionKey = `${actionType}:${orderId.toString()}`;
+  const orderKeySuffix = `:${orderId.toString()}`;
+  const isOrderActionInFlight =
+    typeof isLoading === "string" && isLoading.endsWith(orderKeySuffix);
+  const isActionLoading = localLoading || isLoading === actionKey;
+  const disableButton = isActionLoading || isOrderActionInFlight;
 
   return (
     <div className="flex flex-col gap-2">

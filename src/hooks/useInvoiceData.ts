@@ -401,6 +401,7 @@ export const useInvoiceData = () => {
 
         return {
           ...existing,
+          ...inv,
 
           amountPaid:
             inv.amountPaid && inv.amountPaid !== "0"
@@ -412,24 +413,15 @@ export const useInvoiceData = () => {
               ? inv.paidAt
               : existing.paidAt,
 
-          paymentTxHash:
-            inv.paymentTxHash !== undefined && inv.paymentTxHash !== null
-              ? inv.paymentTxHash
-              : existing.paymentTxHash,
+          paymentTxHash: inv.paymentTxHash || existing.paymentTxHash,
 
-          refundTxHash:
-            inv.refundTxHash !== undefined && inv.refundTxHash !== null
-              ? inv.refundTxHash
-              : existing.refundTxHash,
+          refundTxHash: inv.refundTxHash || existing.refundTxHash,
 
-          releaseAt:
-            inv.releaseAt !== undefined && inv.releaseAt !== null
-              ? inv.releaseAt
-              : existing.releaseAt,
+          releaseAt: inv.releaseAt || existing.releaseAt,
+          expiresAt: inv.expiresAt || existing.expiresAt,
+          buyer: inv.buyer || existing.buyer,
 
-          ...inv,
-
-          status: pickNewerStatus(existing.status ?? "", inv.status!),
+          status: pickNewerStatus(existing.status ?? "", inv.status ?? ""),
         } as Invoice;
       });
 
@@ -576,20 +568,24 @@ export const useInvoiceData = () => {
             let shouldRefresh = false;
 
             for (const log of logs) {
-              const orderId = (
-                log.args?.orderId as bigint | undefined
-              )?.toString();
-
-              const invoice = (log.args as any)?.invoice as
+              const args = log.args as
                 | {
+                    orderId?: bigint;
                     buyer?: string;
-                    seller?: string;
-                    price?: bigint;
                     amountPaid?: bigint;
-                    createdAt?: bigint;
-                    paidAt?: bigint;
+                    expiresAt?: bigint;
+                    invoice?: {
+                      buyer?: string;
+                      seller?: string;
+                      price?: bigint;
+                      amountPaid?: bigint;
+                      createdAt?: bigint;
+                      paidAt?: bigint;
+                    };
                   }
                 | undefined;
+              const orderId = args?.orderId?.toString();
+              const invoice = args?.invoice;
 
               if (name === "InvoiceCreated") {
                 const buyer = invoice?.buyer?.toLowerCase?.();
@@ -661,13 +657,22 @@ export const useInvoiceData = () => {
                 const updatedFields: Partial<Invoice> = { status };
 
                 // amountPaid (InvoicePaid)
-                if (name === "InvoicePaid" && invoice?.amountPaid) {
-                  updatedFields.amountPaid = formatEther(invoice.amountPaid);
+                if (name === "InvoicePaid") {
+                  if (args?.amountPaid !== undefined) {
+                    updatedFields.amountPaid = formatEther(args.amountPaid);
+                  }
+                  if (args?.buyer) {
+                    updatedFields.buyer = args.buyer;
+                  }
+                  if (args?.expiresAt !== undefined) {
+                    updatedFields.expiresAt = args.expiresAt.toString();
+                  }
                   updatedFields.paymentTxHash =
                     log.transactionHash ?? inv.paymentTxHash;
-                  updatedFields.paidAt = invoice.paidAt
-                    ? unixToGMT(Number(invoice.paidAt))
-                    : inv.paidAt;
+                  updatedFields.paidAt =
+                    !inv.paidAt || inv.paidAt === "Not Paid"
+                      ? Math.floor(Date.now() / 1000).toString()
+                      : inv.paidAt;
                 }
 
                 // refunded amounts (InvoiceRejected / InvoiceRefunded)
