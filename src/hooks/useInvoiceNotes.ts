@@ -115,7 +115,7 @@ export const useInvoiceNotes = (orderId?: bigint | string | number) => {
               }
             | undefined;
 
-          if (!args?.orderId || !args.noteId) return;
+          if (args?.orderId == null || args?.noteId == null) return;
           if (args.orderId.toString() !== normalizedOrderId.toString()) return;
 
           const share = Boolean(args.share);
@@ -240,7 +240,12 @@ export const useInvoiceNotes = (orderId?: bigint | string | number) => {
               }
             | undefined;
 
-          if (!args?.orderId || !args.noteId || !args.user) return;
+          if (
+            args?.orderId == null ||
+            args?.noteId == null ||
+            args?.user == null
+          )
+            return;
           if (args.orderId.toString() !== normalizedOrderId.toString()) return;
           if (args.user.toLowerCase() !== openStateUser) return;
 
