@@ -46,11 +46,12 @@ export const createInvoice = async (
 
     const receipt = await publicClient?.waitForTransactionReceipt({
       hash: tx,
-      confirmations: 2,
+      confirmations: 1,
     });
 
     if (receipt?.status) {
-      return receipt?.logs[0].topics[1];
+      const orderId = receipt?.logs?.[0]?.topics?.[1];
+      return orderId ? BigInt(orderId) : undefined;
     } else {
       toast.error("Error creating invoice, Please try again.");
       return undefined;
@@ -99,7 +100,7 @@ export const makeInvoicePayment = async (
 
     const receipt = await publicClient?.waitForTransactionReceipt({
       hash: tx,
-      confirmations: 2,
+      confirmations: 1,
     });
 
     if (receipt?.status === "success") {
@@ -144,10 +145,6 @@ export const sellerAction = async (
       toast.error("Transaction failed to initiate");
       return false;
     }
-
-    // progressToastId = toast.info("Transaction in progress...", {
-    //   duration: Infinity,
-    // });
 
     const receipt = await publicClient?.waitForTransactionReceipt({
       hash: tx,

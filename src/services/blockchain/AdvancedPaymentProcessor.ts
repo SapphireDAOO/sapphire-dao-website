@@ -77,8 +77,6 @@ export const payAdvancedInvoice = async (
       confirmations: 1,
     });
 
-    console.log(receipt);
-
     if (receipt?.status === "success") {
       success = true;
     }
@@ -98,7 +96,6 @@ export const setMarketplaceAddress = async (
 ): Promise<any> => {
   setIsLoading("setMarketplaceAddress");
   let success = false;
-  // let progressToastId: string | number | undefined;
 
   try {
     const gasPrice = await fetchGasPrice(publicClient, chainId);
@@ -119,20 +116,14 @@ export const setMarketplaceAddress = async (
       return false;
     }
 
-    // progressToastId = toast.info("Transaction in progress...", {
-    //   duration: Infinity,
-    // });
-
     const receipt = await publicClient?.waitForTransactionReceipt({
       hash: tx,
     });
 
     if (receipt?.status) {
-      // toast.dismiss(progressToastId);
       toast.success("Successfully set new address");
       success = true;
     } else {
-      // toast.dismiss(progressToastId);
       toast.error("Failed to set new address. Please try again");
     }
   } catch (error) {

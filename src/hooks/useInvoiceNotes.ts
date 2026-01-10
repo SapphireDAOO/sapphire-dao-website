@@ -4,6 +4,9 @@ import { toast } from "sonner";
 import { notesClient } from "@/services/graphql/notes-client";
 import { NOTES_BY_ORDER_QUERY } from "@/services/graphql/queries";
 import {
+  getPendingNotesForOrder,
+  removePendingNote,
+  removePendingNotesByIds,
   createNote as createNoteRequest,
   setNoteOpenState,
 } from "@/services/notes";
@@ -16,6 +19,7 @@ import {
 import { Notes } from "@/abis/Notes";
 
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
+const NOTE_REFRESH_DELAY_MS = 5_000;
 
 type RawNote = {
   id: string;
@@ -67,6 +71,7 @@ export const useInvoiceNotes = (orderId?: bigint | string | number) => {
   const blockCacheRef = useRef<Map<string, string>>(new Map());
   const configWarnedRef = useRef(false);
   const invalidOrderIdRef = useRef(false);
+  const refreshTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const normalizedOrderId = useMemo(() => {
     if (orderId === undefined || orderId === null) return undefined;
@@ -89,6 +94,79 @@ export const useInvoiceNotes = (orderId?: bigint | string | number) => {
   useEffect(() => {
     notesRef.current = notes;
   }, [notes]);
+
+  useEffect(() => {
+    if (normalizedOrderId === undefined) return;
+    const pending = getPendingNotesForOrder(normalizedOrderId.toString());
+    if (pending.length === 0) return;
+
+    setNotes((prev) => {
+      let next = [...prev];
+      pending.forEach((note) => {
+        const hasDuplicate = next.some((existing) => {
+          if (note.noteId && existing.noteId === note.noteId) return true;
+          if (
+            note.txHash &&
+            existing.txHash?.toLowerCase() === note.txHash.toLowerCase()
+          ) {
+            return true;
+          }
+          return (
+            existing.isPending &&
+            existing.author?.toLowerCase() === note.author.toLowerCase() &&
+            existing.message === note.message &&
+            existing.share === note.share
+          );
+        });
+        if (hasDuplicate) return;
+
+        const createdAtLabel = note.createdAt
+          ? unixToGMT(note.createdAt) || formatNowLabel()
+          : formatNowLabel();
+        const isAuthor = Boolean(
+          address && address.toLowerCase() === note.author.toLowerCase()
+        );
+
+        next = [
+          {
+            id: note.noteId
+              ? `${note.orderId}-${note.noteId}`
+              : `local-${note.orderId}-${Date.now().toString()}`,
+            noteId: note.noteId || `local-${Date.now().toString()}`,
+            author: note.author,
+            share: note.share,
+            message: note.message,
+            createdAtLabel,
+            opened: false,
+            hasOpenState: isAuthor,
+            isAuthor,
+            isPending: true,
+            txHash: note.txHash,
+          },
+          ...next,
+        ];
+      });
+
+      return next.sort((a, b) => {
+        try {
+          const aKey = BigInt(a.noteId);
+          const bKey = BigInt(b.noteId);
+          if (aKey === bKey) return 0;
+          return aKey > bKey ? -1 : 1;
+        } catch {
+          return 0;
+        }
+      });
+    });
+  }, [address, normalizedOrderId]);
+
+  useEffect(() => {
+    return () => {
+      if (refreshTimeoutRef.current) {
+        clearTimeout(refreshTimeoutRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (!publicClient || normalizedOrderId === undefined) return;
@@ -129,6 +207,11 @@ export const useInvoiceNotes = (orderId?: bigint | string | number) => {
             decryptNoteBlob(args.encryptedContent) || "Encrypted note";
           const txHash = log.transactionHash;
           const authorAddress = args.author || "";
+          removePendingNote({
+            orderId: normalizedOrderId.toString(),
+            noteId,
+            txHash,
+          });
 
           setNotes((prev) => {
             if (prev.some((note) => note.noteId === noteId)) return prev;
@@ -435,6 +518,10 @@ export const useInvoiceNotes = (orderId?: bigint | string | number) => {
           }
         });
 
+      removePendingNotesByIds(
+        normalizedOrderId.toString(),
+        mapped.map((note) => note.noteId)
+      );
       setNotes(mapped);
     } catch (error) {
       console.error("Failed to fetch notes", error);
@@ -450,6 +537,14 @@ export const useInvoiceNotes = (orderId?: bigint | string | number) => {
 
   const refresh = useCallback(async () => {
     await fetchNotes();
+  }, [fetchNotes]);
+
+  const scheduleRefresh = useCallback(() => {
+    if (refreshTimeoutRef.current) return;
+    refreshTimeoutRef.current = setTimeout(() => {
+      void fetchNotes();
+      refreshTimeoutRef.current = null;
+    }, NOTE_REFRESH_DELAY_MS);
   }, [fetchNotes]);
 
   const createNote = useCallback(
@@ -512,6 +607,7 @@ export const useInvoiceNotes = (orderId?: bigint | string | number) => {
           }
           return [optimistic, ...prev];
         });
+        scheduleRefresh();
         return true;
       } catch (error) {
         console.error("Failed to create note", error);
@@ -521,7 +617,7 @@ export const useInvoiceNotes = (orderId?: bigint | string | number) => {
         setIsCreating(false);
       }
     },
-    [address, normalizedOrderId]
+    [address, normalizedOrderId, scheduleRefresh]
   );
 
   const setNoteOpen = useCallback(

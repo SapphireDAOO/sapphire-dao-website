@@ -388,18 +388,21 @@ export const useInvoiceData = () => {
       // avoid overwriting fresher websocket-driven statuses
       // with stale subgraph data. We merge by (orderId, type, source) and
       // keep the "later" status based on a defined priority ranking.
-      const existingByKey = new Map<string, Invoice>();
+      const mergedByKey = new Map<string, Invoice>();
       invoiceDataRef.current.forEach((inv) => {
         const key = `${inv.orderId.toString()}-${inv.type}-${inv.source}`;
-        existingByKey.set(key, inv);
+        mergedByKey.set(key, inv);
       });
 
-      const mergedInvoiceData = sortedInvoiceData.map((inv) => {
+      sortedInvoiceData.forEach((inv) => {
         const key = `${inv.orderId.toString()}-${inv.type}-${inv.source}`;
-        const existing = existingByKey.get(key);
-        if (!existing) return inv as Invoice;
+        const existing = mergedByKey.get(key);
+        if (!existing) {
+          mergedByKey.set(key, inv as Invoice);
+          return;
+        }
 
-        return {
+        mergedByKey.set(key, {
           ...existing,
           ...inv,
 
@@ -422,7 +425,17 @@ export const useInvoiceData = () => {
           buyer: inv.buyer || existing.buyer,
 
           status: pickNewerStatus(existing.status ?? "", inv.status ?? ""),
-        } as Invoice;
+        } as Invoice);
+      });
+
+      const mergedInvoiceData = Array.from(mergedByKey.values()).sort((a, b) => {
+        const timeA = getLastActionTime(a);
+        const timeB = getLastActionTime(b);
+
+        if (timeA === timeB) return 0;
+        if (!timeA) return 1;
+        if (!timeB) return -1;
+        return timeB.localeCompare(timeA);
       });
 
       setInvoiceData(mergedInvoiceData);
@@ -489,6 +502,226 @@ export const useInvoiceData = () => {
     }, REFRESH_DELAY_MS);
   }, [getInvoiceData]);
 
+  const updateSimpleInvoiceTiming = useCallback(
+    async (orderId: bigint) => {
+      if (!publicClient) return;
+      const contractAddress = SIMPLE_PAYMENT_PROCESSOR[chainId];
+      if (!contractAddress) return;
+
+      try {
+        const data = await publicClient.readContract({
+          address: contractAddress,
+          abi: paymentProcessor,
+          functionName: "getInvoiceData",
+          args: [orderId],
+        });
+
+        const invoiceData = data as unknown;
+        const invoiceArray = Array.isArray(invoiceData)
+          ? (invoiceData as readonly unknown[])
+          : null;
+        const invoiceObject =
+          invoiceData && typeof invoiceData === "object"
+            ? (invoiceData as {
+                paidAt?: bigint | number;
+                releaseAt?: bigint | number;
+                expiresAt?: bigint | number;
+                invalidateAt?: bigint | number;
+              })
+            : null;
+
+        const readBigInt = (value: bigint | number | undefined) => {
+          if (typeof value === "bigint") return value;
+          if (typeof value === "number") return BigInt(value);
+          return undefined;
+        };
+
+        const paidAt = invoiceObject
+          ? readBigInt(invoiceObject.paidAt)
+          : readBigInt(invoiceArray?.[2] as bigint | number | undefined);
+        const releaseAt = invoiceObject
+          ? readBigInt(invoiceObject.releaseAt)
+          : readBigInt(invoiceArray?.[3] as bigint | number | undefined);
+        const invalidateAt = invoiceObject
+          ? readBigInt(invoiceObject.invalidateAt)
+          : readBigInt(invoiceArray?.[4] as bigint | number | undefined);
+        const expiresAt = invoiceObject
+          ? readBigInt(invoiceObject.expiresAt)
+          : readBigInt(invoiceArray?.[5] as bigint | number | undefined);
+
+        setInvoiceData((prev) =>
+          prev.map((inv) => {
+            if (inv.orderId.toString() !== orderId.toString()) return inv;
+
+            return {
+              ...inv,
+              status: inv.status === "PAID" ? "ACCEPTED" : inv.status,
+              paidAt:
+                inv.paidAt && inv.paidAt !== "Not Paid"
+                  ? inv.paidAt
+                  : paidAt
+                  ? paidAt.toString()
+                  : inv.paidAt,
+              releaseAt: releaseAt ? releaseAt.toString() : inv.releaseAt,
+              invalidateAt: invalidateAt
+                ? invalidateAt.toString()
+                : inv.invalidateAt,
+              expiresAt: expiresAt ? expiresAt.toString() : inv.expiresAt,
+            };
+          })
+        );
+      } catch (error) {
+        console.error("Failed to read invoice timing", error);
+      }
+    },
+    [chainId, publicClient]
+  );
+
+  const hydrateSimpleInvoiceFromChain = useCallback(
+    async (orderId: bigint, paymentTxHash?: string) => {
+      if (!publicClient || !address) return;
+      const contractAddress = SIMPLE_PAYMENT_PROCESSOR[chainId];
+      if (!contractAddress) return;
+
+      try {
+        const data = await publicClient.readContract({
+          address: contractAddress,
+          abi: paymentProcessor,
+          functionName: "getInvoiceData",
+          args: [orderId],
+        });
+
+        const invoiceData = data as unknown;
+        const invoiceArray = Array.isArray(invoiceData)
+          ? (invoiceData as readonly unknown[])
+          : null;
+        const invoiceObject =
+          invoiceData && typeof invoiceData === "object"
+            ? (invoiceData as {
+                invoiceId?: bigint | number;
+                createdAt?: bigint | number;
+                paidAt?: bigint | number;
+                releaseAt?: bigint | number;
+                invalidateAt?: bigint | number;
+                expiresAt?: bigint | number;
+                seller?: string;
+                buyer?: string;
+                price?: bigint | number;
+                amountPaid?: bigint | number;
+              })
+            : null;
+
+        const readBigInt = (value: bigint | number | undefined) => {
+          if (typeof value === "bigint") return value;
+          if (typeof value === "number") return BigInt(value);
+          return undefined;
+        };
+
+        const readString = (value: unknown) =>
+          typeof value === "string" ? value : undefined;
+
+        const invoiceId = readBigInt(
+          invoiceObject?.invoiceId ??
+            (invoiceArray?.[0] as bigint | number | undefined)
+        );
+        const createdAt = readBigInt(
+          invoiceObject?.createdAt ??
+            (invoiceArray?.[1] as bigint | number | undefined)
+        );
+        const paidAt = readBigInt(
+          invoiceObject?.paidAt ??
+            (invoiceArray?.[2] as bigint | number | undefined)
+        );
+        const releaseAt = readBigInt(
+          invoiceObject?.releaseAt ??
+            (invoiceArray?.[3] as bigint | number | undefined)
+        );
+        const invalidateAt = readBigInt(
+          invoiceObject?.invalidateAt ??
+            (invoiceArray?.[4] as bigint | number | undefined)
+        );
+        const expiresAt = readBigInt(
+          invoiceObject?.expiresAt ??
+            (invoiceArray?.[5] as bigint | number | undefined)
+        );
+        const seller = readString(
+          invoiceObject?.seller ?? invoiceArray?.[7]
+        );
+        const buyer = readString(invoiceObject?.buyer ?? invoiceArray?.[8]);
+        const price = readBigInt(
+          invoiceObject?.price ??
+            (invoiceArray?.[10] as bigint | number | undefined)
+        );
+        const amountPaid = readBigInt(
+          invoiceObject?.amountPaid ??
+            (invoiceArray?.[11] as bigint | number | undefined)
+        );
+
+        const normalizedAddress = address.toLowerCase();
+        const isSeller =
+          typeof seller === "string" &&
+          seller.toLowerCase() === normalizedAddress;
+        const isBuyer =
+          typeof buyer === "string" && buyer.toLowerCase() === normalizedAddress;
+
+        if (!isSeller && !isBuyer) return;
+
+        const nextInvoice: Invoice = {
+          id: invoiceId ? invoiceId.toString() : orderId.toString(),
+          orderId: BigInt(orderId),
+          createdAt: createdAt ? unixToGMT(Number(createdAt)) : null,
+          paidAt:
+            paidAt && Number(paidAt) > 0
+              ? unixToGMT(Number(paidAt))
+              : "Not Paid",
+          status: "PAID",
+          price: price ? formatEther(price) : null,
+          amountPaid: amountPaid ? formatEther(amountPaid) : "0",
+          type: isSeller ? "Seller" : "Buyer",
+          contract: contractAddress,
+          buyer: buyer ?? "",
+          seller: seller ?? "",
+          source: "Simple",
+          paymentTxHash,
+          releaseAt: releaseAt ? releaseAt.toString() : undefined,
+          invalidateAt: invalidateAt ? invalidateAt.toString() : undefined,
+          expiresAt: expiresAt ? expiresAt.toString() : undefined,
+        };
+
+        setInvoiceData((prev) => {
+          const exists = prev.some(
+            (inv) => inv.orderId.toString() === orderId.toString()
+          );
+
+          if (!exists) {
+            return [nextInvoice, ...prev];
+          }
+
+          return prev.map((inv) => {
+            if (inv.orderId.toString() !== orderId.toString()) return inv;
+
+            return {
+              ...inv,
+              ...nextInvoice,
+              status: pickNewerStatus(inv.status ?? "", nextInvoice.status ?? ""),
+              amountPaid: nextInvoice.amountPaid ?? inv.amountPaid,
+              paymentTxHash: paymentTxHash ?? inv.paymentTxHash,
+              releaseAt: nextInvoice.releaseAt || inv.releaseAt,
+              invalidateAt: nextInvoice.invalidateAt || inv.invalidateAt,
+              expiresAt: nextInvoice.expiresAt || inv.expiresAt,
+              buyer: nextInvoice.buyer || inv.buyer,
+              seller: nextInvoice.seller || inv.seller,
+              price: nextInvoice.price ?? inv.price,
+            };
+          });
+        });
+      } catch (error) {
+        console.error("Failed to hydrate invoice from chain", error);
+      }
+    },
+    [address, chainId, publicClient]
+  );
+
   const fetchLatestInvoices = useCallback(
     async (
       force = false,
@@ -543,6 +776,7 @@ export const useInvoiceData = () => {
     };
 
     const eventNames: (keyof typeof statusFromEvent)[] = [
+      "InvoiceCreated",
       "InvoicePaid",
       "InvoiceAccepted",
       "InvoiceRejected",
@@ -556,6 +790,7 @@ export const useInvoiceData = () => {
         address: SIMPLE_PAYMENT_PROCESSOR[chainId],
         abi: paymentProcessor,
         eventName: name as
+          | "InvoiceCreated"
           | "InvoicePaid"
           | "InvoiceAccepted"
           | "InvoiceRejected"
@@ -563,6 +798,8 @@ export const useInvoiceData = () => {
           | "InvoiceReleased"
           | "InvoiceCanceled",
         onLogs: (logs) => {
+          const acceptedOrderIds: string[] = [];
+          const hydrateRequests = new Map<string, string | undefined>();
           setInvoiceData((prev) => {
             let updated = prev;
             let shouldRefresh = false;
@@ -575,6 +812,7 @@ export const useInvoiceData = () => {
                     amountPaid?: bigint;
                     expiresAt?: bigint;
                     invoice?: {
+                      invoiceId?: bigint;
                       buyer?: string;
                       seller?: string;
                       price?: bigint;
@@ -590,6 +828,7 @@ export const useInvoiceData = () => {
               if (name === "InvoiceCreated") {
                 const buyer = invoice?.buyer?.toLowerCase?.();
                 const seller = invoice?.seller?.toLowerCase?.();
+                const invoiceId = invoice?.invoiceId?.toString();
 
                 if (
                   address &&
@@ -602,7 +841,7 @@ export const useInvoiceData = () => {
                   if (!alreadyExists && orderId && invoice) {
                     updated = [
                       {
-                        id: orderId,
+                        id: invoiceId ?? orderId,
                         orderId: BigInt(orderId),
                         createdAt: invoice.createdAt
                           ? unixToGMT(Number(invoice.createdAt))
@@ -649,7 +888,44 @@ export const useInvoiceData = () => {
               const exists = updated.some(
                 (inv) => inv.orderId.toString() === orderId
               );
-              if (!exists) continue;
+              if (!exists) {
+                if (name === "InvoicePaid") {
+                  const buyer = args?.buyer?.toLowerCase?.();
+                  const isBuyer =
+                    address && buyer === address.toLowerCase();
+
+                  if (isBuyer && orderId) {
+                    updated = [
+                      {
+                        id: orderId,
+                        orderId: BigInt(orderId),
+                        createdAt: null,
+                        paidAt: Math.floor(Date.now() / 1000).toString(),
+                        status: "PAID",
+                        price: null,
+                        amountPaid:
+                          args?.amountPaid !== undefined
+                            ? formatEther(args.amountPaid)
+                            : "0",
+                        type: "Buyer",
+                        contract: SIMPLE_PAYMENT_PROCESSOR[chainId],
+                        buyer: args?.buyer ?? "",
+                        seller: "",
+                        source: "Simple",
+                        expiresAt: args?.expiresAt?.toString(),
+                        paymentTxHash: log.transactionHash,
+                      } as Invoice,
+                      ...updated,
+                    ];
+                    shouldRefresh = true;
+                  }
+
+                  if (orderId) {
+                    hydrateRequests.set(orderId, log.transactionHash);
+                  }
+                }
+                continue;
+              }
 
               updated = updated.map((inv) => {
                 if (inv.orderId.toString() !== orderId) return inv;
@@ -676,11 +952,10 @@ export const useInvoiceData = () => {
                 }
 
                 // refunded amounts (InvoiceRejected / InvoiceRefunded)
-                if (
-                  (name === "InvoiceRejected" || name === "InvoiceRefunded") &&
-                  invoice?.amountPaid
-                ) {
-                  updatedFields.amountPaid = formatEther(invoice.amountPaid);
+                if (name === "InvoiceRejected" || name === "InvoiceRefunded") {
+                  if (invoice?.amountPaid !== undefined) {
+                    updatedFields.amountPaid = formatEther(invoice.amountPaid);
+                  }
                   updatedFields.refundTxHash =
                     log.transactionHash ?? inv.refundTxHash;
                 }
@@ -691,6 +966,10 @@ export const useInvoiceData = () => {
                 };
               });
               shouldRefresh = true;
+
+              if (name === "InvoiceAccepted") {
+                acceptedOrderIds.push(orderId);
+              }
             }
 
             if (shouldRefresh) {
@@ -698,6 +977,22 @@ export const useInvoiceData = () => {
             }
 
             return updated;
+          });
+
+          acceptedOrderIds.forEach((id) => {
+            try {
+              void updateSimpleInvoiceTiming(BigInt(id));
+            } catch {
+              // ignore invalid orderId parsing
+            }
+          });
+
+          hydrateRequests.forEach((txHash, id) => {
+            try {
+              void hydrateSimpleInvoiceFromChain(BigInt(id), txHash);
+            } catch {
+              // ignore invalid orderId parsing
+            }
           });
         },
         onError: (err) =>
@@ -708,7 +1003,14 @@ export const useInvoiceData = () => {
     return () => {
       unwatch.forEach((u) => u?.());
     };
-  }, [publicClient, address, chainId, scheduleUserRefresh]);
+  }, [
+    publicClient,
+    address,
+    chainId,
+    scheduleUserRefresh,
+    updateSimpleInvoiceTiming,
+    hydrateSimpleInvoiceFromChain,
+  ]);
 
   // Realtime status updates for marketplace (advanced) invoices via websocket events
   useEffect(() => {
@@ -727,6 +1029,7 @@ export const useInvoiceData = () => {
     };
 
     const eventNames: (keyof typeof statusFromEvent | "UpdateReleaseTime")[] = [
+      "InvoiceCreated",
       "InvoicePaid",
       "InvoiceCanceled",
       "PaymentReleased",
@@ -759,13 +1062,20 @@ export const useInvoiceData = () => {
             let shouldRefresh = false;
 
             for (const log of logs) {
-              const orderId = (
-                log.args?.orderId as bigint | undefined
-              )?.toString();
+              const logArgs = log.args as
+                | {
+                    orderId?: bigint;
+                    amount?: bigint;
+                    sellerAmount?: bigint;
+                    newHoldPeriod?: bigint;
+                  }
+                | undefined;
+              const orderId = logArgs?.orderId?.toString();
 
               if (name === "InvoiceCreated") {
                 const invoice = (log.args as any)?.invoice as
                   | {
+                      invoiceId?: bigint;
                       buyer?: string;
                       seller?: string;
                       price?: bigint;
@@ -779,6 +1089,7 @@ export const useInvoiceData = () => {
 
                 const buyer = invoice?.buyer?.toLowerCase?.();
                 const seller = invoice?.seller?.toLowerCase?.();
+                const invoiceId = invoice?.invoiceId?.toString();
 
                 if (
                   address &&
@@ -791,7 +1102,7 @@ export const useInvoiceData = () => {
                   if (!alreadyExists && orderId && invoice) {
                     updated = [
                       {
-                        id: orderId,
+                        id: invoiceId ?? orderId,
                         orderId: BigInt(orderId),
                         createdAt: invoice.createdAt
                           ? unixToGMT(Number(invoice.createdAt))
@@ -834,9 +1145,7 @@ export const useInvoiceData = () => {
               let releaseUpdate: bigint | undefined;
 
               if (name === "UpdateReleaseTime") {
-                releaseUpdate = (log.args as any)?.newHoldPeriod as
-                  | bigint
-                  | undefined;
+                releaseUpdate = logArgs?.newHoldPeriod;
               } else if (name === "InvoiceCreated") {
                 releaseUpdate = (log.args as any)?.invoice?.releaseAt as
                   | bigint
@@ -862,24 +1171,30 @@ export const useInvoiceData = () => {
                 };
 
                 // marketplace: InvoicePaid → update amountPaid, paidAt, txHash
-                if (name === "InvoicePaid" && inv?.amountPaid) {
-                  updatedFields.amountPaid = formatEther(
-                    BigInt(inv.amountPaid)
-                  );
+                if (name === "InvoicePaid") {
+                  if (logArgs?.amount !== undefined) {
+                    updatedFields.amountPaid = formatEther(logArgs.amount);
+                  }
                   updatedFields.paymentTxHash =
-                    inv.paymentTxHash ?? inv.paymentTxHash;
-                  updatedFields.paidAt = inv.paidAt
-                    ? unixToGMT(Number(inv.paidAt))
-                    : inv.paidAt;
+                    log.transactionHash ?? inv.paymentTxHash;
+                  updatedFields.paidAt =
+                    inv.paidAt && inv.paidAt !== "Not Paid"
+                      ? inv.paidAt
+                      : Math.floor(Date.now() / 1000).toString();
                 }
 
                 // marketplace refunds
-                if (name === "Refunded" && inv?.amountPaid) {
-                  updatedFields.amountPaid = formatEther(
-                    BigInt(inv.amountPaid)
-                  );
+                if (name === "Refunded") {
+                  if (logArgs?.amount !== undefined) {
+                    updatedFields.amountPaid = formatEther(logArgs.amount);
+                  }
                   updatedFields.refundTxHash =
-                    inv.refundTxHash ?? inv.refundTxHash;
+                    log.transactionHash ?? inv.refundTxHash;
+                }
+
+                if (name === "PaymentReleased") {
+                  updatedFields.releaseHash =
+                    log.transactionHash ?? inv.releaseHash;
                 }
 
                 // release time updates

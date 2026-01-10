@@ -1,4 +1,5 @@
-import { ReactNode, useState } from "react";
+import { ReactNode, useCallback, useEffect, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useAccount, usePublicClient, useWalletClient } from "wagmi";
 import { ContractContext } from "@/context/contract-context";
 import { useInvoiceData } from "@/hooks/useInvoiceData";
@@ -19,12 +20,14 @@ import {
   setValidPeriod,
 } from "@/services/blockchain/SimplePaymentProcessor";
 import {
-  payAdvancedInvoice,
+  payAdvancedInvoice as submitAdvancedInvoicePayment,
   setMarketplaceAddress,
 } from "@/services/blockchain/AdvancedPaymentProcessor";
 import { Address } from "viem";
 import { WagmiClient } from "@/services/blockchain/type";
-import { ETHEREUM_SEPOLIA } from "@/constants";
+import { ADVANCED_PAYMENT_PROCESSOR, ETHEREUM_SEPOLIA } from "@/constants";
+
+const INVOICE_REFRESH_DELAY_MS = 5_000;
 
 type Props = {
   children?: ReactNode;
@@ -35,6 +38,7 @@ const WalletProvider = ({ children }: Props) => {
   const chainId = chain?.id || ETHEREUM_SEPOLIA;
   const { data: walletClient } = useWalletClient();
   const publicClient = usePublicClient();
+  const queryClient = useQueryClient();
 
   const wagmiClients: WagmiClient = {
     walletClient: walletClient,
@@ -52,6 +56,40 @@ const WalletProvider = ({ children }: Props) => {
     getInvoiceData,
     refreshAdminData,
   } = useInvoiceData();
+
+  const refreshTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const invalidateAdvancedInvoiceQueries = useCallback(() => {
+    const contractAddress = ADVANCED_PAYMENT_PROCESSOR[chainId];
+    queryClient.invalidateQueries({
+      queryKey: ["viem-read", chainId, contractAddress],
+    });
+    queryClient.invalidateQueries({
+      queryKey: ["viem-balance", chainId],
+    });
+  }, [chainId, queryClient]);
+
+  const scheduleInvoiceRefresh = useCallback(() => {
+    if (refreshTimeoutRef.current) return;
+    refreshTimeoutRef.current = setTimeout(() => {
+      refetchInvoiceData?.();
+      refreshTimeoutRef.current = null;
+    }, INVOICE_REFRESH_DELAY_MS);
+  }, [refetchInvoiceData]);
+
+  useEffect(() => {
+    return () => {
+      if (refreshTimeoutRef.current) {
+        clearTimeout(refreshTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const handleAdvancedInvoiceSuccess = useCallback(async () => {
+    invalidateAdvancedInvoiceQueries();
+    await refetchInvoiceData?.();
+    scheduleInvoiceRefresh();
+  }, [invalidateAdvancedInvoiceQueries, refetchInvoiceData, scheduleInvoiceRefresh]);
 
   return (
     <ContractContext.Provider
@@ -94,7 +132,7 @@ const WalletProvider = ({ children }: Props) => {
           paymentToken: Address
         ) =>
           address
-            ? payAdvancedInvoice(
+            ? submitAdvancedInvoicePayment(
                 wagmiClients,
                 paymentType,
                 price,
@@ -103,7 +141,12 @@ const WalletProvider = ({ children }: Props) => {
                 chainId,
                 address,
                 setIsLoading
-              )
+              ).then(async (success) => {
+                if (success) {
+                  await handleAdvancedInvoiceSuccess();
+                }
+                return success;
+              })
             : Promise.resolve(false),
         setMarketplaceAddress: (address: Address) =>
           setMarketplaceAddress(wagmiClients, address, chainId, setIsLoading),

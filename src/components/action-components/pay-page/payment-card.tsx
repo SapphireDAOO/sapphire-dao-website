@@ -52,6 +52,7 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [userIsCreator, setUserIsCreator] = useState(false);
+  const [creatorChecked, setCreatorChecked] = useState(false);
 
   const [countdown, setCountdown] = useState(3);
   const [paymentNote, setPaymentNote] = useState("");
@@ -61,8 +62,13 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
   const { data: fetchedInvoice } = useGetInvoiceData(orderId);
   const { notes: invoiceNotes } = useInvoiceNotes(orderId);
 
-  const { invoiceData, getInvoiceOwner, makeInvoicePayment, isLoading } =
-    useContext(ContractContext);
+  const {
+    invoiceData,
+    getInvoiceOwner,
+    makeInvoicePayment,
+    isLoading,
+    refetchInvoiceData,
+  } = useContext(ContractContext);
 
   const liveInvoice = useMemo(() => {
     if (!orderId) return undefined;
@@ -196,13 +202,48 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
 
   useEffect(() => {
     const check = async () => {
-      if (address && orderId) {
+      if (!address || !orderId) {
+        setUserIsCreator(false);
+        setCreatorChecked(false);
+        return;
+      }
+
+      setCreatorChecked(false);
+      try {
         const result = await isCreator();
         setUserIsCreator(result);
+      } catch (err) {
+        console.error("Failed to determine invoice creator:", err);
+        setUserIsCreator(false);
+      } finally {
+        setCreatorChecked(true);
       }
     };
     check();
   }, [address, orderId, isCreator]);
+
+  useEffect(() => {
+    if (!orderId || canPay || open) return;
+    if (!creatorChecked || isLoading === "makeInvoicePayment") return;
+
+    const nextTab = userIsCreator ? "seller" : "buyer";
+
+    const redirect = async () => {
+      await refetchInvoiceData?.();
+      router.push(`/dashboard?tab=${nextTab}`);
+    };
+
+    void redirect();
+  }, [
+    orderId,
+    canPay,
+    open,
+    creatorChecked,
+    isLoading,
+    userIsCreator,
+    refetchInvoiceData,
+    router,
+  ]);
 
   const handlePayment = async () => {
     const priceEth = (() => {

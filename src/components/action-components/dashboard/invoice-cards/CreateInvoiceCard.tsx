@@ -262,16 +262,21 @@ export default function CreateInvoiceDialog() {
               <Label htmlFor="amount" className="text-left sm:text-right">
                 Amount
               </Label>
-              <Input
-                id="amount"
-                type="number"
-                value={amount}
-                placeholder="0.05 ETH"
-                onChange={(e) => setAmount(e.target.value)}
-                className="sm:col-span-3 w-full"
-                min="0"
-                step="any"
-              />
+              <div className="sm:col-span-3 w-full space-y-1">
+                <Input
+                  id="amount"
+                  type="number"
+                  value={amount}
+                  placeholder="0.05"
+                  onChange={(e) => setAmount(e.target.value)}
+                  className="w-full"
+                  min="0"
+                  step="any"
+                />
+                <p className="text-[11px] text-gray-500">
+                  Amounts are in ETH.
+                </p>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-4 items-start gap-3">
