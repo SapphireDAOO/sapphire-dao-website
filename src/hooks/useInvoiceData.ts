@@ -33,6 +33,15 @@ const ERROR_BACKOFF_MS = 15_000;
 const PAGE_SIZE = 50;
 const REFRESH_DELAY_MS = 5_000;
 const MAX_ADMIN_PAGES = 10;
+const CACHE_VERSION = 1;
+const CACHE_TTL_MS = 1000 * 60 * 60 * 24;
+
+type CachedInvoice = Omit<Invoice, "orderId"> & { orderId: string };
+type InvoiceCachePayload = {
+  version: number;
+  updatedAt: number;
+  invoices: CachedInvoice[];
+};
 
 export const useInvoiceData = () => {
   const { chain, address } = useAccount();
@@ -49,12 +58,6 @@ export const useInvoiceData = () => {
     marketplaceInvoices: [],
   });
 
-  // Keep a ref to invoiceData so callbacks don't depend on it and cause re-subscribe loops
-  const invoiceDataRef = useRef<Invoice[]>([]);
-  useEffect(() => {
-    invoiceDataRef.current = invoiceData;
-  }, [invoiceData]);
-
   const refreshScheduledRef = useRef(false);
   const pendingRefreshTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null
@@ -62,6 +65,20 @@ export const useInvoiceData = () => {
 
   const isFetchingRef = useRef(false);
   const nextAllowedRequestRef = useRef<number>(0);
+  const hasFetchedRef = useRef(false);
+  const cacheKey = getInvoiceCacheKey(address, chainId);
+
+  // Keep a ref to invoiceData so callbacks don't depend on it and cause re-subscribe loops
+  const invoiceDataRef = useRef<Invoice[]>([]);
+  useEffect(() => {
+    invoiceDataRef.current = invoiceData;
+  }, [invoiceData]);
+
+  useEffect(() => {
+    if (!cacheKey) return;
+    if (!hasFetchedRef.current && invoiceData.length === 0) return;
+    writeInvoiceCache(cacheKey, invoiceData);
+  }, [cacheKey, invoiceData]);
 
   const handleRateLimit = useCallback((message?: string) => {
     if (
@@ -424,6 +441,8 @@ export const useInvoiceData = () => {
           expiresAt: inv.expiresAt || existing.expiresAt,
           buyer: inv.buyer || existing.buyer,
 
+          history: mergeHistory(existing.history, inv.history),
+
           status: pickNewerStatus(existing.status ?? "", inv.status ?? ""),
         } as Invoice);
       });
@@ -439,6 +458,7 @@ export const useInvoiceData = () => {
       });
 
       setInvoiceData(mergedInvoiceData);
+      hasFetchedRef.current = true;
     } catch (error) {
       console.error("Error fetching invoice data:", error);
       if (typeof error === "object" && error !== null && "message" in error) {
@@ -686,6 +706,11 @@ export const useInvoiceData = () => {
           releaseAt: releaseAt ? releaseAt.toString() : undefined,
           invalidateAt: invalidateAt ? invalidateAt.toString() : undefined,
           expiresAt: expiresAt ? expiresAt.toString() : undefined,
+          history: appendHistoryEntry(
+            undefined,
+            "PAID",
+            paidAt?.toString() ?? nowInSeconds()
+          ),
         };
 
         setInvoiceData((prev) => {
@@ -756,6 +781,12 @@ export const useInvoiceData = () => {
       return;
     }
 
+    hasFetchedRef.current = false;
+    const cachedInvoices = readInvoiceCache(cacheKey);
+    if (cachedInvoices.length > 0) {
+      setInvoiceData(cachedInvoices);
+    }
+
     fetchLatestInvoices(true, "user");
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -819,6 +850,8 @@ export const useInvoiceData = () => {
                       amountPaid?: bigint;
                       createdAt?: bigint;
                       paidAt?: bigint;
+                      invalidateAt?: bigint;
+                      expiresAt?: bigint;
                     };
                   }
                 | undefined;
@@ -829,6 +862,9 @@ export const useInvoiceData = () => {
                 const buyer = invoice?.buyer?.toLowerCase?.();
                 const seller = invoice?.seller?.toLowerCase?.();
                 const invoiceId = invoice?.invoiceId?.toString();
+                const historyTime = invoice?.createdAt
+                  ? invoice.createdAt.toString()
+                  : nowInSeconds();
 
                 if (
                   address &&
@@ -865,6 +901,17 @@ export const useInvoiceData = () => {
                         buyer: invoice.buyer ?? "",
                         seller: invoice.seller ?? "",
                         source: "Simple",
+                        invalidateAt: invoice.invalidateAt
+                          ? invoice.invalidateAt.toString()
+                          : undefined,
+                        expiresAt: invoice.expiresAt
+                          ? invoice.expiresAt.toString()
+                          : undefined,
+                        history: appendHistoryEntry(
+                          undefined,
+                          "CREATED",
+                          historyTime
+                        ),
                         // ...(sellerNotes
                         //   ? {
                         //       notes: sellerNotes,
@@ -884,6 +931,7 @@ export const useInvoiceData = () => {
 
               const status = statusFromEvent[name];
               if (!status) continue;
+              const historyTime = nowInSeconds();
 
               const exists = updated.some(
                 (inv) => inv.orderId.toString() === orderId
@@ -914,6 +962,11 @@ export const useInvoiceData = () => {
                         source: "Simple",
                         expiresAt: args?.expiresAt?.toString(),
                         paymentTxHash: log.transactionHash,
+                        history: appendHistoryEntry(
+                          undefined,
+                          "PAID",
+                          historyTime
+                        ),
                       } as Invoice,
                       ...updated,
                     ];
@@ -930,7 +983,10 @@ export const useInvoiceData = () => {
               updated = updated.map((inv) => {
                 if (inv.orderId.toString() !== orderId) return inv;
 
-                const updatedFields: Partial<Invoice> = { status };
+                const updatedFields: Partial<Invoice> = {
+                  status,
+                  history: appendHistoryEntry(inv.history, status, historyTime),
+                };
 
                 // amountPaid (InvoicePaid)
                 if (name === "InvoicePaid") {
@@ -958,6 +1014,11 @@ export const useInvoiceData = () => {
                   }
                   updatedFields.refundTxHash =
                     log.transactionHash ?? inv.refundTxHash;
+                }
+
+                if (name === "InvoiceReleased") {
+                  updatedFields.releaseHash =
+                    log.transactionHash ?? inv.releaseHash;
                 }
 
                 return {
@@ -1090,6 +1151,9 @@ export const useInvoiceData = () => {
                 const buyer = invoice?.buyer?.toLowerCase?.();
                 const seller = invoice?.seller?.toLowerCase?.();
                 const invoiceId = invoice?.invoiceId?.toString();
+                const historyTime = invoice?.createdAt
+                  ? invoice.createdAt.toString()
+                  : nowInSeconds();
 
                 if (
                   address &&
@@ -1130,6 +1194,11 @@ export const useInvoiceData = () => {
                         releaseAt: invoice.releaseAt
                           ? invoice.releaseAt.toString()
                           : undefined,
+                        history: appendHistoryEntry(
+                          undefined,
+                          "CREATED",
+                          historyTime
+                        ),
                       } as Invoice,
                       ...updated,
                     ];
@@ -1142,6 +1211,7 @@ export const useInvoiceData = () => {
               if (!orderId) continue;
 
               const status = statusFromEvent[name as string];
+              const historyTime = status ? nowInSeconds() : undefined;
               let releaseUpdate: bigint | undefined;
 
               if (name === "UpdateReleaseTime") {
@@ -1168,6 +1238,9 @@ export const useInvoiceData = () => {
 
                 const updatedFields: Partial<Invoice> = {
                   status: status ?? inv.status,
+                  history: status
+                    ? appendHistoryEntry(inv.history, status, historyTime)
+                    : inv.history,
                 };
 
                 // marketplace: InvoicePaid → update amountPaid, paidAt, txHash
@@ -1250,19 +1323,87 @@ export const useInvoiceData = () => {
   };
 };
 
+const getInvoiceCacheKey = (
+  address?: string,
+  chainId?: number
+): string | undefined => {
+  if (!address || !chainId) return undefined;
+  return `invoice-cache:v${CACHE_VERSION}:${chainId}:${address.toLowerCase()}`;
+};
+
+const toCachedInvoice = (invoice: Invoice): CachedInvoice => ({
+  ...invoice,
+  orderId: invoice.orderId.toString(),
+});
+
+const fromCachedInvoice = (cached: CachedInvoice): Invoice | null => {
+  try {
+    return {
+      ...cached,
+      orderId: BigInt(cached.orderId),
+    };
+  } catch {
+    return null;
+  }
+};
+
+const readInvoiceCache = (key?: string): Invoice[] => {
+  if (!key || typeof window === "undefined") return [];
+
+  try {
+    const raw = window.localStorage.getItem(key);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as InvoiceCachePayload;
+    if (!parsed || parsed.version !== CACHE_VERSION) return [];
+    if (Date.now() - parsed.updatedAt > CACHE_TTL_MS) return [];
+
+    return parsed.invoices
+      .map(fromCachedInvoice)
+      .filter((invoice): invoice is Invoice => Boolean(invoice));
+  } catch {
+    return [];
+  }
+};
+
+const writeInvoiceCache = (key: string | undefined, invoices: Invoice[]) => {
+  if (!key || typeof window === "undefined") return;
+
+  try {
+    const payload: InvoiceCachePayload = {
+      version: CACHE_VERSION,
+      updatedAt: Date.now(),
+      invoices: invoices.map(toCachedInvoice),
+    };
+    window.localStorage.setItem(key, JSON.stringify(payload));
+  } catch {
+    // ignore storage errors
+  }
+};
+
+const normalizeHistoryStatus = (status?: string): string | undefined => {
+  if (!status) return status;
+  if (status === "AWAITING PAYMENT" || status === "INITIATED") return "CREATED";
+  return status;
+};
+
 const sortHistory = (status?: string[], time?: string[]): History[] => {
   const history: History[] = [];
 
   if (!status || !Array.isArray(status) || status.length === 0) return history;
   if (!time || !Array.isArray(time) || time.length === 0) {
-    return status.map((s) => ({ status: s, time: "" }));
+    return status.map((s) => ({
+      status: normalizeHistoryStatus(s) ?? "",
+      time: "",
+    }));
   }
 
   const length = Math.min(status.length, time.length);
 
   for (let i = 0; i < length; i++) {
+    const normalized = normalizeHistoryStatus(status[i]);
+    if (!normalized) continue;
     history.push({
-      status: status[i],
+      status: normalized,
       time: time[i],
     });
   }
@@ -1314,6 +1455,77 @@ const pickNewerStatus = (existing: string, incoming: string): string => {
   const incomingRank = getStatusRank(incoming);
   // higher/equal rank means "later" or same status; never downgrade
   return incomingRank >= existingRank ? incoming : existing;
+};
+
+const nowInSeconds = () => Math.floor(Date.now() / 1000).toString();
+
+const appendHistoryEntry = (
+  history: History[] | undefined,
+  status: string | undefined,
+  time?: string
+): History[] | undefined => {
+  const normalizedStatus = normalizeHistoryStatus(status);
+  if (!normalizedStatus) return history;
+  const entryTime = time ?? nowInSeconds();
+  const existing = history ?? [];
+  const last = existing[existing.length - 1];
+
+  if (last && last.status === normalizedStatus) {
+    return existing;
+  }
+
+  return [...existing, { status: normalizedStatus, time: entryTime }];
+};
+
+const mergeHistory = (
+  existing?: History[],
+  incoming?: History[]
+): History[] | undefined => {
+  if (!incoming?.length) return existing;
+  if (!existing?.length) {
+    return incoming
+      .map((entry) => ({
+        status: normalizeHistoryStatus(entry.status) ?? entry.status,
+        time: entry.time,
+      }))
+      .filter((entry) => Boolean(entry.status));
+  }
+
+  const toTimeNumber = (value: string | undefined) => {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : Number.MAX_SAFE_INTEGER;
+  };
+
+  const mergedByStatus = new Map<string, History>();
+  const push = (entry: History) => {
+    const normalizedStatus = normalizeHistoryStatus(entry.status);
+    if (!normalizedStatus) return;
+
+    const existingEntry = mergedByStatus.get(normalizedStatus);
+    if (!existingEntry) {
+      mergedByStatus.set(normalizedStatus, {
+        status: normalizedStatus,
+        time: entry.time,
+      });
+      return;
+    }
+
+    const existingTime = toTimeNumber(existingEntry.time);
+    const nextTime = toTimeNumber(entry.time);
+    if (nextTime < existingTime) {
+      mergedByStatus.set(normalizedStatus, {
+        status: normalizedStatus,
+        time: entry.time,
+      });
+    }
+  };
+
+  existing.forEach(push);
+  incoming.forEach(push);
+
+  const merged = Array.from(mergedByStatus.values());
+  merged.sort((a, b) => toTimeNumber(a.time) - toTimeNumber(b.time));
+  return merged;
 };
 
 const getLastActionTime = (invoice: Invoice): string | undefined => {

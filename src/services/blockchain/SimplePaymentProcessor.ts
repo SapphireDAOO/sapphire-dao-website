@@ -125,7 +125,6 @@ export const sellerAction = async (
   const action = state ? "Accepted" : "Rejected";
   setIsLoading(`${action}:${orderId.toString()}`);
   let success = false;
-  // let progressToastId: string | number | undefined;
 
   try {
     const gasPrice = await fetchGasPrice(publicClient, chainId);
@@ -152,15 +151,11 @@ export const sellerAction = async (
     });
 
     if (receipt?.status) {
-      // toast.dismiss(progressToastId);
-
       success = true;
     } else {
-      // toast.dismiss(progressToastId);
       toast.error("Something went wrong, please try again.");
     }
   } catch (error) {
-    // toast.dismiss(progressToastId);
     getError(error);
   }
   setIsLoading("");
@@ -175,7 +170,6 @@ export const cancelInvoice = async (
 ): Promise<boolean> => {
   setIsLoading("cancelInvoice");
   let success = false;
-  // // let progressToastId: string | number | undefined;
 
   try {
     const gasPrice = await fetchGasPrice(publicClient, chainId);
@@ -196,13 +190,9 @@ export const cancelInvoice = async (
       return false;
     }
 
-    // progressToastId = toast.info("Transaction in progress...", {
-    //   duration: Infinity,
-    // });
-
     const receipt = await publicClient?.waitForTransactionReceipt({
       hash: tx,
-      confirmations: 1,
+      confirmations: 2,
     });
 
     if (receipt?.status) {
@@ -226,7 +216,6 @@ export const releaseInvoice = async (
 ): Promise<boolean> => {
   setIsLoading("releaseInvoice");
   let success = false;
-  // let progressToastId: string | number | undefined;
 
   try {
     const gasPrice = await fetchGasPrice(publicClient, chainId);
@@ -247,25 +236,18 @@ export const releaseInvoice = async (
       return false;
     }
 
-    // progressToastId = toast.info("Transaction in progress...", {
-    //   duration: Infinity,
-    // });
-
     const receipt = await publicClient?.waitForTransactionReceipt({
       hash: tx,
     });
 
     if (receipt?.status) {
-      // toast.dismiss(progressToastId);
       toast.success("Invoice successfully released");
       await getInvoiceData();
       success = true;
     } else {
-      // toast.dismiss(progressToastId);
       toast.error("Something went wrong, please try again.");
     }
   } catch (error) {
-    // toast.dismiss(progressToastId);
     getError(error);
   }
   setIsLoading("");
@@ -281,7 +263,6 @@ export const refundBuyerAfterWindow = async (
 ): Promise<boolean> => {
   setIsLoading("refundBuyerAfterWindow");
   let success = false;
-  // let progressToastId: string | number | undefined;
 
   try {
     const gasPrice = await fetchGasPrice(publicClient, chainId);
@@ -302,25 +283,18 @@ export const refundBuyerAfterWindow = async (
       return false;
     }
 
-    // progressToastId = toast.info("Transaction in progress...", {
-    //   duration: Infinity,
-    // });
-
     const receipt = await publicClient?.waitForTransactionReceipt({
       hash: tx,
     });
 
     if (receipt?.status) {
-      // toast.dismiss(progressToastId);
       toast.success("Refund to buyer successfully processed");
       await getInvoiceData();
       success = true;
     } else {
-      // toast.dismiss(progressToastId);
       toast.error("An unexpected error occurred during refund.");
     }
   } catch (error) {
-    // toast.dismiss(progressToastId);
     getError(error);
   }
   setIsLoading("");
@@ -336,7 +310,6 @@ export const transferOwnership = async (
 ): Promise<boolean> => {
   setIsLoading("transferOwnership");
   let success = false;
-  // let progressToastId: string | number | undefined;
 
   try {
     const gasPrice = await fetchGasPrice(publicClient, chainId);
@@ -357,25 +330,18 @@ export const transferOwnership = async (
       return false;
     }
 
-    // progressToastId = toast.info("Transaction in progress...", {
-    //   duration: Infinity,
-    // });
-
     const receipt = await publicClient?.waitForTransactionReceipt({
       hash: tx,
     });
 
     if (receipt?.status) {
-      // toast.dismiss(progressToastId);
       toast.success("New Admin updated successfully");
       await getInvoiceData();
       success = true;
     } else {
-      // toast.dismiss(progressToastId);
       toast.error("Failed to update Admin. Please try again.");
     }
   } catch (error) {
-    // toast.dismiss(progressToastId);
     getError(error);
   }
   setIsLoading("");
@@ -391,7 +357,6 @@ export const setFeeReceiversAddress = async (
 ): Promise<boolean> => {
   setIsLoading("setFeeReceiversAddress");
   let success = false;
-  // let progressToastId: string | number | undefined;
 
   try {
     const gasPrice = await fetchGasPrice(publicClient, chainId);
@@ -412,25 +377,18 @@ export const setFeeReceiversAddress = async (
       return false;
     }
 
-    // progressToastId = toast.info("Transaction in progress...", {
-    //   duration: Infinity,
-    // });
-
     const receipt = await publicClient?.waitForTransactionReceipt({
       hash: tx,
     });
 
     if (receipt?.status) {
-      // toast.dismiss(progressToastId);
       toast.success("Fee receiver address updated");
       await getInvoiceData();
       success = true;
     } else {
-      // toast.dismiss(progressToastId);
       toast.error("Failed to update fee receiver address. Please try again.");
     }
   } catch (error) {
-    // toast.dismiss(progressToastId);
     getError(error);
   }
   setIsLoading("");
@@ -448,7 +406,6 @@ export const setInvoiceHoldPeriod = async (
 ): Promise<boolean> => {
   setIsLoading("setInvoiceHoldPeriod");
   let success = false;
-  // let progressToastId: string | number | undefined;
 
   try {
     const gasPrice = await fetchGasPrice(publicClient, chainId);
@@ -484,25 +441,18 @@ export const setInvoiceHoldPeriod = async (
       return false;
     }
 
-    // progressToastId = toast.info("Transaction in progress...", {
-    //   duration: Infinity,
-    // });
-
     const receipt = await publicClient?.waitForTransactionReceipt({
       hash: tx,
     });
 
     if (receipt?.status) {
-      // toast.dismiss(progressToastId);
       toast.success("Invoice hold period successfully set");
       await getInvoiceData();
       success = true;
     } else {
-      // toast.dismiss(progressToastId);
       toast.error("Failed to set invoice hold period. Please try again");
     }
   } catch (error) {
-    // toast.dismiss(progressToastId);
     getError(error);
   }
 
@@ -519,7 +469,6 @@ export const setDefaultHoldPeriod = async (
 ): Promise<boolean> => {
   setIsLoading("setDefaultHoldPeriod");
   let success = false;
-  // let progressToastId: string | number | undefined;
 
   try {
     const gasPrice = await fetchGasPrice(publicClient, chainId);
@@ -540,25 +489,18 @@ export const setDefaultHoldPeriod = async (
       return false;
     }
 
-    // progressToastId = toast.info("Transaction in progress...", {
-    //   duration: Infinity,
-    // });
-
     const receipt = await publicClient?.waitForTransactionReceipt({
       hash: tx,
     });
 
     if (receipt?.status) {
-      // toast.dismiss(progressToastId);
       toast.success("Successfully set new default hold period");
       await getInvoiceData();
       success = true;
     } else {
-      // toast.dismiss(progressToastId);
       toast.error("Failed to set new default hold period. Please try again");
     }
   } catch (error) {
-    // toast.dismiss(progressToastId);
     getError(error);
   }
   setIsLoading("");
@@ -574,7 +516,6 @@ export const setFee = async (
 ): Promise<boolean> => {
   setIsLoading("setFee");
   let success = false;
-  // let progressToastId: string | number | undefined;
 
   try {
     const gasPrice = await fetchGasPrice(publicClient, chainId);
@@ -595,25 +536,18 @@ export const setFee = async (
       return false;
     }
 
-    // progressToastId = toast.info("Transaction in progress...", {
-    //   duration: Infinity,
-    // });
-
     const receipt = await publicClient?.waitForTransactionReceipt({
       hash: tx,
     });
 
     if (receipt?.status) {
-      // toast.dismiss(progressToastId);
       toast.success("Successfully set new fee");
       await getInvoiceData();
       success = true;
     } else {
-      // toast.dismiss(progressToastId);
       toast.error("Failed to set new fee. Please try again");
     }
   } catch (error) {
-    // toast.dismiss(progressToastId);
     getError(error);
   }
   setIsLoading("");
@@ -629,7 +563,6 @@ export const setMinimumInvoiceValue = async (
 ): Promise<boolean> => {
   setIsLoading("setMinimumInvoiceValue");
   let success = false;
-  // let progressToastId: string | number | undefined;
 
   try {
     const gasPrice = await fetchGasPrice(publicClient, chainId);
@@ -650,25 +583,18 @@ export const setMinimumInvoiceValue = async (
       return false;
     }
 
-    // progressToastId = toast.info("Transaction in progress...", {
-    //   duration: Infinity,
-    // });
-
     const receipt = await publicClient?.waitForTransactionReceipt({
       hash: tx,
     });
 
     if (receipt?.status) {
-      // toast.dismiss(progressToastId);
       toast.success("Successfully set new minimum invoice value");
       await getInvoiceData();
       success = true;
     } else {
-      // toast.dismiss(progressToastId);
       toast.error("Failed to set new minimum invoice value. Please try again");
     }
   } catch (error) {
-    // toast.dismiss(progressToastId);
     getError(error);
   }
   setIsLoading("");

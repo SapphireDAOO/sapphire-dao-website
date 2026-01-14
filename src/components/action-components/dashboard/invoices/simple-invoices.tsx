@@ -12,6 +12,7 @@ import generateSecureLink from "@/lib/generate-link";
 import { QRCodeSVG } from "qrcode.react";
 import SellersAction from "../invoices-components/sellers-action";
 import CancelInvoice from "../invoices-components/cancel-payment";
+import { formatEther, parseEther } from "viem";
 import {
   Tooltip,
   TooltipContent,
@@ -20,6 +21,9 @@ import {
 } from "@/components/ui/tooltip";
 import { renderTx } from "./advanced-invoices";
 import { NotesThread } from "./notes-thread";
+
+const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
+const isZeroAddress = (value?: string) => value?.toLowerCase() === ZERO_ADDRESS;
 
 export function InvoiceCard({
   invoice,
@@ -94,7 +98,7 @@ export function InvoiceCard({
 
   const shareLabel = useMemo(() => {
     if (isSellerView) {
-      return invoice.buyer
+      return invoice.buyer && !isZeroAddress(invoice.buyer)
         ? `Share with payer ${formatAddress(invoice.buyer)}`
         : "Share with payer";
     }
@@ -106,17 +110,63 @@ export function InvoiceCard({
     return "Share with counterparty";
   }, [invoice.buyer, invoice.seller, isBuyerView, isSellerView]);
 
+  const displayHistory = useMemo(() => {
+    if (!invoice.history || invoice.history.length === 0) return [];
+
+    const normalizeStatus = (status?: string) => {
+      if (!status) return "";
+      if (status === "AWAITING PAYMENT" || status === "INITIATED")
+        return "CREATED";
+      return status;
+    };
+
+    const normalized = invoice.history
+      .map((entry) => ({
+        ...entry,
+        status: normalizeStatus(entry.status),
+      }))
+      .filter((entry) => entry.status);
+
+    const hasRejected = normalized.some((entry) => entry.status === "REJECTED");
+    const filtered =
+      isSellerView && hasRejected
+        ? normalized.filter((entry) => entry.status !== "REFUNDED")
+        : normalized;
+
+    const deduped = filtered.filter((entry, idx) => {
+      if (idx === 0) return true;
+      return entry.status !== filtered[idx - 1].status;
+    });
+
+    return deduped;
+  }, [invoice.history, isSellerView]);
+
   const handleCopyLink = useCallback(() => {
     if (!paymentUrl) return;
     navigator.clipboard.writeText(paymentUrl);
     toast.success("Payment link copied!");
   }, [paymentUrl]);
 
-
   const displayStatus =
     invoice.status === "CREATED"
       ? "AWAITING PAYMENT"
       : invoice.status || "Unknown";
+  const isAwaitingPayment =
+    invoice.status === "AWAITING PAYMENT" ||
+    invoice.status === "CREATED" ||
+    invoice.status === "INITIATED";
+  const releasedAmount = useMemo(() => {
+    const baseAmount = invoice.amountPaid ?? invoice.price;
+    if (!baseAmount) return undefined;
+
+    try {
+      const baseWei = parseEther(baseAmount);
+      const releasedWei = (baseWei * BigInt(95)) / BigInt(100);
+      return formatEther(releasedWei);
+    } catch {
+      return baseAmount;
+    }
+  }, [invoice.amountPaid, invoice.price]);
 
   const statusColors: Record<string, string> = {
     CREATED: "bg-blue-100 text-blue-800",
@@ -195,6 +245,21 @@ export function InvoiceCard({
           />
         )}
 
+        {invoice.status === "RELEASED" && releasedAmount && (
+            <InvoiceField
+              label="Amount Released"
+              value={
+                invoice.releaseHash
+                  ? renderTx(
+                      invoice.releaseHash,
+                      `${releasedAmount} ETH`
+                    )
+                  : `${releasedAmount} ETH`
+              }
+              description="Amount released to the seller."
+            />
+          )}
+
         {invoice.status === "AWAITING PAYMENT" && (
           <InvoiceField
             label="Void in"
@@ -204,14 +269,17 @@ export function InvoiceCard({
         )}
 
         {/* Seller view: show payer */}
-        {invoice.status === "PAID" && isSellerView && invoice.buyer && (
-          <InvoiceField
-            label="Payer"
-            value={renderContractLink(invoice.buyer)}
-            description="The buyer who sent the payment."
-            link="https://sapphiredao.gitbook.io/sapphiredao-docs/user-docs/publish-your-docs#buyer"
-          />
-        )}
+        {invoice.status === "PAID" &&
+          isSellerView &&
+          invoice.buyer &&
+          !isZeroAddress(invoice.buyer) && (
+            <InvoiceField
+              label="Payer"
+              value={renderContractLink(invoice.buyer)}
+              description="The buyer who sent the payment."
+              link="https://sapphiredao.gitbook.io/sapphiredao-docs/user-docs/publish-your-docs#buyer"
+            />
+          )}
 
         {/* Rejected state: show rejection info */}
         {invoice.status === "REFUNDED" && (
@@ -225,21 +293,25 @@ export function InvoiceCard({
 
             <InvoiceField
               label="Amount Paid"
-              value={renderTx(
-                invoice.paymentTxHash,
-                `${invoice.amountPaid} ETH`
-              )}
+              value={
+                invoice.paymentTxHash
+                  ? renderTx(invoice.paymentTxHash, `${invoice.amountPaid} ETH`)
+                  : `${invoice.amountPaid} ETH`
+              }
               description="The amount already paid into escrow by the buyer."
             />
 
-            {invoice.buyer && invoice.status !== "REFUNDED" && (
-              <InvoiceField
-                label="Payer"
-                value={renderContractLink(invoice.buyer)}
-                description="The buyer or payer responsible for completing the transaction."
-                link="https://sapphiredao.gitbook.io/sapphiredao-docs/user-docs/publish-your-docs#buyer"
-              />
-            )}
+            {invoice.buyer &&
+              !isZeroAddress(invoice.buyer) &&
+              !isAwaitingPayment &&
+              invoice.status !== "REFUNDED" && (
+                <InvoiceField
+                  label="Payer"
+                  value={renderContractLink(invoice.buyer)}
+                  description="The buyer or payer responsible for completing the transaction."
+                  link="https://sapphiredao.gitbook.io/sapphiredao-docs/user-docs/publish-your-docs#buyer"
+                />
+              )}
 
             {invoice.status == "REFUNDED" && (
               <InvoiceField
@@ -326,34 +398,37 @@ export function InvoiceCard({
             />
           )}
 
-          {invoice.buyer && invoice.status !== "REFUNDED" && (
-            <InvoiceField
-              label="Payer"
-              value={renderContractLink(invoice.buyer)}
-              description="The buyer or payer responsible for completing the transaction."
-              link="https://sapphiredao.gitbook.io/sapphiredao-docs/user-docs/publish-your-docs#buyer"
-            />
-          )}
+          {invoice.buyer &&
+            !isZeroAddress(invoice.buyer) &&
+            !isAwaitingPayment &&
+            invoice.status !== "REFUNDED" && (
+              <InvoiceField
+                label="Payer"
+                value={renderContractLink(invoice.buyer)}
+                description="The buyer or payer responsible for completing the transaction."
+                link="https://sapphiredao.gitbook.io/sapphiredao-docs/user-docs/publish-your-docs#buyer"
+              />
+            )}
 
           {invoice.amountPaid && invoice.status !== "REFUNDED" && (
             <InvoiceField
               label="Amount Paid"
               value={
-                invoice.amountPaid && invoice.paymentTxHash
+                invoice.paymentTxHash
                   ? renderTx(invoice.paymentTxHash, `${invoice.amountPaid} ETH`)
-                  : undefined
+                  : `${invoice.amountPaid} ETH`
               }
               description="Amount deposited into escrow."
             />
           )}
 
           {/* State History */}
-          {invoice.history && invoice.history.length > 0 && (
+          {displayHistory.length > 0 && (
             <InvoiceField
               label="State History"
               value={
                 <div className="flex flex-wrap items-center gap-2 text-xs">
-                  {invoice.history.map((entry, idx) => (
+                  {displayHistory.map((entry, idx) => (
                     <div key={idx} className="flex items-center gap-1">
                       <span className="bg-gray-100 border border-gray-300 rounded-full px-3 py-1">
                         {entry.status}
@@ -361,7 +436,7 @@ export function InvoiceCard({
                           {entry.time ? unixToGMT(entry.time) : ""}
                         </span>
                       </span>
-                      {idx < invoice.history!.length - 1 && (
+                      {idx < displayHistory.length - 1 && (
                         <span className="text-gray-400">→</span>
                       )}
                     </div>

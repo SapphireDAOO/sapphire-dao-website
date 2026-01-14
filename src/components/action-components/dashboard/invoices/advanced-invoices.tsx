@@ -59,6 +59,12 @@ export function MarketplaceCard({
     return 0;
   }, [invoice.price]);
 
+  const releasedAmount = useMemo(() => {
+    const value = amount * 0.95;
+    if (!Number.isFinite(value)) return "0";
+    return value.toFixed(6).replace(/\.?0+$/, "");
+  }, [amount]);
+
   /* -------------------------- STATUS NORMALIZATION -------------------------- */
 
   const normalizeStatus = (status: string): string => {
@@ -282,6 +288,25 @@ export function MarketplaceCard({
               label="Amount Paid"
               value={`${amount} ${tokenData?.name}`}
               description="Amount paid into escrow."
+            />
+          )}
+
+          {invoice.status === "RELEASED" && (invoice.amountPaid || invoice.price) && (
+            <InvoiceField
+              label="Amount Released"
+              value={
+                invoice.releaseHash
+                  ? renderTx(
+                      invoice.releaseHash,
+                      tokenData?.name
+                        ? `${releasedAmount} ${tokenData.name}`
+                        : `${releasedAmount}`
+                    )
+                  : tokenData?.name
+                  ? `${releasedAmount} ${tokenData.name}`
+                  : `${releasedAmount}`
+              }
+              description="Amount released to the seller."
             />
           )}
 
