@@ -25,7 +25,6 @@ export const GET_ALL_INVOICES = `
       amountPaid
       creationTxHash
       commisionTxHash
-      noteBlob
       seller {
         id
       }
