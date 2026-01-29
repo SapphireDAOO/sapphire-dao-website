@@ -32,6 +32,7 @@ import { useInvoiceNotes, ThreadNote } from "@/hooks/useInvoiceNotes";
 import { SIMPLE_PAYMENT_PROCESSOR } from "@/constants";
 import { paymentProcessor } from "@/abis/PaymentProcessor";
 import { ETHEREUM_SEPOLIA } from "@/constants";
+import { formatAddress } from "@/utils";
 import { Textarea } from "@/components/ui/textarea";
 
 type InvoiceLike = {
@@ -61,6 +62,7 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
   const orderId = data?.orderId;
   const { data: fetchedInvoice } = useGetInvoiceData(orderId);
   const { notes: invoiceNotes } = useInvoiceNotes(orderId);
+  const contractAddress = SIMPLE_PAYMENT_PROCESSOR[chain?.id || ETHEREUM_SEPOLIA];
 
   const {
     invoiceData,
@@ -73,7 +75,7 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
   const liveInvoice = useMemo(() => {
     if (!orderId) return undefined;
     return invoiceData.find(
-      (inv) => inv.orderId?.toString() === orderId.toString()
+      (inv) => inv.orderId?.toString() === orderId.toString(),
     );
   }, [invoiceData, orderId]);
 
@@ -92,7 +94,7 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
       : String(statusValue).toUpperCase();
 
   const [liveStatus, setLiveStatus] = useState<string | undefined>(
-    normalizedStatus
+    normalizedStatus,
   );
 
   const sharedCreatorNote = useMemo(() => {
@@ -108,7 +110,7 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
     if (!creator) return undefined;
 
     const creatorNotes = sharedNotes.filter(
-      (note) => note.author?.toLowerCase() === creator
+      (note) => note.author?.toLowerCase() === creator,
     );
 
     if (!creatorNotes.length) return undefined;
@@ -180,7 +182,7 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
             setLiveStatus(statusFromEvent[name]);
           }
         },
-      })
+      }),
     );
 
     return () => {
@@ -273,7 +275,7 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
           priceWei,
           orderId,
           paymentNote.trim(),
-          shareNote
+          shareNote,
         )
       ) {
         setOpen(true);
@@ -306,8 +308,22 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
     <>
       <Card className="w-[350px]">
         <CardHeader>
-          <CardTitle>Pay Invoice</CardTitle>
-          <CardDescription>Complete your payment</CardDescription>
+          <CardTitle>Please Pay Invoice</CardTitle>
+          <CardDescription>
+            This invoice is bounded to the blockchain by contract{" "}
+            {contractAddress ? (
+              <a
+                href={`https://sepolia.etherscan.io/address/${contractAddress}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 underline hover:text-blue-800"
+              >
+                {formatAddress(contractAddress)}
+              </a>
+            ) : (
+              "—"
+            )}
+          </CardDescription>
         </CardHeader>
 
         <CardContent>

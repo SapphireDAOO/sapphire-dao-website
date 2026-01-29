@@ -38,6 +38,8 @@ import { type Address } from "viem";
 import { InvoiceDetails, TokenData } from "@/model/model";
 import { Textarea } from "@/components/ui/textarea";
 import { createNote as createInvoiceNote } from "@/services/notes";
+import { ADVANCED_PAYMENT_PROCESSOR, ETHEREUM_SEPOLIA } from "@/constants";
+import { formatAddress } from "@/utils";
 
 interface CheckoutCardProps {
   data: InvoiceDetails;
@@ -45,9 +47,11 @@ interface CheckoutCardProps {
 }
 
 const CheckoutCard = ({ data, isMetaInvoice }: CheckoutCardProps) => {
-  console.log(data, isMetaInvoice)
+  console.log(data, isMetaInvoice);
   const router = useRouter();
-  const { address } = useAccount();
+  const { address, chain } = useAccount();
+  const contractAddress =
+    ADVANCED_PAYMENT_PROCESSOR[chain?.id || ETHEREUM_SEPOLIA];
 
   const [open, setOpen] = useState(false);
   const [selectedToken, setSelectedToken] = useState("");
@@ -69,8 +73,8 @@ const CheckoutCard = ({ data, isMetaInvoice }: CheckoutCardProps) => {
   const supportedTokens: TokenData[] = Array.isArray(data?.tokenList)
     ? data.tokenList.filter(Boolean)
     : data.tokenList
-    ? [data.tokenList]
-    : [];
+      ? [data.tokenList]
+      : [];
 
   const savePaymentNote = async () => {
     const trimmed = paymentNote.trim();
@@ -140,7 +144,21 @@ const CheckoutCard = ({ data, isMetaInvoice }: CheckoutCardProps) => {
       <Card className="w-[350px]">
         <CardHeader>
           <CardTitle>Pay Invoice</CardTitle>
-          <CardDescription>Make your invoice payment</CardDescription>
+          <CardDescription>
+            This invoice is bounded to the blockchain by contract{" "}
+            {contractAddress ? (
+              <a
+                href={`https://sepolia.etherscan.io/address/${contractAddress}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 underline hover:text-blue-800"
+              >
+                {formatAddress(contractAddress)}
+              </a>
+            ) : (
+              "—"
+            )}
+          </CardDescription>
         </CardHeader>
 
         <CardContent>
