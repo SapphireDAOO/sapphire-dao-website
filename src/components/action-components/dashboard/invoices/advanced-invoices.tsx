@@ -4,7 +4,7 @@ import { useState, useCallback, useMemo, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ChevronDown, ChevronUp, Info } from "lucide-react";
+import { ChevronDown, ChevronUp, Copy, Info } from "lucide-react";
 import { Invoice } from "@/model/model";
 import { formatAddress, timeLeft, unixToGMT } from "@/utils";
 import { toast } from "sonner";
@@ -21,6 +21,13 @@ import {
 
 import { useGetPaymentTokenData } from "@/hooks/useGetPaymentTokenData";
 import { NotesThread } from "./notes-thread";
+
+const formatShortId = (value?: string) => {
+  if (!value) return "—";
+  const trimmed = value.trim();
+  if (trimmed.length <= 8) return trimmed;
+  return `${trimmed.slice(0, 4)}...${trimmed.slice(-4)}`;
+};
 
 export function MarketplaceCard({
   invoice,
@@ -183,13 +190,73 @@ export function MarketplaceCard({
     toast.success("Payment link copied!");
   }, [paymentUrl]);
 
+  const formattedInvoiceId = useMemo(
+    () => formatShortId(invoice.id),
+    [invoice.id]
+  );
+  const formattedOrderId = useMemo(
+    () => formatShortId(invoice.orderId?.toString()),
+    [invoice.orderId]
+  );
+
+  const handleCopyInvoiceId = useCallback(
+    (event: React.MouseEvent<HTMLButtonElement>) => {
+      event.stopPropagation();
+      if (!invoice.id) return;
+      navigator.clipboard.writeText(invoice.id);
+      toast.success("Invoice ID copied!");
+    },
+    [invoice.id]
+  );
+
+  const handleCopyOrderId = useCallback(
+    (event: React.MouseEvent<HTMLButtonElement>) => {
+      event.stopPropagation();
+      if (!invoice.orderId) return;
+      navigator.clipboard.writeText(invoice.orderId.toString());
+      toast.success("Order ID copied!");
+    },
+    [invoice.orderId]
+  );
+
   /* ------------------------------ UI RENDER -------------------------------- */
 
   return (
     <Card className="transition-shadow hover:shadow-md">
       <CardHeader className="cursor-pointer select-none" onClick={onToggle}>
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold">#{invoice.id}</h3>
+        <div className="flex items-start justify-between">
+          <div className="flex flex-col">
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-semibold" title={invoice.id}>
+                #{formattedInvoiceId}
+              </h3>
+              <button
+                type="button"
+                aria-label="Copy invoice ID"
+                className="text-gray-400 hover:text-gray-600"
+                onClick={handleCopyInvoiceId}
+                onMouseDown={(event) => event.stopPropagation()}
+              >
+                <Copy className="h-3.5 w-3.5" />
+              </button>
+            </div>
+            <div className="mt-1 flex items-center gap-2 text-xs text-gray-500">
+              <span className="font-medium text-gray-700">Order</span>
+              <span>:</span>
+              <span className="text-gray-800" title={invoice.orderId?.toString()}>
+                {formattedOrderId}
+              </span>
+              <button
+                type="button"
+                aria-label="Copy order ID"
+                className="text-gray-400 hover:text-gray-600"
+                onClick={handleCopyOrderId}
+                onMouseDown={(event) => event.stopPropagation()}
+              >
+                <Copy className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </div>
 
           <div className="flex items-center gap-2">
             <Badge
