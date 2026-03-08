@@ -7,38 +7,80 @@ import { paymentTokenQuery } from "@/services/graphql/queries";
 import { useChainId } from "wagmi";
 import { ETHEREUM_SEPOLIA } from "@/constants";
 
+const DEFAULT_TOKEN: TokenData = {
+  name: "",
+  id: "",
+  decimals: 18,
+};
+
+const tokenCache = new Map<string, TokenData>();
+const inflightRequests = new Map<string, Promise<TokenData>>();
+
 export const useGetPaymentTokenData = (tokenId: string) => {
   const chainId = useChainId() || ETHEREUM_SEPOLIA;
-  const [token, setToken] = useState<TokenData>({
-    name: "",
-    id: "",
-    decimals: 18,
+  const normalizedTokenId = tokenId?.toLowerCase();
+  const cacheKey = `${chainId}:${normalizedTokenId}`;
+  const [token, setToken] = useState<TokenData>(() => {
+    return tokenCache.get(cacheKey) ?? DEFAULT_TOKEN;
   });
 
   useEffect(() => {
+    let cancelled = false;
+
     const fetchToken = async () => {
-      if (!tokenId) return;
-
-      const { data, error } = await client(chainId)
-        .query(paymentTokenQuery, { id: tokenId })
-        .toPromise();
-
-      if (error) {
-        console.error("GraphQL error:", error);
+      if (!normalizedTokenId) {
+        setToken(DEFAULT_TOKEN);
         return;
       }
 
-      if (data?.paymentToken) {
-        setToken({
-          name: data.paymentToken.name,
-          id: data.paymentToken.id,
-          decimals: data.paymentToken.decimal,
-        });
+      const cached = tokenCache.get(cacheKey);
+      if (cached) {
+        setToken(cached);
+        return;
       }
+
+      let request = inflightRequests.get(cacheKey);
+
+      if (!request) {
+        request = client(chainId)
+          .query(paymentTokenQuery, { id: normalizedTokenId })
+          .toPromise()
+          .then(({ data, error }) => {
+            if (error) {
+              console.error("GraphQL error:", error);
+              return DEFAULT_TOKEN;
+            }
+
+            if (!data?.paymentToken) return DEFAULT_TOKEN;
+
+            return {
+              name: data.paymentToken.name,
+              id: data.paymentToken.id,
+              decimals: data.paymentToken.decimal,
+            } as TokenData;
+          })
+          .finally(() => {
+            inflightRequests.delete(cacheKey);
+          });
+
+        inflightRequests.set(cacheKey, request);
+      }
+
+      const resolved = await request;
+      if (cancelled) return;
+
+      if (resolved.id) {
+        tokenCache.set(cacheKey, resolved);
+      }
+      setToken(resolved.id ? resolved : DEFAULT_TOKEN);
     };
 
-    fetchToken();
-  }, [tokenId, chainId]);
+    void fetchToken();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [cacheKey, chainId, normalizedTokenId]);
 
   return token;
 };

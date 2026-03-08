@@ -1,4 +1,4 @@
-import AdminInvoices from "@/components/action-components/admin/admin-invoices";
+import AdminInvoices from "@/components/action-components/admin/AdminInvoices";
 import Container from "@/components/Container";
 export const dynamic = "force-dynamic";
 

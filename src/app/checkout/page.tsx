@@ -1,4 +1,4 @@
-import CheckoutContent from "@/components/action-components/checkout/checkout-content";
+import CheckoutContent from "@/components/action-components/checkout/CheckoutContent";
 import { Suspense } from "react";
 
 export default function Checkout() {

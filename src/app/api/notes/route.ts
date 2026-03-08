@@ -1,59 +1,17 @@
 import { NextResponse } from "next/server";
 import {
-  createPublicClient,
-  createWalletClient,
-  http,
   isAddress,
   parseEventLogs,
+  parseGwei,
+  verifyMessage,
 } from "viem";
-import { privateKeyToAccount } from "viem/accounts";
 import { sepolia } from "viem/chains";
 import { Notes } from "@/abis/Notes";
 import { NOTES_CONTRACT } from "@/constants";
 import { toEncryptedNoteHex } from "@/utils";
+import { getNotesClients, parseBigInt } from "./notesApiHelpers";
 
 export const runtime = "nodejs";
-
-const normalizePrivateKey = (value: string) =>
-  value.startsWith("0x") ? value : `0x${value}`;
-
-const getRpcUrl = () =>
-  process.env.SEPOLIA_RPC_URL ||
-  process.env.NEXT_PUBLIC_SEPOLIA_RPC_URL ||
-  "https://ethereum-sepolia-rpc.publicnode.com";
-
-const parseBigInt = (value: unknown, label: string) => {
-  if (value === undefined || value === null || value === "") {
-    throw new Error(`${label} is required`);
-  }
-
-  try {
-    return BigInt(value as string);
-  } catch {
-    throw new Error(`${label} must be a bigint value`);
-  }
-};
-
-const getClients = () => {
-  const privateKey =
-    process.env.NOTES_SIGNER_PRIVATE_KEY || process.env.NOTES_PRIVATE_KEY;
-
-  if (!privateKey) {
-    throw new Error("Missing NOTES_SIGNER_PRIVATE_KEY");
-  }
-
-  const account = privateKeyToAccount(
-    normalizePrivateKey(privateKey) as `0x${string}`
-  );
-
-  const transport = http(getRpcUrl());
-
-  return {
-    account,
-    publicClient: createPublicClient({ chain: sepolia, transport }),
-    walletClient: createWalletClient({ account, chain: sepolia, transport }),
-  };
-};
 
 export async function POST(req: Request) {
   try {
@@ -73,6 +31,39 @@ export async function POST(req: Request) {
         );
       }
 
+      const signature = body?.signature as string | undefined;
+      const timestamp =
+        typeof body?.timestamp === "number" ? body.timestamp : undefined;
+
+      if (!signature || timestamp === undefined) {
+        return NextResponse.json(
+          { success: false, error: "Signature required" },
+          { status: 401 }
+        );
+      }
+
+      const now = Math.floor(Date.now() / 1000);
+      if (Math.abs(now - timestamp) > 300) {
+        return NextResponse.json(
+          { success: false, error: "Signature expired" },
+          { status: 401 }
+        );
+      }
+
+      const expectedMessage = `Sapphire DAO: Create note for order ${orderId.toString()}\nAuthor: ${author}\nTimestamp: ${timestamp}`;
+      const isValid = await verifyMessage({
+        address: author as `0x${string}`,
+        message: expectedMessage,
+        signature: signature as `0x${string}`,
+      });
+
+      if (!isValid) {
+        return NextResponse.json(
+          { success: false, error: "Invalid signature" },
+          { status: 401 }
+        );
+      }
+
       if (!content) {
         return NextResponse.json(
           { success: false, error: "Note content is required" },
@@ -88,12 +79,14 @@ export async function POST(req: Request) {
         );
       }
 
-      const { walletClient, publicClient } = getClients();
+      const { walletClient, publicClient } = getNotesClients();
       const txHash = await walletClient.writeContract({
         address: contractAddress,
         abi: Notes,
         functionName: "createNote",
         args: [orderId, author, toEncryptedNoteHex(content), share],
+        gas: BigInt(300000),
+        maxPriorityFeePerGas: parseGwei("2"),
       });
 
       const receipt = await publicClient.waitForTransactionReceipt({
@@ -152,12 +145,14 @@ export async function POST(req: Request) {
         );
       }
 
-      const { walletClient, publicClient } = getClients();
+      const { walletClient, publicClient } = getNotesClients();
       const txHash = await walletClient.writeContract({
         address: contractAddress,
         abi: Notes,
         functionName: "setOpened",
         args: [orderId, noteId, open],
+        gas: BigInt(150000),
+        maxPriorityFeePerGas: parseGwei("2"),
       });
 
       await publicClient.waitForTransactionReceipt({ hash: txHash });

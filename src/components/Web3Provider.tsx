@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { WagmiProvider } from "wagmi";
 import { RainbowKitProvider, darkTheme } from "@rainbow-me/rainbowkit";
 import config from "@/config";
-import WalletProvider from "./wallet-provider";
+import WalletProvider from "./WalletProvider";
 
 // Create a new QueryClient instance for React Query
 const queryClient = new QueryClient();

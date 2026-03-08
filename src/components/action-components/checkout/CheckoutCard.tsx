@@ -1,6 +1,6 @@
 "use client";
 
-import { useAccount } from "wagmi";
+import { useAccount, useSignMessage } from "wagmi";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,7 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ContractContext } from "@/context/contract-context";
 import { CircleCheckBig, Loader2 } from "lucide-react";
-import { useContext, useState } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import {
   Select,
@@ -47,9 +47,9 @@ interface CheckoutCardProps {
 }
 
 const CheckoutCard = ({ data, isMetaInvoice }: CheckoutCardProps) => {
-  console.log(data, isMetaInvoice);
   const router = useRouter();
   const { address, chain } = useAccount();
+  const { signMessageAsync } = useSignMessage();
   const contractAddress =
     ADVANCED_PAYMENT_PROCESSOR[chain?.id || ETHEREUM_SEPOLIA];
 
@@ -59,6 +59,13 @@ const CheckoutCard = ({ data, isMetaInvoice }: CheckoutCardProps) => {
   const [shareNote, setShareNote] = useState(false);
 
   const [countdown, setCountdown] = useState(3);
+  const countdownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
+    };
+  }, []);
 
   const { payAdvancedInvoice, isLoading, refetchInvoiceData } =
     useContext(ContractContext);
@@ -78,23 +85,24 @@ const CheckoutCard = ({ data, isMetaInvoice }: CheckoutCardProps) => {
 
   const savePaymentNote = async () => {
     const trimmed = paymentNote.trim();
-    if (!trimmed) return;
-
-    if (!address) {
-      toast.error("Connect your wallet to add notes.");
-      return;
-    }
+    if (!trimmed || !address) return;
 
     try {
+      const timestamp = Math.floor(Date.now() / 1000);
+      const orderId = data.orderId.toString();
+      const message = `Sapphire DAO: Create note for order ${orderId}\nAuthor: ${address}\nTimestamp: ${timestamp}`;
+      const signature = await signMessageAsync({ message });
+
       await createInvoiceNote({
-        orderId: data.orderId.toString(),
+        orderId,
         author: address,
         content: trimmed,
         share: shareNote,
+        signature,
+        timestamp,
       });
     } catch (error) {
       console.error("Failed to save payment note:", error);
-      toast.error("Unable to save payment note.");
     }
   };
 
@@ -120,12 +128,13 @@ const CheckoutCard = ({ data, isMetaInvoice }: CheckoutCardProps) => {
       void savePaymentNote();
       setCountdown(3);
 
-      const interval = setInterval(() => {
+      countdownIntervalRef.current = setInterval(() => {
         setCountdown((prev) => {
           const next = prev - 1;
 
           if (next <= 0) {
-            clearInterval(interval);
+            clearInterval(countdownIntervalRef.current!);
+            countdownIntervalRef.current = null;
 
             (async () => {
               await refetchInvoiceData?.();

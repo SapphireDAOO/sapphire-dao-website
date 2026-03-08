@@ -1,26 +1,25 @@
 "use client";
 
-import { useState, useCallback, useMemo, useEffect } from "react";
+import { useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ChevronDown, ChevronUp, Info } from "lucide-react";
+import { ChevronDown, ChevronUp } from "lucide-react";
 import { Invoice } from "@/model/model";
 import { formatAddress, timeLeft, unixToGMT } from "@/utils";
 import { toast } from "sonner";
-import generateSecureLink from "@/lib/generate-link";
+import { useSecureLink } from "@/hooks/useSecureLink";
 import { QRCodeSVG } from "qrcode.react";
-import SellersAction from "../invoices-components/sellers-action";
-import CancelInvoice from "../invoices-components/cancel-payment";
+import SellersAction from "../invoices-components/SellersAction";
+import CancelInvoice from "../invoices-components/CancelInvoice";
 import { formatEther, parseEther } from "viem";
+import { NotesThread } from "./NotesThread";
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { renderTx } from "./advanced-invoices";
-import { NotesThread } from "./notes-thread";
+  renderContractLink,
+  renderTx,
+  InvoiceField,
+} from "./InvoiceCardShared";
+import { useSharedSecondTicker } from "@/hooks/useSharedSecondTicker";
 
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 const isZeroAddress = (value?: string) => value?.toLowerCase() === ZERO_ADDRESS;
@@ -34,63 +33,60 @@ export function InvoiceCard({
   isExpanded: boolean;
   onToggle: () => void;
 }) {
-  const [countdown, setCountdown] = useState<string | undefined>(undefined);
-
   const isSellerView = invoice.type === "Seller";
 
   const isBuyerView = invoice.type === "Buyer";
 
-  // Update countdown every second
-  useEffect(() => {
+  const shouldTrackCountdown = useMemo(() => {
+    if (invoice.status === "ACCEPTED" && invoice.releaseAt) return true;
+    if (invoice.status === "PAID" && invoice.paidAt) return true;
+    return (
+      (invoice.status === "AWAITING PAYMENT" ||
+        invoice.status === "CREATED" ||
+        invoice.status === "INITIATED") &&
+      Boolean(invoice.invalidateAt)
+    );
+  }, [invoice.status, invoice.releaseAt, invoice.paidAt, invoice.invalidateAt]);
+
+  const tick = useSharedSecondTicker(shouldTrackCountdown);
+
+  const countdown = useMemo(() => {
+    void tick;
+    if (!shouldTrackCountdown) return undefined;
+
+    if (invoice.status === "ACCEPTED" && invoice.releaseAt) {
+      return timeLeft(
+        invoice.paidAt ? Number(invoice.paidAt) : null,
+        0,
+        Number(invoice.releaseAt) * 1000
+      );
+    }
+    if (invoice.status === "PAID" && invoice.paidAt) {
+      return timeLeft(Number(invoice.expiresAt) ?? 0, 0);
+    }
     if (
-      !invoice.paidAt &&
-      !invoice.releaseAt &&
-      !invoice.holdPeriod &&
-      !invoice.expiresAt &&
-      !invoice.invalidateAt
-    )
-      return;
+      invoice.status === "AWAITING PAYMENT" ||
+      invoice.status === "CREATED" ||
+      invoice.status === "INITIATED"
+    ) {
+      return timeLeft(Number(invoice.invalidateAt) ?? 0, 0);
+    }
 
-    const interval = setInterval(() => {
-      let updated: string | undefined = undefined;
-
-      if (invoice.status === "ACCEPTED" && invoice.releaseAt) {
-        updated = timeLeft(
-          invoice.paidAt ? Number(invoice.paidAt) : null,
-          0,
-          Number(invoice.releaseAt) * 1000
-        );
-      } else if (invoice.status === "PAID" && invoice.paidAt) {
-        updated = timeLeft(Number(invoice.expiresAt) ?? 0, 0);
-      } else if (invoice.status === "AWAITING PAYMENT") {
-        updated = timeLeft(Number(invoice.invalidateAt) ?? 0, 0);
-      }
-
-      setCountdown(updated);
-      if (updated === "Time Elapsed") clearInterval(interval);
-    }, 1000);
-
-    return () => clearInterval(interval);
+    return undefined;
   }, [
+    tick,
+    shouldTrackCountdown,
     invoice.status,
     invoice.paidAt,
     invoice.releaseAt,
-    invoice.holdPeriod,
     invoice.expiresAt,
     invoice.invalidateAt,
   ]);
 
-  const paymentUrl = useMemo(() => {
-    if (!isExpanded || !invoice.orderId || typeof window === "undefined")
-      return "";
-    try {
-      const domain = window.location.origin;
-      const encoded = generateSecureLink(invoice.orderId.toString());
-      return `${domain}/pay/?data=${encoded}`;
-    } catch {
-      return "";
-    }
-  }, [isExpanded, invoice.orderId]);
+  const paymentUrl = useSecureLink(
+    isExpanded ? invoice.orderId : undefined,
+    "pay"
+  );
 
   const ensureExpanded = useCallback(() => {
     if (!isExpanded) onToggle();
@@ -175,6 +171,7 @@ export function InvoiceCard({
     ACCEPTED: "bg-green-100 text-green-800",
     // REJECTED: "bg-red-100 text-red-800",
     CANCELLED: "bg-gray-100 text-gray-800",
+    CANCELED: "bg-gray-100 text-gray-800",
     RELEASED: "bg-purple-100 text-purple-800",
     REFUNDED: "bg-indigo-100 text-indigo-800",
     "Dispute Resolved": "bg-teal-100 text-teal-800",
@@ -228,7 +225,7 @@ export function InvoiceCard({
         )}
 
         {/* Paid timestamp in header */}
-        {invoice.status === "PAID" && invoice.paidAt && (
+        {invoice.status === "PAID" && invoice.paidAt && invoice.paidAt !== "Not Paid" && (
           <InvoiceField
             label="Paid At"
             value={unixToGMT(invoice.paidAt)}
@@ -313,7 +310,7 @@ export function InvoiceCard({
                 />
               )}
 
-            {invoice.status == "REFUNDED" && (
+            {invoice.status === "REFUNDED" && (
               <InvoiceField
                 label="Amount Refunded"
                 value={
@@ -351,7 +348,6 @@ export function InvoiceCard({
 
         <NotesThread
           orderId={invoice.orderId}
-          isExpanded={isExpanded}
           onExpand={ensureExpanded}
           shareLabel={shareLabel}
         />
@@ -464,75 +460,5 @@ export function InvoiceCard({
   );
 }
 
-/* Helper for contract link */
-export const renderContractLink = (address?: string) => {
-  if (!address) return <span className="text-gray-500">—</span>;
-  return (
-    <a
-      href={`https://sepolia.etherscan.io/address/${address}`}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="text-blue-600 underline hover:text-blue-800"
-    >
-      {formatAddress(address)}
-    </a>
-  );
-};
-
-/* Small reusable field row with info icon */
-export const InvoiceField = ({
-  label,
-  value,
-  description,
-  link,
-}: {
-  label: string;
-  value: React.ReactNode;
-  description: string;
-  link?: string;
-}) => {
-  return (
-    <div className="text-xs text-gray-500 flex flex-wrap items-center gap-1 mt-1">
-      <span className="font-medium text-gray-700">{label}</span>
-
-      <TooltipProvider delayDuration={150}>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              type="button"
-              aria-label={`${label} info`}
-              className="cursor-pointer flex items-center focus:outline-none"
-            >
-              <Info className="w-3.5 h-3.5 text-gray-500 hover:text-gray-700 transition" />
-            </button>
-          </TooltipTrigger>
-
-          <TooltipContent className="w-60 text-xs p-3 bg-white border border-gray-200 rounded-md shadow-md text-gray-700">
-            <p>{description}</p>
-            {link && (
-              <a
-                href={link}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-blue-600 underline hover:text-blue-800 mt-2 inline-block"
-              >
-                View Details
-              </a>
-            )}
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
-
-      <span>:</span>
-
-      {/* Smart Loader */}
-      <span className="text-gray-800">
-        {value === undefined || value === null || value === "" ? (
-          <span className="animate-pulse text-gray-400">Loading…</span>
-        ) : (
-          value
-        )}
-      </span>
-    </div>
-  );
-};
+// renderContractLink, renderTx, InvoiceField live in InvoiceCardShared.tsx
+export { renderContractLink, renderTx, InvoiceField } from "./InvoiceCardShared";

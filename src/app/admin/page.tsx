@@ -1,4 +1,4 @@
-import AdminCard from "@/components/action-components/admin/admin-card";
+import AdminCard from "@/components/action-components/admin/AdminCard";
 import Container from "@/components/Container";
 
 export default function Admin() {

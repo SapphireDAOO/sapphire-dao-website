@@ -11,7 +11,7 @@ import { paymentProcessor } from "@/abis/PaymentProcessor";
 import { client } from "../graphql/client";
 import { PaymentProcessorStorage } from "@/abis/PaymentProcessorStorage";
 import { invoiceOwnerQuery } from "../graphql/queries";
-import { WagmiClient } from "./type";
+import { WagmiClient } from "./types";
 import { advancedPaymentProcessor } from "@/abis/AdvancedPaymentProcessor";
 import { toEncryptedNoteHex } from "@/utils";
 

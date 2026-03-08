@@ -5,26 +5,19 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { ContractContext } from "@/context/contract-context";
 import { FilterTabs, CreateInvoiceCard } from "./invoice-cards/index";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Note } from "@/model/model";
-import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-} from "@/components/ui/dropdown-menu";
-import {
-  Popover,
-  PopoverTrigger,
-  PopoverContent,
-} from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
-import { CalendarDays } from "lucide-react";
+import { Note, Invoice } from "@/model/model";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { MarketplaceCard } from "./invoices/advanced-invoices";
-import { InvoiceCard } from "./invoices/simple-invoices";
+import { MarketplaceCard } from "./invoices/AdvancedInvoices";
+import { InvoiceCard } from "./invoices/SimpleInvoices";
 import { toast } from "sonner";
+import {
+  usePagedInvoiceQuery,
+  INVOICE_PAGE_SIZE,
+  sortByLastAction,
+} from "@/hooks/usePagedInvoiceQuery";
+import { InvoiceFilterBar } from "./InvoiceFilterBar";
+import { InvoicePaginationControls } from "./InvoicePaginationControls";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 
 const marketplaceFilters = [
   "All",
@@ -54,22 +47,30 @@ export default function IndexRecentPayment({
 }: {
   isMarketplaceTab: boolean;
 }) {
-  const { invoiceData, refetchInvoiceData } = useContext(ContractContext);
+  const {
+    invoiceData,
+    refetchInvoiceData,
+    loadNextPage: loadContextNextPage,
+  } = useContext(ContractContext);
 
-  const [filter, setFilter] = useState("All");
+  // ── All state declarations BEFORE any derived state ──────────────────────
+  const [statusFilter, setStatusFilter] = useState("All");
+  const [walletQuery, setWalletQuery] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [loadError, setLoadError] = useState<string | null>(null);
   const [noteQuery, setNoteQuery] = useState("");
-
   const [page, setPage] = useState(1);
-  const pageSize = 9;
+  // localNotes MUST be declared before displayInvoices useMemo that references it
+  const [localNotes, setLocalNotes] = useState<Record<string, Note[]>>({});
 
   const params = useSearchParams();
   const router = useRouter();
   const defaultTab = params.get("tab") || "all";
   const [activeTab, setActiveTab] = useState(defaultTab);
+  const debouncedNoteQuery = useDebouncedValue(noteQuery, 250);
+  const debouncedWalletQuery = useDebouncedValue(walletQuery, 250)
+    .trim()
+    .toLowerCase();
 
   useEffect(() => {
     setActiveTab(defaultTab);
@@ -77,77 +78,244 @@ export default function IndexRecentPayment({
 
   const basePath = isMarketplaceTab ? "/marketplace-dashboard" : "/dashboard";
 
+  // Reset to page 1 on any filter/tab change
   useEffect(() => {
     setPage(1);
-  }, [filter, selectedDate, isMarketplaceTab, activeTab, noteQuery]);
+  }, [
+    statusFilter,
+    selectedDate,
+    isMarketplaceTab,
+    activeTab,
+    debouncedNoteQuery,
+    debouncedWalletQuery,
+  ]);
 
-  const refreshInvoices = useCallback(async () => {
-    setLoadError(null);
-    setIsLoading(true);
+  // ── Subgraph hook: loads BOTH seller + buyer on mount, no re-query on tab switch
+  const {
+    sellerInvoices,
+    buyerInvoices,
+    hasMoreSeller,
+    hasMoreBuyer,
+    loadMoreSeller,
+    loadMoreBuyer,
+    isLoading: pageIsLoading,
+    error: pageError,
+    refetch: refetchPage,
+  } = usePagedInvoiceQuery({ isMarketplace: isMarketplaceTab });
 
-    try {
-      await refetchInvoiceData?.();
-    } catch (err) {
-      console.error("Failed to refresh invoices", err);
-      setLoadError("Unable to load invoices right now. Please try again.");
-      toast.error("Unable to load invoices. Please try again.");
-    } finally {
-      setIsLoading(false);
+  // ── Merge live websocket updates from context on top of cached data ───────
+  const liveById = useMemo(() => {
+    return new Map(invoiceData.map((invoice) => [invoice.id, invoice]));
+  }, [invoiceData]);
+
+  const sellerPagedIds = useMemo(
+    () => new Set(sellerInvoices.map((invoice) => invoice.id)),
+    [sellerInvoices],
+  );
+  const buyerPagedIds = useMemo(
+    () => new Set(buyerInvoices.map((invoice) => invoice.id)),
+    [buyerInvoices],
+  );
+
+  const sellerType = isMarketplaceTab ? "IssuedInvoice" : "Seller";
+  const buyerType = isMarketplaceTab ? "ReceivedInvoice" : "Buyer";
+
+  const contextOnlyInvoices = useMemo(() => {
+    const contextSellerOnly: Invoice[] = [];
+    const contextBuyerOnly: Invoice[] = [];
+
+    for (const invoice of invoiceData) {
+      if (invoice.type === sellerType && !sellerPagedIds.has(invoice.id)) {
+        contextSellerOnly.push(invoice);
+      }
+      if (invoice.type === buyerType && !buyerPagedIds.has(invoice.id)) {
+        contextBuyerOnly.push(invoice);
+      }
     }
-  }, [refetchInvoiceData]);
 
-  useEffect(() => {
-    let cancelled = false;
+    return { contextSellerOnly, contextBuyerOnly };
+  }, [invoiceData, sellerType, buyerType, sellerPagedIds, buyerPagedIds]);
 
-    const timeoutId = window.setTimeout(() => {
-      if (!cancelled) {
-        setLoadError(
-          (prev) =>
-            prev ??
-            "Fetching invoices is taking longer than expected. You can retry."
-        );
-      }
-    }, 12000);
-
-    refreshInvoices().finally(() => {
-      if (!cancelled) {
-        clearTimeout(timeoutId);
-      }
+  // Also surface invoices that only exist in context (e.g. just-created or
+  // just-paid invoices not yet indexed by the subgraph).
+  const liveSellerInvoices = useMemo(() => {
+    const updated = sellerInvoices.map((invoice) => {
+      return liveById.get(invoice.id) ?? invoice;
     });
 
-    return () => {
-      cancelled = true;
-      clearTimeout(timeoutId);
-    };
-  }, [refreshInvoices, isMarketplaceTab, activeTab]);
+    return [...contextOnlyInvoices.contextSellerOnly, ...updated];
+  }, [sellerInvoices, liveById, contextOnlyInvoices.contextSellerOnly]);
 
-  const handleRetry = useCallback(() => {
-    refreshInvoices();
-  }, [refreshInvoices]);
+  const liveBuyerInvoices = useMemo(() => {
+    const updated = buyerInvoices.map((invoice) => {
+      return liveById.get(invoice.id) ?? invoice;
+    });
+
+    return [...contextOnlyInvoices.contextBuyerOnly, ...updated];
+  }, [buyerInvoices, liveById, contextOnlyInvoices.contextBuyerOnly]);
+
+  // ── Tab selection filters in-memory (no new subgraph query) ───────────────
+  const allForTab = useMemo(() => {
+    if (activeTab === "seller") return liveSellerInvoices;
+    if (activeTab === "buyer") return liveBuyerInvoices;
+    // "all": merge both and sort newest-first
+    return sortByLastAction([...liveSellerInvoices, ...liveBuyerInvoices]);
+  }, [activeTab, liveSellerInvoices, liveBuyerInvoices]);
+
+  const canonicalStatus = useCallback((value?: string | null) => {
+    if (!value) return "";
+    const normalized = value.replace(/_/g, " ").toUpperCase().trim();
+
+    switch (normalized) {
+      case "CREATED":
+      case "INITIATED":
+        return "AWAITING PAYMENT";
+      case "REJECTED":
+        return "REFUNDED";
+      case "CANCELLED":
+        return "CANCELED";
+      default:
+        return normalized;
+    }
+  }, []);
+
+  // ── Client-side filters applied to the in-memory page data ───────────────
+  const filteredInvoices = useMemo(() => {
+    let invoices = allForTab;
+
+    if (statusFilter !== "All") {
+      const targetStatus = canonicalStatus(statusFilter);
+      invoices = invoices.filter((invoice) => {
+        return canonicalStatus(invoice.status) === targetStatus;
+      });
+    }
+
+    if (debouncedWalletQuery) {
+      invoices = invoices.filter(
+        (invoice) =>
+          invoice.buyer?.toLowerCase().includes(debouncedWalletQuery) ||
+          invoice.seller?.toLowerCase().includes(debouncedWalletQuery),
+      );
+    }
+
+    if (selectedDate) {
+      const startOfDay = new Date(selectedDate);
+      startOfDay.setHours(0, 0, 0, 0);
+      const endOfDay = new Date(selectedDate);
+      endOfDay.setHours(23, 59, 59, 999);
+      invoices = invoices.filter((i) => {
+        if (!i.createdAt) return false;
+        const created = new Date(i.createdAt).getTime();
+        return created >= startOfDay.getTime() && created <= endOfDay.getTime();
+      });
+    }
+
+    const noteSearch = debouncedNoteQuery.trim().toLowerCase();
+    if (noteSearch) {
+      invoices = invoices.filter((inv) => {
+        const messages = [
+          ...(inv.notes?.map((n) => n.message) ?? []),
+          ...(localNotes[inv.id]?.map((n) => n.message) ?? []),
+        ];
+        return messages.some(
+          (msg) => msg && msg.toLowerCase().includes(noteSearch),
+        );
+      });
+    }
+
+    return invoices.map((inv) => ({
+      ...inv,
+      notes: [...(inv.notes || []), ...(localNotes[inv.id] || [])],
+    }));
+  }, [
+    allForTab,
+    statusFilter,
+    canonicalStatus,
+    selectedDate,
+    debouncedNoteQuery,
+    debouncedWalletQuery,
+    localNotes,
+  ]);
+
+  // ── Client-side pagination over the filtered set ──────────────────────────
+  const displayInvoices = useMemo(
+    () =>
+      filteredInvoices.slice(
+        (page - 1) * INVOICE_PAGE_SIZE,
+        page * INVOICE_PAGE_SIZE,
+      ),
+    [filteredInvoices, page],
+  );
+
+  const hasNextPageInMemory =
+    page * INVOICE_PAGE_SIZE < filteredInvoices.length;
+
+  const hasMoreFromSubgraph = useMemo(() => {
+    if (activeTab === "seller") return hasMoreSeller;
+    if (activeTab === "buyer") return hasMoreBuyer;
+    return hasMoreSeller || hasMoreBuyer;
+  }, [activeTab, hasMoreSeller, hasMoreBuyer]);
+
+  const hasNextPage = hasNextPageInMemory || hasMoreFromSubgraph;
+
+  const handleNext = useCallback(() => {
+    const nextPage = page + 1;
+    // If the next page would exceed what we have cached, pull more from subgraph
+    if (
+      (nextPage - 1) * INVOICE_PAGE_SIZE >= allForTab.length &&
+      hasMoreFromSubgraph
+    ) {
+      if (activeTab === "seller") {
+        loadMoreSeller();
+      } else if (activeTab === "buyer") {
+        loadMoreBuyer();
+      } else {
+        if (hasMoreSeller) loadMoreSeller();
+        if (hasMoreBuyer) loadMoreBuyer();
+      }
+      // Also advance the context-level page so invoiceData stays in sync
+      loadContextNextPage?.();
+    }
+    setPage(nextPage);
+  }, [
+    page,
+    allForTab.length,
+    hasMoreFromSubgraph,
+    activeTab,
+    loadMoreSeller,
+    loadMoreBuyer,
+    hasMoreSeller,
+    hasMoreBuyer,
+    loadContextNextPage,
+  ]);
+
+  const refreshInvoices = useCallback(async () => {
+    try {
+      await Promise.all([refetchInvoiceData?.(), refetchPage()]);
+    } catch (err) {
+      console.error("Failed to refresh invoices", err);
+      toast.error("Unable to load invoices. Please try again.");
+    }
+  }, [refetchInvoiceData, refetchPage]);
 
   const handleTabChange = useCallback(
     (value: string) => {
       setActiveTab(value);
-      setFilter("All");
+      setStatusFilter("All");
+      setWalletQuery("");
+      setNoteQuery("");
       setPage(1);
-
       router.replace(value === "all" ? basePath : `${basePath}?tab=${value}`, {
         scroll: false,
       });
     },
-    [router, basePath]
+    [router, basePath],
   );
 
   const handleToggle = (id: string) => {
     setExpandedId((prev) => (prev === id ? null : id));
   };
 
-  const canonicalStatus = useCallback((value?: string | null) => {
-    if (!value) return "";
-    return value.replace(/_/g, " ").toUpperCase().trim();
-  }, []);
-
-  const [localNotes, setLocalNotes] = useState<Record<string, Note[]>>({});
   const handleAddNote = (invoiceId: string, message: string) => {
     if (!message.trim()) return;
     const note: Note = {
@@ -162,69 +330,6 @@ export default function IndexRecentPayment({
     }));
   };
 
-  const filteredInvoices = useMemo(() => {
-    let invoices = isMarketplaceTab
-      ? invoiceData.filter((i) => i.source === "Marketplace")
-      : invoiceData.filter((i) => i.source === "Simple");
-
-      if (filter !== "All") {
-        if (filter.startsWith("wallet:")) {
-          const walletQuery = filter.replace("wallet:", "").trim().toLowerCase();
-          if (walletQuery) {
-            invoices = invoices.filter(
-            (i) =>
-              i.buyer?.toLowerCase().includes(walletQuery) ||
-              i.seller?.toLowerCase().includes(walletQuery)
-            );
-          }
-        } else {
-          const targetStatus = canonicalStatus(filter);
-          invoices = invoices.filter(
-            (i) => canonicalStatus(i.status) === targetStatus
-          );
-        }
-      }
-
-    if (selectedDate) {
-      const startOfDay = new Date(selectedDate);
-      startOfDay.setHours(0, 0, 0, 0);
-      const endOfDay = new Date(selectedDate);
-      endOfDay.setHours(23, 59, 59, 999);
-
-      invoices = invoices.filter((i) => {
-        if (!i.createdAt) return false;
-        const created = new Date(i.createdAt).getTime();
-        return created >= startOfDay.getTime() && created <= endOfDay.getTime();
-      });
-    }
-
-    const noteSearch = noteQuery.trim().toLowerCase();
-    if (noteSearch) {
-      invoices = invoices.filter((inv) => {
-        const messages = [
-          ...(inv.notes?.map((n) => n.message) ?? []),
-          ...(localNotes[inv.id]?.map((n) => n.message) ?? []),
-        ];
-        return messages.some(
-          (msg) => msg && msg.toLowerCase().includes(noteSearch)
-        );
-      });
-    }
-
-    return invoices.map((inv) => ({
-      ...inv,
-      notes: [...(inv.notes || []), ...(localNotes[inv.id] || [])],
-    }));
-  }, [
-    invoiceData,
-    isMarketplaceTab,
-    filter,
-    canonicalStatus,
-    selectedDate,
-    localNotes,
-    noteQuery,
-  ]);
-
   return (
     <div className="container mx-auto mt-8">
       <Tabs value={activeTab} onValueChange={handleTabChange}>
@@ -238,205 +343,98 @@ export default function IndexRecentPayment({
           </TabsTrigger>
         </TabsList>
 
-        {["all", "seller", "buyer"].map((tab) => {
-          const tabInvoices = filteredInvoices.filter((inv) => {
-            if (tab === "all") return true;
-            if (tab === "seller")
-              return inv.type === "Seller" || inv.type === "IssuedInvoice";
-            if (tab === "buyer")
-              return inv.type === "Buyer" || inv.type === "ReceivedInvoice";
-            return false;
-          });
+        {["all", "seller", "buyer"].map((tab) => (
+          <TabsContent key={tab} value={tab}>
+            {activeTab === tab && (
+              <>
+                {!isMarketplaceTab && (tab === "seller" || tab === "all") && (
+                  <CreateInvoiceCard />
+                )}
 
-          const start = (page - 1) * pageSize;
-          const end = start + pageSize;
-          const paginatedInvoices = tabInvoices.slice(start, end);
+                <FilterTabs
+                  filters={
+                    isMarketplaceTab ? marketplaceFilters : simpleFilters
+                  }
+                  activeFilter={statusFilter}
+                  onSelect={(value) => {
+                    setStatusFilter(value);
+                    setPage(1);
+                  }}
+                />
 
-          return (
-            <TabsContent key={tab} value={tab}>
-              {activeTab === tab && (
-                <>
-                  {!isMarketplaceTab && (tab === "seller" || tab === "all") && (
-                    <CreateInvoiceCard />
-                  )}
+                <InvoiceFilterBar
+                  noteQuery={noteQuery}
+                  onNoteQueryChange={setNoteQuery}
+                  walletQuery={walletQuery}
+                  onWalletQueryChange={setWalletQuery}
+                  selectedDate={selectedDate}
+                  onDateChange={setSelectedDate}
+                />
 
-                  <FilterTabs
-                    filters={
-                      isMarketplaceTab ? marketplaceFilters : simpleFilters
-                    }
-                    onSelect={(value) => {
-                      setFilter(value);
-                      setPage(1);
-                    }}
-                  />
-
-                  <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
-                    <div className="flex items-center justify-end gap-2 w-full">
-                      <Input
-                        placeholder="Search notes"
-                        value={noteQuery}
-                        onChange={(e) => setNoteQuery(e.target.value)}
-                        className="w-48"
-                      />
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="flex items-center gap-2"
-                          >
-                            <CalendarDays className="h-4 w-4" />
-                            {selectedDate
-                              ? selectedDate.toLocaleDateString()
-                              : "Filter by Date"}
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent
-                          side="bottom"
-                          align="end"
-                          className="w-auto p-0"
-                        >
-                          <Calendar
-                            mode="single"
-                            selected={selectedDate ?? undefined}
-                            onSelect={(date) => setSelectedDate(date ?? null)}
-                            className="rounded-md"
-                          />
-                        </PopoverContent>
-                      </Popover>
-
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="outline" size="sm">
-                            More Filters
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-60 p-2">
-                          <DropdownMenuLabel>Filter by</DropdownMenuLabel>
-                          <DropdownMenuSeparator />
-                          <div className="px-2 py-1">
-                            <input
-                              type="text"
-                              placeholder="Enter wallet address"
-                              className="w-full border rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400"
-                              onChange={(e) => {
-                                const wallet = e.target.value
-                                  .trim()
-                                  .toLowerCase();
-                                setFilter("wallet:" + wallet);
-                                setPage(1);
-                              }}
-                            />
-                          </div>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-
-                      {selectedDate && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setSelectedDate(null)}
-                        >
-                          Clear
-                        </Button>
-                      )}
+                <div className="flex flex-wrap gap-5">
+                  {pageIsLoading && displayInvoices.length === 0 ? (
+                    <div className="w-full text-center py-10 text-gray-500 border rounded-lg">
+                      <span className="animate-pulse">Loading...</span>
                     </div>
-                  </div>
-
-                  <div className="flex flex-wrap gap-5">
-                    {paginatedInvoices.length > 0 ? (
-                      paginatedInvoices.map((invoice) => (
-                        <div
-                          key={invoice.id}
-                          className="w-full md:w-[48%] lg:w-[31%]"
+                  ) : pageError && displayInvoices.length === 0 ? (
+                    <div className="w-full text-center py-10 text-gray-500 border rounded-lg">
+                      <div className="flex flex-col items-center gap-3">
+                        <span className="text-sm text-gray-600">
+                          {pageError}
+                        </span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={refreshInvoices}
                         >
-                          {isMarketplaceTab ? (
-                            <MarketplaceCard
-                              invoice={invoice}
-                              isExpanded={expandedId === String(invoice.id)}
-                              onToggle={() => handleToggle(String(invoice.id))}
-                              onAddNote={handleAddNote}
-                            />
-                          ) : (
-                            <InvoiceCard
-                              invoice={invoice}
-                              isExpanded={expandedId === String(invoice.id)}
-                              onToggle={() => handleToggle(String(invoice.id))}
-                            />
-                          )}
-                        </div>
-                      ))
-                    ) : (
-                      <div className="w-full text-center py-10 text-gray-500 border rounded-lg">
-                        {isLoading ? (
-                          <div className="w-full text-center py-10 text-gray-500 border rounded-lg">
-                            <span className="animate-pulse">Loading...</span>
-                          </div>
-                        ) : loadError ? (
-                          <div className="flex flex-col items-center gap-3">
-                            <span className="text-sm text-gray-600">
-                              {loadError}
-                            </span>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={handleRetry}
-                              disabled={isLoading}
-                            >
-                              Retry
-                            </Button>
-                          </div>
+                          Retry
+                        </Button>
+                      </div>
+                    </div>
+                  ) : displayInvoices.length > 0 ? (
+                    displayInvoices.map((invoice) => (
+                      <div
+                        key={invoice.id}
+                        className="w-full md:w-[48%] lg:w-[31%]"
+                      >
+                        {isMarketplaceTab ? (
+                          <MarketplaceCard
+                            invoice={invoice}
+                            isExpanded={expandedId === String(invoice.id)}
+                            onToggle={() => handleToggle(String(invoice.id))}
+                            onAddNote={handleAddNote}
+                          />
                         ) : (
-                          <div className="w-full text-center py-10 text-gray-500 border rounded-lg">
-                            {selectedDate
-                              ? `No invoices found on ${selectedDate.toDateString()}`
-                              : "No Invoice found"}
-                          </div>
+                          <InvoiceCard
+                            invoice={invoice}
+                            isExpanded={expandedId === String(invoice.id)}
+                            onToggle={() => handleToggle(String(invoice.id))}
+                          />
                         )}
                       </div>
-                    )}
-                  </div>
-
-                  {tabInvoices.length > pageSize && (
-                    <div className="w-full flex justify-center items-center gap-4 mt-8">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={page === 1}
-                        onClick={() => setPage((p) => Math.max(1, p - 1))}
-                      >
-                        Previous
-                      </Button>
-
-                      <span className="text-sm text-gray-600">
-                        Page {page} of{" "}
-                        {Math.ceil(tabInvoices.length / pageSize)}
+                    ))
+                  ) : (
+                    <div className="w-full text-center py-10 text-gray-500 border rounded-lg">
+                      <span>
+                        {selectedDate
+                          ? `No invoices found on ${selectedDate.toDateString()}`
+                          : "No invoices found"}
                       </span>
-
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={
-                          page >= Math.ceil(tabInvoices.length / pageSize)
-                        }
-                        onClick={() =>
-                          setPage((p) =>
-                            Math.min(
-                              p + 1,
-                              Math.ceil(tabInvoices.length / pageSize)
-                            )
-                          )
-                        }
-                      >
-                        Next
-                      </Button>
                     </div>
                   )}
-                </>
-              )}
-            </TabsContent>
-          );
-        })}
+                </div>
+
+                <InvoicePaginationControls
+                  page={page}
+                  hasNextPage={hasNextPage}
+                  isLoading={pageIsLoading}
+                  onPrev={() => setPage((p) => Math.max(1, p - 1))}
+                  onNext={handleNext}
+                />
+              </>
+            )}
+          </TabsContent>
+        ))}
       </Tabs>
     </div>
   );

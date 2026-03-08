@@ -24,7 +24,7 @@ import {
   setMarketplaceAddress,
 } from "@/services/blockchain/AdvancedPaymentProcessor";
 import { Address } from "viem";
-import { WagmiClient } from "@/services/blockchain/type";
+import { WagmiClient } from "@/services/blockchain/types";
 import { ADVANCED_PAYMENT_PROCESSOR, ETHEREUM_SEPOLIA } from "@/constants";
 
 const INVOICE_REFRESH_DELAY_MS = 5_000;
@@ -49,10 +49,14 @@ const WalletProvider = ({ children }: Props) => {
   const {
     invoiceData,
     allInvoiceData,
+    invoicePage,
+    hasNextPage,
     getInvoiceOwner,
     getAdvancedInvoiceData: fetchAdvancedInvoiceData,
     refetchAllInvoiceData,
     refetchInvoiceData,
+    loadNextPage,
+    loadPrevPage,
     getInvoiceData,
     refreshAdminData,
   } = useInvoiceData();
@@ -97,6 +101,10 @@ const WalletProvider = ({ children }: Props) => {
         isLoading,
         invoiceData,
         allInvoiceData,
+        invoicePage,
+        hasNextPage,
+        loadNextPage,
+        loadPrevPage,
         createInvoice: (
           invoicePrice: bigint,
           storageRef?: string,
@@ -234,9 +242,8 @@ const WalletProvider = ({ children }: Props) => {
         getInvoiceOwner,
         getAdvancedInvoiceData: (
           orderId: bigint,
-          query: string,
           type: "smartInvoice" | "metaInvoice"
-        ) => fetchAdvancedInvoiceData(orderId, query, type),
+        ) => fetchAdvancedInvoiceData(orderId, type),
         refetchAllInvoiceData,
         refetchInvoiceData,
         refreshAdminData,

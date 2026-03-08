@@ -9,7 +9,7 @@ import {
 import { fetchGasPrice, getError, handleApproval } from "./utils";
 import { client } from "@/services/graphql/client";
 import { advancedPaymentProcessor } from "@/abis/AdvancedPaymentProcessor";
-import { WagmiClient } from "./type";
+import { WagmiClient } from "./types";
 import { PaymentProcessorStorage } from "@/abis/PaymentProcessorStorage";
 
 export const payAdvancedInvoice = async (

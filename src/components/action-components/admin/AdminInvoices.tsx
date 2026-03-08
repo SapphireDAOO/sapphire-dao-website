@@ -12,9 +12,9 @@ import DataTable from "../dashboard/DataTable";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import DashboardHeader from "../dashboard/Header";
 import Container from "@/components/Container";
-import allInvoicesColumns from "./allInvoicesColumns";
-import adminActionsColumns from "./adminActionsColumns";
-import allMarketplaceInvoices from "./allMarketplaceInvoicesColumns";
+import allInvoicesColumns from "./AllInvoicesColumns";
+import adminActionsColumns from "./AdminActionsColumns";
+import allMarketplaceInvoices from "./AllMarketplaceInvoicesColumns";
 
 import { useGetBalance } from "@/hooks/useGetBalance";
 import { Address } from "viem";

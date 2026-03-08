@@ -49,10 +49,13 @@ export interface ContractContextData {
   setFee: (newFee: bigint) => Promise<boolean>;
   getAdvancedInvoiceData: (
     orderId: bigint,
-    query: string,
     type: "smartInvoice" | "metaInvoice"
   ) => Promise<any>;
   setMarketplaceAddress: (marketplaceAddress: Address) => Promise<any>;
+  invoicePage: number;
+  hasNextPage: boolean;
+  loadNextPage?: () => Promise<void>;
+  loadPrevPage?: () => Promise<void>;
   refetchInvoiceData?: () => Promise<void>;
   refetchAllInvoiceData?: () => Promise<void>;
   refreshAdminData?: (force?: boolean) => Promise<void>;
@@ -61,6 +64,8 @@ export interface ContractContextData {
 export const contractContextDefaults: ContractContextData = {
   isLoading: undefined,
   invoiceData: [],
+  invoicePage: 0,
+  hasNextPage: false,
   allInvoiceData: {
     invoices: [],
     actions: [],

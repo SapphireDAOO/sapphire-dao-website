@@ -3,6 +3,8 @@ export type CreateNotePayload = {
   author: string;
   content: string;
   share: boolean;
+  signature: string;
+  timestamp: number;
 };
 
 export type SetNoteStatePayload = {

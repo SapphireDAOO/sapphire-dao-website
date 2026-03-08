@@ -13,8 +13,8 @@ const Refund = ({ orderId }: { orderId: bigint }) => {
 
   return (
     <>
-      <Button onClick={handleClick} className="w-full mb-4">
-        {isLoading ? (
+      <Button onClick={handleClick} className="w-full mb-4" disabled={isLoading === "refundBuyerAfterWindow"}>
+        {isLoading === "refundBuyerAfterWindow" ? (
           <>
             <p className="mr-2">processing...</p>
             <Loader2 className="animate-spin" size={10} color="#cee7d6" />

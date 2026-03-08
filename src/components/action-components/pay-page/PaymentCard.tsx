@@ -15,7 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ContractContext } from "@/context/contract-context";
 import { CircleCheckBig, Loader2 } from "lucide-react";
-import { useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { PaymentCardProps } from "@/model/model";
 import {
@@ -58,8 +58,17 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
   const [countdown, setCountdown] = useState(3);
   const [paymentNote, setPaymentNote] = useState("");
   const [shareNote, setShareNote] = useState(false);
+  const countdownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const orderId = data?.orderId;
+  useEffect(() => {
+    return () => {
+      if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
+    };
+  }, []);
+
+  const orderId = data?.orderId !== undefined
+    ? BigInt(data.orderId)
+    : undefined;
   const { data: fetchedInvoice } = useGetInvoiceData(orderId);
   const { notes: invoiceNotes } = useInvoiceNotes(orderId);
   const contractAddress = SIMPLE_PAYMENT_PROCESSOR[chain?.id || ETHEREUM_SEPOLIA];
@@ -86,8 +95,8 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
     invoiceLike?.invoiceId ?? invoiceLike?.id ?? invoiceLike?.orderId ?? "";
 
   const displayPriceEth =
-    invoiceLike?.price ?? invoiceLike?.amount ?? data?.price ?? null;
-  const statusValue = invoiceLike?.status ?? data?.status;
+    invoiceLike?.price ?? invoiceLike?.amount ?? null;
+  const statusValue = invoiceLike?.status;
   const normalizedStatus =
     statusValue === undefined || statusValue === null
       ? undefined
@@ -253,7 +262,7 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
       if (typeof priceVal === "bigint") return formatEther(priceVal);
       if (typeof priceVal === "string") return priceVal;
       if (typeof priceVal === "number") return priceVal.toString();
-      return data?.price;
+      return undefined;
     })();
 
     if (!priceEth || !orderId) {
@@ -282,16 +291,14 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
 
         setCountdown(3);
 
-        const interval = setInterval(() => {
+        countdownIntervalRef.current = setInterval(() => {
           setCountdown((prev) => {
             const next = prev - 1;
 
             if (next <= 0) {
-              clearInterval(interval);
-
-              (async () => {
-                router.push("/dashboard?tab=buyer");
-              })();
+              clearInterval(countdownIntervalRef.current!);
+              countdownIntervalRef.current = null;
+              router.push("/dashboard?tab=buyer");
             }
 
             return next;

@@ -7,48 +7,10 @@ import { ContractContext } from "@/context/contract-context";
 import { useGetMetaInvoice } from "@/hooks/useGetMetaInvoice";
 import { InvoiceDetails, TokenData } from "@/model/model";
 
-import CheckoutCard from "./checkout-card";
+import CheckoutCard from "./CheckoutCard";
 import Container from "@/components/Container";
 import { useGetMarketplaceInvoiceData } from "@/hooks/useGetMarketplaceInvoiceData";
 
-const paymentTokensFragment = `
-  paymentTokens(first: 5) {
-    id
-    name
-    decimal
-  }
-`;
-
-const smartInvoiceQuery = `
-  query ($id: String!) {
-    smartInvoice(id: $id) {
-      amountPaid
-      contract
-      createdAt
-      escrow
-      id
-      invoiceId
-      paidAt
-      paymentToken
-      price
-      releasedAt
-      state
-    }
-    ${paymentTokensFragment}
-  }
-`;
-
-const metaInvoiceQuery = `
-  query ($id: String!) {
-    metaInvoice(id: $id) {
-      contract
-      id
-      invoiceId
-      price
-    }
-    ${paymentTokensFragment}
-  }
-`;
 
 const CheckoutPage = () => {
   const searchParams = useSearchParams();
@@ -103,11 +65,10 @@ const CheckoutPage = () => {
     const loadInvoice = async () => {
       if (!orderId) return;
 
-      const query = isMetaInvoice ? metaInvoiceQuery : smartInvoiceQuery;
       const type = isMetaInvoice ? "metaInvoice" : "smartInvoice";
 
       try {
-        const response = await getAdvancedInvoiceData(orderId, query, type);
+        const response = await getAdvancedInvoiceData(orderId, type);
 
         const invoice = response?.[type];
         const paymentTokens: TokenData[] = response?.paymentTokens || [];

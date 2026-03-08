@@ -1,5 +1,6 @@
 "use client";
 import { useContext, useState } from "react";
+import { useAccount } from "wagmi";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -22,13 +23,15 @@ import { ethers } from "ethers";
 import { useGetMarketplaceWallet } from "@/hooks/useGetMarketplaceWallet";
 import { useGetDecisionWindow } from "@/hooks/useGetDecisionWindow";
 import { useGetValidPeriod } from "@/hooks/useGetValidPeriod";
+import AdminSettingRow from "./AdminSettingRow";
 
 // Utility function to truncate addresses
 const truncateAddress = (address: string | undefined) =>
   address ? `${address.slice(0, 6)}...${address.slice(-4)}` : "Loading...";
 
 const AdminCard = () => {
-  const { isLoading: isAllowedAddressLoading } = useGetOwner();
+  const { address: connectedAddress } = useAccount();
+  const { data: ownerAddress, isLoading: isAllowedAddressLoading } = useGetOwner();
   const { data: fee } = useGetFeeRate();
   const { data: defaultHoldPeriod } = useGetDefaultHoldPeriod();
   const { data: minimumInvoiceValue } = useGetMinimumInvoiceValue();
@@ -114,6 +117,26 @@ const AdminCard = () => {
           <Loader2 className="animate-spin h-8 w-8 text-green-500" />
           <p className="text-sm text-muted-foreground">Loading...</p>
         </div>
+      </Card>
+    );
+  }
+
+  const isOwner =
+    connectedAddress &&
+    ownerAddress &&
+    connectedAddress.toLowerCase() === ownerAddress.toLowerCase();
+
+  if (!isOwner) {
+    return (
+      <Card className="w-full max-w-md">
+        <CardHeader>
+          <CardTitle className="text-2xl font-bold">Access Denied</CardTitle>
+          <CardDescription>
+            {connectedAddress
+              ? "Your connected wallet is not the contract owner."
+              : "Connect the owner wallet to access this page."}
+          </CardDescription>
+        </CardHeader>
       </Card>
     );
   }
@@ -204,70 +227,37 @@ const AdminCard = () => {
       </CardHeader>
       <CardContent>
         <div className="grid w-full items-center gap-6">
-          <div className="space-y-1.5">
-            <Label htmlFor="setAdminAddress">Set New Admin</Label>
-            <div className="flex gap-2">
-              <Input
-                id="setAdminAddress"
-                placeholder="Enter address (0x...)"
-                value={ownerAddr}
-                onChange={(e) => setOwnerAddr(e.target.value)}
-                aria-describedby="setAdminAddressDescription"
-                className="w-full"
-              />
-              <Button
-                onClick={handleOwnerAddress}
-                disabled={isLoading === "transferOwnership"}
-                aria-busy={isLoading === "transferOwnership"}
-              >
-                {isLoading === "transferOwnership" ? (
-                  <Loader2 className="inline-flex animate-spin h-4 w-4 text-green-300" />
-                ) : (
-                  "Update Admin"
-                )}
-              </Button>
-            </div>
-            <p
-              id="setAdminAddressDescription"
-              className="text-sm text-muted-foreground"
-            >
-              Updates the admin of the fee receiver.
-            </p>
-          </div>
+          <AdminSettingRow
+            label="Set New Admin"
+            inputId="setAdminAddress"
+            inputProps={{
+              placeholder: "Enter address (0x...)",
+              value: ownerAddr,
+              onChange: (e) => setOwnerAddr(e.target.value),
+            }}
+            onAction={handleOwnerAddress}
+            loadingKey="transferOwnership"
+            isLoading={isLoading}
+            buttonText="Update Admin"
+            description="Updates the admin of the fee receiver."
+          />
 
-          <div className="space-y-1.5">
-            <Label htmlFor="setFeeReceiverAddress">
-              Set Fee Receiver Address
-            </Label>
-            <div className="flex gap-2">
-              <Input
-                id="setFeeReceiverAddress"
-                placeholder="Enter address (0x...)"
-                value={receiversAdd}
-                onChange={(e) => setReceiverAdd(e.target.value)}
-                aria-describedby="setFeeReceiverAddressDescription"
-                className="w-full"
-              />
-              <Button
-                onClick={handleReceiverAdd}
-                disabled={isLoading === "setFeeReceiversAddress"}
-                aria-busy={isLoading === "setFeeReceiversAddress"}
-              >
-                {isLoading === "setFeeReceiversAddress" ? (
-                  <Loader2 className="inline-flex animate-spin h-4 w-4 text-green-300" />
-                ) : (
-                  "Set Fee Receiver"
-                )}
-              </Button>
-            </div>
-            <p
-              id="setFeeReceiverAddressDescription"
-              className="text-sm text-muted-foreground"
-            >
-              Updates the address of the fee receiver.
-            </p>
-          </div>
+          <AdminSettingRow
+            label="Set Fee Receiver Address"
+            inputId="setFeeReceiverAddress"
+            inputProps={{
+              placeholder: "Enter address (0x...)",
+              value: receiversAdd,
+              onChange: (e) => setReceiverAdd(e.target.value),
+            }}
+            onAction={handleReceiverAdd}
+            loadingKey="setFeeReceiversAddress"
+            isLoading={isLoading}
+            buttonText="Set Fee Receiver"
+            description="Updates the address of the fee receiver."
+          />
 
+          {/* Invoice Hold Period: dual-input special case */}
           <div className="space-y-1.5">
             <Label htmlFor="holdPeriodID">Invoice Hold Period</Label>
             <div className="grid grid-cols-2 gap-2">
@@ -309,139 +299,73 @@ const AdminCard = () => {
             </p>
           </div>
 
-          <div className="space-y-1.5">
-            <Label htmlFor="defaultHoldPeriod">Default Hold Period</Label>
-            <div className="flex gap-2">
-              <Input
-                id="defaultHoldPeriod"
-                type="number"
-                placeholder="Enter days"
-                value={defaultPeriod}
-                onChange={(e) => setDefaultPeriod(e.target.value)}
-                aria-describedby="defaultHoldPeriodDescription"
-                className="w-full"
-              />
-              <Button
-                onClick={handleDefaultPeriod}
-                disabled={isLoading === "setDefaultHoldPeriod"}
-                aria-busy={isLoading === "setDefaultHoldPeriod"}
-              >
-                {isLoading === "setDefaultHoldPeriod" ? (
-                  <Loader2 className="inline-flex animate-spin h-4 w-4 text-green-300" />
-                ) : (
-                  "Set Default Period"
-                )}
-              </Button>
-            </div>
-            <p
-              id="defaultHoldPeriodDescription"
-              className="text-sm text-muted-foreground"
-            >
-              Updates the default hold period for all new invoices.
-            </p>
-          </div>
+          <AdminSettingRow
+            label="Default Hold Period"
+            inputId="defaultHoldPeriod"
+            inputProps={{
+              type: "number",
+              placeholder: "Enter days",
+              value: defaultPeriod,
+              onChange: (e) => setDefaultPeriod(e.target.value),
+            }}
+            onAction={handleDefaultPeriod}
+            loadingKey="setDefaultHoldPeriod"
+            isLoading={isLoading}
+            buttonText="Set Default Period"
+            description="Updates the default hold period for all new invoices."
+          />
 
-          <div className="space-y-1.5">
-            <Label htmlFor="decisionWindow">Decision Window (minutes)</Label>
-            <div className="flex gap-2">
-              <Input
-                id="decisionWindow"
-                type="number"
-                placeholder="Enter minutes"
-                value={decisionWindowInput}
-                onChange={(e) => setDecisionWindowInput(e.target.value)}
-                aria-describedby="decisionWindowDescription"
-                className="w-full"
-                min={1}
-              />
-              <Button
-                onClick={handleDecisionWindow}
-                disabled={isLoading === "setDecisionWindow"}
-                aria-busy={isLoading === "setDecisionWindow"}
-              >
-                {isLoading === "setDecisionWindow" ? (
-                  <Loader2 className="inline-flex animate-spin h-4 w-4 text-green-300" />
-                ) : (
-                  "Set Decision Window"
-                )}
-              </Button>
-            </div>
-            <p
-              id="decisionWindowDescription"
-              className="text-sm text-muted-foreground"
-            >
-              Time allowed for sellers to accept/reject after payment (minutes).
-            </p>
-          </div>
+          <AdminSettingRow
+            label="Decision Window (minutes)"
+            inputId="decisionWindow"
+            inputProps={{
+              type: "number",
+              placeholder: "Enter minutes",
+              value: decisionWindowInput,
+              onChange: (e) => setDecisionWindowInput(e.target.value),
+              min: 1,
+            }}
+            onAction={handleDecisionWindow}
+            loadingKey="setDecisionWindow"
+            isLoading={isLoading}
+            buttonText="Set Decision Window"
+            description="Time allowed for sellers to accept/reject after payment (minutes)."
+          />
 
-          <div className="space-y-1.5">
-            <Label htmlFor="validPeriod">Invoice Validity Period (hours)</Label>
-            <div className="flex gap-2">
-              <Input
-                id="validPeriod"
-                type="number"
-                placeholder="Enter hours"
-                value={validPeriodInput}
-                onChange={(e) => setValidPeriodInput(e.target.value)}
-                aria-describedby="validPeriodDescription"
-                className="w-full"
-                min={1}
-              />
-              <Button
-                onClick={handleValidPeriod}
-                disabled={isLoading === "setValidPeriod"}
-                aria-busy={isLoading === "setValidPeriod"}
-              >
-                {isLoading === "setValidPeriod" ? (
-                  <Loader2 className="inline-flex animate-spin h-4 w-4 text-green-300" />
-                ) : (
-                  "Set Validity"
-                )}
-              </Button>
-            </div>
-            <p
-              id="validPeriodDescription"
-              className="text-sm text-muted-foreground"
-            >
-              How long newly created invoices stay payable before expiring
-              (hours).
-            </p>
-          </div>
+          <AdminSettingRow
+            label="Invoice Validity Period (hours)"
+            inputId="validPeriod"
+            inputProps={{
+              type: "number",
+              placeholder: "Enter hours",
+              value: validPeriodInput,
+              onChange: (e) => setValidPeriodInput(e.target.value),
+              min: 1,
+            }}
+            onAction={handleValidPeriod}
+            loadingKey="setValidPeriod"
+            isLoading={isLoading}
+            buttonText="Set Validity"
+            description="How long newly created invoices stay payable before expiring (hours)."
+          />
 
-          <div className="space-y-1.5">
-            <Label htmlFor="setMinimumInvoiceValue">
-              Set Minimum Invoice Value
-            </Label>
-            <div className="flex gap-2">
-              <Input
-                id="setMinimumInvoiceValue"
-                type="number"
-                placeholder="Enter value in ETH"
-                value={value}
-                onChange={(e) => setValue(e.target.value.toString())}
-                aria-describedby="setMinimumInvoiceValueDescription"
-                className="w-full"
-              />
-              <Button
-                onClick={handleMinimumInvoiceValue}
-                disabled={isLoading === "setMinimumInvoiceValue"}
-                aria-busy={isLoading === "setMinimumInvoiceValue"}
-              >
-                {isLoading === "setMinimumInvoiceValue" ? (
-                  <Loader2 className="inline-flex animate-spin h-4 w-4 text-green-300" />
-                ) : (
-                  "Set Minimum Value"
-                )}
-              </Button>
-            </div>
-            <p
-              id="setMinimumInvoiceValueDescription"
-              className="text-sm text-muted-foreground"
-            >
-              Updates the minimum invoice value.
-            </p>
-          </div>
+          <AdminSettingRow
+            label="Set Minimum Invoice Value"
+            inputId="setMinimumInvoiceValue"
+            inputProps={{
+              type: "number",
+              placeholder: "Enter value in ETH",
+              value: value,
+              onChange: (e) => setValue(e.target.value.toString()),
+            }}
+            onAction={handleMinimumInvoiceValue}
+            loadingKey="setMinimumInvoiceValue"
+            isLoading={isLoading}
+            buttonText="Set Minimum Value"
+            description="Updates the minimum invoice value."
+          />
 
+          {/* Set Fee: custom onChange validation */}
           <div className="space-y-1.5">
             <Label htmlFor="setFee">Set Fee</Label>
             <div className="flex gap-2">
@@ -451,12 +375,9 @@ const AdminCard = () => {
                 placeholder="Enter fee percentage"
                 value={sDaoFee}
                 onChange={(e) => {
-                  const value = e.target.value;
-                  if (
-                    value === "" ||
-                    (Number(value) >= 0 && Number(value) < 30)
-                  ) {
-                    setDaoFee(value);
+                  const v = e.target.value;
+                  if (v === "" || (Number(v) >= 0 && Number(v) < 30)) {
+                    setDaoFee(v);
                   }
                 }}
                 max={49.99}
@@ -476,43 +397,28 @@ const AdminCard = () => {
                 )}
               </Button>
             </div>
-            <p id="setFeeDescription" className="text-sm text-muted-foreground">
+            <p
+              id="setFeeDescription"
+              className="text-sm text-muted-foreground"
+            >
               Updates the fee for using Sapphire DAO service.
             </p>
           </div>
 
-          <div className="space-y-1.5">
-            <Label htmlFor="setMarketplaceAddress">
-              Set New Marketplace Address
-            </Label>
-            <div className="flex gap-2">
-              <Input
-                id="setMarketplaceAddress"
-                placeholder="Enter address (0x...)"
-                value={marketplaceAddress}
-                onChange={(e) => setMarketplaceKeeper(e.target.value)}
-                aria-describedby="setMarketplaceAddressDescription"
-                className="w-full"
-              />
-              <Button
-                onClick={handleMarketplaceAddress}
-                disabled={isLoading === "setMarketplaceAddress"}
-                aria-busy={isLoading === "setMarketplaceAddress"}
-              >
-                {isLoading === "setMarketplaceAddress" ? (
-                  <Loader2 className="inline-flex animate-spin h-4 w-4 text-green-300" />
-                ) : (
-                  "Set Marketplace Address"
-                )}
-              </Button>
-            </div>
-            <p
-              id="setMarketplaceAddressDescription"
-              className="text-sm text-muted-foreground"
-            >
-              Updates the Marketplace Keeper Address.
-            </p>
-          </div>
+          <AdminSettingRow
+            label="Set New Marketplace Address"
+            inputId="setMarketplaceAddress"
+            inputProps={{
+              placeholder: "Enter address (0x...)",
+              value: marketplaceAddress,
+              onChange: (e) => setMarketplaceKeeper(e.target.value),
+            }}
+            onAction={handleMarketplaceAddress}
+            loadingKey="setMarketplaceAddress"
+            isLoading={isLoading}
+            buttonText="Set Marketplace Address"
+            description="Updates the Marketplace Keeper Address."
+          />
         </div>
       </CardContent>
     </Card>

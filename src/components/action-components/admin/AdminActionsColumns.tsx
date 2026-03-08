@@ -3,7 +3,7 @@ import { ColumnDef } from "@tanstack/react-table";
 import { AdminAction } from "@/model/model";
 
 import React from "react";
-import CopyableAddress from "@/components/ui/CopyableAddress";
+import CopyableAddress from "@/components/ui/copyable-address";
 import { Button } from "@/components/ui/button";
 import { ArrowUpDown } from "lucide-react";
 

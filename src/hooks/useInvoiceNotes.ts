@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useAccount, usePublicClient } from "wagmi";
+import { useAccount, usePublicClient, useSignMessage } from "wagmi";
 import { toast } from "sonner";
 import { notesClient } from "@/services/graphql/notes-client";
 import { NOTES_BY_ORDER_QUERY } from "@/services/graphql/queries";
@@ -55,10 +55,16 @@ const formatNowLabel = () => {
   return unixToGMT(nowSeconds) || new Date().toLocaleString();
 };
 
-export const useInvoiceNotes = (orderId?: bigint | string | number) => {
+export const useInvoiceNotes = (
+  orderId?: bigint | string | number,
+  options?: { enabled?: boolean }
+) => {
+  const isEnabled = options?.enabled ?? true;
   const { address, chain } = useAccount();
   const chainId = chain?.id || ETHEREUM_SEPOLIA;
   const publicClient = usePublicClient({ chainId });
+
+  const { signMessageAsync } = useSignMessage();
 
   const [notes, setNotes] = useState<ThreadNote[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -96,6 +102,7 @@ export const useInvoiceNotes = (orderId?: bigint | string | number) => {
   }, [notes]);
 
   useEffect(() => {
+    if (!isEnabled) return;
     if (normalizedOrderId === undefined) return;
     const pending = getPendingNotesForOrder(normalizedOrderId.toString());
     if (pending.length === 0) return;
@@ -158,7 +165,7 @@ export const useInvoiceNotes = (orderId?: bigint | string | number) => {
         }
       });
     });
-  }, [address, normalizedOrderId]);
+  }, [address, normalizedOrderId, isEnabled]);
 
   useEffect(() => {
     return () => {
@@ -169,6 +176,14 @@ export const useInvoiceNotes = (orderId?: bigint | string | number) => {
   }, []);
 
   useEffect(() => {
+    if (!isEnabled && refreshTimeoutRef.current) {
+      clearTimeout(refreshTimeoutRef.current);
+      refreshTimeoutRef.current = null;
+    }
+  }, [isEnabled]);
+
+  useEffect(() => {
+    if (!isEnabled) return;
     if (!publicClient || normalizedOrderId === undefined) return;
 
     const contractAddress = NOTES_CONTRACT[chainId];
@@ -354,7 +369,7 @@ export const useInvoiceNotes = (orderId?: bigint | string | number) => {
       unwatchCreated?.();
       unwatchState?.();
     };
-  }, [address, chainId, normalizedOrderId, publicClient]);
+  }, [address, chainId, normalizedOrderId, publicClient, isEnabled]);
 
   const hydrateBlockLabels = useCallback(
     async (blockNumbers: string[]) => {
@@ -396,6 +411,8 @@ export const useInvoiceNotes = (orderId?: bigint | string | number) => {
   );
 
   const fetchNotes = useCallback(async () => {
+    if (!isEnabled) return;
+
     if (normalizedOrderId === undefined) {
       setNotes([]);
       if (
@@ -529,26 +546,30 @@ export const useInvoiceNotes = (orderId?: bigint | string | number) => {
     } finally {
       setIsLoading(false);
     }
-  }, [address, chainId, hydrateBlockLabels, normalizedOrderId, orderId]);
+  }, [address, chainId, hydrateBlockLabels, normalizedOrderId, orderId, isEnabled]);
 
   useEffect(() => {
+    if (!isEnabled) return;
     void fetchNotes();
-  }, [fetchNotes]);
+  }, [fetchNotes, isEnabled]);
 
   const refresh = useCallback(async () => {
+    if (!isEnabled) return;
     await fetchNotes();
-  }, [fetchNotes]);
+  }, [fetchNotes, isEnabled]);
 
   const scheduleRefresh = useCallback(() => {
+    if (!isEnabled) return;
     if (refreshTimeoutRef.current) return;
     refreshTimeoutRef.current = setTimeout(() => {
       void fetchNotes();
       refreshTimeoutRef.current = null;
     }, NOTE_REFRESH_DELAY_MS);
-  }, [fetchNotes]);
+  }, [fetchNotes, isEnabled]);
 
   const createNote = useCallback(
     async (content: string, share: boolean) => {
+      if (!isEnabled) return false;
       if (normalizedOrderId === undefined) return false;
       if (!address) {
         toast.error("Connect your wallet to add notes.");
@@ -564,11 +585,24 @@ export const useInvoiceNotes = (orderId?: bigint | string | number) => {
       setIsCreating(true);
 
       try {
+        const timestamp = Math.floor(Date.now() / 1000);
+        const message = `Sapphire DAO: Create note for order ${normalizedOrderId.toString()}\nAuthor: ${address}\nTimestamp: ${timestamp}`;
+
+        let signature: string;
+        try {
+          signature = await signMessageAsync({ message });
+        } catch {
+          toast.error("Signature rejected. Note not saved.");
+          return false;
+        }
+
         const result = await createNoteRequest({
           orderId: normalizedOrderId.toString(),
           author: address,
           content: trimmed,
           share,
+          signature,
+          timestamp,
         });
 
         const noteId = result.noteId?.toString?.() ?? result.noteId;
@@ -617,11 +651,12 @@ export const useInvoiceNotes = (orderId?: bigint | string | number) => {
         setIsCreating(false);
       }
     },
-    [address, normalizedOrderId, scheduleRefresh]
+    [address, normalizedOrderId, scheduleRefresh, signMessageAsync, isEnabled]
   );
 
   const setNoteOpen = useCallback(
     async (noteId: string, open: boolean) => {
+      if (!isEnabled) return false;
       if (normalizedOrderId === undefined) return false;
 
       const current = notesRef.current.find((note) => note.noteId === noteId);
@@ -676,7 +711,7 @@ export const useInvoiceNotes = (orderId?: bigint | string | number) => {
         });
       }
     },
-    [normalizedOrderId]
+    [normalizedOrderId, isEnabled]
   );
 
   return {

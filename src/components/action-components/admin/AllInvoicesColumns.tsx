@@ -1,29 +1,30 @@
 "use client";
 import { ColumnDef } from "@tanstack/react-table";
-import { Invoice } from "@/model/model";
+import { AllInvoice } from "@/model/model";
 import { formatAddress } from "@/utils";
 import React from "react";
-import { formatEther } from "viem";
+import CopyableAddress from "@/components/ui/copyable-address";
 import { Button } from "@/components/ui/button";
-import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
-import CopyableAddress from "@/components/ui/CopyableAddress";
+import { ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 
-const allMarketplaceInvoices: ColumnDef<Invoice>[] = [
+const allInvoicesColumns: ColumnDef<AllInvoice>[] = [
   {
     accessorKey: "id",
     header: ({ column }) => {
-      const sorted = column.getIsSorted();
-      const SortIcon =
-        sorted === "asc" ? ArrowUp : sorted === "desc" ? ArrowDown : ArrowUpDown;
+      const isSorted = column.getIsSorted();
+      let Icon = ArrowUpDown;
+      if (isSorted === "asc") Icon = ArrowUp;
+      if (isSorted === "desc") Icon = ArrowDown;
+
       return (
         <div className="text-center w-full">
           <Button
             variant="ghost"
-            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+            onClick={() => column.toggleSorting(isSorted === "asc")}
             className="mx-auto"
           >
             Id
-            <SortIcon className="ml-1 h-4 w-4" />
+            <Icon className="ml-1 h-4 w-4" />
           </Button>
         </div>
       );
@@ -33,30 +34,10 @@ const allMarketplaceInvoices: ColumnDef<Invoice>[] = [
       if (!id) return <div className="text-center">-</div>;
       return <div className="text-center">{id}</div>;
     },
-    enableSorting: true,
-    sortingFn: (rowA, rowB, columnId) =>
-      Number(rowA.getValue(columnId)) - Number(rowB.getValue(columnId)),
   },
-
   {
     accessorKey: "orderId",
-    header: ({ column }) => {
-      const sorted = column.getIsSorted();
-      const SortIcon =
-        sorted === "asc" ? ArrowUp : sorted === "desc" ? ArrowDown : ArrowUpDown;
-      return (
-        <div className="text-center w-full">
-          <Button
-            variant="ghost"
-            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-            className="mx-auto"
-          >
-            Invoice Id
-            <SortIcon className="ml-1 h-4 w-4" />
-          </Button>
-        </div>
-      );
-    },
+    header: () => <div className="text-center">Invoice Id</div>,
     cell: ({ row }) => {
       const orderId: bigint = row.getValue("orderId");
       return (
@@ -66,7 +47,6 @@ const allMarketplaceInvoices: ColumnDef<Invoice>[] = [
       );
     },
   },
-
   {
     accessorKey: "seller",
     header: () => <div className="text-center">Seller</div>,
@@ -193,42 +173,42 @@ const allMarketplaceInvoices: ColumnDef<Invoice>[] = [
       return <div className="text-center">{status}</div>;
     },
   },
-  //   {
-  //     accessorKey: "release",
-  //     header: () => <div className="text-center">Release</div>,
-  //     cell: ({ row }) => {
-  //       const releasedAtTimeStamp: string = row.getValue("release");
-  //       const { releaseHash, status } = row.original;
+  {
+    accessorKey: "release",
+    header: () => <div className="text-center">Release</div>,
+    cell: ({ row }) => {
+      const releasedAtTimeStamp: string = row.getValue("release");
+      const { releaseHash, status } = row.original;
 
-  //       if (status === "REFUNDED" || status === "REJECTED") {
-  //         return <div className="text-center">-</div>;
-  //       }
+      if (status === "REFUNDED" || status === "REJECTED") {
+        return <div className="text-center">-</div>;
+      }
 
-  //       if (status === "RELEASED") {
-  //         return (
-  //           <a
-  //             href={`https://sepolia.etherscan.io/address/${releaseHash}`}
-  //             target="_blank"
-  //             rel="noopener noreferrer"
-  //             className="text-blue-500 underline"
-  //           >
-  //             {formatAddress(releaseHash)}
-  //           </a>
-  //         );
-  //       }
+      if (status === "RELEASED") {
+        return (
+          <a
+            href={`https://sepolia.etherscan.io/tx/${releaseHash}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-500 underline"
+          >
+            {formatAddress(releaseHash)}
+          </a>
+        );
+      }
 
-  //       return <div className="text-center">{releasedAtTimeStamp}</div>;
-  //     },
-  //   },
+      return <div className="text-center">{releasedAtTimeStamp}</div>;
+    },
+  },
   {
     accessorKey: "fee",
     header: () => <div className="text-center">Fee</div>,
     cell: ({ row }) => {
-      const releasedAtTimeStamp: string = formatEther(row.getValue("fee"));
+      const releasedAtTimeStamp: string = row.getValue("fee");
 
       return <div className="text-center">{releasedAtTimeStamp}</div>;
     },
   },
 ];
 
-export default allMarketplaceInvoices;
+export default allInvoicesColumns;

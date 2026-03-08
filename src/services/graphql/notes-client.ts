@@ -1,16 +1,18 @@
-import { createClient } from "urql";
+import { createClient, type Client } from "urql";
 import { THE_GRAPH_API_URL } from "@/constants";
 
-export const notesClient = (chainId: number) => {
-  const url = THE_GRAPH_API_URL[chainId];
-  if (!url) return null;
+const NOTES_CLIENT_CACHE = new Map<number, Client>();
 
-  return createClient({
-    url,
-    fetchOptions: {
-      headers: {
-        Authorization: `Bearer ${process.env.NEXT_PUBLIC_GRAPH_API_KEY}`,
-      },
-    },
+export const notesClient = (chainId: number) => {
+  const cached = NOTES_CLIENT_CACHE.get(chainId);
+  if (cached) return cached;
+
+  if (!THE_GRAPH_API_URL[chainId]) return null;
+
+  const created = createClient({
+    url: `/api/graphql?chainId=${chainId}`,
   });
+
+  NOTES_CLIENT_CACHE.set(chainId, created);
+  return created;
 };

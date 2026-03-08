@@ -33,8 +33,7 @@ const CancelInvoice = ({ orderId }: CancelInvoiceProps) => {
     }
   };
 
-  const isActionLoading =
-    localLoading || isLoading === "canceling" || isLoading === "cancel";
+  const isActionLoading = localLoading || isLoading === "cancelInvoice";
 
   return (
     <div className="flex flex-col items-end gap-2 mt-4">

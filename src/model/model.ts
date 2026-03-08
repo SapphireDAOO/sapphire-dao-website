@@ -109,11 +109,8 @@ export interface UserReceivedInvoicesInvoice extends Invoice {
 // Props for a Payment Card component, containing basic invoice details
 export type PaymentCardProps = {
   data: {
-    id: string; // Unique identifier for the invoice
-    orderId: bigint; // orderId associated with the invoice
-    price: string; // Price associated with the invoice
-    status: string; // Status of the invoice (e.g., "paid", "created", "unpaid")
-  };
+    orderId: string | bigint;
+  } | null;
 };
 
 // Type for mapping error keys to corresponding error messages

@@ -8,9 +8,14 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Missing token" }, { status: 400 });
   }
 
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    return NextResponse.json({ error: "Server misconfigured" }, { status: 500 });
+  }
+
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!);
-    return NextResponse.json({ valid: true, data: decoded });
+    const decoded = jwt.verify(token, secret) as { orderId?: unknown };
+    return NextResponse.json({ valid: true, data: { orderId: decoded.orderId } });
   } catch {
     return NextResponse.json(
       { valid: false, error: "Invalid or expired token" },
