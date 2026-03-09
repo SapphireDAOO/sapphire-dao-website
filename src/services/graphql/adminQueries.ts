@@ -9,7 +9,7 @@ export const GET_ALL_INVOICES = `
     $skipSmartInvoices: Int! = 0
     $firstSmartInvoices: Int! = 50
   ) {
-    invoices(
+    invoices: simplePaymentProcessors(
       first: $firstInvoices
       skip: $skipInvoices
     ) {
@@ -17,7 +17,7 @@ export const GET_ALL_INVOICES = `
       createdAt
       fee
       id
-      invoiceId
+      invoiceId: invoiceNonce
       paidAt
       paymentTxHash
       price
@@ -26,7 +26,8 @@ export const GET_ALL_INVOICES = `
       state
       amountPaid
       creationTxHash
-      commisionTxHash
+      commisionTxHash: commissionTxHash
+      refundTxHash
       seller { id }
       buyer { id }
     }
@@ -37,21 +38,22 @@ export const GET_ALL_INVOICES = `
       orderDirection: desc
     ) {
       id
-      invoiceId
+      invoiceId: invoiceNonce
       time
-      type
+      type: category
       action
       balance
       txHash
+      currency { id }
     }
-    smartInvoices(
+    smartInvoices: advancedPaymentProcessors(
       first: $firstSmartInvoices
       skip: $skipSmartInvoices
     ) {
       contract
       createdAt
       id
-      invoiceId
+      invoiceId: invoiceNonce
       paidAt
       price
       releasedAt
@@ -60,7 +62,8 @@ export const GET_ALL_INVOICES = `
       paymentTxHash
       amountPaid
       creationTxHash
-      commisionTxHash
+      commisionTxHash: commissionTxHash
+      refundTxHash
       seller { id }
       buyer { id }
     }

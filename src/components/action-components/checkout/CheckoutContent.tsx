@@ -51,7 +51,7 @@ const CheckoutPage = () => {
   const metaInvoicePrice =
     (metaInvoice as { price?: bigint } | undefined)?.price;
   const marketplaceInvoice = invoiceInfo as
-    | { invoiceId?: bigint; price?: bigint; paymentToken?: string }
+    | { invoiceId?: bigint; invoiceNonce?: bigint; price?: bigint; paymentToken?: string }
     | undefined;
 
   const isMetaInvoice = useMemo(() => {
@@ -76,7 +76,7 @@ const CheckoutPage = () => {
         let structured: InvoiceDetails;
         if (invoice) {
           structured = {
-            id: invoice.invoiceId,
+            id: invoice.invoiceId ?? invoice.invoiceNonce,
             orderId: invoice.id,
             price: invoice.price,
             tokenList: paymentTokens,
@@ -84,7 +84,10 @@ const CheckoutPage = () => {
           };
         } else {
           structured = {
-            id: marketplaceInvoice?.invoiceId?.toString() ?? "",
+            id:
+              marketplaceInvoice?.invoiceId?.toString() ??
+              marketplaceInvoice?.invoiceNonce?.toString() ??
+              "",
             orderId: orderId,
             price: marketplaceInvoice?.price?.toString() ?? "0",
             tokenList: paymentTokens,

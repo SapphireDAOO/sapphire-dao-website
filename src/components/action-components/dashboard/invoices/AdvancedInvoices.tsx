@@ -23,6 +23,15 @@ import { useSharedSecondTicker } from "@/hooks/useSharedSecondTicker";
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 const isZeroAddress = (value?: string) => value?.toLowerCase() === ZERO_ADDRESS;
 
+/** Format a numeric amount without scientific notation */
+const fmtAmount = (value: number): string => {
+  if (!Number.isFinite(value) || value === 0) return "0";
+  return value.toLocaleString("en-US", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 4,
+  });
+};
+
 const formatShortId = (value?: string) => {
   if (!value) return "—";
   const trimmed = value.trim();
@@ -76,7 +85,7 @@ const statusColors: Record<string, string> = {
   "DISPUTE SETTLED":
     "bg-purple-100 text-purple-800 ring-1 ring-inset ring-purple-300",
   RELEASED: "bg-green-100 text-green-800",
-  Unknown: "bg-gray-100 text-gray-600",
+  "PARTIAL REFUND": "bg-gray-100 text-gray-600",
 };
 
 export function MarketplaceCard({
@@ -93,26 +102,94 @@ export function MarketplaceCard({
   const isBuyerView = invoice.type === "ReceivedInvoice";
 
   const tokenData = useGetPaymentTokenData(invoice.paymentToken ?? "");
+  // Token decimals for actual token amounts (amountPaid, amountReleased, etc.)
+  const tokenDecimals = tokenData?.decimals ?? 8;
+  const paymentCurrency = useMemo(() => {
+    const namedCurrency = tokenData?.name?.trim();
+    if (namedCurrency) return namedCurrency;
+    return isZeroAddress(invoice.paymentToken) ? "ETH" : "";
+  }, [tokenData?.name, invoice.paymentToken]);
 
+  /** Format a raw bigint string (token units) to a human-readable string */
+  const formatTokenAmount = useCallback(
+    (raw: string | null | undefined): string => {
+      if (!raw) return "0";
+      try {
+        const n = Number(formatUnits(BigInt(raw), tokenDecimals));
+        return fmtAmount(n);
+      } catch {
+        // If BigInt parse fails, try as plain decimal
+        const n = parseFloat(raw);
+        return fmtAmount(Number.isFinite(n) ? n : 0);
+      }
+    },
+    [tokenDecimals],
+  );
+
+  /** Format token amount without rounding (used for dispute-settled splits). */
+  const formatTokenAmountExact = useCallback(
+    (raw: string | null | undefined): string => {
+      if (!raw) return "0";
+
+      const addGrouping = (value: string) => {
+        const negative = value.startsWith("-");
+        const digits = negative ? value.slice(1) : value;
+        const grouped = digits.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+        return negative ? `-${grouped}` : grouped;
+      };
+
+      try {
+        const normalized = formatUnits(BigInt(raw), tokenDecimals);
+        const [whole, decimal] = normalized.split(".");
+        const trimmedDecimal = (decimal ?? "").slice(0, 4).replace(/0+$/, "");
+        const groupedWhole = addGrouping(whole);
+        return trimmedDecimal ? `${groupedWhole}.${trimmedDecimal}` : groupedWhole;
+      } catch {
+        const normalized = String(raw).trim();
+        if (!normalized) return "0";
+        const [whole, decimal] = normalized.split(".");
+        const groupedWhole = addGrouping(whole || "0");
+        const trimmedDecimal = (decimal ?? "").slice(0, 4).replace(/0+$/, "");
+        return trimmedDecimal ? `${groupedWhole}.${trimmedDecimal}` : groupedWhole;
+      }
+    },
+    [tokenDecimals],
+  );
+
+  // Invoice price is stored with 8 decimal places.
   const amount = useMemo(() => {
     const raw = invoice.price;
-    const decimals = 8;
+    if (!raw) return 0;
     try {
-      if (typeof raw === "bigint") return Number(formatUnits(raw, decimals));
-      if (typeof raw === "number") return raw / Math.pow(10, decimals);
-      if (typeof raw === "string")
-        return Number(formatUnits(BigInt(raw), decimals));
-    } catch (error) {
-      console.error("Failed to format marketplace price", error);
+      if (typeof raw === "bigint") return Number(formatUnits(raw, 8));
+      if (typeof raw === "number") return raw / 1e8;
+      return Number(formatUnits(BigInt(String(raw)), 8));
+    } catch {
+      // Fallback: price may already be a plain decimal string
+      const n = parseFloat(String(raw));
+      return Number.isFinite(n) ? n : 0;
     }
-    return 0;
   }, [invoice.price]);
 
+  // Actual paid amount from the schema (raw bigint string → formatted)
+  const paidAmountFormatted = useMemo(
+    () => formatTokenAmount(invoice.amountPaid),
+    [invoice.amountPaid, formatTokenAmount],
+  );
+
+  // Released amount: use amountReleased from schema (after fees), fall back to estimate
   const releasedAmount = useMemo(() => {
-    const value = amount * 0.95;
-    if (!Number.isFinite(value)) return "0";
-    return value.toFixed(6).replace(/\.?0+$/, "");
-  }, [amount]);
+    if (invoice.amountReleased)
+      return formatTokenAmount(invoice.amountReleased);
+    if (invoice.amountPaid) return paidAmountFormatted;
+    return fmtAmount(amount * 0.95);
+  }, [
+    invoice.amountReleased,
+    invoice.amountPaid,
+    paidAmountFormatted,
+    amount,
+    formatTokenAmount,
+  ]);
 
   const displayStatus = normalizeStatus(invoice.status || "");
   const badgeColor = statusColors[displayStatus] ?? statusColors["Unknown"];
@@ -128,8 +205,10 @@ export function MarketplaceCard({
 
   /* ── Countdown timers ─────────────────────────────────────────────────── */
 
+  // Show release countdown for PAID and DISPUTE DISMISSED (funds still in escrow)
   const shouldTrackReleaseCountdown =
-    displayStatus === "PAID" && Boolean(invoice.releaseAt);
+    (displayStatus === "PAID" || displayStatus === "DISPUTE DISMISSED") &&
+    Boolean(invoice.releaseAt);
   const shouldTrackVoidCountdown =
     isAwaitingPayment && Boolean(invoice.invalidateAt);
   const shouldTrackCountdown =
@@ -160,7 +239,6 @@ export function MarketplaceCard({
 
     const normalizeHistoryStatus = (status?: string) => {
       if (!status) return "";
-      // Normalise underscore-separated subgraph values to space-separated display values
       const spaced = status.replace(/_/g, " ").toUpperCase().trim();
       if (spaced === "AWAITING PAYMENT" || spaced === "INITIATED")
         return "CREATED";
@@ -172,7 +250,8 @@ export function MarketplaceCard({
         ...entry,
         status: normalizeHistoryStatus(entry.status),
       }))
-      .filter((entry) => entry.status);
+      .filter((entry) => entry.status)
+      .filter((entry) => !(isBuyerView && entry.status === "CREATED"));
 
     const deduped = normalized.filter((entry, idx) => {
       if (idx === 0) return true;
@@ -180,9 +259,7 @@ export function MarketplaceCard({
     });
 
     return deduped;
-  }, [invoice.history]);
-
-  // console.log("state history", displayHistory);
+  }, [invoice.history, isBuyerView]);
 
   /* ── Share helpers ─────────────────────────────────────────────────────── */
 
@@ -193,19 +270,19 @@ export function MarketplaceCard({
   const shareLabel = useMemo(() => {
     if (isSellerView) {
       return invoice.buyer
-        ? `Share with payer ${formatAddress(invoice.buyer)}`
-        : "Share with payer";
+        ? `Share with buyer ${formatAddress(invoice.buyer)}`
+        : "Share with buyer";
     }
     return invoice.seller
-      ? `Share with creator ${formatAddress(invoice.seller)}`
-      : "Share with creator";
+      ? `Share with seller ${formatAddress(invoice.seller)}`
+      : "Share with seller";
   }, [invoice.buyer, invoice.seller, isSellerView]);
 
   /* ── Payment link ──────────────────────────────────────────────────────── */
 
   const paymentUrl = useSecureLink(
     isExpanded ? invoice.orderId : undefined,
-    "checkout"
+    "checkout",
   );
 
   const handleCopyLink = useCallback(() => {
@@ -247,13 +324,16 @@ export function MarketplaceCard({
 
   /* ── Amount display helpers ─────────────────────────────────────────────── */
 
-  const amountDisplay = tokenData?.name
-    ? `${amount} ${tokenData.name}`
-    : `${amount}`;
+  const withCurrencySuffix = useCallback(
+    (value: string) =>
+      paymentCurrency ? `${value} ${paymentCurrency}` : value,
+    [paymentCurrency],
+  );
 
-  const releasedAmountDisplay = tokenData?.name
-    ? `${releasedAmount} ${tokenData.name}`
-    : `${releasedAmount}`;
+  // Amount stays plain; other monetary fields carry payment-currency suffix.
+  const amountDisplay = fmtAmount(amount);
+  const paidAmountDisplay = withCurrencySuffix(paidAmountFormatted);
+  const releasedAmountDisplay = withCurrencySuffix(releasedAmount);
 
   /* ── UI Render ─────────────────────────────────────────────────────────── */
 
@@ -300,7 +380,7 @@ export function MarketplaceCard({
 
           <div className="flex items-center gap-2">
             <Badge
-              className={`${badgeColor} cursor-default select-none hover:bg-inherit hover:text-inherit`}
+              className={`${badgeColor} cursor-default select-none text-xs py-0.5 px-2 h-auto font-medium leading-tight hover:bg-inherit hover:text-inherit`}
               onClick={(e) => e.stopPropagation()}
               onMouseDown={(e) => e.stopPropagation()}
             >
@@ -314,8 +394,8 @@ export function MarketplaceCard({
           </div>
         </div>
 
-        {/* Release countdown (PAID) */}
-        {displayStatus === "PAID" && (
+        {/* Release countdown (PAID or DISPUTE DISMISSED) */}
+        {shouldTrackReleaseCountdown && (
           <InvoiceField
             label="Release in"
             value={releaseCountdown}
@@ -334,16 +414,24 @@ export function MarketplaceCard({
             />
           )}
 
-        {/* Amount */}
+        {/* Amount (always USD) */}
         {invoice.price && (
           <InvoiceField
             label="Amount"
-            value={
-              invoice.status === "AWAITING PAYMENT"
-                ? "$" + amountDisplay
-                : amountDisplay
-            }
+            value={`$${amountDisplay}`}
             description="Invoice total amount."
+          />
+        )}
+
+        {displayStatus === "PAID" && (
+          <InvoiceField
+            label="Amount Paid"
+            value={
+              invoice.paymentTxHash
+                ? renderTx(invoice.paymentTxHash, paidAmountDisplay)
+                : paidAmountDisplay
+            }
+            description="Amount deposited into escrow."
           />
         )}
 
@@ -361,6 +449,40 @@ export function MarketplaceCard({
             />
           )}
 
+        {/* Dispute settled: each party only sees their own received amount */}
+        {displayStatus === "DISPUTE SETTLED" &&
+          isSellerView &&
+          invoice.sellerAmountReceivedAfterDispute && (
+            <InvoiceField
+              label="You Received"
+              value={(() => {
+                const raw = invoice.sellerAmountReceivedAfterDispute!;
+                const display = withCurrencySuffix(formatTokenAmountExact(raw));
+                const txHash = invoice.disputeSettledTxHash ?? invoice.releaseHash;
+                return txHash
+                  ? renderTx(txHash, display)
+                  : display;
+              })()}
+              description="Amount released to you after dispute settlement."
+            />
+          )}
+        {displayStatus === "DISPUTE SETTLED" &&
+          isBuyerView &&
+          invoice.buyerAmountReceivedAfterDispute && (
+            <InvoiceField
+              label="You Received"
+              value={(() => {
+                const raw = invoice.buyerAmountReceivedAfterDispute!;
+                const display = withCurrencySuffix(formatTokenAmountExact(raw));
+                const txHash = invoice.disputeSettledTxHash ?? invoice.refundTxHash;
+                return txHash
+                  ? renderTx(txHash, display)
+                  : display;
+              })()}
+              description="Amount returned to you after dispute settlement."
+            />
+          )}
+
         {/* Void in countdown (AWAITING PAYMENT / CANCELED) */}
         {isAwaitingPayment && invoice.invalidateAt && (
           <InvoiceField
@@ -370,13 +492,12 @@ export function MarketplaceCard({
           />
         )}
 
-        {/* Payer — seller view for PAID and dispute states */}
         {(displayStatus === "PAID" || isDisputed) &&
           isSellerView &&
           invoice.buyer &&
           !isZeroAddress(invoice.buyer) && (
             <InvoiceField
-              label="Payer"
+              label="Buyer"
               value={renderContractLink(invoice.buyer)}
               description={
                 isDisputed
@@ -391,7 +512,7 @@ export function MarketplaceCard({
         {displayStatus === "REFUNDED" && (
           <>
             <InvoiceField
-              label="Creator"
+              label="Seller"
               value={renderContractLink(invoice.seller)}
               description="Seller who created this invoice."
               link="https://sapphiredao.gitbook.io/sapphiredao-docs/user-docs/publish-your-docs#seller"
@@ -401,8 +522,8 @@ export function MarketplaceCard({
               label="Amount Paid"
               value={
                 invoice.paymentTxHash
-                  ? renderTx(invoice.paymentTxHash, amountDisplay)
-                  : amountDisplay
+                  ? renderTx(invoice.paymentTxHash, paidAmountDisplay)
+                  : paidAmountDisplay
               }
               description="Amount deposited into escrow before refund."
             />
@@ -411,7 +532,7 @@ export function MarketplaceCard({
               label="Amount Refunded"
               value={
                 invoice.refundTxHash
-                  ? renderTx(invoice.refundTxHash, amountDisplay)
+                  ? renderTx(invoice.refundTxHash, paidAmountDisplay)
                   : undefined
               }
               description="Amount returned to the buyer."
@@ -421,7 +542,7 @@ export function MarketplaceCard({
               <p className="text-xs text-red-600 font-medium mt-2">
                 Order refunded by{" "}
                 <a
-                  href={`https://sepolia.etherscan.io/address/${invoice.seller}`}
+                  href={`https://sepolia.basescan.org/address/${invoice.seller}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="underline text-red-700 hover:text-red-800"
@@ -438,6 +559,7 @@ export function MarketplaceCard({
           orderId={invoice.orderId}
           onExpand={ensureExpanded}
           shareLabel={shareLabel}
+          expanded={isExpanded}
         />
       </CardHeader>
 
@@ -453,41 +575,26 @@ export function MarketplaceCard({
             />
           )}
 
-          {/* Creator — hidden for REFUNDED (already shown in header) */}
           {invoice.seller && displayStatus !== "REFUNDED" && (
             <InvoiceField
-              label="Creator"
+              label="Seller"
               value={renderContractLink(invoice.seller)}
               description="Seller who created this invoice."
               link="https://sapphiredao.gitbook.io/sapphiredao-docs/user-docs/publish-your-docs#seller"
             />
           )}
 
-          {/* Payer — hidden while awaiting payment (zero address) and for REFUNDED */}
           {invoice.buyer &&
             !isZeroAddress(invoice.buyer) &&
             !isAwaitingPayment &&
             displayStatus !== "REFUNDED" && (
               <InvoiceField
-                label="Payer"
+                label="Buyer"
                 value={renderContractLink(invoice.buyer)}
                 description="Buyer responsible for payment."
                 link="https://sapphiredao.gitbook.io/sapphiredao-docs/user-docs/publish-your-docs#buyer"
               />
             )}
-
-          {/* Amount Paid — hidden for REFUNDED (shown in header) */}
-          {invoice.amountPaid && displayStatus !== "REFUNDED" && (
-            <InvoiceField
-              label="Amount Paid"
-              value={
-                invoice.paymentTxHash
-                  ? renderTx(invoice.paymentTxHash, amountDisplay)
-                  : amountDisplay
-              }
-              description="Amount deposited into escrow."
-            />
-          )}
 
           {/* Amount Released — expanded detail for RELEASED */}
           {displayStatus === "RELEASED" &&

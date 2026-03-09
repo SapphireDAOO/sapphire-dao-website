@@ -12,7 +12,7 @@ import {
 } from "@/services/notes";
 import { decryptNoteBlob, unixToGMT } from "@/utils";
 import {
-  ETHEREUM_SEPOLIA,
+  BASE_SEPOLIA,
   NOTES_CONTRACT,
   NOTES_SIGNER_ADDRESS,
 } from "@/constants";
@@ -61,7 +61,7 @@ export const useInvoiceNotes = (
 ) => {
   const isEnabled = options?.enabled ?? true;
   const { address, chain } = useAccount();
-  const chainId = chain?.id || ETHEREUM_SEPOLIA;
+  const chainId = chain?.id || BASE_SEPOLIA;
   const publicClient = usePublicClient({ chainId });
 
   const { signMessageAsync } = useSignMessage();
@@ -200,6 +200,7 @@ export const useInvoiceNotes = (
         logs.forEach((log) => {
           const args = log.args as
             | {
+                invoiceId?: bigint;
                 orderId?: bigint;
                 noteId?: bigint;
                 author?: string;
@@ -208,8 +209,9 @@ export const useInvoiceNotes = (
               }
             | undefined;
 
-          if (args?.orderId == null || args?.noteId == null) return;
-          if (args.orderId.toString() !== normalizedOrderId.toString()) return;
+          const invoiceId = args?.invoiceId ?? args?.orderId;
+          if (invoiceId == null || args?.noteId == null) return;
+          if (invoiceId.toString() !== normalizedOrderId.toString()) return;
 
           const share = Boolean(args.share);
           const author = (args.author || "").toLowerCase();
@@ -331,6 +333,7 @@ export const useInvoiceNotes = (
         logs.forEach((log) => {
           const args = log.args as
             | {
+                invoiceId?: bigint;
                 orderId?: bigint;
                 noteId?: bigint;
                 user?: string;
@@ -338,13 +341,14 @@ export const useInvoiceNotes = (
               }
             | undefined;
 
+          const invoiceId = args?.invoiceId ?? args?.orderId;
           if (
-            args?.orderId == null ||
+            invoiceId == null ||
             args?.noteId == null ||
             args?.user == null
           )
             return;
-          if (args.orderId.toString() !== normalizedOrderId.toString()) return;
+          if (invoiceId.toString() !== normalizedOrderId.toString()) return;
           if (args.user.toLowerCase() !== openStateUser) return;
 
           const noteId = args.noteId.toString();
@@ -505,7 +509,9 @@ export const useInvoiceNotes = (
             : "-";
 
           const previousOpened = openStateMap.get(note.noteId);
-          const opened = previousOpened ?? false;
+          // Consider a note "opened" if the user previously set its state (persisted)
+          // This prevents previously-read notes from re-appearing as "new" on each page load
+          const opened = previousOpened ?? stateSet.has(note.noteId) ?? false;
           const hasOpenState =
             stateSet.has(note.noteId) ||
             hasOpenedMap.get(note.noteId) === true ||
@@ -539,13 +545,14 @@ export const useInvoiceNotes = (
         normalizedOrderId.toString(),
         mapped.map((note) => note.noteId)
       );
-      // Keep any still-pending optimistic notes that the subgraph hasn't indexed yet
+      // Preserve any in-memory notes (pending OR confirmed) not yet indexed by
+      // the subgraph. This prevents optimistic notes from disappearing on the
+      // scheduled refresh when the subgraph hasn't caught up yet.
       setNotes((prev) => {
-        const stillPending = prev.filter(
-          (n) => n.isPending && !mapped.some((m) => m.noteId === n.noteId)
-        );
-        if (stillPending.length === 0) return mapped;
-        return [...stillPending, ...mapped].sort((a, b) => {
+        const mappedIds = new Set(mapped.map((m) => m.noteId));
+        const notYetIndexed = prev.filter((n) => !mappedIds.has(n.noteId));
+        if (notYetIndexed.length === 0) return mapped;
+        return [...notYetIndexed, ...mapped].sort((a, b) => {
           try {
             const aKey = BigInt(a.noteId);
             const bKey = BigInt(b.noteId);
@@ -598,6 +605,24 @@ export const useInvoiceNotes = (
         return false;
       }
 
+      // Add optimistic note immediately so the user sees it right away,
+      // before the signature prompt and the API call complete.
+      const localId = `local-${Date.now().toString()}`;
+      const optimistic: ThreadNote = {
+        id: localId,
+        noteId: localId,
+        author: address,
+        share,
+        message: trimmed,
+        createdAtLabel: formatNowLabel(),
+        opened: false,
+        hasOpenState: true,
+        isAuthor: true,
+        isPending: true,
+        txHash: undefined,
+      };
+      setNotes((prev) => [optimistic, ...prev]);
+
       setIsCreating(true);
 
       try {
@@ -609,6 +634,7 @@ export const useInvoiceNotes = (
           signature = await signMessageAsync({ message });
         } catch {
           toast.error("Signature rejected. Note not saved.");
+          setNotes((prev) => prev.filter((n) => n.noteId !== localId));
           return false;
         }
 
@@ -622,46 +648,31 @@ export const useInvoiceNotes = (
         });
 
         const noteId = result.noteId?.toString?.() ?? result.noteId;
-        const resolvedNoteId =
-          noteId || `local-${Date.now().toString()}`;
-        const resolvedTxHash =
-          typeof result.txHash === "string"
-            ? result.txHash.toLowerCase()
-            : undefined;
-          const optimistic: ThreadNote = {
-            id: result.noteId
-              ? `${normalizedOrderId.toString()}-${resolvedNoteId}`
-              : `local-${resolvedNoteId}`,
-            noteId: resolvedNoteId,
-            author: address,
-            share,
-            message: trimmed,
-            createdAtLabel: formatNowLabel(),
-            opened: false,
-            hasOpenState: true,
-            isAuthor: true,
-            isPending: !result.noteId,
-            txHash: result.txHash,
-          };
+        const resolvedNoteId = noteId || localId;
 
-        setNotes((prev) => {
-          if (
-            prev.some(
-              (note) =>
-                note.noteId === resolvedNoteId ||
-                (resolvedTxHash &&
-                  note.txHash?.toLowerCase() === resolvedTxHash)
-            )
-          ) {
-            return prev;
-          }
-          return [optimistic, ...prev];
-        });
+        // Upgrade the optimistic note with the real IDs from the server
+        setNotes((prev) =>
+          prev.map((n) => {
+            if (n.noteId !== localId) return n;
+            return {
+              ...n,
+              id: noteId
+                ? `${normalizedOrderId.toString()}-${resolvedNoteId}`
+                : localId,
+              noteId: resolvedNoteId,
+              isPending: !noteId,
+              txHash: result.txHash,
+            };
+          })
+        );
+
         scheduleRefresh();
         return true;
       } catch (error) {
         console.error("Failed to create note", error);
         toast.error("Unable to save note.");
+        // Roll back the optimistic note on failure
+        setNotes((prev) => prev.filter((n) => n.noteId !== localId));
         return false;
       } finally {
         setIsCreating(false);

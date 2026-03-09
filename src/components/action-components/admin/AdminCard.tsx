@@ -154,7 +154,7 @@ const AdminCard = () => {
             <span className="font-mono text-primary">
               {feeReceiver ? (
                 <a
-                  href={`https://sepolia.etherscan.io/address/${feeReceiver}`}
+                  href={`https://sepolia.basescan.org/address/${feeReceiver}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-blue-500 underline"
@@ -171,7 +171,7 @@ const AdminCard = () => {
             <span className="font-mono text-primary">
               {marketplaceKeeperAddress ? (
                 <a
-                  href={`https://sepolia.etherscan.io/address/${marketplaceKeeperAddress}`}
+                  href={`https://sepolia.basescan.org/address/${marketplaceKeeperAddress}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-blue-500 underline"

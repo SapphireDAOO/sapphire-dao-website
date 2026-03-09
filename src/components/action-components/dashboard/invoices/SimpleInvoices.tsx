@@ -24,6 +24,24 @@ import { useSharedSecondTicker } from "@/hooks/useSharedSecondTicker";
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 const isZeroAddress = (value?: string) => value?.toLowerCase() === ZERO_ADDRESS;
 
+const formatAmountMax4 = (value?: string | null): string => {
+  if (!value) return "0";
+  const trimmed = value.trim();
+  if (!trimmed) return "0";
+
+  const negative = trimmed.startsWith("-");
+  const unsigned = negative ? trimmed.slice(1) : trimmed;
+  const [wholePart = "0", decimalPart = ""] = unsigned.split(".");
+  const normalizedWhole = wholePart || "0";
+  const groupedWhole = normalizedWhole.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  const clippedDecimal = decimalPart.slice(0, 4).replace(/0+$/, "");
+  const formatted = clippedDecimal
+    ? `${groupedWhole}.${clippedDecimal}`
+    : groupedWhole;
+
+  return negative ? `-${formatted}` : formatted;
+};
+
 export function InvoiceCard({
   invoice,
   isExpanded,
@@ -58,7 +76,7 @@ export function InvoiceCard({
       return timeLeft(
         invoice.paidAt ? Number(invoice.paidAt) : null,
         0,
-        Number(invoice.releaseAt) * 1000
+        Number(invoice.releaseAt) * 1000,
       );
     }
     if (invoice.status === "PAID" && invoice.paidAt) {
@@ -85,7 +103,7 @@ export function InvoiceCard({
 
   const paymentUrl = useSecureLink(
     isExpanded ? invoice.orderId : undefined,
-    "pay"
+    "pay",
   );
 
   const ensureExpanded = useCallback(() => {
@@ -151,7 +169,7 @@ export function InvoiceCard({
     ) {
       return Boolean(
         invoice.invalidateAt &&
-          Date.now() > Number(invoice.invalidateAt) * 1000,
+        Date.now() > Number(invoice.invalidateAt) * 1000,
       );
     }
     return invoice.status === "EXPIRED";
@@ -160,8 +178,8 @@ export function InvoiceCard({
   const displayStatus = isExpired
     ? "EXPIRED"
     : invoice.status === "CREATED"
-    ? "AWAITING PAYMENT"
-    : invoice.status || "Unknown";
+      ? "AWAITING PAYMENT"
+      : invoice.status || "Unknown";
   const isAwaitingPayment =
     !isExpired &&
     (invoice.status === "AWAITING PAYMENT" ||
@@ -174,9 +192,9 @@ export function InvoiceCard({
     try {
       const baseWei = parseEther(baseAmount);
       const releasedWei = (baseWei * BigInt(95)) / BigInt(100);
-      return formatEther(releasedWei);
+      return formatAmountMax4(formatEther(releasedWei));
     } catch {
-      return baseAmount;
+      return formatAmountMax4(baseAmount);
     }
   }, [invoice.amountPaid, invoice.price]);
 
@@ -202,8 +220,8 @@ export function InvoiceCard({
     invoice.status === "PAID"
       ? "Decision window"
       : invoice.status === "ACCEPTED"
-      ? "Release in"
-      : null;
+        ? "Release in"
+        : null;
 
   return (
     <Card className="transition-shadow hover:shadow-md">
@@ -242,37 +260,36 @@ export function InvoiceCard({
         )}
 
         {/* Paid timestamp in header */}
-        {invoice.status === "PAID" && invoice.paidAt && invoice.paidAt !== "Not Paid" && (
-          <InvoiceField
-            label="Paid At"
-            value={unixToGMT(invoice.paidAt)}
-            description="Timestamp when payment was received in escrow."
-          />
-        )}
+        {invoice.status === "PAID" &&
+          invoice.paidAt &&
+          invoice.paidAt !== "Not Paid" && (
+            <InvoiceField
+              label="Paid At"
+              value={unixToGMT(invoice.paidAt)}
+              description="Timestamp when payment was received in escrow."
+            />
+          )}
 
         {/* Amount always shown */}
         {invoice.price && (
           <InvoiceField
             label="Amount"
-            value={`${invoice.price} ETH`}
+            value={`${formatAmountMax4(invoice.price)} ETH`}
             description="Total invoice amount (excluding fees)."
           />
         )}
 
         {invoice.status === "RELEASED" && releasedAmount && (
-            <InvoiceField
-              label="Amount Released"
-              value={
-                invoice.releaseHash
-                  ? renderTx(
-                      invoice.releaseHash,
-                      `${releasedAmount} ETH`
-                    )
-                  : `${releasedAmount} ETH`
-              }
-              description="Amount released to the seller."
-            />
-          )}
+          <InvoiceField
+            label="Amount Released"
+            value={
+              invoice.releaseHash
+                ? renderTx(invoice.releaseHash, `${releasedAmount} ETH`)
+                : `${releasedAmount} ETH`
+            }
+            description="Amount released to the seller."
+          />
+        )}
 
         {invoice.status === "AWAITING PAYMENT" && (
           <InvoiceField
@@ -310,8 +327,11 @@ export function InvoiceCard({
                 label="Amount Paid"
                 value={
                   invoice.paymentTxHash
-                    ? renderTx(invoice.paymentTxHash, `${invoice.amountPaid} ETH`)
-                    : `${invoice.amountPaid} ETH`
+                    ? renderTx(
+                        invoice.paymentTxHash,
+                        `${formatAmountMax4(invoice.amountPaid)} ETH`,
+                      )
+                    : `${formatAmountMax4(invoice.amountPaid)} ETH`
                 }
                 description="The amount already paid into escrow by the buyer."
               />
@@ -336,7 +356,7 @@ export function InvoiceCard({
                   invoice.refundTxHash && invoice.amountPaid
                     ? renderTx(
                         invoice.refundTxHash,
-                        `${invoice.amountPaid} ETH`
+                        `${formatAmountMax4(invoice.amountPaid)} ETH`,
                       )
                     : undefined
                 }
@@ -348,14 +368,14 @@ export function InvoiceCard({
               <p className="text-xs text-red-600 font-medium mt-2">
                 Order rejected by{" "}
                 <a
-                  href={`https://sepolia.etherscan.io/address/${invoice.seller}`}
+                  href={`https://sepolia.basescan.org/address/${invoice.seller}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="underline text-red-700 hover:text-red-800"
                 >
                   {invoice.seller
                     ? `${invoice.seller.slice(0, 6)}...${invoice.seller.slice(
-                        -4
+                        -4,
                       )}`
                     : "Unknown Contract"}
                 </a>{" "}
@@ -369,6 +389,7 @@ export function InvoiceCard({
           orderId={invoice.orderId}
           onExpand={ensureExpanded}
           shareLabel={shareLabel}
+          expanded={isExpanded}
         />
 
         {/* Cancel button in header */}
@@ -425,17 +446,22 @@ export function InvoiceCard({
               />
             )}
 
-          {invoice.amountPaid && invoice.amountPaid !== "0" && invoice.status !== "REFUNDED" && (
-            <InvoiceField
-              label="Amount Paid"
-              value={
-                invoice.paymentTxHash
-                  ? renderTx(invoice.paymentTxHash, `${invoice.amountPaid} ETH`)
-                  : `${invoice.amountPaid} ETH`
-              }
-              description="Amount deposited into escrow."
-            />
-          )}
+          {invoice.amountPaid &&
+            invoice.amountPaid !== "0" &&
+            invoice.status !== "REFUNDED" && (
+              <InvoiceField
+                label="Amount Paid"
+                value={
+                  invoice.paymentTxHash
+                    ? renderTx(
+                        invoice.paymentTxHash,
+                        `${formatAmountMax4(invoice.amountPaid)} ETH`,
+                      )
+                    : `${formatAmountMax4(invoice.amountPaid)} ETH`
+                }
+                description="Amount deposited into escrow."
+              />
+            )}
 
           {/* State History */}
           {displayHistory.length > 0 && (
@@ -480,4 +506,8 @@ export function InvoiceCard({
 }
 
 // renderContractLink, renderTx, InvoiceField live in InvoiceCardShared.tsx
-export { renderContractLink, renderTx, InvoiceField } from "./InvoiceCardShared";
+export {
+  renderContractLink,
+  renderTx,
+  InvoiceField,
+} from "./InvoiceCardShared";

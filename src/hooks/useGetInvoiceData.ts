@@ -1,10 +1,10 @@
 import { paymentProcessor } from "@/abis/PaymentProcessor";
 import { SIMPLE_PAYMENT_PROCESSOR } from "@/constants";
 
-import { sepolia } from "viem/chains";
+import { baseSepolia } from "viem/chains";
 import { useAccount, useChainId } from "wagmi";
 import { useViemReadContract } from "./useViemReadContract";
-import { ETHEREUM_SEPOLIA } from "@/constants";
+import { BASE_SEPOLIA } from "@/constants";
 
 /**
  * Custom hook to fetch invoice data from the PaymentProcessor smart contract using an invoice key.
@@ -25,12 +25,12 @@ export const useGetInvoiceData = (orderId: bigint | undefined) => {
   const { address } = useAccount();
 
   // Get the current chain ID using the wagmi `useChainId` hook
-  const chainId = useChainId() || ETHEREUM_SEPOLIA;
+  const chainId = useChainId() || BASE_SEPOLIA;
 
   // Use the wagmi `useReadContract` hook to interact with the `getInvoiceData` function of the PaymentProcessor contract
   const { data, refetch, isLoading } = useViemReadContract({
     abi: paymentProcessor,
-    chainId: sepolia.id,
+    chainId: baseSepolia.id,
     address: SIMPLE_PAYMENT_PROCESSOR[chainId],
     functionName: "getInvoiceData",
     args: orderId ? [orderId] : undefined,

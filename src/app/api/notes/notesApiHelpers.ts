@@ -4,15 +4,15 @@ import {
   http,
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { sepolia } from "viem/chains";
+import { baseSepolia } from "viem/chains";
 
 const normalizePrivateKey = (value: string) =>
   value.startsWith("0x") ? value : `0x${value}`;
 
 const getRpcUrl = () =>
-  process.env.SEPOLIA_RPC_URL ||
-  process.env.NEXT_PUBLIC_SEPOLIA_RPC_URL ||
-  "https://ethereum-sepolia-rpc.publicnode.com";
+  process.env.BASE_SEPOLIA_RPC_URL ||
+  process.env.NEXT_PUBLIC_BASE_SEPOLIA_RPC_URL ||
+  "https://base-sepolia-rpc.publicnode.com";
 
 export const getNotesClients = () => {
   const privateKey =
@@ -30,8 +30,8 @@ export const getNotesClients = () => {
 
   return {
     account,
-    publicClient: createPublicClient({ chain: sepolia, transport }),
-    walletClient: createWalletClient({ account, chain: sepolia, transport }),
+    publicClient: createPublicClient({ chain: baseSepolia, transport }),
+    walletClient: createWalletClient({ account, chain: baseSepolia, transport }),
   };
 };
 

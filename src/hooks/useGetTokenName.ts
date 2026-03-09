@@ -1,4 +1,4 @@
-import { sepolia } from "viem/chains";
+import { baseSepolia } from "viem/chains";
 import { Address, erc20Abi } from "viem";
 import { useViemReadContract } from "./useViemReadContract";
 
@@ -13,7 +13,7 @@ import { useViemReadContract } from "./useViemReadContract";
 export const useGetTokenName = (tokenAddress: Address) => {
   const { data, refetch, isLoading, error } = useViemReadContract<string>({
     abi: erc20Abi,
-    chainId: sepolia.id,
+    chainId: baseSepolia.id,
     address: tokenAddress,
     functionName: "name",
   });

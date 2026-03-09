@@ -5,7 +5,7 @@ export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
   const chainId = Number(
-    req.nextUrl.searchParams.get("chainId") ?? "11155111"
+    req.nextUrl.searchParams.get("chainId") ?? "84532"
   );
 
   const subgraphUrl = THE_GRAPH_API_URL[chainId];

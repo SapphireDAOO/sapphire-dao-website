@@ -2,16 +2,38 @@
 import { toast } from "sonner";
 import { errorMessages, POLYGON_AMOY } from "@/constants";
 import { Address, encodeFunctionData, erc20Abi } from "viem";
-import { sepolia } from "viem/chains";
+import { baseSepolia } from "viem/chains";
 
 export const fetchGasPrice = async (
   publicClient: any,
   chainId: number
 ): Promise<bigint> => {
-  const gasPrice = await publicClient?.getGasPrice();
+  const fallbackGasPrice = BigInt(1_000_000_000); // 1 gwei
+  const gasPrice = (await publicClient?.getGasPrice()) as bigint | undefined;
+  let adjusted = gasPrice ?? fallbackGasPrice;
+
+  try {
+    const latestBlock = (await publicClient?.getBlock({
+      blockTag: "latest",
+    })) as { baseFeePerGas?: bigint } | undefined;
+    const baseFeePerGas = latestBlock?.baseFeePerGas;
+
+    // Some wallets map `gasPrice` into EIP-1559 fee caps. Ensure the value
+    // is safely above base fee to avoid `maxFeePerGas < baseFee` rejections.
+    if (typeof baseFeePerGas === "bigint" && baseFeePerGas > BigInt(0)) {
+      const priorityBuffer = BigInt(100_000_000); // 0.1 gwei
+      const minSafeFeeCap = baseFeePerGas * BigInt(2) + priorityBuffer;
+      if (adjusted < minSafeFeeCap) {
+        adjusted = minSafeFeeCap;
+      }
+    }
+  } catch {
+    // Ignore block read errors and keep the fetched gas price.
+  }
+
   return chainId === POLYGON_AMOY
-    ? (gasPrice * BigInt(300)) / BigInt(100)
-    : gasPrice;
+    ? (adjusted * BigInt(300)) / BigInt(100)
+    : adjusted;
 };
 
 export const getError = (error: any) => {
@@ -68,7 +90,7 @@ export const handleApproval = async (
     }
 
     const tx = await walletClient?.sendTransaction({
-      chain: sepolia,
+      chain: baseSepolia,
       to: tokenAddress,
       data: encodeFunctionData({
         abi: erc20Abi,

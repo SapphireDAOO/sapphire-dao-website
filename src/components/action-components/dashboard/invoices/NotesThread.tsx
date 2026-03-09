@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
@@ -20,10 +20,13 @@ export function NotesThread({
   orderId,
   onExpand,
   shareLabel,
+  expanded,
 }: {
   orderId: bigint;
   onExpand: () => void;
   shareLabel: string;
+  /** Whether the parent card is expanded (shows thread list when true) */
+  expanded: boolean;
 }) {
   // Defer note fetching until the component enters the viewport
   const containerRef = useRef<HTMLDivElement>(null);
@@ -32,7 +35,6 @@ export function NotesThread({
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
-    // Already visible (e.g. first card)
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
@@ -46,6 +48,9 @@ export function NotesThread({
     return () => observer.disconnect();
   }, []);
 
+  // Query notes only for the currently expanded card.
+  const isNotesEnabled = isInView && expanded;
+
   const {
     notes,
     isLoading,
@@ -53,12 +58,18 @@ export function NotesThread({
     pendingNoteIds,
     createNote,
     setNoteOpen,
-  } = useInvoiceNotes(orderId, { enabled: isInView });
+  } = useInvoiceNotes(orderId, { enabled: isNotesEnabled });
 
   const [isComposerOpen, setIsComposerOpen] = useState(false);
   const [draft, setDraft] = useState("");
   const [share, setShare] = useState(false);
   const [notePage, setNotePage] = useState(0);
+
+  // Count notes from others that haven't been opened yet
+  const unreadCount = useMemo(
+    () => notes.filter((n) => !n.opened && !n.isAuthor && n.share).length,
+    [notes],
+  );
 
   const pagedNotes = notes.slice(
     notePage * NOTES_PAGE_SIZE,
@@ -148,61 +159,75 @@ export function NotesThread({
       onClick={(e) => e.stopPropagation()}
       onMouseDown={(e) => e.stopPropagation()}
     >
+      {/* Header bar — always visible (collapsed + expanded) */}
       <div className="flex items-center justify-between">
-        <span className="text-xs font-semibold text-gray-700">
-          Notes{notes.length > 0 ? ` (${notes.length})` : ""}
-        </span>
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs font-semibold text-gray-700">
+            Notes{notes.length > 0 ? ` (${notes.length})` : ""}
+          </span>
+          {unreadCount > 0 && (
+            <Badge className="bg-red-500 text-white text-[10px] px-1.5 py-0 cursor-default select-none hover:bg-red-500">
+              {unreadCount} new
+            </Badge>
+          )}
+        </div>
         <Button size="sm" variant="ghost" onClick={handleCreateClick}>
           Create Note
         </Button>
       </div>
 
-      {isLoading ? (
-        <p className="text-[11px] text-gray-400">Loading notes...</p>
-      ) : notes.length === 0 ? (
-        <p className="text-[11px] text-gray-400">No notes yet.</p>
-      ) : (
+      {/* Notes thread — only visible when card is expanded */}
+      {expanded && (
         <>
-          <div className="space-y-1.5">{pagedNotes.map(renderNote)}</div>
+          {isLoading ? (
+            <p className="text-[11px] text-gray-400">Loading notes...</p>
+          ) : notes.length === 0 ? (
+            <p className="text-[11px] text-gray-400">No notes yet.</p>
+          ) : (
+            <>
+              <div className="space-y-1.5">{pagedNotes.map(renderNote)}</div>
 
-          {(hasPrevNotePage || hasNextNotePage) && (
-            <div className="flex items-center justify-between pt-1">
-              <Button
-                size="sm"
-                variant="ghost"
-                className="h-6 px-2 text-[11px]"
-                disabled={!hasPrevNotePage}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setNotePage((p) => Math.max(0, p - 1));
-                }}
-                onMouseDown={(e) => e.stopPropagation()}
-              >
-                <ChevronLeft className="h-3 w-3 mr-0.5" />
-                Prev
-              </Button>
-              <span className="text-[10px] text-gray-400">
-                {notePage + 1} / {Math.ceil(notes.length / NOTES_PAGE_SIZE)}
-              </span>
-              <Button
-                size="sm"
-                variant="ghost"
-                className="h-6 px-2 text-[11px]"
-                disabled={!hasNextNotePage}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setNotePage((p) => p + 1);
-                }}
-                onMouseDown={(e) => e.stopPropagation()}
-              >
-                Next
-                <ChevronRight className="h-3 w-3 ml-0.5" />
-              </Button>
-            </div>
+              {(hasPrevNotePage || hasNextNotePage) && (
+                <div className="flex items-center justify-between pt-1">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-6 px-2 text-[11px]"
+                    disabled={!hasPrevNotePage}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setNotePage((p) => Math.max(0, p - 1));
+                    }}
+                    onMouseDown={(e) => e.stopPropagation()}
+                  >
+                    <ChevronLeft className="h-3 w-3 mr-0.5" />
+                    Prev
+                  </Button>
+                  <span className="text-[10px] text-gray-400">
+                    {notePage + 1} / {Math.ceil(notes.length / NOTES_PAGE_SIZE)}
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-6 px-2 text-[11px]"
+                    disabled={!hasNextNotePage}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setNotePage((p) => p + 1);
+                    }}
+                    onMouseDown={(e) => e.stopPropagation()}
+                  >
+                    Next
+                    <ChevronRight className="h-3 w-3 ml-0.5" />
+                  </Button>
+                </div>
+              )}
+            </>
           )}
         </>
       )}
 
+      {/* Composer — shown whenever triggered (expand card first) */}
       {isComposerOpen && (
         <div
           className="space-y-2 rounded-md border border-gray-200 bg-white p-2"

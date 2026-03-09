@@ -31,7 +31,7 @@ import { useGetInvoiceData } from "@/hooks/useGetInvoiceData";
 import { useInvoiceNotes, ThreadNote } from "@/hooks/useInvoiceNotes";
 import { SIMPLE_PAYMENT_PROCESSOR } from "@/constants";
 import { paymentProcessor } from "@/abis/PaymentProcessor";
-import { ETHEREUM_SEPOLIA } from "@/constants";
+import { BASE_SEPOLIA } from "@/constants";
 import { formatAddress } from "@/utils";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -40,6 +40,7 @@ type InvoiceLike = {
   price?: string | number | bigint;
   amount?: string | number | bigint;
   orderId?: string | number | bigint;
+  invoiceNonce?: string | number | bigint;
   invoiceId?: string | number | bigint;
   status?: string | number;
   seller?: string;
@@ -71,7 +72,7 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
     : undefined;
   const { data: fetchedInvoice } = useGetInvoiceData(orderId);
   const { notes: invoiceNotes } = useInvoiceNotes(orderId);
-  const contractAddress = SIMPLE_PAYMENT_PROCESSOR[chain?.id || ETHEREUM_SEPOLIA];
+  const contractAddress = SIMPLE_PAYMENT_PROCESSOR[chain?.id || BASE_SEPOLIA];
 
   const {
     invoiceData,
@@ -91,8 +92,36 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
   const resolvedInvoice = liveInvoice ?? fetchedInvoice;
   const invoiceLike = resolvedInvoice as InvoiceLike | undefined;
 
-  const displayOrderId =
-    invoiceLike?.invoiceId ?? invoiceLike?.id ?? invoiceLike?.orderId ?? "";
+  const displayOrderId = useMemo(() => {
+    const fetched = fetchedInvoice as
+      | ({ invoiceNonce?: string | number | bigint; invoiceId?: string | number | bigint } & {
+          [index: number]: unknown;
+        })
+      | undefined;
+    const live = liveInvoice as InvoiceLike | undefined;
+
+    // Prefer nonce directly from chain response for accuracy.
+    const nonceFromChain = fetched?.invoiceNonce ?? fetched?.invoiceId;
+    if (nonceFromChain !== undefined && nonceFromChain !== null) {
+      return nonceFromChain;
+    }
+
+    // Viem tuple fallback: index 0 is invoice nonce in current ABI.
+    if (fetched && fetched[0] !== undefined && fetched[0] !== null) {
+      return fetched[0] as string | number | bigint;
+    }
+
+    // Subgraph/app cache fallback.
+    return (
+      live?.invoiceNonce ??
+      live?.invoiceId ??
+      invoiceLike?.invoiceNonce ??
+      invoiceLike?.invoiceId ??
+      invoiceLike?.id ??
+      invoiceLike?.orderId ??
+      ""
+    );
+  }, [fetchedInvoice, liveInvoice, invoiceLike]);
 
   const displayPriceEth =
     invoiceLike?.price ?? invoiceLike?.amount ?? null;
@@ -151,7 +180,7 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
 
     if (!shouldSubscribe) return;
 
-    const activeChainId = chain?.id || ETHEREUM_SEPOLIA;
+    const activeChainId = chain?.id || BASE_SEPOLIA;
 
     const statusFromEvent: Record<
       | "InvoicePaid"
@@ -186,7 +215,10 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
         eventName: name,
         onLogs: (logs) => {
           for (const log of logs) {
-            const id = (log.args?.orderId as bigint | undefined)?.toString();
+            const args = log.args as
+              | { invoiceId?: bigint; orderId?: bigint }
+              | undefined;
+            const id = (args?.invoiceId ?? args?.orderId)?.toString();
             if (id !== orderId?.toString()) continue;
             setLiveStatus(statusFromEvent[name]);
           }
@@ -320,7 +352,7 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
             This invoice is bounded to the blockchain by contract{" "}
             {contractAddress ? (
               <a
-                href={`https://sepolia.etherscan.io/address/${contractAddress}`}
+                href={`https://sepolia.basescan.org/address/${contractAddress}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-blue-600 underline hover:text-blue-800"

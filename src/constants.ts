@@ -1,70 +1,91 @@
 import { ErrorMessages } from "./model/model";
 import type { Address } from "viem";
-import { sepolia } from "viem/chains";
+import { baseSepolia } from "viem/chains";
 
 export const POLYGON = 137;
 export const POLYGON_AMOY = 80_002;
-export const ETHEREUM_SEPOLIA = 11_155_111;
+export const BASE_SEPOLIA = baseSepolia.id;
 
 export const PAYMENT_PROCESSOR_STORAGE: Record<number, Address> = {
-  [sepolia.id]: "0xeb57F1F77F873d8481510c1f5Ee44dE340Dc93fe",
+  [BASE_SEPOLIA]: "0x7542F386a40FE663121719BC7ac59664a8530C38",
 };
 
 export const SIMPLE_PAYMENT_PROCESSOR: Record<number, Address> = {
-  [sepolia.id]: "0xd4a9E5ac9f54bECcD7C12ca6bD7Bd026BbF0058D",
+  [BASE_SEPOLIA]: "0x5214B494598c706a482A36Dc6fece2FdafF3390d",
 };
 
 export const ADVANCED_PAYMENT_PROCESSOR: Record<number, Address> = {
-  [sepolia.id]: "0x3D07827e8a6BA46f37d129dF8d99f4EE8aa5685f",
+  [BASE_SEPOLIA]: "0x96AB8111B8C9eC5f7ec99c398e83F57BDC47b40E",
 };
 
 export const NOTES_CONTRACT: Record<number, Address> = {
-  [sepolia.id]: "0xbE210c16e990e74a92Eb85060bB33Eb03418C565",
+  [BASE_SEPOLIA]: "0x3252Ee213AF17C4d752Aec009AdBA83B93229b31",
 };
 
 export const NOTES_SIGNER_ADDRESS =
   process.env.NEXT_PUBLIC_NOTES_SIGNER_ADDRESS;
 
 export const THE_GRAPH_API_URL: Record<number, string> = {
-  [sepolia.id]:
-    "https://gateway.thegraph.com/api/subgraphs/id/H67nz7ap8JxhykAkFYVV3brDSex9W2hCztNgnnbSSRhE",
+  [BASE_SEPOLIA]:
+    "https://api.studio.thegraph.com/query/100227/processor-indexer/version/latest",
 };
 
 export const errorMessages: ErrorMessages = {
+  // SimplePaymentProcessor errors
   "0x5033f274":
-    "ValueIsTooLow: The provided value is lower than the required minimum.",
-  "0x90b8ec18": "TransferFailed: A fund transfer failed.",
-  "0xe24b09f6":
-    "InvoiceNotPaid: An action is attempted on an invoice that has not been paid.",
-  "0x3c6690e6":
-    "ExcessivePayment: The payment amount exceeds the required invoice amount.",
-  "0x2bc29bcc": "FeeValueCanNotBeZero: The fee value provided is zero.",
-  "0x705a7153":
-    "HoldPeriodCanNotBeZero: The hold period provided is zero, which is invalid.",
-  "0xaba23e24":
-    "ZeroAddressIsNotAllowed: A zero address (`address(0)`) is provided.",
-  "0xe92fb4ef":
-    "InvoicePriceIsTooLow: The invoice price is below the allowed minimum.",
-  "0x1d5b1556":
-    "InvalidInvoiceState(uint256): The invoice is in an invalid state for the requested action.",
-  "0xff42dbfc":
-    "InvoiceIsNoLongerValid: The invoice is no longer valid (e.g., cancelled or expired).",
-  "0x322be652":
-    "InvoiceAlreadyPaid: An invoice that has already been fully paid is attempted to be paid again.",
-  "0x715d9228":
-    "InvoiceDoesNotExist: An action is attempted on a non-existent invoice.",
+    "ValueIsTooLow: The provided value is below the required minimum.",
   "0x2b8af0bb":
-    "AcceptanceWindowExceeded: The creator attempts to take action on an invoice after the acceptance window has expired.",
-  "0xd5fd807b":
-    "CreatorCannotPayOwnedInvoice: The creator of an invoice attempts to pay for their own invoice.",
-  "0xbb126ff1":
-    "InvoiceNotEligibleForRefund: The invoice is not eligible for a refund to the creator.",
+    "AcceptanceWindowExceeded: Action attempted after the acceptance window has expired.",
+  "0x6b22feb9":
+    "DuplicateTask: A duplicate automation task already exists for this invoice.",
   "0xad2652ac":
-    "HoldPeriodHasNotBeenExceeded: The hold period for an invoice has not yet been exceeded.",
-  "0x80e5b116":
-    "HoldPeriodShouldBeGreaterThanDefault: A custom hold period is less than the default hold period.",
-  "0xbd798a2d":
-    "InvoiceHasAlreadyBeenReleased: An attempt is made to release an invoice that has already been released.",
+    "HoldPeriodHasNotBeenExceeded: The hold period has not yet elapsed.",
+  "0x47af6acc":
+    "IncorrectPaymentAmount: The payment amount does not match the required invoice price.",
+  "0x39141cc3": "InvalidDecisionWindow: The decision window value is invalid.",
+  "0x76f4a283": "InvalidHeapPosition: Internal heap position is invalid.",
+  "0x1d5b1556":
+    "InvalidInvoiceState: The invoice is in an invalid state for this action.",
+  "0x074bc935": "InvoiceAlreadyExists: An invoice with this ID already exists.",
+  "0xff42dbfc":
+    "InvoiceIsNoLongerValid: The invoice is no longer valid (cancelled or expired).",
+  "0xbb126ff1":
+    "InvoiceNotEligibleForRefund: This invoice is not eligible for a refund.",
+  "0xea8e4eb5":
+    "NotAuthorized: The caller is not authorized to perform this action.",
+  "0x020175b1":
+    "SellerCannotPayOwnedInvoice: The seller cannot pay their own invoice.",
+  "0xc325ae33": "TaskNotFound: No automation task found for this invoice.",
+  // AdvancedPaymentProcessor errors
+  "0xb12e2421":
+    "BuyerCannotBeSeller: The buyer and seller cannot be the same address.",
+  "0x815ba404":
+    "EmptyMetaInvoice: A meta invoice must contain at least one item.",
+  "0xf4d678b8":
+    "InsufficientBalance: Insufficient balance to complete this operation.",
+  "0x34819f90":
+    "InvalidDisputeResolution: The dispute resolution parameters are invalid.",
+  "0x487e4409":
+    "InvalidInvoiceState: The invoice is in an invalid state for this action.",
+  "0xc7632c7d":
+    "InvalidMetaInvoicePaymentAmount: The payment amount for this meta invoice is incorrect.",
+  "0x214510aa": "InvalidNativePayment: Invalid native token payment.",
+  "0x00bfc921": "InvalidPrice: The price provided is invalid.",
+  "0x453fb42d":
+    "InvalidSellersPayoutShare: The seller's payout share is invalid.",
+  "0x715d9228": "InvoiceDoesNotExist: No invoice exists with this ID.",
+  "0xf04e9cf0": "InvoiceExpired: The invoice has expired.",
+  "0xb09960c1":
+    "MetaInvoiceAlreadyExists: A meta invoice with this ID already exists.",
+  "0x2c669f0a": "PriceCannotBeZero: The price must be greater than zero.",
+  "0xdb8db569": "PriceIsTooLow: The price is below the allowed minimum.",
+  "0xab143c06": "Reentrancy: Reentrant call detected.",
+  "0x032b3d00": "SequencerDown: The L2 sequencer is currently unavailable.",
+  "0x19abf40e": "StalePrice: The price feed data is stale.",
+  "0x1087e109":
+    "StalePriceFeed: The price feed has not been updated recently enough.",
+  "0x6a172882": "UnsupportedToken: This payment token is not supported.",
+  // Escrow errors
   "0x82b42900":
-    "Unauthorized: An unauthorized address attempts to perform a restricted action.",
+    "Unauthorized: An unauthorized address attempted a restricted action.",
 };

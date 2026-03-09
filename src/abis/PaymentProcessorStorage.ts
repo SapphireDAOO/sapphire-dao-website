@@ -4,18 +4,26 @@ export const PaymentProcessorStorage = [
       {
         components: [
           { internalType: "address", name: "owner", type: "address" },
-          { internalType: "address", name: "feeReceiver", type: "address" },
-          { internalType: "address", name: "marketplace", type: "address" },
-          { internalType: "uint256", name: "feeRate", type: "uint256" },
+          { internalType: "uint96", name: "feeRate", type: "uint96" },
           {
-            internalType: "uint256",
-            name: "defaultHoldPeriod",
-            type: "uint256",
+            internalType: "address",
+            name: "feeReceiver",
+            type: "address",
           },
-          { internalType: "uint256", name: "gasThresold", type: "uint256" },
+          {
+            internalType: "uint96",
+            name: "defaultHoldPeriod",
+            type: "uint96",
+          },
+          {
+            internalType: "address",
+            name: "marketplace",
+            type: "address",
+          },
+          { internalType: "uint96", name: "gasThreshold", type: "uint96" },
         ],
         internalType: "struct IPaymentProcessorStorage.Configuration",
-        name: "configuration",
+        name: "_configuration",
         type: "tuple",
       },
     ],
@@ -23,8 +31,8 @@ export const PaymentProcessorStorage = [
     type: "constructor",
   },
   { inputs: [], name: "AlreadyInitialized", type: "error" },
-  { inputs: [], name: "CallFailed", type: "error" },
   { inputs: [], name: "HoldPeriodCanNotBeZero", type: "error" },
+  { inputs: [], name: "InvalidFeeRate", type: "error" },
   { inputs: [], name: "NewOwnerIsZeroAddress", type: "error" },
   { inputs: [], name: "NoHandoverRequest", type: "error" },
   { inputs: [], name: "NotAuthorized", type: "error" },
@@ -76,6 +84,20 @@ export const PaymentProcessorStorage = [
   },
   {
     inputs: [],
+    name: "BASIS_POINTS",
+    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "DEFAULT_PAYMENT_VALIDITY_PERIOD",
+    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [],
     name: "cancelOwnershipHandover",
     outputs: [],
     stateMutability: "payable",
@@ -91,54 +113,71 @@ export const PaymentProcessorStorage = [
     type: "function",
   },
   {
-    inputs: [
-      { internalType: "address", name: "target", type: "address" },
-      { internalType: "bytes", name: "data", type: "bytes" },
-    ],
-    name: "execute",
-    outputs: [{ internalType: "bytes", name: "", type: "bytes" }],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
     inputs: [],
     name: "getDefaultHoldPeriod",
-    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+    outputs: [
+      {
+        internalType: "uint256",
+        name: "defaultHoldPeriod",
+        type: "uint256",
+      },
+    ],
     stateMutability: "view",
     type: "function",
   },
   {
     inputs: [],
     name: "getFeeRate",
-    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+    outputs: [{ internalType: "uint256", name: "feeRate", type: "uint256" }],
     stateMutability: "view",
     type: "function",
   },
   {
     inputs: [],
     name: "getFeeReceiver",
-    outputs: [{ internalType: "address", name: "", type: "address" }],
+    outputs: [
+      { internalType: "address", name: "feeReceiver", type: "address" },
+    ],
     stateMutability: "view",
     type: "function",
   },
   {
     inputs: [],
-    name: "getGasThresold",
-    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+    name: "getGasThreshold",
+    outputs: [
+      { internalType: "uint256", name: "gasThreshold", type: "uint256" },
+    ],
     stateMutability: "view",
     type: "function",
   },
   {
     inputs: [],
     name: "getMarketplace",
-    outputs: [{ internalType: "address", name: "", type: "address" }],
+    outputs: [
+      { internalType: "address", name: "marketplace", type: "address" },
+    ],
     stateMutability: "view",
     type: "function",
   },
   {
     inputs: [],
-    name: "getNextInvoiceId",
-    outputs: [{ internalType: "uint216", name: "", type: "uint216" }],
+    name: "getNextInvoiceNonce",
+    outputs: [
+      {
+        internalType: "uint216",
+        name: "nextInvoiceNonceValue",
+        type: "uint216",
+      },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "getPaymentValidityDuration",
+    outputs: [
+      { internalType: "uint256", name: "validDuration", type: "uint256" },
+    ],
     stateMutability: "view",
     type: "function",
   },
@@ -174,8 +213,12 @@ export const PaymentProcessorStorage = [
   },
   {
     inputs: [
-      { internalType: "address", name: "authorizedAddress", type: "address" },
-      { internalType: "bool", name: "authorized", type: "bool" },
+      {
+        internalType: "address",
+        name: "_authorizedAddress",
+        type: "address",
+      },
+      { internalType: "bool", name: "_authorized", type: "bool" },
     ],
     name: "setAuthorizedAddress",
     outputs: [],
@@ -186,7 +229,7 @@ export const PaymentProcessorStorage = [
     inputs: [
       {
         internalType: "uint256",
-        name: "newDefaultHoldPeriod",
+        name: "_newDefaultHoldPeriod",
         type: "uint256",
       },
     ],
@@ -196,7 +239,7 @@ export const PaymentProcessorStorage = [
     type: "function",
   },
   {
-    inputs: [{ internalType: "uint256", name: "newFeeRate", type: "uint256" }],
+    inputs: [{ internalType: "uint256", name: "_newFeeRate", type: "uint256" }],
     name: "setFeeRate",
     outputs: [],
     stateMutability: "nonpayable",
@@ -204,7 +247,11 @@ export const PaymentProcessorStorage = [
   },
   {
     inputs: [
-      { internalType: "address", name: "feeReceiverAddress", type: "address" },
+      {
+        internalType: "address",
+        name: "_feeReceiverAddress",
+        type: "address",
+      },
     ],
     name: "setFeeReceiver",
     outputs: [],
@@ -213,16 +260,24 @@ export const PaymentProcessorStorage = [
   },
   {
     inputs: [
-      { internalType: "uint256", name: "newGasThresold", type: "uint256" },
+      {
+        internalType: "uint256",
+        name: "_newGasThreshold",
+        type: "uint256",
+      },
     ],
-    name: "setGasThresold",
+    name: "setGasThreshold",
     outputs: [],
     stateMutability: "nonpayable",
     type: "function",
   },
   {
     inputs: [
-      { internalType: "address", name: "marketplaceAddress", type: "address" },
+      {
+        internalType: "address",
+        name: "_marketplaceAddress",
+        type: "address",
+      },
     ],
     name: "setMarketplaceAddress",
     outputs: [],
@@ -230,9 +285,24 @@ export const PaymentProcessorStorage = [
     type: "function",
   },
   {
+    inputs: [
+      {
+        internalType: "uint256",
+        name: "_newValidityDuration",
+        type: "uint256",
+      },
+    ],
+    name: "setPaymentValidityDuration",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
     inputs: [],
     name: "totalInvoiceCreated",
-    outputs: [{ internalType: "uint216", name: "", type: "uint216" }],
+    outputs: [
+      { internalType: "uint216", name: "totalInvoices", type: "uint216" },
+    ],
     stateMutability: "view",
     type: "function",
   },
@@ -244,9 +314,11 @@ export const PaymentProcessorStorage = [
     type: "function",
   },
   {
-    inputs: [{ internalType: "uint216", name: "by", type: "uint216" }],
-    name: "updateInvoiceId",
-    outputs: [{ internalType: "uint216", name: "", type: "uint216" }],
+    inputs: [{ internalType: "uint216", name: "_by", type: "uint216" }],
+    name: "updateInvoiceNonce",
+    outputs: [
+      { internalType: "uint216", name: "totalInvoices", type: "uint216" },
+    ],
     stateMutability: "nonpayable",
     type: "function",
   },

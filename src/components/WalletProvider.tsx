@@ -25,7 +25,7 @@ import {
 } from "@/services/blockchain/AdvancedPaymentProcessor";
 import { Address } from "viem";
 import { WagmiClient } from "@/services/blockchain/types";
-import { ADVANCED_PAYMENT_PROCESSOR, ETHEREUM_SEPOLIA } from "@/constants";
+import { ADVANCED_PAYMENT_PROCESSOR, BASE_SEPOLIA } from "@/constants";
 
 const INVOICE_REFRESH_DELAY_MS = 5_000;
 
@@ -35,7 +35,7 @@ type Props = {
 
 const WalletProvider = ({ children }: Props) => {
   const { chain, address } = useAccount();
-  const chainId = chain?.id || ETHEREUM_SEPOLIA;
+  const chainId = chain?.id || BASE_SEPOLIA;
   const { data: walletClient } = useWalletClient();
   const publicClient = usePublicClient();
   const queryClient = useQueryClient();
@@ -46,6 +46,7 @@ const WalletProvider = ({ children }: Props) => {
   };
 
   const [isLoading, setIsLoading] = useState<string>();
+
   const {
     invoiceData,
     allInvoiceData,
@@ -93,7 +94,11 @@ const WalletProvider = ({ children }: Props) => {
     invalidateAdvancedInvoiceQueries();
     await refetchInvoiceData?.();
     scheduleInvoiceRefresh();
-  }, [invalidateAdvancedInvoiceQueries, refetchInvoiceData, scheduleInvoiceRefresh]);
+  }, [
+    invalidateAdvancedInvoiceQueries,
+    refetchInvoiceData,
+    scheduleInvoiceRefresh,
+  ]);
 
   return (
     <ContractContext.Provider
@@ -108,7 +113,7 @@ const WalletProvider = ({ children }: Props) => {
         createInvoice: (
           invoicePrice: bigint,
           storageRef?: string,
-          share?: boolean
+          share?: boolean,
         ) =>
           createInvoice(
             wagmiClients,
@@ -116,13 +121,13 @@ const WalletProvider = ({ children }: Props) => {
             chainId,
             setIsLoading,
             storageRef,
-            share
+            share,
           ),
         makeInvoicePayment: (
           amount: bigint,
           orderId: bigint,
           storageRef?: string,
-          share?: boolean
+          share?: boolean,
         ) =>
           makeInvoicePayment(
             wagmiClients,
@@ -131,13 +136,13 @@ const WalletProvider = ({ children }: Props) => {
             chainId,
             setIsLoading,
             storageRef,
-            share
+            share,
           ),
         payAdvancedInvoice: (
           paymentType: "paySingleInvoice" | "payMetaInvoice",
           price: bigint,
           orderId: bigint,
-          paymentToken: Address
+          paymentToken: Address,
         ) =>
           address
             ? submitAdvancedInvoicePayment(
@@ -148,7 +153,7 @@ const WalletProvider = ({ children }: Props) => {
                 paymentToken,
                 chainId,
                 address,
-                setIsLoading
+                setIsLoading,
               ).then(async (success) => {
                 if (success) {
                   await handleAdvancedInvoiceSuccess();
@@ -168,7 +173,7 @@ const WalletProvider = ({ children }: Props) => {
             orderId,
             chainId,
             setIsLoading,
-            getInvoiceData
+            getInvoiceData,
           ),
         refundBuyerAfterWindow: (orderId: bigint) =>
           refundBuyerAfterWindow(
@@ -176,7 +181,7 @@ const WalletProvider = ({ children }: Props) => {
             orderId,
             chainId,
             setIsLoading,
-            getInvoiceData
+            getInvoiceData,
           ),
         transferOwnership: (address: Address) =>
           transferOwnership(
@@ -184,7 +189,7 @@ const WalletProvider = ({ children }: Props) => {
             address,
             chainId,
             setIsLoading,
-            getInvoiceData
+            getInvoiceData,
           ),
         setFeeReceiversAddress: (address: Address) =>
           setFeeReceiversAddress(
@@ -192,7 +197,7 @@ const WalletProvider = ({ children }: Props) => {
             address,
             chainId,
             setIsLoading,
-            getInvoiceData
+            getInvoiceData,
           ),
         setInvoiceHoldPeriod: (orderId: bigint, holdPeriod: bigint) =>
           setInvoiceHoldPeriod(
@@ -203,7 +208,7 @@ const WalletProvider = ({ children }: Props) => {
             setIsLoading,
             getInvoiceData,
             invoiceData.find((i) => i.orderId.toString() === orderId.toString())
-              ?.contract
+              ?.contract,
           ),
         setDefaultHoldPeriod: (newDefaultHoldPeriod: bigint) =>
           setDefaultHoldPeriod(
@@ -211,7 +216,7 @@ const WalletProvider = ({ children }: Props) => {
             newDefaultHoldPeriod,
             chainId,
             setIsLoading,
-            getInvoiceData
+            getInvoiceData,
           ),
         setDecisionWindow: (newWindow: bigint) =>
           setDecisionWindow(
@@ -219,7 +224,7 @@ const WalletProvider = ({ children }: Props) => {
             newWindow,
             chainId,
             setIsLoading,
-            getInvoiceData
+            getInvoiceData,
           ),
         setValidPeriod: (newValidPeriod: bigint) =>
           setValidPeriod(
@@ -227,7 +232,7 @@ const WalletProvider = ({ children }: Props) => {
             newValidPeriod,
             chainId,
             setIsLoading,
-            getInvoiceData
+            getInvoiceData,
           ),
         setFee: (newFee: bigint) =>
           setFee(wagmiClients, newFee, chainId, setIsLoading, getInvoiceData),
@@ -237,12 +242,12 @@ const WalletProvider = ({ children }: Props) => {
             newValue,
             chainId,
             setIsLoading,
-            getInvoiceData
+            getInvoiceData,
           ),
         getInvoiceOwner,
         getAdvancedInvoiceData: (
           orderId: bigint,
-          type: "smartInvoice" | "metaInvoice"
+          type: "smartInvoice" | "metaInvoice",
         ) => fetchAdvancedInvoiceData(orderId, type),
         refetchAllInvoiceData,
         refetchInvoiceData,

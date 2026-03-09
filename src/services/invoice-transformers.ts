@@ -11,7 +11,7 @@ export const transformSimple = (
   inv: RawInvoice,
   type: "Seller" | "Buyer"
 ): Invoice => ({
-  id: inv.invoiceId,
+  id: inv.invoiceId ?? inv.invoiceNonce ?? inv.id,
   orderId: inv.id,
   createdAt: inv.createdAt ? unixToGMT(inv.createdAt) : null,
   paidAt: inv.paidAt || "Not Paid",
@@ -40,15 +40,19 @@ export const transformMarketplace = (
   const history = synthesizeMarketplaceHistory(inv);
 
   return {
-    // Marketplace entities have no separate invoiceId counter; fall back to the
-    // entity's primary key (the large-decimal orderId hash).
-    id: inv.invoiceId ?? inv.id,
+    id: inv.invoiceId ?? inv.invoiceNonce ?? inv.id,
     orderId: inv.id,
     createdAt: inv.createdAt ? unixToGMT(inv.createdAt) : null,
     paidAt: inv.paidAt || "Not Paid",
     status: sortState(inv.state),
     price: inv.price ?? null,
-    amountPaid: inv.amountPaid ? formatEther(BigInt(inv.amountPaid)) : null,
+    // Pass raw bigint/string so the component can format with correct token decimals
+    amountPaid: inv.amountPaid != null ? String(inv.amountPaid) : null,
+    amountReleased: inv.amountReleased != null ? String(inv.amountReleased) : null,
+    amountRefunded: inv.amountRefunded != null ? String(inv.amountRefunded) : null,
+    disputeSettledTxHash: inv.disputeSettledTxHash ?? undefined,
+    sellerAmountReceivedAfterDispute: inv.sellerAmountReceivedAfterDispute ?? null,
+    buyerAmountReceivedAfterDispute: inv.buyerAmountReceivedAfterDispute ?? null,
     type,
     contract: inv.contract,
     paymentTxHash: inv.paymentTxHash,

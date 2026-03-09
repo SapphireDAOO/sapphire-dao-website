@@ -38,7 +38,7 @@ import { type Address } from "viem";
 import { InvoiceDetails, TokenData } from "@/model/model";
 import { Textarea } from "@/components/ui/textarea";
 import { createNote as createInvoiceNote } from "@/services/notes";
-import { ADVANCED_PAYMENT_PROCESSOR, ETHEREUM_SEPOLIA } from "@/constants";
+import { ADVANCED_PAYMENT_PROCESSOR, BASE_SEPOLIA } from "@/constants";
 import { formatAddress } from "@/utils";
 
 interface CheckoutCardProps {
@@ -51,7 +51,7 @@ const CheckoutCard = ({ data, isMetaInvoice }: CheckoutCardProps) => {
   const { address, chain } = useAccount();
   const { signMessageAsync } = useSignMessage();
   const contractAddress =
-    ADVANCED_PAYMENT_PROCESSOR[chain?.id || ETHEREUM_SEPOLIA];
+    ADVANCED_PAYMENT_PROCESSOR[chain?.id || BASE_SEPOLIA];
 
   const [open, setOpen] = useState(false);
   const [selectedToken, setSelectedToken] = useState("");
@@ -157,7 +157,7 @@ const CheckoutCard = ({ data, isMetaInvoice }: CheckoutCardProps) => {
             This invoice is bounded to the blockchain by contract{" "}
             {contractAddress ? (
               <a
-                href={`https://sepolia.etherscan.io/address/${contractAddress}`}
+                href={`https://sepolia.basescan.org/address/${contractAddress}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-blue-600 underline hover:text-blue-800"

@@ -76,7 +76,7 @@ const allMarketplaceInvoices: ColumnDef<Invoice>[] = [
         <div className="text-center">
           {sellersAddress ? (
             <a
-              href={`https://sepolia.etherscan.io/address/${sellersAddress}`}
+              href={`https://sepolia.basescan.org/address/${sellersAddress}`}
               target="_blank"
               rel="noopener noreferrer"
               className="text-blue-500 underline"
@@ -108,7 +108,7 @@ const allMarketplaceInvoices: ColumnDef<Invoice>[] = [
         <div className="text-center">
           {commissionUrl ? (
             <a
-              href={`https://sepolia.etherscan.io/tx/${commissionUrl}`}
+              href={`https://sepolia.basescan.org/tx/${commissionUrl}`}
               target="_blank"
               rel="noopener noreferrer"
               className="text-blue-500 underline"
@@ -136,7 +136,7 @@ const allMarketplaceInvoices: ColumnDef<Invoice>[] = [
         <div className="bold text-center">
           {paymentHash ? (
             <a
-              href={`https://sepolia.etherscan.io/tx/${paymentHash}`}
+              href={`https://sepolia.basescan.org/tx/${paymentHash}`}
               target="_blank"
               rel="noopener noreferrer"
               className="text-blue-500 underline"
@@ -170,7 +170,7 @@ const allMarketplaceInvoices: ColumnDef<Invoice>[] = [
         <div className="text-center">
           {buyersAddress ? (
             <a
-              href={`https://sepolia.etherscan.io/address/${buyersAddress}`}
+              href={`https://sepolia.basescan.org/address/${buyersAddress}`}
               target="_blank"
               rel="noopener noreferrer"
               className="text-blue-500 underline"
@@ -207,7 +207,7 @@ const allMarketplaceInvoices: ColumnDef<Invoice>[] = [
   //       if (status === "RELEASED") {
   //         return (
   //           <a
-  //             href={`https://sepolia.etherscan.io/address/${releaseHash}`}
+  //             href={`https://sepolia.basescan.org/address/${releaseHash}`}
   //             target="_blank"
   //             rel="noopener noreferrer"
   //             className="text-blue-500 underline"

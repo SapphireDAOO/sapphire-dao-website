@@ -1,9 +1,9 @@
 import { PAYMENT_PROCESSOR_STORAGE } from "@/constants";
-import { sepolia } from "viem/chains";
+import { baseSepolia } from "viem/chains";
 import { useAccount, useChainId } from "wagmi";
 import { PaymentProcessorStorage } from "@/abis/PaymentProcessorStorage";
 import { useViemReadContract } from "./useViemReadContract";
-import { ETHEREUM_SEPOLIA } from "@/constants";
+import { BASE_SEPOLIA } from "@/constants";
 
 /**
  * Custom hook to retrieve the owner address of the PaymentProcessor smart contract.
@@ -16,12 +16,12 @@ import { ETHEREUM_SEPOLIA } from "@/constants";
 export const useGetOwner = () => {
   // Get the connected user's wallet address using the wagmi `useAccount` hook
   const { address } = useAccount();
-  const chainId = useChainId() || ETHEREUM_SEPOLIA;
+  const chainId = useChainId() || BASE_SEPOLIA;
 
   // Use the wagmi `useReadContract` hook to interact with the `owner` function of the PaymentProcessor contract
   const { data, refetch, isLoading } = useViemReadContract<string>({
     abi: PaymentProcessorStorage,
-    chainId: sepolia.id,
+    chainId: baseSepolia.id,
     address: PAYMENT_PROCESSOR_STORAGE[chainId],
     functionName: "owner",
     account: address,

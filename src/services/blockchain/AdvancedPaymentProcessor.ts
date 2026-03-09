@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { toast } from "sonner";
 import { encodeFunctionData, Address, zeroAddress } from "viem";
-import { sepolia } from "viem/chains";
+import { baseSepolia } from "viem/chains";
 import {
   ADVANCED_PAYMENT_PROCESSOR,
   PAYMENT_PROCESSOR_STORAGE,
@@ -27,43 +27,62 @@ export const payAdvancedInvoice = async (
   let success = false;
   try {
     const gasPrice = await fetchGasPrice(publicClient, chainId);
+    const isNativePayment = paymentToken.toLowerCase() === zeroAddress;
+    const contractAddress = ADVANCED_PAYMENT_PROCESSOR[chainId];
 
     const amountIntoken = (await publicClient?.readContract({
-      address: ADVANCED_PAYMENT_PROCESSOR[chainId],
+      address: contractAddress,
       abi: advancedPaymentProcessor,
       functionName: "getTokenValueFromUsd",
       args: [paymentToken, amount],
     })) as bigint | undefined;
 
-    if (!amountIntoken) {
+    if (amountIntoken === undefined) {
       toast.error("Failed to compute token amount");
       return false;
     }
 
-    const approved = await handleApproval(
-      paymentToken,
-      ADVANCED_PAYMENT_PROCESSOR[chainId],
-      amountIntoken,
-      owner,
-      walletClient,
-      publicClient,
-      chainId
-    );
+    if (!isNativePayment) {
+      const approved = await handleApproval(
+        paymentToken,
+        contractAddress,
+        amountIntoken,
+        owner,
+        walletClient,
+        publicClient,
+        chainId
+      );
 
-    if (!approved) {
-      toast.error("Approval failed");
-      return false;
+      if (!approved) {
+        toast.error("Approval failed");
+        return false;
+      }
     }
 
+    const txData =
+      paymentType === "paySingleInvoice"
+        ? encodeFunctionData({
+            abi: advancedPaymentProcessor,
+            functionName: "payInvoice",
+            args: [orderId, paymentToken],
+          })
+        : isNativePayment
+          ? encodeFunctionData({
+              abi: advancedPaymentProcessor,
+              functionName: "payMetaInvoiceWithValue",
+              args: [orderId],
+            })
+          : encodeFunctionData({
+              abi: advancedPaymentProcessor,
+              functionName: "payMetaInvoice",
+              args: [orderId, paymentToken],
+            });
+
     const tx = await walletClient?.sendTransaction({
-      chain: sepolia,
-      to: ADVANCED_PAYMENT_PROCESSOR[chainId],
-      data: encodeFunctionData({
-        abi: advancedPaymentProcessor,
-        functionName: paymentType,
-        args: [orderId, paymentToken],
-      }),
-      value: paymentToken !== zeroAddress ? BigInt(0) : amountIntoken,
+      chain: baseSepolia,
+      to: contractAddress,
+      data: txData,
+      value: isNativePayment ? amountIntoken : BigInt(0),
       gasPrice,
     });
 
@@ -101,7 +120,7 @@ export const setMarketplaceAddress = async (
     const gasPrice = await fetchGasPrice(publicClient, chainId);
 
     const tx = await walletClient?.sendTransaction({
-      chain: sepolia,
+      chain: baseSepolia,
       to: PAYMENT_PROCESSOR_STORAGE[chainId],
       data: encodeFunctionData({
         abi: PaymentProcessorStorage,
@@ -141,7 +160,7 @@ export const getAdvancedInvoiceData = async (
   chainId: number
 ): Promise<any> => {
   const { data, error } = await client(chainId)
-    .query(query, { id: orderId })
+    .query(query, { id: orderId.toString() })
     .toPromise();
 
   if (error) {

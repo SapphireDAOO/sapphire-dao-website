@@ -25,7 +25,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { toast } from "sonner";
 import { useSecureLink } from "@/hooks/useSecureLink";
 import React from "react";
-import { ETHEREUM_SEPOLIA, SIMPLE_PAYMENT_PROCESSOR } from "@/constants";
+import { BASE_SEPOLIA, SIMPLE_PAYMENT_PROCESSOR } from "@/constants";
 import {
   renderContractLink,
   InvoiceField,
@@ -66,7 +66,7 @@ const InvoiceQRLink = React.memo(
               <p className="text-sm text-gray-700 text-center">
                 Contract:{" "}
                 <a
-                  href={`https://sepolia.etherscan.io/address/${contractAddress}`}
+                  href={`https://sepolia.basescan.org/address/${contractAddress}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-blue-600 underline hover:text-blue-800"
@@ -110,7 +110,7 @@ export default function CreateInvoiceDialog() {
   const { createInvoice, refetchInvoiceData, isLoading } =
     useContext(ContractContext);
 
-  const contractAddress = SIMPLE_PAYMENT_PROCESSOR[chainId || ETHEREUM_SEPOLIA];
+  const contractAddress = SIMPLE_PAYMENT_PROCESSOR[chainId || BASE_SEPOLIA];
 
   const isAmountValid =
     !!amount && !isNaN(Number(amount)) && Number(amount) > 0;
@@ -179,7 +179,7 @@ export default function CreateInvoiceDialog() {
               label="Contract"
               value={renderContractLink(contractAddress)}
               description="The deployed invoice smart contract that manages escrow and release logic."
-              link={`https://sepolia.etherscan.io/address/${contractAddress}`}
+              link={`https://sepolia.basescan.org/address/${contractAddress}`}
             />
           )}
 

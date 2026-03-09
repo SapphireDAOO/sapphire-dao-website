@@ -7,7 +7,7 @@ import {
   ADVANCED_PAYMENT_PROCESSOR,
   SIMPLE_PAYMENT_PROCESSOR,
 } from "@/constants";
-import { sepolia } from "viem/chains";
+import { baseSepolia } from "viem/chains";
 import DataTable from "../dashboard/DataTable";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import DashboardHeader from "../dashboard/Header";
@@ -46,7 +46,7 @@ const ContractLink: React.FC<ContractLinkProps> = ({
       <span>
         Contract:{" "}
         <a
-          href={`https://sepolia.etherscan.io/address/${address}`}
+          href={`https://sepolia.basescan.org/address/${address}`}
           target="_blank"
           rel="noopener noreferrer"
           className="text-blue-500 underline"
@@ -93,7 +93,7 @@ const AdminInvoices = () => {
               title="INVOICES"
               rightContent={
                 <ContractLink
-                  address={SIMPLE_PAYMENT_PROCESSOR[sepolia.id] as Address}
+                  address={SIMPLE_PAYMENT_PROCESSOR[baseSepolia.id] as Address}
                   showBalance={false}
                 />
               }
@@ -110,7 +110,7 @@ const AdminInvoices = () => {
               title="MARKETPLACE"
               rightContent={
                 <ContractLink
-                  address={ADVANCED_PAYMENT_PROCESSOR[sepolia.id] as Address}
+                  address={ADVANCED_PAYMENT_PROCESSOR[baseSepolia.id] as Address}
                 />
               }
             />
@@ -126,7 +126,7 @@ const AdminInvoices = () => {
               title="Admin Action"
               rightContent={
                 <ContractLink
-                  address={ADVANCED_PAYMENT_PROCESSOR[sepolia.id] as Address}
+                  address={ADVANCED_PAYMENT_PROCESSOR[baseSepolia.id] as Address}
                 />
               }
             />

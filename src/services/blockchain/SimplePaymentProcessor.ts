@@ -1,6 +1,6 @@
 import { toast } from "sonner";
 import { Address, encodeFunctionData } from "viem";
-import { sepolia } from "viem/chains";
+import { baseSepolia } from "viem/chains";
 import {
   ADVANCED_PAYMENT_PROCESSOR,
   PAYMENT_PROCESSOR_STORAGE,
@@ -29,7 +29,7 @@ export const createInvoice = async (
   try {
     const gasPrice = await fetchGasPrice(publicClient, chainId);
     const tx = await walletClient?.sendTransaction({
-      chain: sepolia,
+      chain: baseSepolia,
       to: SIMPLE_PAYMENT_PROCESSOR[chainId],
       data: encodeFunctionData({
         abi: paymentProcessor,
@@ -82,7 +82,7 @@ export const makeInvoicePayment = async (
     const gasPrice = await fetchGasPrice(publicClient, chainId);
 
     const tx = await walletClient?.sendTransaction({
-      chain: sepolia,
+      chain: baseSepolia,
       to: SIMPLE_PAYMENT_PROCESSOR[chainId],
       data: encodeFunctionData({
         abi: paymentProcessor,
@@ -130,7 +130,7 @@ export const sellerAction = async (
     const gasPrice = await fetchGasPrice(publicClient, chainId);
 
     const tx = await walletClient?.sendTransaction({
-      chain: sepolia,
+      chain: baseSepolia,
       to: SIMPLE_PAYMENT_PROCESSOR[chainId],
       data: encodeFunctionData({
         abi: paymentProcessor,
@@ -175,7 +175,7 @@ export const cancelInvoice = async (
     const gasPrice = await fetchGasPrice(publicClient, chainId);
 
     const tx = await walletClient?.sendTransaction({
-      chain: sepolia,
+      chain: baseSepolia,
       to: SIMPLE_PAYMENT_PROCESSOR[chainId],
       data: encodeFunctionData({
         abi: paymentProcessor,
@@ -221,11 +221,11 @@ export const releaseInvoice = async (
     const gasPrice = await fetchGasPrice(publicClient, chainId);
 
     const tx = await walletClient?.sendTransaction({
-      chain: sepolia,
+      chain: baseSepolia,
       to: SIMPLE_PAYMENT_PROCESSOR[chainId],
       data: encodeFunctionData({
         abi: paymentProcessor,
-        functionName: "releaseInvoice",
+        functionName: "release",
         args: [orderId],
       }),
       gasPrice,
@@ -268,7 +268,7 @@ export const refundBuyerAfterWindow = async (
     const gasPrice = await fetchGasPrice(publicClient, chainId);
 
     const tx = await walletClient?.sendTransaction({
-      chain: sepolia,
+      chain: baseSepolia,
       to: SIMPLE_PAYMENT_PROCESSOR[chainId],
       data: encodeFunctionData({
         abi: paymentProcessor,
@@ -315,7 +315,7 @@ export const transferOwnership = async (
     const gasPrice = await fetchGasPrice(publicClient, chainId);
 
     const tx = await walletClient?.sendTransaction({
-      chain: sepolia,
+      chain: baseSepolia,
       to: PAYMENT_PROCESSOR_STORAGE[chainId],
       data: encodeFunctionData({
         abi: PaymentProcessorStorage,
@@ -362,7 +362,7 @@ export const setFeeReceiversAddress = async (
     const gasPrice = await fetchGasPrice(publicClient, chainId);
 
     const tx = await walletClient?.sendTransaction({
-      chain: sepolia,
+      chain: baseSepolia,
       to: PAYMENT_PROCESSOR_STORAGE[chainId],
       data: encodeFunctionData({
         abi: PaymentProcessorStorage,
@@ -411,6 +411,8 @@ export const setInvoiceHoldPeriod = async (
     const gasPrice = await fetchGasPrice(publicClient, chainId);
 
     if (!target) return false;
+    const holdPeriodNumber = Number(holdPeriod);
+    if (!Number.isFinite(holdPeriodNumber)) return false;
 
     const calldata =
       target === ADVANCED_PAYMENT_PROCESSOR[chainId]
@@ -422,17 +424,13 @@ export const setInvoiceHoldPeriod = async (
         : encodeFunctionData({
             abi: paymentProcessor,
             functionName: "setInvoiceReleaseTime",
-            args: [orderId, Number(holdPeriod)],
+            args: [orderId, holdPeriodNumber],
           });
 
     const tx = await walletClient?.sendTransaction({
-      chain: sepolia,
-      to: PAYMENT_PROCESSOR_STORAGE[chainId],
-      data: encodeFunctionData({
-        abi: PaymentProcessorStorage,
-        functionName: "execute",
-        args: [target as Address, calldata],
-      }),
+      chain: baseSepolia,
+      to: target as Address,
+      data: calldata,
       gasPrice,
     });
 
@@ -474,7 +472,7 @@ export const setDefaultHoldPeriod = async (
     const gasPrice = await fetchGasPrice(publicClient, chainId);
 
     const tx = await walletClient?.sendTransaction({
-      chain: sepolia,
+      chain: baseSepolia,
       to: PAYMENT_PROCESSOR_STORAGE[chainId],
       data: encodeFunctionData({
         abi: PaymentProcessorStorage,
@@ -521,7 +519,7 @@ export const setFee = async (
     const gasPrice = await fetchGasPrice(publicClient, chainId);
 
     const tx = await walletClient?.sendTransaction({
-      chain: sepolia,
+      chain: baseSepolia,
       to: PAYMENT_PROCESSOR_STORAGE[chainId],
       data: encodeFunctionData({
         abi: PaymentProcessorStorage,
@@ -568,7 +566,7 @@ export const setMinimumInvoiceValue = async (
     const gasPrice = await fetchGasPrice(publicClient, chainId);
 
     const tx = await walletClient?.sendTransaction({
-      chain: sepolia,
+      chain: baseSepolia,
       to: SIMPLE_PAYMENT_PROCESSOR[chainId],
       data: encodeFunctionData({
         abi: paymentProcessor,
@@ -615,7 +613,7 @@ export const setDecisionWindow = async (
     const gasPrice = await fetchGasPrice(publicClient, chainId);
 
     const tx = await walletClient?.sendTransaction({
-      chain: sepolia,
+      chain: baseSepolia,
       to: SIMPLE_PAYMENT_PROCESSOR[chainId],
       data: encodeFunctionData({
         abi: paymentProcessor,
@@ -663,11 +661,11 @@ export const setValidPeriod = async (
     const gasPrice = await fetchGasPrice(publicClient, chainId);
 
     const tx = await walletClient?.sendTransaction({
-      chain: sepolia,
-      to: SIMPLE_PAYMENT_PROCESSOR[chainId],
+      chain: baseSepolia,
+      to: PAYMENT_PROCESSOR_STORAGE[chainId],
       data: encodeFunctionData({
-        abi: paymentProcessor,
-        functionName: "setValidPeriod",
+        abi: PaymentProcessorStorage,
+        functionName: "setPaymentValidityDuration",
         args: [newValidPeriod],
       }),
       gasPrice,

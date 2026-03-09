@@ -13,9 +13,9 @@ const CHECKOUT_QUERIES = {
   metaInvoice: metaInvoiceQuery,
 } as const;
 import { useAccount, usePublicClient } from "wagmi";
-import { unixToGMT, decryptNoteBlob } from "@/utils";
+import { unixToGMT } from "@/utils";
 import {
-  ETHEREUM_SEPOLIA,
+  BASE_SEPOLIA,
   ADVANCED_PAYMENT_PROCESSOR,
   SIMPLE_PAYMENT_PROCESSOR,
 } from "@/constants";
@@ -49,10 +49,34 @@ import { getInvoiceCacheKey, readInvoiceCache, writeInvoiceCache } from "@/lib/i
 const ERROR_BACKOFF_MS = 15_000;
 const PAGE_SIZE = 24;
 const MAX_ADMIN_PAGES = 10;
+const USER_INVOICE_PAGE_CACHE_TTL_MS = 2_000;
+
+type UserInvoicePageResult = {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  data?: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  error?: any;
+};
+
+const userInvoicePageCache = new Map<
+  string,
+  { timestamp: number; result: UserInvoicePageResult }
+>();
+const userInvoicePageInflight = new Map<string, Promise<UserInvoicePageResult>>();
+
+const getCachedUserInvoicePage = (key: string): UserInvoicePageResult | null => {
+  const cached = userInvoicePageCache.get(key);
+  if (!cached) return null;
+  if (Date.now() - cached.timestamp > USER_INVOICE_PAGE_CACHE_TTL_MS) {
+    userInvoicePageCache.delete(key);
+    return null;
+  }
+  return cached.result;
+};
 
 export const useInvoiceData = () => {
   const { chain, address } = useAccount();
-  const chainId = chain?.id || ETHEREUM_SEPOLIA;
+  const chainId = chain?.id || BASE_SEPOLIA;
 
   const publicClient = usePublicClient({
     chainId,
@@ -168,11 +192,18 @@ export const useInvoiceData = () => {
         actions.push(
           ...rawAdminActions.map((list: any) => ({
             id: list.invoiceId || "",
-            orderId: list.id || "",
+            orderId: (() => {
+              try {
+                return BigInt(list.invoiceId || "0");
+              } catch {
+                return BigInt(0);
+              }
+            })(),
             action: list.action || "Unknown",
             time: list.time ? unixToGMT(list.time) : null,
             type: list.type,
             txHash: list.txHash,
+            balance: list.balance ? formatEther(BigInt(list.balance)) : "0",
           })),
         );
 
@@ -191,7 +222,7 @@ export const useInvoiceData = () => {
                 ? unixToGMT(list.releasedAt)
                 : "Pending",
             fee: list.fee ? formatEther(BigInt(list.fee)) : "0",
-            state: list.status,
+            state: list.state,
             releaseHash: list.releaseHash,
             status: sortState(list.state),
             creationTxHash: list.creationTxHash,
@@ -217,6 +248,8 @@ export const useInvoiceData = () => {
   }, [chainId, allInvoiceData, handleRateLimit]);
 
   const getInvoiceData = useCallback(async (page = 0) => {
+    if (!address) return;
+
     if (
       Date.now() < nextAllowedRequestRef.current &&
       invoiceDataRef.current.length > 0
@@ -225,15 +258,45 @@ export const useInvoiceData = () => {
     }
 
     const skip = page * PAGE_SIZE;
+    const normalizedAddress = address.toLowerCase();
+    const requestKey = `${chainId}:${normalizedAddress}:${PAGE_SIZE}:${skip}`;
 
     try {
-      const { data, error } = await client(chainId)
-        .query(invoiceQuery, {
-          address: address?.toLowerCase(),
-          first: PAGE_SIZE,
-          skip,
-        })
-        .toPromise();
+      const cached = getCachedUserInvoicePage(requestKey);
+      let result: UserInvoicePageResult;
+
+      if (cached) {
+        result = cached;
+      } else {
+        let inflight = userInvoicePageInflight.get(requestKey);
+        if (!inflight) {
+          inflight = client(chainId)
+            .query(invoiceQuery, {
+              address: normalizedAddress,
+              first: PAGE_SIZE,
+              skip,
+            })
+            .toPromise()
+            .then((queryResult) => {
+              if (!queryResult.error) {
+                userInvoicePageCache.set(requestKey, {
+                  timestamp: Date.now(),
+                  result: queryResult,
+                });
+              }
+              return queryResult;
+            })
+            .finally(() => {
+              userInvoicePageInflight.delete(requestKey);
+            });
+
+          userInvoicePageInflight.set(requestKey, inflight);
+        }
+
+        result = await inflight;
+      }
+
+      const { data, error } = result;
 
       if (error) {
         console.error("GraphQL error fetching user invoices:", error.message);
@@ -273,7 +336,6 @@ export const useInvoiceData = () => {
         source: "Simple" as const,
         history: sortHistory(invoice.history, invoice.historyTime),
         refundTxHash: invoice.refundTxHash,
-        sellerNote: decryptNoteBlob(invoice.sellerNote),
       }));
 
       const paidInvoiceData = paidInvoices.map((invoice: any) => ({
@@ -297,7 +359,6 @@ export const useInvoiceData = () => {
         source: "Simple" as const,
         history: sortHistory(invoice.history, invoice.historyTime),
         refundTxHash: invoice.refundTxHash,
-        buyerNote: decryptNoteBlob(invoice.buyerNote),
       }));
 
       const mapMarketplaceInvoice = (
@@ -310,9 +371,13 @@ export const useInvoiceData = () => {
         paidAt: invoice.paidAt || "Not Paid",
         status: sortState(invoice.state),
         price: invoice.price ?? null,
-        amountPaid: invoice.amountPaid
-          ? formatEther(BigInt(invoice.amountPaid))
-          : null,
+        // Pass raw string so the component can format with correct token decimals
+        amountPaid: invoice.amountPaid != null ? String(invoice.amountPaid) : null,
+        amountReleased: invoice.amountReleased != null ? String(invoice.amountReleased) : null,
+        amountRefunded: invoice.amountRefunded != null ? String(invoice.amountRefunded) : null,
+        disputeSettledTxHash: invoice.disputeSettledTxHash,
+        sellerAmountReceivedAfterDispute: invoice.sellerAmountReceivedAfterDispute ?? null,
+        buyerAmountReceivedAfterDispute: invoice.buyerAmountReceivedAfterDispute ?? null,
         type,
         contract: invoice.contract,
         paymentTxHash: invoice.paymentTxHash,
@@ -461,7 +526,7 @@ export const useInvoiceData = () => {
     }
 
     const { data, error } = await client(chainId)
-      .query(CHECKOUT_QUERIES[type], { id: orderId })
+      .query(CHECKOUT_QUERIES[type], { id: orderId.toString() })
       .toPromise();
 
     if (error) {
@@ -574,7 +639,7 @@ export const useInvoiceData = () => {
         const invoiceObject =
           invoiceData && typeof invoiceData === "object"
             ? (invoiceData as {
-                invoiceId?: bigint | number;
+                invoiceNonce?: bigint | number;
                 createdAt?: bigint | number;
                 paidAt?: bigint | number;
                 releaseAt?: bigint | number;
@@ -583,7 +648,7 @@ export const useInvoiceData = () => {
                 seller?: string;
                 buyer?: string;
                 price?: bigint | number;
-                amountPaid?: bigint | number;
+                balance?: bigint | number;
               })
             : null;
 
@@ -597,7 +662,7 @@ export const useInvoiceData = () => {
           typeof value === "string" ? value : undefined;
 
         const invoiceId = readBigInt(
-          invoiceObject?.invoiceId ??
+          invoiceObject?.invoiceNonce ??
             (invoiceArray?.[0] as bigint | number | undefined),
         );
         const createdAt = readBigInt(
@@ -627,7 +692,7 @@ export const useInvoiceData = () => {
             (invoiceArray?.[10] as bigint | number | undefined),
         );
         const amountPaid = readBigInt(
-          invoiceObject?.amountPaid ??
+          invoiceObject?.balance ??
             (invoiceArray?.[11] as bigint | number | undefined),
         );
 
@@ -788,15 +853,17 @@ export const useInvoiceData = () => {
               const name = log.eventName ?? "";
               const args = log.args as
                 | {
+                    invoiceId?: bigint;
                     orderId?: bigint;
                     buyer?: string;
                     amountPaid?: bigint;
                     expiresAt?: bigint;
                     invoice?: {
-                      invoiceId?: bigint;
+                      invoiceNonce?: bigint;
                       buyer?: string;
                       seller?: string;
                       price?: bigint;
+                      balance?: bigint;
                       amountPaid?: bigint;
                       createdAt?: bigint;
                       paidAt?: bigint;
@@ -805,13 +872,13 @@ export const useInvoiceData = () => {
                     };
                   }
                 | undefined;
-              const orderId = args?.orderId?.toString();
+              const orderId = (args?.invoiceId ?? args?.orderId)?.toString();
               const invoice = args?.invoice;
 
               if (name === "InvoiceCreated") {
                 const buyer = invoice?.buyer?.toLowerCase?.();
                 const seller = invoice?.seller?.toLowerCase?.();
-                const invoiceId = invoice?.invoiceId?.toString();
+                const invoiceId = invoice?.invoiceNonce?.toString();
                 const historyTime = invoice?.createdAt
                   ? invoice.createdAt.toString()
                   : batchTime;
@@ -835,8 +902,10 @@ export const useInvoiceData = () => {
                           : "Not Paid",
                       status: "AWAITING PAYMENT",
                       price: invoice.price ? formatEther(invoice.price) : null,
-                      amountPaid: invoice.amountPaid
-                        ? formatEther(invoice.amountPaid)
+                      amountPaid: (invoice.balance ?? invoice.amountPaid)
+                        ? formatEther(
+                            invoice.balance ?? invoice.amountPaid ?? BigInt(0),
+                          )
                         : "0",
                       type:
                         seller === address.toLowerCase()
@@ -1014,21 +1083,23 @@ export const useInvoiceData = () => {
             const name = log.eventName ?? "";
             const logArgs = log.args as
                 | {
+                    invoiceId?: bigint;
                     orderId?: bigint;
                     amount?: bigint;
                     sellerAmount?: bigint;
                     newHoldPeriod?: bigint;
                   }
                 | undefined;
-              const orderId = logArgs?.orderId?.toString();
+              const orderId = (logArgs?.invoiceId ?? logArgs?.orderId)?.toString();
 
               if (name === "InvoiceCreated") {
                 const invoice = (log.args as any)?.invoice as
                   | {
-                      invoiceId?: bigint;
+                      invoiceNonce?: bigint;
                       buyer?: string;
                       seller?: string;
                       price?: bigint;
+                      balance?: bigint;
                       amountPaid?: bigint;
                       createdAt?: bigint;
                       paymentToken?: string;
@@ -1039,7 +1110,7 @@ export const useInvoiceData = () => {
 
                 const buyer = invoice?.buyer?.toLowerCase?.();
                 const seller = invoice?.seller?.toLowerCase?.();
-                const invoiceId = invoice?.invoiceId?.toString();
+                const invoiceId = invoice?.invoiceNonce?.toString();
                 const historyTime = invoice?.createdAt
                   ? invoice.createdAt.toString()
                   : batchTime;
@@ -1063,8 +1134,10 @@ export const useInvoiceData = () => {
                           : "Not Paid",
                       status: "AWAITING PAYMENT",
                       price: invoice.price ? formatEther(invoice.price) : null,
-                      amountPaid: invoice.amountPaid
-                        ? formatEther(invoice.amountPaid)
+                      amountPaid: (invoice.balance ?? invoice.amountPaid)
+                        ? formatEther(
+                            invoice.balance ?? invoice.amountPaid ?? BigInt(0),
+                          )
                         : "0",
                       type:
                         seller === address.toLowerCase()

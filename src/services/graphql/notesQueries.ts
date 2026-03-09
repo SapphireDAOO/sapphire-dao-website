@@ -2,9 +2,9 @@
 
 export const NOTES_BY_ORDER_QUERY = `
   query NotesByOrder($orderId: BigInt!, $user: Bytes!) {
-    notes(where: { orderId: $orderId }, orderBy: noteId, orderDirection: desc) {
+    notes(where: { invoiceId: $orderId }, orderBy: noteId, orderDirection: desc) {
       id
-      orderId
+      orderId: invoiceId
       noteId
       author
       share
@@ -12,9 +12,9 @@ export const NOTES_BY_ORDER_QUERY = `
       createdAtBlock
       createdAtTx
     }
-    noteOpenStates(where: { orderId: $orderId, user: $user }) {
+    noteOpenStates(where: { invoiceId: $orderId, user: $user }) {
       id
-      orderId
+      orderId: invoiceId
       noteId
       user
       opened

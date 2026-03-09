@@ -22,7 +22,7 @@ export const userInvoicesPageQuery = `
         createdAt
         fee
         id
-        invoiceId
+        invoiceNonce
         paidAt
         paymentTxHash
         price
@@ -48,7 +48,7 @@ export const userInvoicesPageQuery = `
         createdAt
         fee
         id
-        invoiceId
+        invoiceNonce
         paidAt
         paymentTxHash
         price
@@ -70,10 +70,15 @@ export const userInvoicesPageQuery = `
         orderDirection: desc
       ) @include(if: $includeIssued) {
         amountPaid
+        amountReleased
+        amountRefunded
+        disputeSettledTxHash
+        sellerAmountReceivedAfterDispute
+        buyerAmountReceivedAfterDispute
         contract
         createdAt
         id
-        invoiceId
+        invoiceNonce
         paidAt
         price
         releaseHash
@@ -94,10 +99,15 @@ export const userInvoicesPageQuery = `
         orderDirection: desc
       ) @include(if: $includeReceived) {
         amountPaid
+        amountReleased
+        amountRefunded
+        disputeSettledTxHash
+        sellerAmountReceivedAfterDispute
+        buyerAmountReceivedAfterDispute
         contract
         createdAt
         id
-        invoiceId
+        invoiceNonce
         paidAt
         price
         releaseHash
@@ -132,7 +142,7 @@ export const invoiceQuery = `query (
       createdAt
       fee
       id
-      invoiceId
+      invoiceId: invoiceNonce
       paidAt
       paymentTxHash
       price
@@ -146,7 +156,6 @@ export const invoiceQuery = `query (
       seller { id }
       history
       historyTime
-      sellerNote
     }
     paidInvoices (
       first: $first
@@ -159,7 +168,7 @@ export const invoiceQuery = `query (
       createdAt
       fee
       id
-      invoiceId
+      invoiceId: invoiceNonce
       paidAt
       paymentTxHash
       price
@@ -173,7 +182,6 @@ export const invoiceQuery = `query (
       buyer { id }
       history
       historyTime
-      buyerNote
     }
     issuedInvoices (
       first: $first
@@ -182,10 +190,15 @@ export const invoiceQuery = `query (
       orderDirection: desc
     ) {
       amountPaid
+      amountReleased
+      amountRefunded
+      disputeSettledTxHash
+      sellerAmountReceivedAfterDispute
+      buyerAmountReceivedAfterDispute
       contract
       createdAt
       id
-      invoiceId
+      invoiceId: invoiceNonce
       paidAt
       price
       releaseHash
@@ -206,10 +219,15 @@ export const invoiceQuery = `query (
       orderDirection: desc
     ) {
       amountPaid
+      amountReleased
+      amountRefunded
+      disputeSettledTxHash
+      sellerAmountReceivedAfterDispute
+      buyerAmountReceivedAfterDispute
       contract
       createdAt
       id
-      invoiceId
+      invoiceId: invoiceNonce
       paidAt
       price
       releaseHash
@@ -245,26 +263,38 @@ const paymentTokensFragment = `
 `;
 
 export const smartInvoiceQuery = `
-  query ($id: String!) {
-    smartInvoice(id: $id) {
+  query ($id: ID!) {
+    smartInvoice: advancedPaymentProcessor(id: $id) {
       amountPaid
+      amountReleased
+      amountRefunded
+      disputeSettledTxHash
+      sellerAmountReceivedAfterDispute
+      buyerAmountReceivedAfterDispute
       contract
       createdAt
       escrow
       id
-      invoiceId
+      invoiceId: invoiceNonce
       paidAt
-      paymentToken
+      paymentToken { id }
       price
+      paymentTxHash
+      releaseHash
+      refundTxHash
       releasedAt
       state
+      seller { id }
+      buyer { id }
+      history
+      historyTime
     }
     ${paymentTokensFragment}
   }
 `;
 
 export const metaInvoiceQuery = `
-  query ($id: String!) {
+  query ($id: ID!) {
     metaInvoice(id: $id) {
       contract
       id
@@ -275,8 +305,8 @@ export const metaInvoiceQuery = `
   }
 `;
 
-export const invoiceOwnerQuery = `query Invoice($id: String!) {
-  invoice(id: $id) {
+export const invoiceOwnerQuery = `query Invoice($id: ID!) {
+  invoice: simplePaymentProcessor(id: $id) {
     seller { id }
   }
 }`;

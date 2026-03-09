@@ -31,6 +31,11 @@ export type Invoice = {
   history?: History[];
   buyerNote?: string;
   sellerNote?: string;
+  sellerAmountReceivedAfterDispute?: string | null;
+  buyerAmountReceivedAfterDispute?: string | null;
+  amountReleased?: string | null;
+  amountRefunded?: string | null;
+  disputeSettledTxHash?: string;
 };
 
 export interface History {

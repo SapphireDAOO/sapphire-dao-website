@@ -5,7 +5,7 @@ import {
   parseGwei,
   verifyMessage,
 } from "viem";
-import { sepolia } from "viem/chains";
+import { baseSepolia } from "viem/chains";
 import { Notes } from "@/abis/Notes";
 import { NOTES_CONTRACT } from "@/constants";
 import { toEncryptedNoteHex } from "@/utils";
@@ -50,7 +50,7 @@ export async function POST(req: Request) {
         );
       }
 
-      const expectedMessage = `Sapphire DAO: Create note for order ${orderId.toString()}\nAuthor: ${author}\nTimestamp: ${timestamp}`;
+      const expectedMessage = `Sapphire DAO: Create note for order ${orderId.toString()}\nAuthor: ${author}\nContent: ${content}\nShare: ${share}\nTimestamp: ${timestamp}`;
       const isValid = await verifyMessage({
         address: author as `0x${string}`,
         message: expectedMessage,
@@ -71,7 +71,7 @@ export async function POST(req: Request) {
         );
       }
 
-      const contractAddress = NOTES_CONTRACT[sepolia.id];
+      const contractAddress = NOTES_CONTRACT[baseSepolia.id];
       if (!contractAddress) {
         return NextResponse.json(
           { success: false, error: "Notes contract not configured" },
@@ -136,8 +136,52 @@ export async function POST(req: Request) {
       const orderId = parseBigInt(body?.orderId, "orderId");
       const noteId = parseBigInt(body?.noteId, "noteId");
       const open = Boolean(body?.open);
+      const author = body?.author as string | undefined;
+      const signature = body?.signature as string | undefined;
+      const timestamp =
+        typeof body?.timestamp === "number" ? body.timestamp : undefined;
 
-      const contractAddress = NOTES_CONTRACT[sepolia.id];
+      if (!author || !isAddress(author)) {
+        return NextResponse.json(
+          { success: false, error: "Invalid author address" },
+          { status: 400 }
+        );
+      }
+
+      if (!signature || timestamp === undefined) {
+        return NextResponse.json(
+          { success: false, error: "Signature required" },
+          { status: 401 }
+        );
+      }
+
+      const now = Math.floor(Date.now() / 1000);
+      if (Math.abs(now - timestamp) > 300) {
+        return NextResponse.json(
+          { success: false, error: "Signature expired" },
+          { status: 401 }
+        );
+      }
+
+      const expectedMessage = `Sapphire DAO: Set note state for order ${orderId.toString()}\nNoteId: ${noteId.toString()}\nOpen: ${open}\nAuthor: ${author}\nTimestamp: ${timestamp}`;
+      const isValid = await verifyMessage({
+        address: author as `0x${string}`,
+        message: expectedMessage,
+        signature: signature as `0x${string}`,
+      });
+
+      if (!isValid) {
+        return NextResponse.json(
+          { success: false, error: "Invalid signature" },
+          { status: 401 }
+        );
+      }
+
+      if (!open) {
+        return NextResponse.json({ success: true });
+      }
+
+      const contractAddress = NOTES_CONTRACT[baseSepolia.id];
       if (!contractAddress) {
         return NextResponse.json(
           { success: false, error: "Notes contract not configured" },
@@ -150,7 +194,7 @@ export async function POST(req: Request) {
         address: contractAddress,
         abi: Notes,
         functionName: "setOpened",
-        args: [orderId, noteId, open],
+        args: [orderId, author, noteId],
         gas: BigInt(150000),
         maxPriorityFeePerGas: parseGwei("2"),
       });

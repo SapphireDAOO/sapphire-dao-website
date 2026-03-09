@@ -16,7 +16,7 @@ export const renderContractLink = (address?: string) => {
   if (!address) return <span className="text-gray-500">—</span>;
   return (
     <a
-      href={`https://sepolia.etherscan.io/address/${address}`}
+      href={`https://sepolia.basescan.org/address/${address}`}
       target="_blank"
       rel="noopener noreferrer"
       className="text-blue-600 underline hover:text-blue-800"
@@ -33,7 +33,7 @@ export const renderTx = (txHash?: string, display?: string) => {
   if (!txHash) return <span className="text-gray-500">—</span>;
   return (
     <a
-      href={`https://sepolia.etherscan.io/tx/${txHash}`}
+      href={`https://sepolia.basescan.org/tx/${txHash}`}
       target="_blank"
       rel="noopener noreferrer"
       className="text-blue-600 underline hover:text-blue-800"

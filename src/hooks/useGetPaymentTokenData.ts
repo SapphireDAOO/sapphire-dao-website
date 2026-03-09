@@ -5,7 +5,7 @@ import { TokenData } from "@/model/model";
 import { client } from "@/services/graphql/client";
 import { paymentTokenQuery } from "@/services/graphql/queries";
 import { useChainId } from "wagmi";
-import { ETHEREUM_SEPOLIA } from "@/constants";
+import { BASE_SEPOLIA } from "@/constants";
 
 const DEFAULT_TOKEN: TokenData = {
   name: "",
@@ -17,7 +17,7 @@ const tokenCache = new Map<string, TokenData>();
 const inflightRequests = new Map<string, Promise<TokenData>>();
 
 export const useGetPaymentTokenData = (tokenId: string) => {
-  const chainId = useChainId() || ETHEREUM_SEPOLIA;
+  const chainId = useChainId() || BASE_SEPOLIA;
   const normalizedTokenId = tokenId?.toLowerCase();
   const cacheKey = `${chainId}:${normalizedTokenId}`;
   const [token, setToken] = useState<TokenData>(() => {
@@ -56,7 +56,7 @@ export const useGetPaymentTokenData = (tokenId: string) => {
             return {
               name: data.paymentToken.name,
               id: data.paymentToken.id,
-              decimals: data.paymentToken.decimal,
+              decimals: Number(data.paymentToken.decimal ?? 18),
             } as TokenData;
           })
           .finally(() => {

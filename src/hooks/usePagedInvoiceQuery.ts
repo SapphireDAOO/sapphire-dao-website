@@ -3,7 +3,7 @@ import { useAccount } from "wagmi";
 import { client } from "@/services/graphql/client";
 import { userInvoicesPageQuery } from "@/services/graphql/userQueries";
 import { Invoice } from "@/model/model";
-import { ETHEREUM_SEPOLIA } from "@/constants";
+import { BASE_SEPOLIA } from "@/constants";
 import { getLastActionTime } from "@/lib/invoiceHistory";
 import {
   transformSimple,
@@ -19,6 +19,7 @@ export type InvoiceTab = "all" | "seller" | "buyer";
 
 interface Params {
   isMarketplace: boolean;
+  enabled?: boolean;
 }
 
 interface Result {
@@ -38,9 +39,12 @@ interface Result {
   refetch: () => void;
 }
 
-export function usePagedInvoiceQuery({ isMarketplace }: Params): Result {
+export function usePagedInvoiceQuery({
+  isMarketplace,
+  enabled = true,
+}: Params): Result {
   const { address, chain } = useAccount();
-  const chainId = chain?.id ?? ETHEREUM_SEPOLIA;
+  const chainId = chain?.id ?? BASE_SEPOLIA;
 
   const [sellerInvoices, setSellerInvoices] = useState<Invoice[]>([]);
   const [buyerInvoices, setBuyerInvoices] = useState<Invoice[]>([]);
@@ -70,6 +74,16 @@ export function usePagedInvoiceQuery({ isMarketplace }: Params): Result {
       buyerSkip: number | null; // null = skip this category
       append: boolean;
     }) => {
+      if (!enabled) {
+        setSellerInvoices([]);
+        setBuyerInvoices([]);
+        setHasMoreSeller(false);
+        setHasMoreBuyer(false);
+        setError(null);
+        setIsLoading(false);
+        return;
+      }
+
       if (!address) {
         setSellerInvoices([]);
         setBuyerInvoices([]);
@@ -211,21 +225,34 @@ export function usePagedInvoiceQuery({ isMarketplace }: Params): Result {
         if (id === fetchIdRef.current) setIsLoading(false);
       }
     },
-    [address, chainId, isMarketplace],
+    [address, chainId, isMarketplace, enabled],
   );
 
   // Initial load: fetch both categories at once
   useEffect(() => {
+    if (!enabled) {
+      nextSellerSkipRef.current = 0;
+      nextBuyerSkipRef.current = 0;
+      setSellerInvoices([]);
+      setBuyerInvoices([]);
+      setHasMoreSeller(false);
+      setHasMoreBuyer(false);
+      setError(null);
+      setIsLoading(false);
+      return;
+    }
+
     nextSellerSkipRef.current = 0;
     nextBuyerSkipRef.current = 0;
     void doFetch({ sellerSkip: 0, buyerSkip: 0, append: false });
-  }, [doFetch]);
+  }, [doFetch, enabled]);
 
   const refetch = useCallback(() => {
+    if (!enabled) return;
     nextSellerSkipRef.current = 0;
     nextBuyerSkipRef.current = 0;
     void doFetch({ sellerSkip: 0, buyerSkip: 0, append: false });
-  }, [doFetch]);
+  }, [doFetch, enabled]);
 
   const loadMoreSeller = useCallback(() => {
     if (!hasMoreSeller || isLoading) return;

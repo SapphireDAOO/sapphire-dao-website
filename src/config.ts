@@ -9,7 +9,7 @@ import {
   zerionWallet,
 } from "@rainbow-me/rainbowkit/wallets";
 import { http, webSocket, fallback } from "viem";
-import { sepolia } from "viem/chains";
+import { baseSepolia } from "viem/chains";
 
 const apiKey = process.env.NEXT_PUBLIC_INFURA_ID;
 const walletConnectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID!;
@@ -38,21 +38,20 @@ const config =
   getDefaultConfig({
     appName: "Sapphire DAO Invoice",
     projectId: walletConnectId,
-    chains: [sepolia],
+    chains: [baseSepolia],
     wallets,
     ssr: false,
     transports: {
-      [sepolia.id]: fallback(
+      [baseSepolia.id]: fallback(
         [
           // Prefer websocket endpoints for live updates, keep HTTP as backup
-          webSocket("wss://ethereum-sepolia-rpc.publicnode.com"),
-          webSocket("wss://sepolia.gateway.tenderly.co"),
+          webSocket("wss://base-sepolia-rpc.publicnode.com"),
           ...(apiKey
-            ? [webSocket(`wss://sepolia.infura.io/ws/v3/${apiKey}`)]
+            ? [webSocket(`wss://base-sepolia.infura.io/ws/v3/${apiKey}`)]
             : []),
-          http("https://ethereum-sepolia-rpc.publicnode.com"),
-          http("https://sepolia.gateway.tenderly.co"),
-          ...(apiKey ? [http(`https://sepolia.infura.io/v3/${apiKey}`)] : []),
+          http("https://base-sepolia-rpc.publicnode.com"),
+          http("https://sepolia.base.org"),
+          ...(apiKey ? [http(`https://base-sepolia.infura.io/v3/${apiKey}`)] : []),
         ],
         {
           rank: false, // keep order: public first, Infura last to reduce 429s
