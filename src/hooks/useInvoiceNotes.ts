@@ -539,7 +539,23 @@ export const useInvoiceNotes = (
         normalizedOrderId.toString(),
         mapped.map((note) => note.noteId)
       );
-      setNotes(mapped);
+      // Keep any still-pending optimistic notes that the subgraph hasn't indexed yet
+      setNotes((prev) => {
+        const stillPending = prev.filter(
+          (n) => n.isPending && !mapped.some((m) => m.noteId === n.noteId)
+        );
+        if (stillPending.length === 0) return mapped;
+        return [...stillPending, ...mapped].sort((a, b) => {
+          try {
+            const aKey = BigInt(a.noteId);
+            const bKey = BigInt(b.noteId);
+            if (aKey === bKey) return 0;
+            return aKey > bKey ? -1 : 1;
+          } catch {
+            return 0;
+          }
+        });
+      });
     } catch (error) {
       console.error("Failed to fetch notes", error);
       toast.error("Failed to load notes.");
@@ -586,7 +602,7 @@ export const useInvoiceNotes = (
 
       try {
         const timestamp = Math.floor(Date.now() / 1000);
-        const message = `Sapphire DAO: Create note for order ${normalizedOrderId.toString()}\nAuthor: ${address}\nTimestamp: ${timestamp}`;
+        const message = `Sapphire DAO: Create note for order ${normalizedOrderId.toString()}\nAuthor: ${address}\nContent: ${trimmed}\nShare: ${share}\nTimestamp: ${timestamp}`;
 
         let signature: string;
         try {
@@ -658,6 +674,10 @@ export const useInvoiceNotes = (
     async (noteId: string, open: boolean) => {
       if (!isEnabled) return false;
       if (normalizedOrderId === undefined) return false;
+      if (!address) {
+        toast.error("Connect your wallet to update notes.");
+        return false;
+      }
 
       const current = notesRef.current.find((note) => note.noteId === noteId);
       if (!current) return false;
@@ -692,10 +712,25 @@ export const useInvoiceNotes = (
       setPendingNoteIds((prev) => ({ ...prev, [noteId]: true }));
 
       try {
+        const timestamp = Math.floor(Date.now() / 1000);
+        const message = `Sapphire DAO: Set note state for order ${normalizedOrderId.toString()}\nNoteId: ${noteId}\nOpen: ${open}\nAuthor: ${address}\nTimestamp: ${timestamp}`;
+
+        let signature: string;
+        try {
+          signature = await signMessageAsync({ message });
+        } catch {
+          toast.error("Signature rejected. Note state not updated.");
+          setNotes(previous);
+          return false;
+        }
+
         await setNoteOpenState({
           orderId: normalizedOrderId.toString(),
           noteId,
           open: true,
+          author: address,
+          signature,
+          timestamp,
         });
         return true;
       } catch (error) {
@@ -711,7 +746,7 @@ export const useInvoiceNotes = (
         });
       }
     },
-    [normalizedOrderId, isEnabled]
+    [address, normalizedOrderId, signMessageAsync, isEnabled]
   );
 
   return {

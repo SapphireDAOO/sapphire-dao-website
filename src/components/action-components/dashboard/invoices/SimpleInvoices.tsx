@@ -143,14 +143,30 @@ export function InvoiceCard({
     toast.success("Payment link copied!");
   }, [paymentUrl]);
 
-  const displayStatus =
-    invoice.status === "CREATED"
-      ? "AWAITING PAYMENT"
-      : invoice.status || "Unknown";
+  const isExpired = useMemo(() => {
+    if (
+      invoice.status === "AWAITING PAYMENT" ||
+      invoice.status === "CREATED" ||
+      invoice.status === "INITIATED"
+    ) {
+      return Boolean(
+        invoice.invalidateAt &&
+          Date.now() > Number(invoice.invalidateAt) * 1000,
+      );
+    }
+    return invoice.status === "EXPIRED";
+  }, [invoice.status, invoice.invalidateAt]);
+
+  const displayStatus = isExpired
+    ? "EXPIRED"
+    : invoice.status === "CREATED"
+    ? "AWAITING PAYMENT"
+    : invoice.status || "Unknown";
   const isAwaitingPayment =
-    invoice.status === "AWAITING PAYMENT" ||
-    invoice.status === "CREATED" ||
-    invoice.status === "INITIATED";
+    !isExpired &&
+    (invoice.status === "AWAITING PAYMENT" ||
+      invoice.status === "CREATED" ||
+      invoice.status === "INITIATED");
   const releasedAmount = useMemo(() => {
     const baseAmount = invoice.amountPaid ?? invoice.price;
     if (!baseAmount) return undefined;
@@ -174,6 +190,7 @@ export function InvoiceCard({
     CANCELED: "bg-gray-100 text-gray-800",
     RELEASED: "bg-purple-100 text-purple-800",
     REFUNDED: "bg-indigo-100 text-indigo-800",
+    EXPIRED: "bg-red-100 text-red-700",
     "Dispute Resolved": "bg-teal-100 text-teal-800",
     Unknown: "bg-gray-100 text-gray-600",
   };
@@ -288,15 +305,17 @@ export function InvoiceCard({
               link="https://sapphiredao.gitbook.io/sapphiredao-docs/user-docs/publish-your-docs#seller"
             />
 
-            <InvoiceField
-              label="Amount Paid"
-              value={
-                invoice.paymentTxHash
-                  ? renderTx(invoice.paymentTxHash, `${invoice.amountPaid} ETH`)
-                  : `${invoice.amountPaid} ETH`
-              }
-              description="The amount already paid into escrow by the buyer."
-            />
+            {invoice.amountPaid && invoice.amountPaid !== "0" && (
+              <InvoiceField
+                label="Amount Paid"
+                value={
+                  invoice.paymentTxHash
+                    ? renderTx(invoice.paymentTxHash, `${invoice.amountPaid} ETH`)
+                    : `${invoice.amountPaid} ETH`
+                }
+                description="The amount already paid into escrow by the buyer."
+              />
+            )}
 
             {invoice.buyer &&
               !isZeroAddress(invoice.buyer) &&
@@ -406,7 +425,7 @@ export function InvoiceCard({
               />
             )}
 
-          {invoice.amountPaid && invoice.status !== "REFUNDED" && (
+          {invoice.amountPaid && invoice.amountPaid !== "0" && invoice.status !== "REFUNDED" && (
             <InvoiceField
               label="Amount Paid"
               value={

@@ -692,6 +692,7 @@ export const useInvoiceData = () => {
               buyer: nextInvoice.buyer || inv.buyer,
               seller: nextInvoice.seller || inv.seller,
               price: nextInvoice.price ?? inv.price,
+              history: mergeHistory(inv.history, nextInvoice.history),
             };
           });
         });

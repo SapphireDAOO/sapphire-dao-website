@@ -11,6 +11,9 @@ export type SetNoteStatePayload = {
   orderId: string;
   noteId: string;
   open: boolean;
+  author: string;
+  signature: string;
+  timestamp: number;
 };
 
 export type NotesApiResponse = {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
@@ -25,6 +25,27 @@ export function NotesThread({
   onExpand: () => void;
   shareLabel: string;
 }) {
+  // Defer note fetching until the component enters the viewport
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [isInView, setIsInView] = useState(false);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    // Already visible (e.g. first card)
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsInView(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: "300px" },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
   const {
     notes,
     isLoading,
@@ -32,7 +53,7 @@ export function NotesThread({
     pendingNoteIds,
     createNote,
     setNoteOpen,
-  } = useInvoiceNotes(orderId, { enabled: true });
+  } = useInvoiceNotes(orderId, { enabled: isInView });
 
   const [isComposerOpen, setIsComposerOpen] = useState(false);
   const [draft, setDraft] = useState("");
@@ -122,6 +143,7 @@ export function NotesThread({
 
   return (
     <div
+      ref={containerRef}
       className="mt-3 space-y-2"
       onClick={(e) => e.stopPropagation()}
       onMouseDown={(e) => e.stopPropagation()}

@@ -40,6 +40,7 @@ const simpleFilters = [
   "REFUNDED",
   "CANCELED",
   "RELEASED",
+  "EXPIRED",
 ];
 
 export default function IndexRecentPayment({
@@ -162,22 +163,36 @@ export default function IndexRecentPayment({
     return sortByLastAction([...liveSellerInvoices, ...liveBuyerInvoices]);
   }, [activeTab, liveSellerInvoices, liveBuyerInvoices]);
 
-  const canonicalStatus = useCallback((value?: string | null) => {
-    if (!value) return "";
-    const normalized = value.replace(/_/g, " ").toUpperCase().trim();
+  const canonicalStatus = useCallback(
+    (value?: string | null, invoice?: Invoice) => {
+      if (!value) return "";
+      const normalized = value.replace(/_/g, " ").toUpperCase().trim();
 
-    switch (normalized) {
-      case "CREATED":
-      case "INITIATED":
-        return "AWAITING PAYMENT";
-      case "REJECTED":
-        return "REFUNDED";
-      case "CANCELLED":
-        return "CANCELED";
-      default:
-        return normalized;
-    }
-  }, []);
+      // Dynamically detect expired: awaiting payment past invalidateAt
+      if (
+        (normalized === "AWAITING PAYMENT" ||
+          normalized === "CREATED" ||
+          normalized === "INITIATED") &&
+        invoice?.invalidateAt &&
+        Date.now() > Number(invoice.invalidateAt) * 1000
+      ) {
+        return "EXPIRED";
+      }
+
+      switch (normalized) {
+        case "CREATED":
+        case "INITIATED":
+          return "AWAITING PAYMENT";
+        case "REJECTED":
+          return "REFUNDED";
+        case "CANCELLED":
+          return "CANCELED";
+        default:
+          return normalized;
+      }
+    },
+    [],
+  );
 
   // ── Client-side filters applied to the in-memory page data ───────────────
   const filteredInvoices = useMemo(() => {
@@ -186,7 +201,7 @@ export default function IndexRecentPayment({
     if (statusFilter !== "All") {
       const targetStatus = canonicalStatus(statusFilter);
       invoices = invoices.filter((invoice) => {
-        return canonicalStatus(invoice.status) === targetStatus;
+        return canonicalStatus(invoice.status, invoice) === targetStatus;
       });
     }
 
