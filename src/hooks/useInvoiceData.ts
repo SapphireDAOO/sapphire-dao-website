@@ -52,9 +52,7 @@ const MAX_ADMIN_PAGES = 10;
 const USER_INVOICE_PAGE_CACHE_TTL_MS = 2_000;
 
 type UserInvoicePageResult = {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   data?: any;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   error?: any;
 };
 
