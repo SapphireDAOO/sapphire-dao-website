@@ -12,7 +12,7 @@ export const transformSimple = (
   type: "Seller" | "Buyer"
 ): Invoice => ({
   id: inv.invoiceId ?? inv.invoiceNonce ?? inv.id,
-  orderId: inv.id,
+  invoiceId: inv.id,
   createdAt: inv.createdAt ? unixToGMT(inv.createdAt) : null,
   paidAt: inv.paidAt || "Not Paid",
   status: sortState(inv.state, inv.invalidateAt),
@@ -41,7 +41,7 @@ export const transformMarketplace = (
 
   return {
     id: inv.invoiceId ?? inv.invoiceNonce ?? inv.id,
-    orderId: inv.id,
+    invoiceId: inv.id,
     createdAt: inv.createdAt ? unixToGMT(inv.createdAt) : null,
     paidAt: inv.paidAt || "Not Paid",
     status: sortState(inv.state),

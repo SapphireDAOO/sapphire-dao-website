@@ -8,17 +8,17 @@ const PayContent = () => {
   const searchParams = useSearchParams();
   const token = searchParams.get("data");
 
-  const [decryptedData, setDecryptedData] = useState<{ orderId: string } | null>(null);
+  const [decryptedData, setDecryptedData] = useState<{ invoiceId: string } | null>(null);
 
   useEffect(() => {
     if (!token) return;
 
     fetch(`/api/verify-token?token=${encodeURIComponent(token)}`)
       .then((r) => r.json())
-      .then((result: { valid?: boolean; data?: { orderId?: string } }) => {
-        const orderId = result.data?.orderId;
-        if (result.valid && orderId) {
-          setDecryptedData({ orderId });
+      .then((result: { valid?: boolean; data?: { invoiceId?: string } }) => {
+        const invoiceId = result.data?.invoiceId;
+        if (result.valid && invoiceId) {
+          setDecryptedData({ invoiceId });
         }
       })
       .catch(console.error);

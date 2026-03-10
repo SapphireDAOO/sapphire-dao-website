@@ -102,7 +102,7 @@ export function InvoiceCard({
   ]);
 
   const paymentUrl = useSecureLink(
-    isExpanded ? invoice.orderId : undefined,
+    isExpanded ? invoice.invoiceId : undefined,
     "pay",
   );
 
@@ -386,7 +386,8 @@ export function InvoiceCard({
         )}
 
         <NotesThread
-          orderId={invoice.orderId}
+          invoiceId={invoice.invoiceId}
+          invoice={invoice}
           onExpand={ensureExpanded}
           shareLabel={shareLabel}
           expanded={isExpanded}
@@ -395,16 +396,16 @@ export function InvoiceCard({
         {/* Cancel button in header */}
         {invoice.status === "AWAITING PAYMENT" && (
           <div className="mt-3">
-            <CancelInvoice orderId={invoice.orderId} />
+            <CancelInvoice invoiceId={invoice.invoiceId} />
           </div>
         )}
 
         {/* Seller actions in header */}
         {invoice.status === "PAID" && isSellerView && (
           <div className="pt-3 mt-3 border-t border-gray-200 flex justify-end gap-3">
-            <SellersAction orderId={invoice.orderId} state text="Accept" />
+            <SellersAction invoiceId={invoice.invoiceId} state text="Accept" />
             <SellersAction
-              orderId={invoice.orderId}
+              invoiceId={invoice.invoiceId}
               state={false}
               text="Reject"
             />

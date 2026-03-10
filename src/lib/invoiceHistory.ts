@@ -39,11 +39,24 @@ export const synthesizeMarketplaceHistory = (inv: {
   paidAt?: any; // eslint-disable-line @typescript-eslint/no-explicit-any
 }): History[] => {
   const history = sortHistory(inv.history, inv.historyTime);
-  if (history.length > 0) return history;
 
-  const result: History[] = [];
-  if (inv.createdAt)
-    result.push({ status: "CREATED", time: inv.createdAt.toString() });
+  // Always ensure a CREATED entry exists from createdAt when not already present
+  const hasCreated = history.some(
+    (h) =>
+      h.status === "CREATED" ||
+      h.status === "AWAITING PAYMENT" ||
+      h.status === "AWAITING_PAYMENT" ||
+      h.status === "INITIATED",
+  );
+
+  const prefix: History[] =
+    inv.createdAt && !hasCreated
+      ? [{ status: "CREATED", time: inv.createdAt.toString() }]
+      : [];
+
+  if (history.length > 0) return [...prefix, ...history];
+
+  const result: History[] = [...prefix];
   if (inv.paidAt) result.push({ status: "PAID", time: inv.paidAt.toString() });
   return result;
 };

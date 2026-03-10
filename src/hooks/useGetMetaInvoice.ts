@@ -9,7 +9,7 @@ import { BASE_SEPOLIA } from "@/constants";
 /**
  * Custom hook to fetch a meta invoice from the AdvancedPaymentProcessor smart contract.
  *
- * @param orderId - The unique identifier (key) of the invoice.
+ * @param invoiceId - The unique identifier (key) of the invoice.
  *
  * @returns An object containing:
  *   - `data`: The meta invoice data returned by the smart contract. This may include fields like `token`, `amount`, `receiver`, etc.
@@ -17,7 +17,7 @@ import { BASE_SEPOLIA } from "@/constants";
  *   - `isLoading`: Boolean indicating whether the contract read operation is still in progress.
  */
 
-export const useGetMetaInvoice = (orderId: bigint) => {
+export const useGetMetaInvoice = (invoiceId: bigint) => {
   // Get the connected user's wallet address using the wagmi `useAccount` hook
   const { address } = useAccount();
 
@@ -30,7 +30,7 @@ export const useGetMetaInvoice = (orderId: bigint) => {
     chainId: baseSepolia.id,
     address: ADVANCED_PAYMENT_PROCESSOR[chainId],
     functionName: "getMetaInvoice",
-    args: [orderId],
+    args: [invoiceId],
     account: address,
   });
 

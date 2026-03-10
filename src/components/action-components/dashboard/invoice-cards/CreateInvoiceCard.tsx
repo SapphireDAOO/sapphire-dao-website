@@ -34,13 +34,13 @@ import {
 interface InvoiceQRLinkProps {
   open: boolean;
   setOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  orderId: bigint;
+  invoiceId: bigint;
   contractAddress?: string;
 }
 
 const InvoiceQRLink = React.memo(
-  ({ open, setOpen, orderId, contractAddress }: InvoiceQRLinkProps) => {
-    const paymentUrl = useSecureLink(orderId, "pay");
+  ({ open, setOpen, invoiceId, contractAddress }: InvoiceQRLinkProps) => {
+    const paymentUrl = useSecureLink(invoiceId, "pay");
 
     const handleCopyLink = useCallback(() => {
       navigator.clipboard.writeText(paymentUrl);
@@ -104,7 +104,7 @@ export default function CreateInvoiceDialog() {
 
   const [openCreate, setOpenCreate] = useState(false);
   const [openQR, setOpenQR] = useState(false);
-  const [orderId, setOrderId] = useState<bigint>(BigInt(0));
+  const [invoiceId, setinvoiceId] = useState<bigint>(BigInt(0));
   const [isCreating, setIsCreating] = useState(false);
 
   const { createInvoice, refetchInvoiceData, isLoading } =
@@ -125,7 +125,7 @@ export default function CreateInvoiceDialog() {
       const response = await createInvoice(amountValue, note.trim(), shareNote);
 
       if (response) {
-        setOrderId(response);
+        setinvoiceId(response);
 
         setOpenCreate(false);
         setOpenQR(true);
@@ -267,7 +267,7 @@ export default function CreateInvoiceDialog() {
         <InvoiceQRLink
           open={openQR}
           setOpen={setOpenQR}
-          orderId={orderId}
+          invoiceId={invoiceId}
           contractAddress={contractAddress}
         />
       )}

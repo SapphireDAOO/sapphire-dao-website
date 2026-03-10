@@ -17,7 +17,6 @@ const HeroSection = () => {
           for goods and services. <br />
           This payment system makes use of cryptocurrency as a medium of
           transaction; <br />
-          specifically, it uses POL(matic) on the polygon blockchain
         </p>
 
         <div className="flex justify-center gap-8">

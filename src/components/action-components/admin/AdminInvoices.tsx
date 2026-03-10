@@ -1,6 +1,6 @@
 "use client";
 
-import { useContext, useRef } from "react";
+import { useContext, useEffect, useRef } from "react";
 import { ContractContext } from "@/context/contract-context";
 import { formatAddress } from "@/utils";
 import {
@@ -72,10 +72,11 @@ const AdminInvoices = () => {
   const { allInvoiceData, refreshAdminData } = useContext(ContractContext);
   const hasFetchedAdmin = useRef(false);
 
-  if (!hasFetchedAdmin.current) {
+  useEffect(() => {
+    if (hasFetchedAdmin.current) return;
     hasFetchedAdmin.current = true;
     refreshAdminData?.(true);
-  }
+  }, [refreshAdminData]);
 
   return (
     <div className="container mx-auto">

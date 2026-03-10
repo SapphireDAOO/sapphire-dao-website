@@ -1,5 +1,5 @@
 export type CreateNotePayload = {
-  orderId: string;
+  invoiceId: string;
   author: string;
   content: string;
   share: boolean;
@@ -8,7 +8,7 @@ export type CreateNotePayload = {
 };
 
 export type SetNoteStatePayload = {
-  orderId: string;
+  invoiceId: string;
   noteId: string;
   open: boolean;
   author: string;
@@ -24,7 +24,7 @@ export type NotesApiResponse = {
 };
 
 export type PendingNote = {
-  orderId: string;
+  invoiceId: string;
   noteId?: string;
   author: string;
   share: boolean;
@@ -59,7 +59,7 @@ const writePendingNotes = (notes: PendingNote[]) => {
 };
 
 const isSamePendingNote = (a: PendingNote, b: PendingNote): boolean => {
-  if (a.orderId !== b.orderId) return false;
+  if (a.invoiceId !== b.invoiceId) return false;
   if (a.noteId && b.noteId) return a.noteId === b.noteId;
   if (a.txHash && b.txHash) {
     return a.txHash.toLowerCase() === b.txHash.toLowerCase();
@@ -84,21 +84,21 @@ export const addPendingNote = (note: PendingNote) => {
   writePendingNotes([note, ...existing]);
 };
 
-export const getPendingNotesForOrder = (orderId: string): PendingNote[] =>
-  readPendingNotes().filter((note) => note.orderId === orderId);
+export const getPendingNotesForOrder = (invoiceId: string): PendingNote[] =>
+  readPendingNotes().filter((note) => note.invoiceId === invoiceId);
 
 export const removePendingNote = (params: {
-  orderId: string;
+  invoiceId: string;
   noteId?: string;
   txHash?: string;
 }) => {
   const storage = getStorage();
   if (!storage) return;
 
-  const { orderId, noteId, txHash } = params;
+  const { invoiceId, noteId, txHash } = params;
   const existing = readPendingNotes();
   const filtered = existing.filter((note) => {
-    if (note.orderId !== orderId) return true;
+    if (note.invoiceId !== invoiceId) return true;
     if (noteId && note.noteId) return note.noteId !== noteId;
     if (txHash && note.txHash) {
       return note.txHash.toLowerCase() !== txHash.toLowerCase();
@@ -109,14 +109,14 @@ export const removePendingNote = (params: {
   writePendingNotes(filtered);
 };
 
-export const removePendingNotesByIds = (orderId: string, noteIds: string[]) => {
+export const removePendingNotesByIds = (invoiceId: string, noteIds: string[]) => {
   const storage = getStorage();
   if (!storage || noteIds.length === 0) return;
 
   const idSet = new Set(noteIds);
   const existing = readPendingNotes();
   const filtered = existing.filter(
-    (note) => note.orderId !== orderId || !note.noteId || !idSet.has(note.noteId)
+    (note) => note.invoiceId !== invoiceId || !note.noteId || !idSet.has(note.noteId)
   );
 
   writePendingNotes(filtered);
@@ -145,7 +145,7 @@ export const createNote = async (payload: CreateNotePayload) =>
   postNotesAction({ action: "create", ...payload }).then((result) => {
     try {
       addPendingNote({
-        orderId: payload.orderId,
+        invoiceId: payload.invoiceId,
         noteId: result.noteId?.toString?.() ?? result.noteId,
         author: payload.author,
         share: payload.share,

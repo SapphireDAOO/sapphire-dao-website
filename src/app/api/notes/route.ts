@@ -19,7 +19,7 @@ export async function POST(req: Request) {
     const action = body?.action;
 
     if (action === "create") {
-      const orderId = parseBigInt(body?.orderId, "orderId");
+      const invoiceId = parseBigInt(body?.invoiceId, "invoiceId");
       const author = body?.author as string | undefined;
       const content = String(body?.content ?? "").trim();
       const share = Boolean(body?.share);
@@ -50,7 +50,7 @@ export async function POST(req: Request) {
         );
       }
 
-      const expectedMessage = `Sapphire DAO: Create note for order ${orderId.toString()}\nAuthor: ${author}\nContent: ${content}\nShare: ${share}\nTimestamp: ${timestamp}`;
+      const expectedMessage = `Sapphire DAO: Create note for order ${invoiceId.toString()}\nAuthor: ${author}\nContent: ${content}\nShare: ${share}\nTimestamp: ${timestamp}`;
       const isValid = await verifyMessage({
         address: author as `0x${string}`,
         message: expectedMessage,
@@ -84,7 +84,7 @@ export async function POST(req: Request) {
         address: contractAddress,
         abi: Notes,
         functionName: "createNote",
-        args: [orderId, author, toEncryptedNoteHex(content), share],
+        args: [invoiceId, author, toEncryptedNoteHex(content), share],
         gas: BigInt(300000),
         maxPriorityFeePerGas: parseGwei("2"),
       });
@@ -115,7 +115,7 @@ export async function POST(req: Request) {
             address: contractAddress,
             abi: Notes,
             functionName: "getNoteCount",
-            args: [orderId],
+            args: [invoiceId],
           });
           if (typeof count === "bigint" && count > BigInt(0)) {
             noteId = (count - BigInt(1)).toString();
@@ -133,7 +133,7 @@ export async function POST(req: Request) {
     }
 
     if (action === "setOpened") {
-      const orderId = parseBigInt(body?.orderId, "orderId");
+      const invoiceId = parseBigInt(body?.invoiceId, "invoiceId");
       const noteId = parseBigInt(body?.noteId, "noteId");
       const open = Boolean(body?.open);
       const author = body?.author as string | undefined;
@@ -163,7 +163,7 @@ export async function POST(req: Request) {
         );
       }
 
-      const expectedMessage = `Sapphire DAO: Set note state for order ${orderId.toString()}\nNoteId: ${noteId.toString()}\nOpen: ${open}\nAuthor: ${author}\nTimestamp: ${timestamp}`;
+      const expectedMessage = `Sapphire DAO: Set note state for order ${invoiceId.toString()}\nNoteId: ${noteId.toString()}\nOpen: ${open}\nAuthor: ${author}\nTimestamp: ${timestamp}`;
       const isValid = await verifyMessage({
         address: author as `0x${string}`,
         message: expectedMessage,
@@ -194,7 +194,7 @@ export async function POST(req: Request) {
         address: contractAddress,
         abi: Notes,
         functionName: "setOpened",
-        args: [orderId, author, noteId],
+        args: [invoiceId, author, noteId],
         gas: BigInt(150000),
         maxPriorityFeePerGas: parseGwei("2"),
       });

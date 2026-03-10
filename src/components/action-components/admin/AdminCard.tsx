@@ -42,7 +42,7 @@ const AdminCard = () => {
 
   const [receiversAdd, setReceiverAdd] = useState("");
   const [ownerAddr, setOwnerAddr] = useState("");
-  const [orderId, setorderId] = useState("");
+  const [invoiceId, setinvoiceId] = useState("");
   const [holdPeriod, setHoldPeriod] = useState("");
   const [defaultPeriod, setDefaultPeriod] = useState("");
   const [sDaoFee, setDaoFee] = useState("");
@@ -78,7 +78,7 @@ const AdminCard = () => {
 
   const handleInvoiceHoldPeriod = async () => {
     const holdPeriodInSecond = Math.round(Number(holdPeriod)) * 24 * 60 * 60;
-    await setInvoiceHoldPeriod(BigInt(orderId), BigInt(holdPeriodInSecond));
+    await setInvoiceHoldPeriod(BigInt(invoiceId), BigInt(holdPeriodInSecond));
   };
 
   const handleDefaultPeriod = async () => {
@@ -265,8 +265,8 @@ const AdminCard = () => {
                 id="holdPeriodID"
                 placeholder="Invoice ID"
                 type="number"
-                value={orderId}
-                onChange={(e) => setorderId(e.target.value)}
+                value={invoiceId}
+                onChange={(e) => setinvoiceId(e.target.value)}
                 aria-describedby="holdPeriodDescription"
                 className="w-full"
               />

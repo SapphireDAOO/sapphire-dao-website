@@ -17,7 +17,7 @@ const CheckoutPage = () => {
   const jwtToken = searchParams.get("data");
 
   const { getAdvancedInvoiceData } = useContext(ContractContext);
-  const [orderId, setOrderId] = useState<bigint | null>(null);
+  const [invoiceId, setinvoiceId] = useState<bigint | null>(null);
   const [invoiceDetails, setInvoiceDetails] = useState<InvoiceDetails | null>(
     null
   );
@@ -33,7 +33,7 @@ const CheckoutPage = () => {
 
         const result = await response.json();
         if (response.ok && result.valid) {
-          setOrderId(result.data.orderId);
+          setinvoiceId(result.data.invoiceId);
         } else {
           setError(result.error || "Token verification failed.");
         }
@@ -46,8 +46,8 @@ const CheckoutPage = () => {
   }, [jwtToken]);
 
   const ZERO: bigint = BigInt(0);
-  const { data: invoiceInfo } = useGetMarketplaceInvoiceData(orderId || ZERO);
-  const { data: metaInvoice } = useGetMetaInvoice(orderId || ZERO);
+  const { data: invoiceInfo } = useGetMarketplaceInvoiceData(invoiceId || ZERO);
+  const { data: metaInvoice } = useGetMetaInvoice(invoiceId || ZERO);
   const metaInvoicePrice =
     (metaInvoice as { price?: bigint } | undefined)?.price;
   const marketplaceInvoice = invoiceInfo as
@@ -60,15 +60,15 @@ const CheckoutPage = () => {
 
   // Step 3: Fetch invoice data dynamically
   useEffect(() => {
-    if (!orderId) return;
+    if (!invoiceId) return;
 
     const loadInvoice = async () => {
-      if (!orderId) return;
+      if (!invoiceId) return;
 
       const type = isMetaInvoice ? "metaInvoice" : "smartInvoice";
 
       try {
-        const response = await getAdvancedInvoiceData(orderId, type);
+        const response = await getAdvancedInvoiceData(invoiceId, type);
 
         const invoice = response?.[type];
         const paymentTokens: TokenData[] = response?.paymentTokens || [];
@@ -77,7 +77,7 @@ const CheckoutPage = () => {
         if (invoice) {
           structured = {
             id: invoice.invoiceId ?? invoice.invoiceNonce,
-            orderId: invoice.id,
+            invoiceId: invoice.id,
             price: invoice.price,
             tokenList: paymentTokens,
             status: invoice.state,
@@ -88,7 +88,7 @@ const CheckoutPage = () => {
               marketplaceInvoice?.invoiceId?.toString() ??
               marketplaceInvoice?.invoiceNonce?.toString() ??
               "",
-            orderId: orderId,
+            invoiceId: invoiceId,
             price: marketplaceInvoice?.price?.toString() ?? "0",
             tokenList: paymentTokens,
             status: (marketplaceInvoice as { state?: string } | undefined)
@@ -103,7 +103,7 @@ const CheckoutPage = () => {
     };
     loadInvoice();
   }, [
-    orderId,
+    invoiceId,
     metaInvoicePrice,
     isMetaInvoice,
     getAdvancedInvoiceData,
@@ -113,7 +113,7 @@ const CheckoutPage = () => {
   // UI
 
   const isLoading =
-    orderId && metaInvoice !== undefined && !invoiceDetails && !error;
+    invoiceId && metaInvoice !== undefined && !invoiceDetails && !error;
 
   if (error) {
     return (

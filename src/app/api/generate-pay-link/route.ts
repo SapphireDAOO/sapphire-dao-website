@@ -7,18 +7,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Server misconfigured" }, { status: 500 });
   }
 
-  let orderId: string;
+  let invoiceId: string;
   try {
     const body = await req.json();
-    orderId = String(body?.orderId ?? "").trim();
+    invoiceId = String(body?.invoiceId ?? "").trim();
   } catch {
     return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
   }
 
-  if (!orderId) {
-    return NextResponse.json({ error: "orderId is required" }, { status: 400 });
+  if (!invoiceId) {
+    return NextResponse.json({ error: "invoiceId is required" }, { status: 400 });
   }
 
-  const token = jwt.sign({ orderId }, secret, { expiresIn: "7d" });
+  const token = jwt.sign({ invoiceId }, secret, { expiresIn: "7d" });
   return NextResponse.json({ token });
 }

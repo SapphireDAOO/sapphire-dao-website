@@ -8,10 +8,10 @@ import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 interface CancelInvoiceProps {
-  orderId: bigint;
+  invoiceId: bigint;
 }
 
-const CancelInvoice = ({ orderId }: CancelInvoiceProps) => {
+const CancelInvoice = ({ invoiceId }: CancelInvoiceProps) => {
   const { cancelInvoice, isLoading, refetchInvoiceData } =
     useContext(ContractContext);
   const [localLoading, setLocalLoading] = useState(false);
@@ -21,7 +21,7 @@ const CancelInvoice = ({ orderId }: CancelInvoiceProps) => {
     setLocalLoading(true);
 
     try {
-      if (await cancelInvoice(orderId)) {
+      if (await cancelInvoice(invoiceId)) {
         await refetchInvoiceData?.();
         toast.success("Invoice successfully cancelled");
       }
@@ -33,7 +33,7 @@ const CancelInvoice = ({ orderId }: CancelInvoiceProps) => {
     }
   };
 
-  const isActionLoading = localLoading || isLoading === "cancelInvoice";
+  const isActionLoading = localLoading || isLoading === `cancelInvoice:${invoiceId.toString()}`;
 
   return (
     <div className="flex flex-col items-end gap-2 mt-4">

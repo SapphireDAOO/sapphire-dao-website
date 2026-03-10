@@ -1,14 +1,13 @@
 "use client";
 import { ColumnDef } from "@tanstack/react-table";
-import { Invoice } from "@/model/model";
+import { AllInvoice } from "@/model/model";
 import { formatAddress } from "@/utils";
 import React from "react";
-import { formatEther } from "viem";
 import { Button } from "@/components/ui/button";
 import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
 import CopyableAddress from "@/components/ui/copyable-address";
 
-const allMarketplaceInvoices: ColumnDef<Invoice>[] = [
+const allMarketplaceInvoices: ColumnDef<AllInvoice>[] = [
   {
     accessorKey: "id",
     header: ({ column }) => {
@@ -39,7 +38,7 @@ const allMarketplaceInvoices: ColumnDef<Invoice>[] = [
   },
 
   {
-    accessorKey: "orderId",
+    accessorKey: "invoiceId",
     header: ({ column }) => {
       const sorted = column.getIsSorted();
       const SortIcon =
@@ -58,10 +57,10 @@ const allMarketplaceInvoices: ColumnDef<Invoice>[] = [
       );
     },
     cell: ({ row }) => {
-      const orderId: bigint = row.getValue("orderId");
+      const invoiceId: bigint = row.getValue("invoiceId");
       return (
         <div className="text-center">
-          <CopyableAddress fullValue={orderId.toString()} />
+          <CopyableAddress fullValue={invoiceId.toString()} />
         </div>
       );
     },
@@ -224,9 +223,9 @@ const allMarketplaceInvoices: ColumnDef<Invoice>[] = [
     accessorKey: "fee",
     header: () => <div className="text-center">Fee</div>,
     cell: ({ row }) => {
-      const releasedAtTimeStamp: string = formatEther(row.getValue("fee"));
+      const fee: string = row.getValue("fee");
 
-      return <div className="text-center">{releasedAtTimeStamp}</div>;
+      return <div className="text-center">{fee ?? "-"}</div>;
     },
   },
 ];

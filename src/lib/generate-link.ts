@@ -2,20 +2,20 @@
 import CryptoJS from "crypto-js";
 
 /**
- * Generate a secure encrypted link for a given orderId.
+ * Generate a secure encrypted link for a given invoiceId.
  * Handles bigint safely by converting to string.
  */
-const generateSecureLink = (orderId: bigint | number | string | undefined) => {
+const generateSecureLink = (invoiceId: bigint | number | string | undefined) => {
   const secretKey = process.env.NEXT_PUBLIC_SECRET_KEY;
-  if (!secretKey || !orderId) return "";
+  if (!secretKey || !invoiceId) return "";
 
   try {
     // Convert BigInt to string before encryption
-    const safeOrderId =
-      typeof orderId === "bigint" ? orderId.toString() : String(orderId);
+    const safeinvoiceId =
+      typeof invoiceId === "bigint" ? invoiceId.toString() : String(invoiceId);
 
     const encrypted = CryptoJS.AES.encrypt(
-      JSON.stringify({ orderId: safeOrderId }),
+      JSON.stringify({ invoiceId: safeinvoiceId }),
       secretKey
     ).toString();
 

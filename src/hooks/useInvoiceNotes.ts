@@ -23,7 +23,7 @@ const NOTE_REFRESH_DELAY_MS = 5_000;
 
 type RawNote = {
   id: string;
-  orderId: string;
+  invoiceId: string;
   noteId: string;
   author: string;
   share: boolean;
@@ -56,7 +56,7 @@ const formatNowLabel = () => {
 };
 
 export const useInvoiceNotes = (
-  orderId?: bigint | string | number,
+  invoiceId?: bigint | string | number,
   options?: { enabled?: boolean }
 ) => {
   const isEnabled = options?.enabled ?? true;
@@ -76,18 +76,18 @@ export const useInvoiceNotes = (
   const notesRef = useRef<ThreadNote[]>([]);
   const blockCacheRef = useRef<Map<string, string>>(new Map());
   const configWarnedRef = useRef(false);
-  const invalidOrderIdRef = useRef(false);
+  const invalidinvoiceIdRef = useRef(false);
   const refreshTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const normalizedOrderId = useMemo(() => {
-    if (orderId === undefined || orderId === null) return undefined;
-    if (typeof orderId === "bigint") return orderId;
-    if (typeof orderId === "number") {
-      if (!Number.isFinite(orderId)) return undefined;
-      return BigInt(Math.trunc(orderId));
+  const normalizedinvoiceId = useMemo(() => {
+    if (invoiceId === undefined || invoiceId === null) return undefined;
+    if (typeof invoiceId === "bigint") return invoiceId;
+    if (typeof invoiceId === "number") {
+      if (!Number.isFinite(invoiceId)) return undefined;
+      return BigInt(Math.trunc(invoiceId));
     }
 
-    const trimmed = orderId.trim();
+    const trimmed = invoiceId.trim();
     if (!trimmed) return undefined;
 
     try {
@@ -95,7 +95,7 @@ export const useInvoiceNotes = (
     } catch {
       return undefined;
     }
-  }, [orderId]);
+  }, [invoiceId]);
 
   useEffect(() => {
     notesRef.current = notes;
@@ -103,8 +103,8 @@ export const useInvoiceNotes = (
 
   useEffect(() => {
     if (!isEnabled) return;
-    if (normalizedOrderId === undefined) return;
-    const pending = getPendingNotesForOrder(normalizedOrderId.toString());
+    if (normalizedinvoiceId === undefined) return;
+    const pending = getPendingNotesForOrder(normalizedinvoiceId.toString());
     if (pending.length === 0) return;
 
     setNotes((prev) => {
@@ -137,8 +137,8 @@ export const useInvoiceNotes = (
         next = [
           {
             id: note.noteId
-              ? `${note.orderId}-${note.noteId}`
-              : `local-${note.orderId}-${Date.now().toString()}`,
+              ? `${note.invoiceId}-${note.noteId}`
+              : `local-${note.invoiceId}-${Date.now().toString()}`,
             noteId: note.noteId || `local-${Date.now().toString()}`,
             author: note.author,
             share: note.share,
@@ -165,7 +165,7 @@ export const useInvoiceNotes = (
         }
       });
     });
-  }, [address, normalizedOrderId, isEnabled]);
+  }, [address, normalizedinvoiceId, isEnabled]);
 
   useEffect(() => {
     return () => {
@@ -184,7 +184,7 @@ export const useInvoiceNotes = (
 
   useEffect(() => {
     if (!isEnabled) return;
-    if (!publicClient || normalizedOrderId === undefined) return;
+    if (!publicClient || normalizedinvoiceId === undefined) return;
 
     const contractAddress = NOTES_CONTRACT[chainId];
     if (!contractAddress) return;
@@ -201,7 +201,7 @@ export const useInvoiceNotes = (
           const args = log.args as
             | {
                 invoiceId?: bigint;
-                orderId?: bigint;
+                invoiceId?: bigint;
                 noteId?: bigint;
                 author?: string;
                 share?: boolean;
@@ -209,9 +209,9 @@ export const useInvoiceNotes = (
               }
             | undefined;
 
-          const invoiceId = args?.invoiceId ?? args?.orderId;
+          const invoiceId = args?.invoiceId ?? args?.invoiceId;
           if (invoiceId == null || args?.noteId == null) return;
-          if (invoiceId.toString() !== normalizedOrderId.toString()) return;
+          if (invoiceId.toString() !== normalizedinvoiceId.toString()) return;
 
           const share = Boolean(args.share);
           const author = (args.author || "").toLowerCase();
@@ -225,7 +225,7 @@ export const useInvoiceNotes = (
           const txHash = log.transactionHash;
           const authorAddress = args.author || "";
           removePendingNote({
-            orderId: normalizedOrderId.toString(),
+            invoiceId: normalizedinvoiceId.toString(),
             noteId,
             txHash,
           });
@@ -269,7 +269,7 @@ export const useInvoiceNotes = (
               const pending = prev[pendingIndex];
               const updated: ThreadNote = {
                 ...pending,
-                id: `${normalizedOrderId.toString()}-${noteId}`,
+                id: `${normalizedinvoiceId.toString()}-${noteId}`,
                 noteId,
                 author: authorAddress || pending.author,
                 share,
@@ -297,7 +297,7 @@ export const useInvoiceNotes = (
             }
 
             const nextNote: ThreadNote = {
-              id: `${normalizedOrderId.toString()}-${noteId}`,
+              id: `${normalizedinvoiceId.toString()}-${noteId}`,
               noteId,
               author: authorAddress,
               share,
@@ -334,21 +334,21 @@ export const useInvoiceNotes = (
           const args = log.args as
             | {
                 invoiceId?: bigint;
-                orderId?: bigint;
+                invoiceId?: bigint;
                 noteId?: bigint;
                 user?: string;
                 opened?: boolean;
               }
             | undefined;
 
-          const invoiceId = args?.invoiceId ?? args?.orderId;
+          const invoiceId = args?.invoiceId ?? args?.invoiceId;
           if (
             invoiceId == null ||
             args?.noteId == null ||
             args?.user == null
           )
             return;
-          if (invoiceId.toString() !== normalizedOrderId.toString()) return;
+          if (invoiceId.toString() !== normalizedinvoiceId.toString()) return;
           if (args.user.toLowerCase() !== openStateUser) return;
 
           const noteId = args.noteId.toString();
@@ -373,7 +373,7 @@ export const useInvoiceNotes = (
       unwatchCreated?.();
       unwatchState?.();
     };
-  }, [address, chainId, normalizedOrderId, publicClient, isEnabled]);
+  }, [address, chainId, normalizedinvoiceId, publicClient, isEnabled]);
 
   const hydrateBlockLabels = useCallback(
     async (blockNumbers: string[]) => {
@@ -417,20 +417,20 @@ export const useInvoiceNotes = (
   const fetchNotes = useCallback(async () => {
     if (!isEnabled) return;
 
-    if (normalizedOrderId === undefined) {
+    if (normalizedinvoiceId === undefined) {
       setNotes([]);
       if (
-        orderId !== undefined &&
-        orderId !== null &&
-        !invalidOrderIdRef.current
+        invoiceId !== undefined &&
+        invoiceId !== null &&
+        !invalidinvoiceIdRef.current
       ) {
-        console.warn("Invalid orderId for notes:", orderId);
-        invalidOrderIdRef.current = true;
+        console.warn("Invalid invoiceId for notes:", invoiceId);
+        invalidinvoiceIdRef.current = true;
       }
       return;
     }
 
-    invalidOrderIdRef.current = false;
+    invalidinvoiceIdRef.current = false;
     setIsLoading(true);
 
     try {
@@ -453,7 +453,7 @@ export const useInvoiceNotes = (
       ).toLowerCase();
       const { data, error } = await graphClient
         .query(NOTES_BY_ORDER_QUERY, {
-          orderId: normalizedOrderId.toString(),
+          invoiceId: normalizedinvoiceId.toString(),
           user: openStateUser,
         })
         .toPromise();
@@ -542,7 +542,7 @@ export const useInvoiceNotes = (
         });
 
       removePendingNotesByIds(
-        normalizedOrderId.toString(),
+        normalizedinvoiceId.toString(),
         mapped.map((note) => note.noteId)
       );
       // Preserve any in-memory notes (pending OR confirmed) not yet indexed by
@@ -569,7 +569,7 @@ export const useInvoiceNotes = (
     } finally {
       setIsLoading(false);
     }
-  }, [address, chainId, hydrateBlockLabels, normalizedOrderId, orderId, isEnabled]);
+  }, [address, chainId, hydrateBlockLabels, normalizedinvoiceId, invoiceId, isEnabled]);
 
   useEffect(() => {
     if (!isEnabled) return;
@@ -593,7 +593,7 @@ export const useInvoiceNotes = (
   const createNote = useCallback(
     async (content: string, share: boolean) => {
       if (!isEnabled) return false;
-      if (normalizedOrderId === undefined) return false;
+      if (normalizedinvoiceId === undefined) return false;
       if (!address) {
         toast.error("Connect your wallet to add notes.");
         return false;
@@ -627,7 +627,7 @@ export const useInvoiceNotes = (
 
       try {
         const timestamp = Math.floor(Date.now() / 1000);
-        const message = `Sapphire DAO: Create note for order ${normalizedOrderId.toString()}\nAuthor: ${address}\nContent: ${trimmed}\nShare: ${share}\nTimestamp: ${timestamp}`;
+        const message = `Sapphire DAO: Create note for order ${normalizedinvoiceId.toString()}\nAuthor: ${address}\nContent: ${trimmed}\nShare: ${share}\nTimestamp: ${timestamp}`;
 
         let signature: string;
         try {
@@ -639,7 +639,7 @@ export const useInvoiceNotes = (
         }
 
         const result = await createNoteRequest({
-          orderId: normalizedOrderId.toString(),
+          invoiceId: normalizedinvoiceId.toString(),
           author: address,
           content: trimmed,
           share,
@@ -657,7 +657,7 @@ export const useInvoiceNotes = (
             return {
               ...n,
               id: noteId
-                ? `${normalizedOrderId.toString()}-${resolvedNoteId}`
+                ? `${normalizedinvoiceId.toString()}-${resolvedNoteId}`
                 : localId,
               noteId: resolvedNoteId,
               isPending: !noteId,
@@ -678,13 +678,13 @@ export const useInvoiceNotes = (
         setIsCreating(false);
       }
     },
-    [address, normalizedOrderId, scheduleRefresh, signMessageAsync, isEnabled]
+    [address, normalizedinvoiceId, scheduleRefresh, signMessageAsync, isEnabled]
   );
 
   const setNoteOpen = useCallback(
     async (noteId: string, open: boolean) => {
       if (!isEnabled) return false;
-      if (normalizedOrderId === undefined) return false;
+      if (normalizedinvoiceId === undefined) return false;
       if (!address) {
         toast.error("Connect your wallet to update notes.");
         return false;
@@ -724,7 +724,7 @@ export const useInvoiceNotes = (
 
       try {
         const timestamp = Math.floor(Date.now() / 1000);
-        const message = `Sapphire DAO: Set note state for order ${normalizedOrderId.toString()}\nNoteId: ${noteId}\nOpen: ${open}\nAuthor: ${address}\nTimestamp: ${timestamp}`;
+        const message = `Sapphire DAO: Set note state for order ${normalizedinvoiceId.toString()}\nNoteId: ${noteId}\nOpen: ${open}\nAuthor: ${address}\nTimestamp: ${timestamp}`;
 
         let signature: string;
         try {
@@ -736,7 +736,7 @@ export const useInvoiceNotes = (
         }
 
         await setNoteOpenState({
-          orderId: normalizedOrderId.toString(),
+          invoiceId: normalizedinvoiceId.toString(),
           noteId,
           open: true,
           author: address,
@@ -757,7 +757,7 @@ export const useInvoiceNotes = (
         });
       }
     },
-    [address, normalizedOrderId, signMessageAsync, isEnabled]
+    [address, normalizedinvoiceId, signMessageAsync, isEnabled]
   );
 
   return {

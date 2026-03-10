@@ -3,7 +3,7 @@ import { Invoice } from "@/model/model";
 const CACHE_VERSION = 1;
 const CACHE_TTL_MS = 1000 * 60 * 60 * 24;
 
-type CachedInvoice = Omit<Invoice, "orderId"> & { orderId: string };
+type CachedInvoice = Omit<Invoice, "invoiceId"> & { invoiceId: string };
 type InvoiceCachePayload = {
   version: number;
   updatedAt: number;
@@ -20,14 +20,14 @@ export const getInvoiceCacheKey = (
 
 const toCachedInvoice = (invoice: Invoice): CachedInvoice => ({
   ...invoice,
-  orderId: invoice.orderId.toString(),
+  invoiceId: invoice.invoiceId.toString(),
 });
 
 const fromCachedInvoice = (cached: CachedInvoice): Invoice | null => {
   try {
     return {
       ...cached,
-      orderId: BigInt(cached.orderId),
+      invoiceId: BigInt(cached.invoiceId),
     };
   } catch {
     return null;

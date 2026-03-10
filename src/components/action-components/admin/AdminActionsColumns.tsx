@@ -34,13 +34,13 @@ const adminActionsColumns: ColumnDef<AdminAction>[] = [
       Number(rowA.getValue(columnId)) - Number(rowB.getValue(columnId)),
   },
   {
-    accessorKey: "orderId",
+    accessorKey: "invoiceId",
     header: () => <div className="text-center">Invoice Id</div>,
     cell: ({ row }) => {
-      const orderId: bigint = row.getValue("orderId");
+      const invoiceId: bigint = row.getValue("invoiceId");
       return (
         <div className="text-center">
-          <CopyableAddress fullValue={orderId.toString()} />
+          <CopyableAddress fullValue={invoiceId.toString()} />
         </div>
       );
     },

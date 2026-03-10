@@ -60,6 +60,7 @@ const WalletProvider = ({ children }: Props) => {
     loadPrevPage,
     getInvoiceData,
     refreshAdminData,
+    setActiveEventTab,
   } = useInvoiceData();
 
   const refreshTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -125,14 +126,14 @@ const WalletProvider = ({ children }: Props) => {
           ),
         makeInvoicePayment: (
           amount: bigint,
-          orderId: bigint,
+          invoiceId: bigint,
           storageRef?: string,
           share?: boolean,
         ) =>
           makeInvoicePayment(
             wagmiClients,
             amount,
-            orderId,
+            invoiceId,
             chainId,
             setIsLoading,
             storageRef,
@@ -141,7 +142,7 @@ const WalletProvider = ({ children }: Props) => {
         payAdvancedInvoice: (
           paymentType: "paySingleInvoice" | "payMetaInvoice",
           price: bigint,
-          orderId: bigint,
+          invoiceId: bigint,
           paymentToken: Address,
         ) =>
           address
@@ -149,7 +150,7 @@ const WalletProvider = ({ children }: Props) => {
                 wagmiClients,
                 paymentType,
                 price,
-                orderId,
+                invoiceId,
                 paymentToken,
                 chainId,
                 address,
@@ -163,22 +164,22 @@ const WalletProvider = ({ children }: Props) => {
             : Promise.resolve(false),
         setMarketplaceAddress: (address: Address) =>
           setMarketplaceAddress(wagmiClients, address, chainId, setIsLoading),
-        sellerAction: (orderId: bigint, state: boolean) =>
-          sellerAction(wagmiClients, orderId, state, chainId, setIsLoading),
-        cancelInvoice: (orderId: bigint) =>
-          cancelInvoice(wagmiClients, orderId, chainId, setIsLoading),
-        releaseInvoice: (orderId: bigint) =>
+        sellerAction: (invoiceId: bigint, state: boolean) =>
+          sellerAction(wagmiClients, invoiceId, state, chainId, setIsLoading),
+        cancelInvoice: (invoiceId: bigint) =>
+          cancelInvoice(wagmiClients, invoiceId, chainId, setIsLoading),
+        releaseInvoice: (invoiceId: bigint) =>
           releaseInvoice(
             wagmiClients,
-            orderId,
+            invoiceId,
             chainId,
             setIsLoading,
             getInvoiceData,
           ),
-        refundBuyerAfterWindow: (orderId: bigint) =>
+        refundBuyerAfterWindow: (invoiceId: bigint) =>
           refundBuyerAfterWindow(
             wagmiClients,
-            orderId,
+            invoiceId,
             chainId,
             setIsLoading,
             getInvoiceData,
@@ -199,15 +200,15 @@ const WalletProvider = ({ children }: Props) => {
             setIsLoading,
             getInvoiceData,
           ),
-        setInvoiceHoldPeriod: (orderId: bigint, holdPeriod: bigint) =>
+        setInvoiceHoldPeriod: (invoiceId: bigint, holdPeriod: bigint) =>
           setInvoiceHoldPeriod(
             wagmiClients,
-            orderId,
+            invoiceId,
             holdPeriod,
             chainId,
             setIsLoading,
             getInvoiceData,
-            invoiceData.find((i) => i.orderId.toString() === orderId.toString())
+            invoiceData.find((i) => i.invoiceId.toString() === invoiceId.toString())
               ?.contract,
           ),
         setDefaultHoldPeriod: (newDefaultHoldPeriod: bigint) =>
@@ -246,12 +247,13 @@ const WalletProvider = ({ children }: Props) => {
           ),
         getInvoiceOwner,
         getAdvancedInvoiceData: (
-          orderId: bigint,
+          invoiceId: bigint,
           type: "smartInvoice" | "metaInvoice",
-        ) => fetchAdvancedInvoiceData(orderId, type),
+        ) => fetchAdvancedInvoiceData(invoiceId, type),
         refetchAllInvoiceData,
         refetchInvoiceData,
         refreshAdminData,
+        setActiveEventTab,
       }}
     >
       {children}

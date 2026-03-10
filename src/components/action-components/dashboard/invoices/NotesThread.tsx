@@ -7,8 +7,54 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader } from "@/components/ui/card";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useInvoiceNotes, ThreadNote } from "@/hooks/useInvoiceNotes";
+import { Invoice } from "@/model/model";
+import { getLastActionTime } from "@/lib/invoiceHistory";
 
 const NOTES_PAGE_SIZE = 3;
+const NOTE_LOCK_DAYS = 15;
+const MS_PER_DAY = 86_400_000;
+
+/** Statuses that permanently prevent new notes */
+const ALWAYS_LOCKED_STATUSES = new Set([
+  "CANCELED",
+  "CANCELLED",
+  "EXPIRED",
+]);
+
+/** Statuses that lock notes after NOTE_LOCK_DAYS days */
+const TIMED_LOCK_STATUSES = new Set([
+  "RELEASED",
+  "REFUNDED",
+  "REJECTED",
+  "DISPUTE_SETTLED",
+  "DISPUTE SETTLED",
+]);
+
+const toMs = (t: string): number => {
+  const n = Number(t);
+  if (!isNaN(n) && n > 1_000_000) return n * 1000; // unix seconds
+  return Date.parse(t) || 0;
+};
+
+function getNoteBlockReason(invoice: Invoice): string | null {
+  const status = (invoice.status ?? "").replace(/_/g, " ").toUpperCase().trim();
+
+  if (ALWAYS_LOCKED_STATUSES.has(status)) {
+    return `Notes are disabled for ${status.toLowerCase()} invoices.`;
+  }
+
+  if (TIMED_LOCK_STATUSES.has(status)) {
+    const lastTime = getLastActionTime(invoice);
+    if (lastTime) {
+      const elapsed = Date.now() - toMs(lastTime);
+      if (elapsed >= NOTE_LOCK_DAYS * MS_PER_DAY) {
+        return `Notes are disabled ${NOTE_LOCK_DAYS} days after the invoice is ${status.toLowerCase()}.`;
+      }
+    }
+  }
+
+  return null;
+}
 
 const getActionLabel = (note: ThreadNote) => {
   if (note.opened) return "close";
@@ -17,17 +63,20 @@ const getActionLabel = (note: ThreadNote) => {
 };
 
 export function NotesThread({
-  orderId,
+  invoiceId,
+  invoice,
   onExpand,
   shareLabel,
   expanded,
 }: {
-  orderId: bigint;
+  invoiceId: bigint;
+  invoice: Invoice;
   onExpand: () => void;
   shareLabel: string;
   /** Whether the parent card is expanded (shows thread list when true) */
   expanded: boolean;
 }) {
+  const noteBlockReason = getNoteBlockReason(invoice);
   // Defer note fetching until the component enters the viewport
   const containerRef = useRef<HTMLDivElement>(null);
   const [isInView, setIsInView] = useState(false);
@@ -58,7 +107,7 @@ export function NotesThread({
     pendingNoteIds,
     createNote,
     setNoteOpen,
-  } = useInvoiceNotes(orderId, { enabled: isNotesEnabled });
+  } = useInvoiceNotes(invoiceId, { enabled: isNotesEnabled });
 
   const [isComposerOpen, setIsComposerOpen] = useState(false);
   const [draft, setDraft] = useState("");
@@ -171,7 +220,13 @@ export function NotesThread({
             </Badge>
           )}
         </div>
-        <Button size="sm" variant="ghost" onClick={handleCreateClick}>
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={handleCreateClick}
+          disabled={!!noteBlockReason}
+          title={noteBlockReason ?? undefined}
+        >
           Create Note
         </Button>
       </div>

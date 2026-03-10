@@ -50,8 +50,8 @@ export const createInvoice = async (
     });
 
     if (receipt?.status) {
-      const orderId = receipt?.logs?.[0]?.topics?.[1];
-      return orderId ? BigInt(orderId) : undefined;
+      const invoiceId = receipt?.logs?.[0]?.topics?.[1];
+      return invoiceId ? BigInt(invoiceId) : undefined;
     } else {
       toast.error("Error creating invoice, Please try again.");
       return undefined;
@@ -67,7 +67,7 @@ export const createInvoice = async (
 export const makeInvoicePayment = async (
   { walletClient, publicClient }: WagmiClient,
   amount: bigint,
-  orderId: bigint,
+  invoiceId: bigint,
   chainId: number,
   setIsLoading: (value: string) => void,
   storageRef?: string,
@@ -87,7 +87,7 @@ export const makeInvoicePayment = async (
       data: encodeFunctionData({
         abi: paymentProcessor,
         functionName: "pay",
-        args: [orderId, storageRefHex, shareFlag],
+        args: [invoiceId, storageRefHex, shareFlag],
       }),
       value: amount,
       gasPrice,
@@ -117,13 +117,13 @@ export const makeInvoicePayment = async (
 
 export const sellerAction = async (
   { walletClient, publicClient }: WagmiClient,
-  orderId: bigint,
+  invoiceId: bigint,
   state: boolean,
   chainId: number,
   setIsLoading: (value: string) => void
 ): Promise<boolean> => {
   const action = state ? "Accepted" : "Rejected";
-  setIsLoading(`${action}:${orderId.toString()}`);
+  setIsLoading(`${action}:${invoiceId.toString()}`);
   let success = false;
 
   try {
@@ -135,7 +135,7 @@ export const sellerAction = async (
       data: encodeFunctionData({
         abi: paymentProcessor,
         functionName: state ? "acceptPayment" : "rejectPayment",
-        args: [orderId],
+        args: [invoiceId],
       }),
       gasPrice,
     });
@@ -164,11 +164,11 @@ export const sellerAction = async (
 
 export const cancelInvoice = async (
   { walletClient, publicClient }: WagmiClient,
-  orderId: bigint,
+  invoiceId: bigint,
   chainId: number,
   setIsLoading: (value: string) => void
 ): Promise<boolean> => {
-  setIsLoading("cancelInvoice");
+  setIsLoading(`cancelInvoice:${invoiceId.toString()}`);
   let success = false;
 
   try {
@@ -180,7 +180,7 @@ export const cancelInvoice = async (
       data: encodeFunctionData({
         abi: paymentProcessor,
         functionName: "cancelInvoice",
-        args: [orderId],
+        args: [invoiceId],
       }),
       gasPrice,
     });
@@ -209,12 +209,12 @@ export const cancelInvoice = async (
 
 export const releaseInvoice = async (
   { walletClient, publicClient }: WagmiClient,
-  orderId: bigint,
+  invoiceId: bigint,
   chainId: number,
   setIsLoading: (value: string) => void,
   getInvoiceData: () => Promise<void>
 ): Promise<boolean> => {
-  setIsLoading("releaseInvoice");
+  setIsLoading(`releaseInvoice:${invoiceId.toString()}`);
   let success = false;
 
   try {
@@ -226,7 +226,7 @@ export const releaseInvoice = async (
       data: encodeFunctionData({
         abi: paymentProcessor,
         functionName: "release",
-        args: [orderId],
+        args: [invoiceId],
       }),
       gasPrice,
     });
@@ -256,12 +256,12 @@ export const releaseInvoice = async (
 
 export const refundBuyerAfterWindow = async (
   { walletClient, publicClient }: WagmiClient,
-  orderId: bigint,
+  invoiceId: bigint,
   chainId: number,
   setIsLoading: (value: string) => void,
   getInvoiceData: () => Promise<void>
 ): Promise<boolean> => {
-  setIsLoading("refundBuyerAfterWindow");
+  setIsLoading(`refundBuyerAfterWindow:${invoiceId.toString()}`);
   let success = false;
 
   try {
@@ -273,7 +273,7 @@ export const refundBuyerAfterWindow = async (
       data: encodeFunctionData({
         abi: paymentProcessor,
         functionName: "refundBuyer",
-        args: [orderId],
+        args: [invoiceId],
       }),
       gasPrice,
     });
@@ -397,7 +397,7 @@ export const setFeeReceiversAddress = async (
 
 export const setInvoiceHoldPeriod = async (
   { walletClient, publicClient }: WagmiClient,
-  orderId: bigint,
+  invoiceId: bigint,
   holdPeriod: bigint,
   chainId: number,
   setIsLoading: (value: string) => void,
@@ -419,12 +419,12 @@ export const setInvoiceHoldPeriod = async (
         ? encodeFunctionData({
             abi: advancedPaymentProcessor,
             functionName: "setInvoiceReleaseTime",
-            args: [orderId, holdPeriod],
+            args: [invoiceId, holdPeriod],
           })
         : encodeFunctionData({
             abi: paymentProcessor,
             functionName: "setInvoiceReleaseTime",
-            args: [orderId, holdPeriodNumber],
+            args: [invoiceId, holdPeriodNumber],
           });
 
     const tx = await walletClient?.sendTransaction({

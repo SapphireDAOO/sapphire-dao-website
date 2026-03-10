@@ -39,9 +39,8 @@ type InvoiceLike = {
   id?: string | number | bigint;
   price?: string | number | bigint;
   amount?: string | number | bigint;
-  orderId?: string | number | bigint;
-  invoiceNonce?: string | number | bigint;
   invoiceId?: string | number | bigint;
+  invoiceNonce?: string | number | bigint;
   status?: string | number;
   seller?: string;
   note?: string;
@@ -67,11 +66,11 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
     };
   }, []);
 
-  const orderId = data?.orderId !== undefined
-    ? BigInt(data.orderId)
+  const invoiceId = data?.invoiceId !== undefined
+    ? BigInt(data.invoiceId)
     : undefined;
-  const { data: fetchedInvoice } = useGetInvoiceData(orderId);
-  const { notes: invoiceNotes } = useInvoiceNotes(orderId);
+  const { data: fetchedInvoice } = useGetInvoiceData(invoiceId);
+  const { notes: invoiceNotes } = useInvoiceNotes(invoiceId);
   const contractAddress = SIMPLE_PAYMENT_PROCESSOR[chain?.id || BASE_SEPOLIA];
 
   const {
@@ -83,16 +82,16 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
   } = useContext(ContractContext);
 
   const liveInvoice = useMemo(() => {
-    if (!orderId) return undefined;
+    if (!invoiceId) return undefined;
     return invoiceData.find(
-      (inv) => inv.orderId?.toString() === orderId.toString(),
+      (inv) => inv.invoiceId?.toString() === invoiceId.toString(),
     );
-  }, [invoiceData, orderId]);
+  }, [invoiceData, invoiceId]);
 
   const resolvedInvoice = liveInvoice ?? fetchedInvoice;
   const invoiceLike = resolvedInvoice as InvoiceLike | undefined;
 
-  const displayOrderId = useMemo(() => {
+  const displayinvoiceId = useMemo(() => {
     const fetched = fetchedInvoice as
       | ({ invoiceNonce?: string | number | bigint; invoiceId?: string | number | bigint } & {
           [index: number]: unknown;
@@ -118,7 +117,7 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
       invoiceLike?.invoiceNonce ??
       invoiceLike?.invoiceId ??
       invoiceLike?.id ??
-      invoiceLike?.orderId ??
+      invoiceLike?.invoiceId ??
       ""
     );
   }, [fetchedInvoice, liveInvoice, invoiceLike]);
@@ -170,7 +169,7 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
   }, [normalizedStatus]);
 
   useEffect(() => {
-    if (!publicClient || !orderId) return;
+    if (!publicClient || !invoiceId) return;
 
     const shouldSubscribe =
       liveStatus === "AWAITING PAYMENT" ||
@@ -216,10 +215,10 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
         onLogs: (logs) => {
           for (const log of logs) {
             const args = log.args as
-              | { invoiceId?: bigint; orderId?: bigint }
+              | { invoiceId?: bigint; invoiceNonce?: bigint }
               | undefined;
-            const id = (args?.invoiceId ?? args?.orderId)?.toString();
-            if (id !== orderId?.toString()) continue;
+            const id = (args?.invoiceId ?? args?.invoiceNonce)?.toString();
+            if (id !== invoiceId?.toString()) continue;
             setLiveStatus(statusFromEvent[name]);
           }
         },
@@ -229,7 +228,7 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
     return () => {
       unwatch.forEach((u) => u?.());
     };
-  }, [publicClient, orderId, chain?.id, liveStatus]);
+  }, [publicClient, invoiceId, chain?.id, liveStatus]);
 
   const canPay =
     liveStatus === "AWAITING PAYMENT" ||
@@ -238,14 +237,14 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
     liveStatus === undefined;
 
   const isCreator = useCallback(async () => {
-    if (!orderId) return false;
-    const creator = await getInvoiceOwner(orderId.toString());
+    if (!invoiceId) return false;
+    const creator = await getInvoiceOwner(invoiceId.toString());
     return address?.toLowerCase() === creator?.toLowerCase();
-  }, [address, getInvoiceOwner, orderId]);
+  }, [address, getInvoiceOwner, invoiceId]);
 
   useEffect(() => {
     const check = async () => {
-      if (!address || !orderId) {
+      if (!address || !invoiceId) {
         setUserIsCreator(false);
         setCreatorChecked(false);
         return;
@@ -263,10 +262,10 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
       }
     };
     check();
-  }, [address, orderId, isCreator]);
+  }, [address, invoiceId, isCreator]);
 
   useEffect(() => {
-    if (!orderId || canPay || open) return;
+    if (!invoiceId || canPay || open) return;
     if (!creatorChecked || isLoading === "makeInvoicePayment") return;
 
     const nextTab = userIsCreator ? "seller" : "buyer";
@@ -278,7 +277,7 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
 
     void redirect();
   }, [
-    orderId,
+    invoiceId,
     canPay,
     open,
     creatorChecked,
@@ -297,7 +296,7 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
       return undefined;
     })();
 
-    if (!priceEth || !orderId) {
+    if (!priceEth || !invoiceId) {
       toast.error("Invoice is missing price or order ID.");
       return;
     }
@@ -314,7 +313,7 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
       if (
         await makeInvoicePayment(
           priceWei,
-          orderId,
+          invoiceId,
           paymentNote.trim(),
           shareNote,
         )
@@ -371,7 +370,7 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
               <Label htmlFor="id">Invoice ID</Label>
               <Input
                 id="id"
-                value={displayOrderId?.toString() ?? "Loading..."}
+                value={displayinvoiceId?.toString() ?? "Loading..."}
                 disabled
               />
             </div>
@@ -441,7 +440,7 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
               disabled={
                 !canPay ||
                 userIsCreator ||
-                !orderId ||
+                !invoiceId ||
                 isLoading === "makeInvoicePayment"
               }
             >

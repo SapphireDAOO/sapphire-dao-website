@@ -21,26 +21,26 @@ export interface ContractContextData {
   ) => Promise<bigint | undefined>;
   makeInvoicePayment: (
     amount: bigint,
-    orderId: bigint,
+    invoiceId: bigint,
     storageRef?: string,
     share?: boolean
   ) => Promise<boolean>;
   payAdvancedInvoice: (
     paymentType: "paySingleInvoice" | "payMetaInvoice",
     amount: bigint,
-    orderId: bigint,
+    invoiceId: bigint,
     paymentToken: Address
   ) => Promise<boolean>;
   getInvoiceOwner: (id: string) => Promise<string>;
-  sellerAction: (orderId: bigint, state: boolean) => Promise<boolean>;
-  cancelInvoice: (orderId: bigint) => Promise<boolean>;
-  releaseInvoice: (orderId: bigint) => Promise<boolean>;
-  refundBuyerAfterWindow: (orderId: bigint) => Promise<boolean>;
+  sellerAction: (invoiceId: bigint, state: boolean) => Promise<boolean>;
+  cancelInvoice: (invoiceId: bigint) => Promise<boolean>;
+  releaseInvoice: (invoiceId: bigint) => Promise<boolean>;
+  refundBuyerAfterWindow: (invoiceId: bigint) => Promise<boolean>;
   setMinimumInvoiceValue: (newValue: bigint) => Promise<boolean>;
   setFeeReceiversAddress: (address: Address) => Promise<boolean>;
   transferOwnership: (address: Address) => Promise<boolean>;
   setInvoiceHoldPeriod: (
-    orderId: bigint,
+    invoiceId: bigint,
     holdPeriod: bigint
   ) => Promise<boolean>;
   setDecisionWindow: (newWindow: bigint) => Promise<boolean>;
@@ -48,7 +48,7 @@ export interface ContractContextData {
   setDefaultHoldPeriod: (newDefaultHoldPeriod: bigint) => Promise<boolean>;
   setFee: (newFee: bigint) => Promise<boolean>;
   getAdvancedInvoiceData: (
-    orderId: bigint,
+    invoiceId: bigint,
     type: "smartInvoice" | "metaInvoice"
   ) => Promise<any>;
   setMarketplaceAddress: (marketplaceAddress: Address) => Promise<any>;
@@ -59,6 +59,7 @@ export interface ContractContextData {
   refetchInvoiceData?: () => Promise<void>;
   refetchAllInvoiceData?: () => Promise<void>;
   refreshAdminData?: (force?: boolean) => Promise<void>;
+  setActiveEventTab?: (tab: "simple" | "marketplace") => void;
 }
 
 export const contractContextDefaults: ContractContextData = {
@@ -92,6 +93,7 @@ export const contractContextDefaults: ContractContextData = {
   refreshAdminData: async () => Promise.resolve(),
   getInvoiceOwner: async () => Promise.resolve(""),
   getAdvancedInvoiceData: async () => Promise.resolve(""),
+  setActiveEventTab: () => {},
 };
 
 export const ContractContext = React.createContext<ContractContextData>(

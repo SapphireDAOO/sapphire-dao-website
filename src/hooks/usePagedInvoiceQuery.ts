@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useAccount } from "wagmi";
+import { useIsWindowVisible } from "./useIsWindowVisible";
 import { client } from "@/services/graphql/client";
 import { userInvoicesPageQuery } from "@/services/graphql/userQueries";
 import { Invoice } from "@/model/model";
@@ -45,6 +46,7 @@ export function usePagedInvoiceQuery({
 }: Params): Result {
   const { address, chain } = useAccount();
   const chainId = chain?.id ?? BASE_SEPOLIA;
+  const isWindowVisible = useIsWindowVisible();
 
   const [sellerInvoices, setSellerInvoices] = useState<Invoice[]>([]);
   const [buyerInvoices, setBuyerInvoices] = useState<Invoice[]>([]);
@@ -228,7 +230,8 @@ export function usePagedInvoiceQuery({
     [address, chainId, isMarketplace, enabled],
   );
 
-  // Initial load: fetch both categories at once
+  // Initial load: fetch both categories at once.
+  // Skip when the tab is hidden — the effect re-runs when the tab becomes visible again.
   useEffect(() => {
     if (!enabled) {
       nextSellerSkipRef.current = 0;
@@ -242,10 +245,12 @@ export function usePagedInvoiceQuery({
       return;
     }
 
+    if (!isWindowVisible) return;
+
     nextSellerSkipRef.current = 0;
     nextBuyerSkipRef.current = 0;
     void doFetch({ sellerSkip: 0, buyerSkip: 0, append: false });
-  }, [doFetch, enabled]);
+  }, [doFetch, enabled, isWindowVisible]);
 
   const refetch = useCallback(() => {
     if (!enabled) return;
@@ -285,6 +290,14 @@ export function usePagedInvoiceQuery({
   };
 }
 
+const toSortableMs = (t: string): number => {
+  const n = Number(t);
+  // Unix timestamp (seconds): all-digit strings parse cleanly
+  if (!isNaN(n) && n > 0) return n * 1000;
+  // Formatted date string (e.g. from unixToGMT): use Date.parse
+  return Date.parse(t) || 0;
+};
+
 /** Sort invoices newest-first by last meaningful action time */
 export function sortByLastAction(invoices: Invoice[]): Invoice[] {
   return [...invoices].sort((a, b) => {
@@ -293,6 +306,6 @@ export function sortByLastAction(invoices: Invoice[]): Invoice[] {
     if (!tA && !tB) return 0;
     if (!tA) return 1;
     if (!tB) return -1;
-    return tB.localeCompare(tA);
+    return toSortableMs(tB) - toSortableMs(tA);
   });
 }

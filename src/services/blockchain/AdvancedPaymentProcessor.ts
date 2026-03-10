@@ -16,7 +16,7 @@ export const payAdvancedInvoice = async (
   { walletClient, publicClient }: WagmiClient,
   paymentType: "paySingleInvoice" | "payMetaInvoice",
   amount: bigint,
-  orderId: bigint,
+  invoiceId: bigint,
   paymentToken: Address,
   chainId: number,
   owner: Address,
@@ -64,18 +64,18 @@ export const payAdvancedInvoice = async (
         ? encodeFunctionData({
             abi: advancedPaymentProcessor,
             functionName: "payInvoice",
-            args: [orderId, paymentToken],
+            args: [invoiceId, paymentToken],
           })
         : isNativePayment
           ? encodeFunctionData({
               abi: advancedPaymentProcessor,
               functionName: "payMetaInvoiceWithValue",
-              args: [orderId],
+              args: [invoiceId],
             })
           : encodeFunctionData({
               abi: advancedPaymentProcessor,
               functionName: "payMetaInvoice",
-              args: [orderId, paymentToken],
+              args: [invoiceId, paymentToken],
             });
 
     const tx = await walletClient?.sendTransaction({
@@ -154,13 +154,13 @@ export const setMarketplaceAddress = async (
 };
 
 export const getAdvancedInvoiceData = async (
-  orderId: bigint,
+  invoiceId: bigint,
   query: string,
   type: "smartInvoice" | "metaInvoice",
   chainId: number
 ): Promise<any> => {
   const { data, error } = await client(chainId)
-    .query(query, { id: orderId.toString() })
+    .query(query, { id: invoiceId.toString() })
     .toPromise();
 
   if (error) {

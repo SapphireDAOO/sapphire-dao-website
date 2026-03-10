@@ -1,10 +1,10 @@
 // Queries for the notes subgraph
 
 export const NOTES_BY_ORDER_QUERY = `
-  query NotesByOrder($orderId: BigInt!, $user: Bytes!) {
-    notes(where: { invoiceId: $orderId }, orderBy: noteId, orderDirection: desc) {
+  query NotesByOrder($invoiceId: BigInt!, $user: Bytes!) {
+    notes(where: { invoiceId: $invoiceId }, orderBy: noteId, orderDirection: desc) {
       id
-      orderId: invoiceId
+      invoiceId: invoiceId
       noteId
       author
       share
@@ -12,9 +12,9 @@ export const NOTES_BY_ORDER_QUERY = `
       createdAtBlock
       createdAtTx
     }
-    noteOpenStates(where: { invoiceId: $orderId, user: $user }) {
+    noteOpenStates(where: { invoiceId: $invoiceId, user: $user }) {
       id
-      orderId: invoiceId
+      invoiceId: invoiceId
       noteId
       user
       opened

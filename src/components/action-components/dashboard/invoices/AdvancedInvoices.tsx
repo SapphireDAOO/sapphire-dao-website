@@ -126,36 +126,6 @@ export function MarketplaceCard({
     [tokenDecimals],
   );
 
-  /** Format token amount without rounding (used for dispute-settled splits). */
-  const formatTokenAmountExact = useCallback(
-    (raw: string | null | undefined): string => {
-      if (!raw) return "0";
-
-      const addGrouping = (value: string) => {
-        const negative = value.startsWith("-");
-        const digits = negative ? value.slice(1) : value;
-        const grouped = digits.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-        return negative ? `-${grouped}` : grouped;
-      };
-
-      try {
-        const normalized = formatUnits(BigInt(raw), tokenDecimals);
-        const [whole, decimal] = normalized.split(".");
-        const trimmedDecimal = (decimal ?? "").slice(0, 4).replace(/0+$/, "");
-        const groupedWhole = addGrouping(whole);
-        return trimmedDecimal ? `${groupedWhole}.${trimmedDecimal}` : groupedWhole;
-      } catch {
-        const normalized = String(raw).trim();
-        if (!normalized) return "0";
-        const [whole, decimal] = normalized.split(".");
-        const groupedWhole = addGrouping(whole || "0");
-        const trimmedDecimal = (decimal ?? "").slice(0, 4).replace(/0+$/, "");
-        return trimmedDecimal ? `${groupedWhole}.${trimmedDecimal}` : groupedWhole;
-      }
-    },
-    [tokenDecimals],
-  );
-
   // Invoice price is stored with 8 decimal places.
   const amount = useMemo(() => {
     const raw = invoice.price;
@@ -190,6 +160,11 @@ export function MarketplaceCard({
     amount,
     formatTokenAmount,
   ]);
+
+  const refundedAmount = useMemo(
+    () => formatTokenAmount(invoice.amountRefunded),
+    [invoice.amountRefunded, formatTokenAmount],
+  );
 
   const displayStatus = normalizeStatus(invoice.status || "");
   const badgeColor = statusColors[displayStatus] ?? statusColors["Unknown"];
@@ -281,7 +256,7 @@ export function MarketplaceCard({
   /* ── Payment link ──────────────────────────────────────────────────────── */
 
   const paymentUrl = useSecureLink(
-    isExpanded ? invoice.orderId : undefined,
+    isExpanded ? invoice.invoiceId : undefined,
     "checkout",
   );
 
@@ -297,9 +272,9 @@ export function MarketplaceCard({
     () => formatShortId(invoice.id),
     [invoice.id],
   );
-  const formattedOrderId = useMemo(
-    () => formatShortId(invoice.orderId?.toString()),
-    [invoice.orderId],
+  const formattedinvoiceId = useMemo(
+    () => formatShortId(invoice.invoiceId?.toString()),
+    [invoice.invoiceId],
   );
 
   const handleCopyInvoiceId = useCallback(
@@ -312,14 +287,14 @@ export function MarketplaceCard({
     [invoice.id],
   );
 
-  const handleCopyOrderId = useCallback(
+  const handleCopyinvoiceId = useCallback(
     (event: React.MouseEvent<HTMLButtonElement>) => {
       event.stopPropagation();
-      if (!invoice.orderId) return;
-      navigator.clipboard.writeText(invoice.orderId.toString());
+      if (!invoice.invoiceId) return;
+      navigator.clipboard.writeText(invoice.invoiceId.toString());
       toast.success("Order ID copied!");
     },
-    [invoice.orderId],
+    [invoice.invoiceId],
   );
 
   /* ── Amount display helpers ─────────────────────────────────────────────── */
@@ -334,6 +309,7 @@ export function MarketplaceCard({
   const amountDisplay = fmtAmount(amount);
   const paidAmountDisplay = withCurrencySuffix(paidAmountFormatted);
   const releasedAmountDisplay = withCurrencySuffix(releasedAmount);
+  const refundedAmountDisplay = withCurrencySuffix(refundedAmount);
 
   /* ── UI Render ─────────────────────────────────────────────────────────── */
 
@@ -362,15 +338,15 @@ export function MarketplaceCard({
               <span>:</span>
               <span
                 className="text-gray-800"
-                title={invoice.orderId?.toString()}
+                title={invoice.invoiceId?.toString()}
               >
-                {formattedOrderId}
+                {formattedinvoiceId}
               </span>
               <button
                 type="button"
                 aria-label="Copy order ID"
                 className="text-gray-400 hover:text-gray-600"
-                onClick={handleCopyOrderId}
+                onClick={handleCopyinvoiceId}
                 onMouseDown={(event) => event.stopPropagation()}
               >
                 <Copy className="h-3.5 w-3.5" />
@@ -457,11 +433,10 @@ export function MarketplaceCard({
               label="You Received"
               value={(() => {
                 const raw = invoice.sellerAmountReceivedAfterDispute!;
-                const display = withCurrencySuffix(formatTokenAmountExact(raw));
-                const txHash = invoice.disputeSettledTxHash ?? invoice.releaseHash;
-                return txHash
-                  ? renderTx(txHash, display)
-                  : display;
+                const display = withCurrencySuffix(formatTokenAmount(raw));
+                const txHash =
+                  invoice.disputeSettledTxHash ?? invoice.releaseHash;
+                return txHash ? renderTx(txHash, display) : display;
               })()}
               description="Amount released to you after dispute settlement."
             />
@@ -473,11 +448,9 @@ export function MarketplaceCard({
               label="You Received"
               value={(() => {
                 const raw = invoice.buyerAmountReceivedAfterDispute!;
-                const display = withCurrencySuffix(formatTokenAmountExact(raw));
-                const txHash = invoice.disputeSettledTxHash ?? invoice.refundTxHash;
-                return txHash
-                  ? renderTx(txHash, display)
-                  : display;
+                const display = withCurrencySuffix(formatTokenAmount(raw));
+                const txHash = invoice.disputeSettledTxHash;
+                return txHash ? renderTx(txHash, display) : display;
               })()}
               description="Amount returned to you after dispute settlement."
             />
@@ -532,8 +505,8 @@ export function MarketplaceCard({
               label="Amount Refunded"
               value={
                 invoice.refundTxHash
-                  ? renderTx(invoice.refundTxHash, paidAmountDisplay)
-                  : undefined
+                  ? renderTx(invoice.refundTxHash, refundedAmountDisplay)
+                  : refundedAmountDisplay
               }
               description="Amount returned to the buyer."
             />
@@ -556,7 +529,8 @@ export function MarketplaceCard({
         )}
 
         <NotesThread
-          orderId={invoice.orderId}
+          invoiceId={invoice.invoiceId}
+          invoice={invoice}
           onExpand={ensureExpanded}
           shareLabel={shareLabel}
           expanded={isExpanded}

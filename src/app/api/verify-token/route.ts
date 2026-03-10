@@ -14,8 +14,8 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const decoded = jwt.verify(token, secret) as { orderId?: unknown };
-    return NextResponse.json({ valid: true, data: { orderId: decoded.orderId } });
+    const decoded = jwt.verify(token, secret) as { invoiceId?: unknown };
+    return NextResponse.json({ valid: true, data: { invoiceId: decoded.invoiceId } });
   } catch {
     return NextResponse.json(
       { valid: false, error: "Invalid or expired token" },

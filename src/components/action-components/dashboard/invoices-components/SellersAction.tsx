@@ -7,12 +7,12 @@ import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 interface SellersActionProps {
-  orderId: bigint;
+  invoiceId: bigint;
   state: boolean;
   text: string;
 }
 
-const SellersAction = ({ orderId, state, text }: SellersActionProps) => {
+const SellersAction = ({ invoiceId, state, text }: SellersActionProps) => {
   const { sellerAction, isLoading, refetchInvoiceData } =
     useContext(ContractContext);
 
@@ -23,7 +23,7 @@ const SellersAction = ({ orderId, state, text }: SellersActionProps) => {
     setLocalLoading(true);
 
     try {
-      if (await sellerAction(orderId, state)) {
+      if (await sellerAction(invoiceId, state)) {
         await refetchInvoiceData?.();
 
         toast.success(
@@ -39,8 +39,8 @@ const SellersAction = ({ orderId, state, text }: SellersActionProps) => {
   };
 
   const actionType = state ? "Accepted" : "Rejected";
-  const actionKey = `${actionType}:${orderId.toString()}`;
-  const orderKeySuffix = `:${orderId.toString()}`;
+  const actionKey = `${actionType}:${invoiceId.toString()}`;
+  const orderKeySuffix = `:${invoiceId.toString()}`;
   const isOrderActionInFlight =
     typeof isLoading === "string" && isLoading.endsWith(orderKeySuffix);
   const isActionLoading = localLoading || isLoading === actionKey;

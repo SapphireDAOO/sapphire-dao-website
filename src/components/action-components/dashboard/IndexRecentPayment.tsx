@@ -45,8 +45,10 @@ const simpleFilters = [
 
 export default function IndexRecentPayment({
   isMarketplaceTab,
+  enabled = true,
 }: {
   isMarketplaceTab: boolean;
+  enabled?: boolean;
 }) {
   const {
     invoiceData,
@@ -102,19 +104,19 @@ export default function IndexRecentPayment({
     isLoading: pageIsLoading,
     error: pageError,
     refetch: refetchPage,
-  } = usePagedInvoiceQuery({ isMarketplace: isMarketplaceTab });
+  } = usePagedInvoiceQuery({ isMarketplace: isMarketplaceTab, enabled });
 
   // ── Merge live websocket updates from context on top of cached data ───────
   const liveById = useMemo(() => {
-    return new Map(invoiceData.map((invoice) => [invoice.id, invoice]));
+    return new Map(invoiceData.map((invoice) => [`${invoice.invoiceId.toString()}-${invoice.type}`, invoice]));
   }, [invoiceData]);
 
   const sellerPagedIds = useMemo(
-    () => new Set(sellerInvoices.map((invoice) => invoice.id)),
+    () => new Set(sellerInvoices.map((invoice) => invoice.invoiceId.toString())),
     [sellerInvoices],
   );
   const buyerPagedIds = useMemo(
-    () => new Set(buyerInvoices.map((invoice) => invoice.id)),
+    () => new Set(buyerInvoices.map((invoice) => invoice.invoiceId.toString())),
     [buyerInvoices],
   );
 
@@ -126,10 +128,10 @@ export default function IndexRecentPayment({
     const contextBuyerOnly: Invoice[] = [];
 
     for (const invoice of invoiceData) {
-      if (invoice.type === sellerType && !sellerPagedIds.has(invoice.id)) {
+      if (invoice.type === sellerType && !sellerPagedIds.has(invoice.invoiceId.toString())) {
         contextSellerOnly.push(invoice);
       }
-      if (invoice.type === buyerType && !buyerPagedIds.has(invoice.id)) {
+      if (invoice.type === buyerType && !buyerPagedIds.has(invoice.invoiceId.toString())) {
         contextBuyerOnly.push(invoice);
       }
     }
@@ -141,7 +143,7 @@ export default function IndexRecentPayment({
   // just-paid invoices not yet indexed by the subgraph).
   const liveSellerInvoices = useMemo(() => {
     const updated = sellerInvoices.map((invoice) => {
-      return liveById.get(invoice.id) ?? invoice;
+      return liveById.get(`${invoice.invoiceId.toString()}-${invoice.type}`) ?? invoice;
     });
 
     return [...contextOnlyInvoices.contextSellerOnly, ...updated];
@@ -149,7 +151,7 @@ export default function IndexRecentPayment({
 
   const liveBuyerInvoices = useMemo(() => {
     const updated = buyerInvoices.map((invoice) => {
-      return liveById.get(invoice.id) ?? invoice;
+      return liveById.get(`${invoice.invoiceId.toString()}-${invoice.type}`) ?? invoice;
     });
 
     return [...contextOnlyInvoices.contextBuyerOnly, ...updated];
@@ -409,7 +411,7 @@ export default function IndexRecentPayment({
                   ) : displayInvoices.length > 0 ? (
                     displayInvoices.map((invoice) => (
                       <div
-                        key={invoice.id}
+                        key={`${invoice.invoiceId.toString()}-${invoice.type}`}
                         className="w-full md:w-[48%] lg:w-[31%]"
                       >
                         {isMarketplaceTab ? (
