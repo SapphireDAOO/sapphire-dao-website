@@ -59,13 +59,13 @@ export function useMarketplaceInvoiceEvents({
             const logArgs = log.args as
               | {
                   invoiceId?: bigint;
-                  orderId?: bigint;
+                  invoiceNonce?: bigint;
                   amount?: bigint;
                   sellerAmount?: bigint;
                   newHoldPeriod?: bigint;
                 }
               | undefined;
-            const invoiceId = (logArgs?.invoiceId ?? logArgs?.orderId)?.toString();
+            const invoiceId = (logArgs?.invoiceId ?? logArgs?.invoiceNonce)?.toString();
 
             if (name === "InvoiceCreated") {
               const invoice = (log.args as any)?.invoice as

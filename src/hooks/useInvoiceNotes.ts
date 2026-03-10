@@ -201,7 +201,7 @@ export const useInvoiceNotes = (
           const args = log.args as
             | {
                 invoiceId?: bigint;
-                invoiceId?: bigint;
+                invoiceNonce?: bigint;
                 noteId?: bigint;
                 author?: string;
                 share?: boolean;
@@ -209,7 +209,7 @@ export const useInvoiceNotes = (
               }
             | undefined;
 
-          const invoiceId = args?.invoiceId ?? args?.invoiceId;
+          const invoiceId = args?.invoiceId ?? args?.invoiceNonce;
           if (invoiceId == null || args?.noteId == null) return;
           if (invoiceId.toString() !== normalizedinvoiceId.toString()) return;
 
@@ -334,14 +334,14 @@ export const useInvoiceNotes = (
           const args = log.args as
             | {
                 invoiceId?: bigint;
-                invoiceId?: bigint;
+                invoiceNonce?: bigint;
                 noteId?: bigint;
                 user?: string;
                 opened?: boolean;
               }
             | undefined;
 
-          const invoiceId = args?.invoiceId ?? args?.invoiceId;
+          const invoiceId = args?.invoiceId ?? args?.invoiceNonce;
           if (
             invoiceId == null ||
             args?.noteId == null ||
