@@ -225,8 +225,7 @@ export function MarketplaceCard({
         ...entry,
         status: normalizeHistoryStatus(entry.status),
       }))
-      .filter((entry) => entry.status)
-      .filter((entry) => !(isBuyerView && entry.status === "CREATED"));
+      .filter((entry) => entry.status);
 
     const deduped = normalized.filter((entry, idx) => {
       if (idx === 0) return true;
@@ -234,7 +233,7 @@ export function MarketplaceCard({
     });
 
     return deduped;
-  }, [invoice.history, isBuyerView]);
+  }, [invoice.history]);
 
   /* ── Share helpers ─────────────────────────────────────────────────────── */
 
@@ -425,6 +424,20 @@ export function MarketplaceCard({
             />
           )}
 
+        {displayStatus === "RELEASED" &&
+          invoice.amountRefunded &&
+          Number(invoice.amountRefunded) > 0 && (
+            <InvoiceField
+              label="Amount Refunded"
+              value={
+                invoice.refundTxHash
+                  ? renderTx(invoice.refundTxHash, refundedAmountDisplay)
+                  : refundedAmountDisplay
+              }
+              description="Amount returned to the buyer."
+            />
+          )}
+
         {/* Dispute settled: each party only sees their own received amount */}
         {displayStatus === "DISPUTE SETTLED" &&
           isSellerView &&
@@ -570,19 +583,6 @@ export function MarketplaceCard({
               />
             )}
 
-          {/* Amount Released — expanded detail for RELEASED */}
-          {displayStatus === "RELEASED" &&
-            (invoice.amountPaid || invoice.price) && (
-              <InvoiceField
-                label="Amount Released"
-                value={
-                  invoice.releaseHash
-                    ? renderTx(invoice.releaseHash, releasedAmountDisplay)
-                    : releasedAmountDisplay
-                }
-                description="Amount released to the seller after fees."
-              />
-            )}
 
           {/* Dispute Status — PAID only (pre-dispute window) */}
           {displayStatus === "PAID" && (
