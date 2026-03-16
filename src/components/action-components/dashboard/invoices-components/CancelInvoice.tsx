@@ -23,7 +23,7 @@ const CancelInvoice = ({ invoiceId }: CancelInvoiceProps) => {
     try {
       if (await cancelInvoice(invoiceId)) {
         await refetchInvoiceData?.();
-        toast.success("Invoice successfully cancelled");
+        toast.success("Invoice successfully canceled");
       }
     } catch (err) {
       console.error("Cancel invoice failed:", err);

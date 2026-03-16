@@ -22,7 +22,7 @@ export function useSecureLink(
     const safeId =
       typeof invoiceId === "bigint" ? invoiceId.toString() : String(invoiceId);
 
-    let cancelled = false;
+    let canceled = false;
 
     fetch("/api/generate-pay-link", {
       method: "POST",
@@ -31,17 +31,17 @@ export function useSecureLink(
     })
       .then((r) => r.json())
       .then(({ token }: { token?: string }) => {
-        if (cancelled || !token) return;
+        if (canceled || !token) return;
         const origin =
           typeof window !== "undefined" ? window.location.origin : "";
         setUrl(`${origin}/${path}/?data=${encodeURIComponent(token)}`);
       })
       .catch(() => {
-        if (!cancelled) setUrl("");
+        if (!canceled) setUrl("");
       });
 
     return () => {
-      cancelled = true;
+      canceled = true;
     };
   }, [invoiceId, path]);
 

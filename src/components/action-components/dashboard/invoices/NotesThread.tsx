@@ -17,7 +17,6 @@ const MS_PER_DAY = 86_400_000;
 /** Statuses that permanently prevent new notes */
 const ALWAYS_LOCKED_STATUSES = new Set([
   "CANCELED",
-  "CANCELLED",
   "EXPIRED",
 ]);
 

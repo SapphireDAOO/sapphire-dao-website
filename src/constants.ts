@@ -48,7 +48,7 @@ export const errorMessages: ErrorMessages = {
     "InvalidInvoiceState: The invoice is in an invalid state for this action.",
   "0x074bc935": "InvoiceAlreadyExists: An invoice with this ID already exists.",
   "0xff42dbfc":
-    "InvoiceIsNoLongerValid: The invoice is no longer valid (cancelled or expired).",
+    "InvoiceIsNoLongerValid: The invoice is no longer valid (canceled or expired).",
   "0xbb126ff1":
     "InvoiceNotEligibleForRefund: This invoice is not eligible for a refund.",
   "0xea8e4eb5":

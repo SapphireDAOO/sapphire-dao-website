@@ -62,7 +62,7 @@ export const synthesizeMarketplaceHistory = (inv: {
 };
 
 export const sortState = (state: string, voidAt?: string): string => {
-  if (state === "CANCELLED") {
+  if (state === "CANCELED") {
     return "CANCELED";
   }
 

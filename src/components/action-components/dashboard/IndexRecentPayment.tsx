@@ -187,7 +187,7 @@ export default function IndexRecentPayment({
           return "AWAITING PAYMENT";
         case "REJECTED":
           return "REFUNDED";
-        case "CANCELLED":
+        case "CANCELED":
           return "CANCELED";
         default:
           return normalized;

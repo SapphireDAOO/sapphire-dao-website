@@ -25,7 +25,7 @@ export const useGetPaymentTokenData = (tokenId: string) => {
   });
 
   useEffect(() => {
-    let cancelled = false;
+    let canceled = false;
 
     const fetchToken = async () => {
       if (!normalizedTokenId) {
@@ -67,7 +67,7 @@ export const useGetPaymentTokenData = (tokenId: string) => {
       }
 
       const resolved = await request;
-      if (cancelled) return;
+      if (canceled) return;
 
       if (resolved.id) {
         tokenCache.set(cacheKey, resolved);
@@ -78,7 +78,7 @@ export const useGetPaymentTokenData = (tokenId: string) => {
     void fetchToken();
 
     return () => {
-      cancelled = true;
+      canceled = true;
     };
   }, [cacheKey, chainId, normalizedTokenId]);
 

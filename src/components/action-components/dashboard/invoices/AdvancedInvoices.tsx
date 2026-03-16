@@ -52,7 +52,6 @@ const normalizeStatus = (status: string): string => {
       return "PAID";
     case "REFUNDED":
       return "REFUNDED";
-    case "CANCELLED":
     case "CANCELED":
       return "CANCELED";
     case "DISPUTED":
