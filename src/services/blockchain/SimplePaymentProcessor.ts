@@ -21,7 +21,7 @@ export const createInvoice = async (
   chainId: number,
   setIsLoading: (value: string) => void,
   storageRef?: string,
-  share?: boolean
+  share?: boolean,
 ): Promise<bigint | undefined> => {
   setIsLoading("createInvoice");
   const storageRefHex = toEncryptedNoteHex(storageRef);
@@ -71,7 +71,7 @@ export const makeInvoicePayment = async (
   chainId: number,
   setIsLoading: (value: string) => void,
   storageRef?: string,
-  share?: boolean
+  share?: boolean,
 ): Promise<boolean> => {
   setIsLoading("makeInvoicePayment");
 
@@ -120,7 +120,7 @@ export const sellerAction = async (
   invoiceId: bigint,
   state: boolean,
   chainId: number,
-  setIsLoading: (value: string) => void
+  setIsLoading: (value: string) => void,
 ): Promise<boolean> => {
   const action = state ? "Accepted" : "Rejected";
   setIsLoading(`${action}:${invoiceId.toString()}`);
@@ -166,7 +166,7 @@ export const cancelInvoice = async (
   { walletClient, publicClient }: WagmiClient,
   invoiceId: bigint,
   chainId: number,
-  setIsLoading: (value: string) => void
+  setIsLoading: (value: string) => void,
 ): Promise<boolean> => {
   setIsLoading(`cancelInvoice:${invoiceId.toString()}`);
   let success = false;
@@ -212,7 +212,7 @@ export const releaseInvoice = async (
   invoiceId: bigint,
   chainId: number,
   setIsLoading: (value: string) => void,
-  getInvoiceData: () => Promise<void>
+  getInvoiceData: () => Promise<void>,
 ): Promise<boolean> => {
   setIsLoading(`releaseInvoice:${invoiceId.toString()}`);
   let success = false;
@@ -259,7 +259,7 @@ export const refundBuyerAfterWindow = async (
   invoiceId: bigint,
   chainId: number,
   setIsLoading: (value: string) => void,
-  getInvoiceData: () => Promise<void>
+  getInvoiceData: () => Promise<void>,
 ): Promise<boolean> => {
   setIsLoading(`refundBuyerAfterWindow:${invoiceId.toString()}`);
   let success = false;
@@ -306,7 +306,7 @@ export const transferOwnership = async (
   address: Address,
   chainId: number,
   setIsLoading: (value: string) => void,
-  getInvoiceData: () => Promise<void>
+  getInvoiceData: () => Promise<void>,
 ): Promise<boolean> => {
   setIsLoading("transferOwnership");
   let success = false;
@@ -353,7 +353,7 @@ export const setFeeReceiversAddress = async (
   address: Address,
   chainId: number,
   setIsLoading: (value: string) => void,
-  getInvoiceData: () => Promise<void>
+  getInvoiceData: () => Promise<void>,
 ): Promise<boolean> => {
   setIsLoading("setFeeReceiversAddress");
   let success = false;
@@ -402,7 +402,7 @@ export const setInvoiceHoldPeriod = async (
   chainId: number,
   setIsLoading: (value: string) => void,
   getInvoiceData: () => Promise<void>,
-  target: string | undefined
+  target: string | undefined,
 ): Promise<boolean> => {
   setIsLoading("setInvoiceHoldPeriod");
   let success = false;
@@ -434,6 +434,8 @@ export const setInvoiceHoldPeriod = async (
       gasPrice,
     });
 
+    tx.wait(1);
+
     if (!tx) {
       toast.error("Transaction failed to initiate");
       return false;
@@ -463,7 +465,7 @@ export const setDefaultHoldPeriod = async (
   newDefaultHoldPeriod: bigint,
   chainId: number,
   setIsLoading: (value: string) => void,
-  getInvoiceData: () => Promise<void>
+  getInvoiceData: () => Promise<void>,
 ): Promise<boolean> => {
   setIsLoading("setDefaultHoldPeriod");
   let success = false;
@@ -510,7 +512,7 @@ export const setFee = async (
   newFee: bigint,
   chainId: number,
   setIsLoading: (value: string) => void,
-  getInvoiceData: () => Promise<void>
+  getInvoiceData: () => Promise<void>,
 ): Promise<boolean> => {
   setIsLoading("setFee");
   let success = false;
@@ -557,7 +559,7 @@ export const setMinimumInvoiceValue = async (
   newValue: bigint,
   chainId: number,
   setIsLoading: (value: string) => void,
-  getInvoiceData: () => Promise<void>
+  getInvoiceData: () => Promise<void>,
 ): Promise<boolean> => {
   setIsLoading("setMinimumInvoiceValue");
   let success = false;
@@ -604,7 +606,7 @@ export const setDecisionWindow = async (
   newDecisionWindow: bigint,
   chainId: number,
   setIsLoading: (value: string) => void,
-  getInvoiceData: () => Promise<void>
+  getInvoiceData: () => Promise<void>,
 ): Promise<boolean> => {
   setIsLoading("setDecisionWindow");
   let success = false;
@@ -652,7 +654,7 @@ export const setValidPeriod = async (
   newValidPeriod: bigint,
   chainId: number,
   setIsLoading: (value: string) => void,
-  getInvoiceData: () => Promise<void>
+  getInvoiceData: () => Promise<void>,
 ): Promise<boolean> => {
   setIsLoading("setValidPeriod");
   let success = false;
@@ -697,7 +699,7 @@ export const setValidPeriod = async (
 
 export const getInvoiceOwner = async (
   id: string,
-  chainId: number
+  chainId: number,
 ): Promise<string> => {
   const { data, error } = await client(chainId)
     .query(invoiceOwnerQuery, { id })

@@ -20,7 +20,7 @@ export const payAdvancedInvoice = async (
   paymentToken: Address,
   chainId: number,
   owner: Address,
-  setIsLoading: (value: string) => void
+  setIsLoading: (value: string) => void,
 ): Promise<boolean> => {
   setIsLoading(paymentType);
 
@@ -50,7 +50,7 @@ export const payAdvancedInvoice = async (
         owner,
         walletClient,
         publicClient,
-        chainId
+        chainId,
       );
 
       if (!approved) {
@@ -111,7 +111,7 @@ export const setMarketplaceAddress = async (
   { walletClient, publicClient }: WagmiClient,
   marketplaceAddress: Address,
   chainId: number,
-  setIsLoading: (value: string) => void
+  setIsLoading: (value: string) => void,
 ): Promise<any> => {
   setIsLoading("setMarketplaceAddress");
   let success = false;
@@ -157,7 +157,7 @@ export const getAdvancedInvoiceData = async (
   invoiceId: bigint,
   query: string,
   type: "smartInvoice" | "metaInvoice",
-  chainId: number
+  chainId: number,
 ): Promise<any> => {
   const { data, error } = await client(chainId)
     .query(query, { id: invoiceId.toString() })

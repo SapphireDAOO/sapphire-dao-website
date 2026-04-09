@@ -1,5 +1,5 @@
 "use client";
-import { useContext, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import { useAccount } from "wagmi";
 import { Button } from "@/components/ui/button";
 import {
@@ -9,10 +9,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ContractContext } from "@/context/contract-context";
-import { Loader2 } from "lucide-react";
+import { CalendarIcon, Loader2 } from "lucide-react";
 import { useGetOwner } from "@/hooks/useGetOwner";
 import { useGetFeeReceiver } from "@/hooks/useGetFeeReceiver";
 import { Address } from "viem";
@@ -23,6 +25,7 @@ import { ethers } from "ethers";
 import { useGetMarketplaceWallet } from "@/hooks/useGetMarketplaceWallet";
 import { useGetDecisionWindow } from "@/hooks/useGetDecisionWindow";
 import { useGetValidPeriod } from "@/hooks/useGetValidPeriod";
+import { useViemBlockNumber } from "@/hooks/useViemBlockNumber";
 import AdminSettingRow from "./AdminSettingRow";
 
 // Utility function to truncate addresses
@@ -32,18 +35,43 @@ const truncateAddress = (address: string | undefined) =>
 const AdminCard = () => {
   const { address: connectedAddress } = useAccount();
   const { data: ownerAddress, isLoading: isAllowedAddressLoading } = useGetOwner();
-  const { data: fee } = useGetFeeRate();
-  const { data: defaultHoldPeriod } = useGetDefaultHoldPeriod();
-  const { data: minimumInvoiceValue } = useGetMinimumInvoiceValue();
-  const { data: marketplaceKeeperAddress } = useGetMarketplaceWallet();
-  const { data: feeReceiver } = useGetFeeReceiver();
-  const { data: decisionWindow } = useGetDecisionWindow();
-  const { data: validPeriod } = useGetValidPeriod();
+  const { data: fee, refetch: refetchFee } = useGetFeeRate();
+  const { data: defaultHoldPeriod, refetch: refetchDefaultHoldPeriod } = useGetDefaultHoldPeriod();
+  const { data: minimumInvoiceValue, refetch: refetchMinimumInvoiceValue } = useGetMinimumInvoiceValue();
+  const { data: marketplaceKeeperAddress, refetch: refetchMarketplaceWallet } = useGetMarketplaceWallet();
+  const { data: feeReceiver, refetch: refetchFeeReceiver } = useGetFeeReceiver();
+  const { data: decisionWindow, refetch: refetchDecisionWindow } = useGetDecisionWindow();
+  const { data: validPeriod, refetch: refetchValidPeriod } = useGetValidPeriod();
+
+  const { data: blockNumber } = useViemBlockNumber();
+
+  // Refetch all settings on every new block
+  useEffect(() => {
+    if (!blockNumber) return;
+    void refetchFee();
+    void refetchDefaultHoldPeriod();
+    void refetchMinimumInvoiceValue();
+    void refetchMarketplaceWallet();
+    void refetchFeeReceiver();
+    void refetchDecisionWindow();
+    void refetchValidPeriod();
+  }, [
+    blockNumber,
+    refetchFee,
+    refetchDefaultHoldPeriod,
+    refetchMinimumInvoiceValue,
+    refetchMarketplaceWallet,
+    refetchFeeReceiver,
+    refetchDecisionWindow,
+    refetchValidPeriod,
+  ]);
 
   const [receiversAdd, setReceiverAdd] = useState("");
   const [ownerAddr, setOwnerAddr] = useState("");
   const [invoiceId, setinvoiceId] = useState("");
-  const [holdPeriod, setHoldPeriod] = useState("");
+  const [holdDate, setHoldDate] = useState<Date | undefined>(undefined);
+  const [holdTime, setHoldTime] = useState("00:00");
+  const [holdPopoverOpen, setHoldPopoverOpen] = useState(false);
   const [defaultPeriod, setDefaultPeriod] = useState("");
   const [sDaoFee, setDaoFee] = useState("");
   const [value, setValue] = useState("");
@@ -65,49 +93,62 @@ const AdminCard = () => {
   } = useContext(ContractContext);
 
   const handleReceiverAdd = async () => {
-    await setFeeReceiversAddress(receiversAdd as Address);
+    const ok = await setFeeReceiversAddress(receiversAdd as Address);
+    if (ok) { setReceiverAdd(""); void refetchFeeReceiver(); }
   };
 
   const handleMarketplaceAddress = async () => {
-    await setMarketplaceAddress(marketplaceAddress as Address);
+    const ok = await setMarketplaceAddress(marketplaceAddress as Address);
+    if (ok) { setMarketplaceKeeper(""); void refetchMarketplaceWallet(); }
   };
 
   const handleOwnerAddress = async () => {
-    await transferOwnership(ownerAddr as Address);
+    const ok = await transferOwnership(ownerAddr as Address);
+    if (ok) setOwnerAddr("");
   };
 
   const handleInvoiceHoldPeriod = async () => {
-    const holdPeriodInSecond = Math.round(Number(holdPeriod)) * 24 * 60 * 60;
-    await setInvoiceHoldPeriod(BigInt(invoiceId), BigInt(holdPeriodInSecond));
+    if (!holdDate) return;
+    const [hours, minutes] = holdTime.split(":").map(Number);
+    const deadline = new Date(holdDate);
+    deadline.setHours(hours, minutes, 0, 0);
+    const holdPeriodInSecond = Math.max(0, Math.round((deadline.getTime() - Date.now()) / 1000));
+    const ok = await setInvoiceHoldPeriod(BigInt(invoiceId), BigInt(holdPeriodInSecond));
+    if (ok) { setinvoiceId(""); setHoldDate(undefined); setHoldTime("00:00"); }
   };
 
   const handleDefaultPeriod = async () => {
     const defaultPeriodInSecond = BigInt(Number(defaultPeriod) * 24 * 60 * 60);
-    await setDefaultHoldPeriod(defaultPeriodInSecond);
+    const ok = await setDefaultHoldPeriod(defaultPeriodInSecond);
+    if (ok) { setDefaultPeriod(""); void refetchDefaultHoldPeriod(); }
   };
 
   const handleDecisionWindow = async () => {
     const minutes = Number(decisionWindowInput);
     if (isNaN(minutes) || minutes <= 0) return;
     const windowInSeconds = BigInt(Math.round(minutes * 60));
-    await setDecisionWindow(windowInSeconds);
+    const ok = await setDecisionWindow(windowInSeconds);
+    if (ok) { setDecisionWindowInput(""); void refetchDecisionWindow(); }
   };
 
   const handleValidPeriod = async () => {
     const hours = Number(validPeriodInput);
     if (isNaN(hours) || hours <= 0) return;
     const periodInSeconds = BigInt(Math.round(hours * 60 * 60));
-    await setValidPeriod(periodInSeconds);
+    const ok = await setValidPeriod(periodInSeconds);
+    if (ok) { setValidPeriodInput(""); void refetchValidPeriod(); }
   };
 
   const handleDaoFee = async () => {
     const sDaoFeeInBps = BigInt(parseInt(sDaoFee) * 100);
-    await setFee(sDaoFeeInBps);
+    const ok = await setFee(sDaoFeeInBps);
+    if (ok) { setDaoFee(""); void refetchFee(); }
   };
 
   const handleMinimumInvoiceValue = async () => {
     const v = ethers.parseEther(value);
-    await setMinimumInvoiceValue(v);
+    const ok = await setMinimumInvoiceValue(v);
+    if (ok) { setValue(""); void refetchMinimumInvoiceValue(); }
   };
 
   if (isAllowedAddressLoading) {
@@ -257,32 +298,59 @@ const AdminCard = () => {
             description="Updates the address of the fee receiver."
           />
 
-          {/* Invoice Hold Period: dual-input special case */}
+          {/* Invoice Hold Period: invoice ID + date/time picker */}
           <div className="space-y-1.5">
             <Label htmlFor="holdPeriodID">Invoice Hold Period</Label>
-            <div className="grid grid-cols-2 gap-2">
-              <Input
-                id="holdPeriodID"
-                placeholder="Invoice ID"
-                type="number"
-                value={invoiceId}
-                onChange={(e) => setinvoiceId(e.target.value)}
-                aria-describedby="holdPeriodDescription"
-                className="w-full"
-              />
-              <Input
-                id="invoicePeriod"
-                placeholder="Enter days"
-                type="number"
-                value={holdPeriod}
-                onChange={(e) => setHoldPeriod(e.target.value)}
-                aria-describedby="holdPeriodDescription"
-                className="w-full"
-              />
-            </div>
+            <Input
+              id="holdPeriodID"
+              placeholder="Invoice ID"
+              type="number"
+              value={invoiceId}
+              onChange={(e) => setinvoiceId(e.target.value)}
+              aria-describedby="holdPeriodDescription"
+              className="w-full"
+            />
+            <Popover open={holdPopoverOpen} onOpenChange={setHoldPopoverOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="w-full justify-start text-left font-normal"
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {holdDate
+                    ? `${holdDate.toLocaleDateString()} ${holdTime}`
+                    : "Pick deadline date & time"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={holdDate}
+                  onSelect={(date) => setHoldDate(date ?? undefined)}
+                  disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+                />
+                <div className="border-t p-3 flex items-center gap-2">
+                  <Label htmlFor="holdTime" className="shrink-0 text-sm">Time</Label>
+                  <Input
+                    id="holdTime"
+                    type="time"
+                    value={holdTime}
+                    onChange={(e) => setHoldTime(e.target.value)}
+                    className="h-8"
+                  />
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setHoldPopoverOpen(false)}
+                  >
+                    Done
+                  </Button>
+                </div>
+              </PopoverContent>
+            </Popover>
             <Button
               onClick={handleInvoiceHoldPeriod}
-              disabled={isLoading === "setInvoiceHoldPeriod"}
+              disabled={isLoading === "setInvoiceHoldPeriod" || !holdDate}
               aria-busy={isLoading === "setInvoiceHoldPeriod"}
             >
               {isLoading === "setInvoiceHoldPeriod" ? (
@@ -295,7 +363,10 @@ const AdminCard = () => {
               id="holdPeriodDescription"
               className="text-sm text-muted-foreground"
             >
-              Sets a custom hold period for a specific invoice.
+              Sets a custom hold period for a specific invoice.{" "}
+              <span className="text-yellow-600 dark:text-yellow-400 font-medium">
+                Note: hold period can only be set after the invoice has been accepted.
+              </span>
             </p>
           </div>
 
