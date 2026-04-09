@@ -1,9 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // output: "export",
   images: {
-    unoptimized: true,
+    unoptimized: false,
   },
   assetPrefix: "../",
   reactStrictMode: false,
@@ -13,6 +12,16 @@ const nextConfig: NextConfig = {
   },
   async headers() {
     return [
+      {
+        // Allow Safe App to embed this dApp in an iframe
+        source: "/(.*)",
+        headers: [
+          {
+            key: "Content-Security-Policy",
+            value: "frame-ancestors 'self' https://app.safe.global https://*.safe.global",
+          },
+        ],
+      },
       {
         source: "/pay/",
         headers: [
