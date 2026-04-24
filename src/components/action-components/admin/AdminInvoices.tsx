@@ -2,7 +2,6 @@
 
 import { useContext, useEffect, useRef } from "react";
 import { ContractContext } from "@/context/contract-context";
-import { useViemBlockNumber } from "@/hooks/useViemBlockNumber";
 import { formatAddress } from "@/utils";
 import {
   ADVANCED_PAYMENT_PROCESSOR,
@@ -19,6 +18,7 @@ import allMarketplaceInvoices from "./AllMarketplaceInvoicesColumns";
 
 import { useGetBalance } from "@/hooks/useGetBalance";
 import { Address } from "viem";
+
 
 /**
  * Props for the ContractLink component.
@@ -61,8 +61,8 @@ const ContractLink: React.FC<ContractLinkProps> = ({
           {isLoading
             ? "Loading..."
             : formattedBalance
-            ? `${formattedBalance} ETH`
-            : "0 ETH"}
+              ? `${formattedBalance} ETH`
+              : "0 ETH"}
         </span>
       )}
     </div>
@@ -72,7 +72,6 @@ const ContractLink: React.FC<ContractLinkProps> = ({
 const AdminInvoices = () => {
   const { allInvoiceData, refreshAdminData } = useContext(ContractContext);
   const hasFetchedAdmin = useRef(false);
-  const { data: blockNumber } = useViemBlockNumber();
 
   // Initial fetch
   useEffect(() => {
@@ -80,12 +79,6 @@ const AdminInvoices = () => {
     hasFetchedAdmin.current = true;
     refreshAdminData?.(true);
   }, [refreshAdminData]);
-
-  // Refresh on every new block (WebSocket-driven, falls back to 12s polling)
-  useEffect(() => {
-    if (!blockNumber || !hasFetchedAdmin.current) return;
-    refreshAdminData?.();
-  }, [blockNumber, refreshAdminData]);
 
   return (
     <div className="container mx-auto">
@@ -120,7 +113,9 @@ const AdminInvoices = () => {
               title="MARKETPLACE"
               rightContent={
                 <ContractLink
-                  address={ADVANCED_PAYMENT_PROCESSOR[baseSepolia.id] as Address}
+                  address={
+                    ADVANCED_PAYMENT_PROCESSOR[baseSepolia.id] as Address
+                  }
                 />
               }
             />
@@ -136,7 +131,9 @@ const AdminInvoices = () => {
               title="Admin Action"
               rightContent={
                 <ContractLink
-                  address={ADVANCED_PAYMENT_PROCESSOR[baseSepolia.id] as Address}
+                  address={
+                    ADVANCED_PAYMENT_PROCESSOR[baseSepolia.id] as Address
+                  }
                 />
               }
             />

@@ -6,6 +6,8 @@ import { useSearchParams } from "next/navigation";
 import { ContractContext } from "@/context/contract-context";
 import { useGetMetaInvoice } from "@/hooks/useGetMetaInvoice";
 import { InvoiceDetails, TokenData } from "@/model/model";
+import { BASE_SEPOLIA, mergeKnownPaymentTokens } from "@/constants";
+import { useChainId } from "wagmi";
 
 import CheckoutCard from "./CheckoutCard";
 import Container from "@/components/Container";
@@ -15,6 +17,7 @@ import { useGetMarketplaceInvoiceData } from "@/hooks/useGetMarketplaceInvoiceDa
 const CheckoutPage = () => {
   const searchParams = useSearchParams();
   const jwtToken = searchParams.get("data");
+  const chainId = useChainId() || BASE_SEPOLIA;
 
   const { getAdvancedInvoiceData } = useContext(ContractContext);
   const [invoiceId, setinvoiceId] = useState<bigint | null>(null);
@@ -71,7 +74,10 @@ const CheckoutPage = () => {
         const response = await getAdvancedInvoiceData(invoiceId, type);
 
         const invoice = response?.[type];
-        const paymentTokens: TokenData[] = response?.paymentTokens || [];
+        const paymentTokens: TokenData[] = mergeKnownPaymentTokens(
+          chainId,
+          response?.paymentTokens || [],
+        );
 
         let structured: InvoiceDetails;
         if (invoice) {
@@ -103,6 +109,7 @@ const CheckoutPage = () => {
     };
     loadInvoice();
   }, [
+    chainId,
     invoiceId,
     metaInvoicePrice,
     isMetaInvoice,

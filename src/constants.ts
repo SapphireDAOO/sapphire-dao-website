@@ -1,4 +1,4 @@
-import { ErrorMessages } from "./model/model";
+import type { ErrorMessages, TokenData } from "./model/model";
 import type { Address } from "viem";
 import { baseSepolia } from "viem/chains";
 
@@ -7,19 +7,81 @@ export const POLYGON_AMOY = 80_002;
 export const BASE_SEPOLIA = baseSepolia.id;
 
 export const PAYMENT_PROCESSOR_STORAGE: Record<number, Address> = {
-  [BASE_SEPOLIA]: "0x7542F386a40FE663121719BC7ac59664a8530C38",
+  [BASE_SEPOLIA]: "0x13676A686fA96408a70ACBDa6312b330D11Ce390",
 };
 
 export const SIMPLE_PAYMENT_PROCESSOR: Record<number, Address> = {
-  [BASE_SEPOLIA]: "0x5214B494598c706a482A36Dc6fece2FdafF3390d",
+  [BASE_SEPOLIA]: "0xd70c10C73a716F85d97b5619dADfb6B1b6b6a706",
 };
 
 export const ADVANCED_PAYMENT_PROCESSOR: Record<number, Address> = {
-  [BASE_SEPOLIA]: "0x96AB8111B8C9eC5f7ec99c398e83F57BDC47b40E",
+  [BASE_SEPOLIA]: "0x792AF6DF4f32Ac3b8C2745dEE42f9e08090C0746",
+};
+
+export const MULTISIG_CONTRACT: Record<number, Address> = {
+  [BASE_SEPOLIA]: "0x0f3BeEf2be710Ab7D79Db9732A8ce14A87E1D7FA",
 };
 
 export const NOTES_CONTRACT: Record<number, Address> = {
-  [BASE_SEPOLIA]: "0x3252Ee213AF17C4d752Aec009AdBA83B93229b31",
+  [BASE_SEPOLIA]: "0x8391a68c01834d252C1dFf975A621e8F99020b65",
+};
+
+export const MOCK_USDC_CONTRACT: Record<number, Address> = {
+  [BASE_SEPOLIA]: "0x41A196b1fF165419A1320F029E689A41F30c70b0",
+};
+
+export const MOCK_WBTC_CONTRACT: Record<number, Address> = {
+  [BASE_SEPOLIA]: "0x8Cdaf12598d71cad44e91FB1c05d565a383e3dba",
+};
+
+export const KNOWN_PAYMENT_TOKENS: Record<number, TokenData[]> = {
+  [BASE_SEPOLIA]: [
+    {
+      id: MOCK_USDC_CONTRACT[BASE_SEPOLIA],
+      name: "MockUsdc",
+      decimals: 6,
+    },
+    {
+      id: MOCK_WBTC_CONTRACT[BASE_SEPOLIA],
+      name: "MockWbtc",
+      decimals: 8,
+    },
+  ],
+};
+
+export const getKnownPaymentToken = (
+  chainId: number,
+  tokenId?: string | null,
+): TokenData | null => {
+  if (!tokenId) return null;
+
+  return (
+    KNOWN_PAYMENT_TOKENS[chainId]?.find(
+      (token) => token.id.toLowerCase() === tokenId.toLowerCase(),
+    ) ?? null
+  );
+};
+
+export const mergeKnownPaymentTokens = (
+  chainId: number,
+  tokens: TokenData[] = [],
+): TokenData[] => {
+  const merged = new Map<string, TokenData>();
+
+  for (const token of tokens) {
+    if (!token?.id) continue;
+    merged.set(token.id.toLowerCase(), token);
+  }
+
+  for (const token of KNOWN_PAYMENT_TOKENS[chainId] ?? []) {
+    if (!token?.id) continue;
+    const key = token.id.toLowerCase();
+    if (!merged.has(key)) {
+      merged.set(key, token);
+    }
+  }
+
+  return [...merged.values()];
 };
 
 export const NOTES_SIGNER_ADDRESS =
@@ -27,7 +89,7 @@ export const NOTES_SIGNER_ADDRESS =
 
 export const THE_GRAPH_API_URL: Record<number, string> = {
   [BASE_SEPOLIA]:
-    "https://api.studio.thegraph.com/query/100227/processor-indexer/version/latest",
+    "https://api.studio.thegraph.com/query/100227/payment-processor/version/latest",
 };
 
 export const errorMessages: ErrorMessages = {

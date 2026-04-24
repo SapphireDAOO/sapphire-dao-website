@@ -5,7 +5,7 @@ import { TokenData } from "@/model/model";
 import { client } from "@/services/graphql/client";
 import { paymentTokenQuery } from "@/services/graphql/queries";
 import { useChainId } from "wagmi";
-import { BASE_SEPOLIA } from "@/constants";
+import { BASE_SEPOLIA, getKnownPaymentToken } from "@/constants";
 
 const DEFAULT_TOKEN: TokenData = {
   name: "",
@@ -21,7 +21,11 @@ export const useGetPaymentTokenData = (tokenId: string) => {
   const normalizedTokenId = tokenId?.toLowerCase();
   const cacheKey = `${chainId}:${normalizedTokenId}`;
   const [token, setToken] = useState<TokenData>(() => {
-    return tokenCache.get(cacheKey) ?? DEFAULT_TOKEN;
+    return (
+      tokenCache.get(cacheKey) ??
+      getKnownPaymentToken(chainId, normalizedTokenId) ??
+      DEFAULT_TOKEN
+    );
   });
 
   useEffect(() => {
@@ -36,6 +40,13 @@ export const useGetPaymentTokenData = (tokenId: string) => {
       const cached = tokenCache.get(cacheKey);
       if (cached) {
         setToken(cached);
+        return;
+      }
+
+      const knownToken = getKnownPaymentToken(chainId, normalizedTokenId);
+      if (knownToken) {
+        tokenCache.set(cacheKey, knownToken);
+        setToken(knownToken);
         return;
       }
 
