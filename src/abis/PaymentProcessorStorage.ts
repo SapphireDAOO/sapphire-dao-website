@@ -5,21 +5,9 @@ export const PaymentProcessorStorage = [
         components: [
           { internalType: "address", name: "owner", type: "address" },
           { internalType: "uint96", name: "feeRate", type: "uint96" },
-          {
-            internalType: "address",
-            name: "feeReceiver",
-            type: "address",
-          },
-          {
-            internalType: "uint96",
-            name: "defaultHoldPeriod",
-            type: "uint96",
-          },
-          {
-            internalType: "address",
-            name: "marketplace",
-            type: "address",
-          },
+          { internalType: "address", name: "feeReceiver", type: "address" },
+          { internalType: "uint96", name: "defaultHoldPeriod", type: "uint96" },
+          { internalType: "address", name: "marketplace", type: "address" },
           { internalType: "uint96", name: "gasThreshold", type: "uint96" },
         ],
         internalType: "struct IPaymentProcessorStorage.Configuration",
@@ -116,11 +104,7 @@ export const PaymentProcessorStorage = [
     inputs: [],
     name: "getDefaultHoldPeriod",
     outputs: [
-      {
-        internalType: "uint256",
-        name: "defaultHoldPeriod",
-        type: "uint256",
-      },
+      { internalType: "uint256", name: "defaultHoldPeriod", type: "uint256" },
     ],
     stateMutability: "view",
     type: "function",
@@ -213,11 +197,7 @@ export const PaymentProcessorStorage = [
   },
   {
     inputs: [
-      {
-        internalType: "address",
-        name: "_authorizedAddress",
-        type: "address",
-      },
+      { internalType: "address", name: "_authorizedAddress", type: "address" },
       { internalType: "bool", name: "_authorized", type: "bool" },
     ],
     name: "setAuthorizedAddress",
@@ -227,11 +207,7 @@ export const PaymentProcessorStorage = [
   },
   {
     inputs: [
-      {
-        internalType: "uint256",
-        name: "_newDefaultHoldPeriod",
-        type: "uint256",
-      },
+      { internalType: "uint96", name: "_newDefaultHoldPeriod", type: "uint96" },
     ],
     name: "setDefaultHoldPeriod",
     outputs: [],
@@ -239,7 +215,7 @@ export const PaymentProcessorStorage = [
     type: "function",
   },
   {
-    inputs: [{ internalType: "uint256", name: "_newFeeRate", type: "uint256" }],
+    inputs: [{ internalType: "uint96", name: "_newFeeRate", type: "uint96" }],
     name: "setFeeRate",
     outputs: [],
     stateMutability: "nonpayable",
@@ -247,11 +223,7 @@ export const PaymentProcessorStorage = [
   },
   {
     inputs: [
-      {
-        internalType: "address",
-        name: "_feeReceiverAddress",
-        type: "address",
-      },
+      { internalType: "address", name: "_feeReceiverAddress", type: "address" },
     ],
     name: "setFeeReceiver",
     outputs: [],
@@ -260,11 +232,7 @@ export const PaymentProcessorStorage = [
   },
   {
     inputs: [
-      {
-        internalType: "uint256",
-        name: "_newGasThreshold",
-        type: "uint256",
-      },
+      { internalType: "uint96", name: "_newGasThreshold", type: "uint96" },
     ],
     name: "setGasThreshold",
     outputs: [],
@@ -273,11 +241,7 @@ export const PaymentProcessorStorage = [
   },
   {
     inputs: [
-      {
-        internalType: "address",
-        name: "_marketplaceAddress",
-        type: "address",
-      },
+      { internalType: "address", name: "_marketplaceAddress", type: "address" },
     ],
     name: "setMarketplaceAddress",
     outputs: [],

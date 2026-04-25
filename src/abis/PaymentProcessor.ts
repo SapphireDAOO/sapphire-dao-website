@@ -18,6 +18,7 @@ export const paymentProcessor = [
   },
   { inputs: [], name: "AcceptanceWindowExceeded", type: "error" },
   { inputs: [], name: "DuplicateTask", type: "error" },
+  { inputs: [], name: "EscrowWithdrawFailed", type: "error" },
   { inputs: [], name: "HoldPeriodHasNotBeenExceeded", type: "error" },
   {
     inputs: [
@@ -40,6 +41,7 @@ export const paymentProcessor = [
   { inputs: [], name: "InvoiceIsNoLongerValid", type: "error" },
   { inputs: [], name: "InvoiceNotEligibleForRefund", type: "error" },
   { inputs: [], name: "NotAuthorized", type: "error" },
+  { inputs: [], name: "Reentrancy", type: "error" },
   { inputs: [], name: "SellerCannotPayOwnedInvoice", type: "error" },
   { inputs: [], name: "TaskNotFound", type: "error" },
   { inputs: [], name: "ValueIsTooLow", type: "error" },
@@ -80,21 +82,14 @@ export const paymentProcessor = [
       },
       {
         components: [
-          {
-            internalType: "uint216",
-            name: "invoiceNonce",
-            type: "uint216",
-          },
+          { internalType: "uint216", name: "invoiceNonce", type: "uint216" },
           { internalType: "uint40", name: "createdAt", type: "uint40" },
           { internalType: "uint40", name: "paidAt", type: "uint40" },
           { internalType: "uint40", name: "releaseAt", type: "uint40" },
-          {
-            internalType: "uint40",
-            name: "invalidateAt",
-            type: "uint40",
-          },
+          { internalType: "uint40", name: "invalidateAt", type: "uint40" },
           { internalType: "uint40", name: "expiresAt", type: "uint40" },
           { internalType: "uint8", name: "state", type: "uint8" },
+          { internalType: "uint8", name: "withdrawalRetries", type: "uint8" },
           { internalType: "address", name: "seller", type: "address" },
           { internalType: "address", name: "buyer", type: "address" },
           { internalType: "address", name: "escrow", type: "address" },
@@ -191,6 +186,56 @@ export const paymentProcessor = [
       },
       {
         indexed: true,
+        internalType: "address",
+        name: "recipient",
+        type: "address",
+      },
+      {
+        indexed: false,
+        internalType: "uint256",
+        name: "amount",
+        type: "uint256",
+      },
+    ],
+    name: "LockedPaymentRecovered",
+    type: "event",
+  },
+  {
+    anonymous: false,
+    inputs: [
+      {
+        indexed: true,
+        internalType: "uint216",
+        name: "invoiceId",
+        type: "uint216",
+      },
+      {
+        indexed: true,
+        internalType: "address",
+        name: "recipient",
+        type: "address",
+      },
+      {
+        indexed: false,
+        internalType: "uint256",
+        name: "amount",
+        type: "uint256",
+      },
+    ],
+    name: "TransferFailed",
+    type: "event",
+  },
+  {
+    anonymous: false,
+    inputs: [
+      {
+        indexed: true,
+        internalType: "uint216",
+        name: "invoiceId",
+        type: "uint216",
+      },
+      {
+        indexed: true,
         internalType: "uint256",
         name: "releaseDueTimestamp",
         type: "uint256",
@@ -200,67 +245,30 @@ export const paymentProcessor = [
     type: "event",
   },
   {
-    inputs: [],
-    name: "ACCEPTED",
-    outputs: [{ internalType: "uint8", name: "", type: "uint8" }],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "BASIS_POINTS",
-    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "CANCELED",
-    outputs: [{ internalType: "uint8", name: "", type: "uint8" }],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "CREATED",
-    outputs: [{ internalType: "uint8", name: "", type: "uint8" }],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "DEFAULT_SELLER_DECISION_WINDOW",
-    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "PAID",
-    outputs: [{ internalType: "uint8", name: "", type: "uint8" }],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "REFUNDED",
-    outputs: [{ internalType: "uint8", name: "", type: "uint8" }],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "REJECTED",
-    outputs: [{ internalType: "uint8", name: "", type: "uint8" }],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "RELEASED",
-    outputs: [{ internalType: "uint8", name: "", type: "uint8" }],
-    stateMutability: "view",
-    type: "function",
+    anonymous: false,
+    inputs: [
+      {
+        indexed: true,
+        internalType: "uint216",
+        name: "invoiceId",
+        type: "uint216",
+      },
+      {
+        indexed: true,
+        internalType: "address",
+        name: "recipient",
+        type: "address",
+      },
+      {
+        indexed: false,
+        internalType: "uint256",
+        name: "amount",
+        type: "uint256",
+      },
+      { indexed: false, internalType: "uint8", name: "attempt", type: "uint8" },
+    ],
+    name: "WithdrawalRetried",
+    type: "event",
   },
   {
     inputs: [{ internalType: "uint216", name: "_invoiceId", type: "uint216" }],
@@ -315,11 +323,7 @@ export const paymentProcessor = [
     inputs: [],
     name: "getForwarder",
     outputs: [
-      {
-        internalType: "address",
-        name: "forwarderAddress",
-        type: "address",
-      },
+      { internalType: "address", name: "forwarderAddress", type: "address" },
     ],
     stateMutability: "view",
     type: "function",
@@ -330,21 +334,14 @@ export const paymentProcessor = [
     outputs: [
       {
         components: [
-          {
-            internalType: "uint216",
-            name: "invoiceNonce",
-            type: "uint216",
-          },
+          { internalType: "uint216", name: "invoiceNonce", type: "uint216" },
           { internalType: "uint40", name: "createdAt", type: "uint40" },
           { internalType: "uint40", name: "paidAt", type: "uint40" },
           { internalType: "uint40", name: "releaseAt", type: "uint40" },
-          {
-            internalType: "uint40",
-            name: "invalidateAt",
-            type: "uint40",
-          },
+          { internalType: "uint40", name: "invalidateAt", type: "uint40" },
           { internalType: "uint40", name: "expiresAt", type: "uint40" },
           { internalType: "uint8", name: "state", type: "uint8" },
+          { internalType: "uint8", name: "withdrawalRetries", type: "uint8" },
           { internalType: "address", name: "seller", type: "address" },
           { internalType: "address", name: "buyer", type: "address" },
           { internalType: "address", name: "escrow", type: "address" },
@@ -444,11 +441,18 @@ export const paymentProcessor = [
   },
   {
     inputs: [
-      {
-        internalType: "uint256",
-        name: "_newDecisionWindow",
-        type: "uint256",
-      },
+      { internalType: "uint216", name: "_invoiceId", type: "uint216" },
+      { internalType: "address", name: "_recipient", type: "address" },
+      { internalType: "uint256", name: "_amount", type: "uint256" },
+    ],
+    name: "releaseLocked",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [
+      { internalType: "uint256", name: "_newDecisionWindow", type: "uint256" },
     ],
     name: "setDecisionWindow",
     outputs: [],
@@ -457,11 +461,7 @@ export const paymentProcessor = [
   },
   {
     inputs: [
-      {
-        internalType: "address",
-        name: "_forwarderAddress",
-        type: "address",
-      },
+      { internalType: "address", name: "_forwarderAddress", type: "address" },
     ],
     name: "setForwarderAddress",
     outputs: [],

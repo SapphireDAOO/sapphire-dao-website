@@ -1,4 +1,4 @@
-import { ReactNode, useCallback, useEffect, useRef, useState } from "react";
+import { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAccount, usePublicClient, useWalletClient } from "wagmi";
 import { ContractContext } from "@/context/contract-context";
@@ -40,10 +40,10 @@ const WalletProvider = ({ children }: Props) => {
   const publicClient = usePublicClient();
   const queryClient = useQueryClient();
 
-  const wagmiClients: WagmiClient = {
-    walletClient: walletClient,
-    publicClient: publicClient,
-  };
+  const wagmiClients: WagmiClient = useMemo(
+    () => ({ walletClient, publicClient }),
+    [walletClient, publicClient],
+  );
 
   const [isLoading, setIsLoading] = useState<string>();
 

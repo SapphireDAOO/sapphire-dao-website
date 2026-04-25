@@ -19,7 +19,7 @@ export const ADVANCED_PAYMENT_PROCESSOR: Record<number, Address> = {
 };
 
 export const MULTISIG_CONTRACT: Record<number, Address> = {
-  [BASE_SEPOLIA]: "0x0f3BeEf2be710Ab7D79Db9732A8ce14A87E1D7FA",
+  [BASE_SEPOLIA]: "0x331798Ef8A2a46b6e6A5864ba7F03016b875F193",
 };
 
 export const NOTES_CONTRACT: Record<number, Address> = {

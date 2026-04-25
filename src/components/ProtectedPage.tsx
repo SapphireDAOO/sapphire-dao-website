@@ -9,17 +9,15 @@ interface ProtectedPageProps {
 }
 
 export default function ProtectedPage({ children }: ProtectedPageProps) {
-  const { isAllowed, walletConnected } = useWalletRestriction();
-  const [isInitialLoading, setIsInitialLoading] = useState(true); // Track initial load
+  const { isAllowed, walletConnected, isLoading } = useWalletRestriction();
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
 
-  // Ensure loading state persists until wallet data is fully resolved
   useEffect(() => {
-    if (walletConnected !== undefined && isAllowed !== undefined) {
-      setIsInitialLoading(false); // Resolved when both are defined
+    if (!walletConnected || !isLoading) {
+      setIsInitialLoading(false);
     }
-  }, [walletConnected, isAllowed]);
+  }, [walletConnected, isLoading]);
 
-  // Show loading during initial resolution
   if (isInitialLoading) {
     return (
       <main>
@@ -35,7 +33,6 @@ export default function ProtectedPage({ children }: ProtectedPageProps) {
     );
   }
 
-  // No wallet connected
   if (!walletConnected) {
     return (
       <main>
@@ -53,7 +50,6 @@ export default function ProtectedPage({ children }: ProtectedPageProps) {
     );
   }
 
-  // Wallet connected but not allowed
   if (!isAllowed) {
     return (
       <main>
@@ -71,6 +67,5 @@ export default function ProtectedPage({ children }: ProtectedPageProps) {
     );
   }
 
-  // Wallet connected and allowed
   return <>{children}</>;
 }

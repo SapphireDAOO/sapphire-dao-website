@@ -14,6 +14,10 @@ export const client = (chainId: number) => {
 
   const created = createClient({
     url: `/api/graphql?chainId=${chainId}`,
+    // cache-first: serve from urql's in-memory cache when available and only
+    // hit the network when the cache is empty. Real-time freshness is handled
+    // by event-based refresh calls (watchEvent) rather than background refetches.
+    // The server-side proxy (/api/graphql) adds a 15-second cache layer on top.
     requestPolicy: "cache-and-network",
     exchanges: [cacheExchange, fetchExchange],
   });

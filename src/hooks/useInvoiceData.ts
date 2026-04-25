@@ -111,7 +111,10 @@ export const useInvoiceData = () => {
   const hasFetchedRef = useRef(false);
   const cacheKey = getInvoiceCacheKey(address, chainId);
 
-  // Keep a ref to invoiceData so callbacks don't depend on it and cause re-subscribe loops
+  // Keep refs so callbacks don't depend on state and cause re-subscribe loops
+  const allInvoiceDataRef = useRef<AllInvoicesData>({ invoices: [], actions: [], marketplaceInvoices: [] });
+  useEffect(() => { allInvoiceDataRef.current = allInvoiceData; }, [allInvoiceData]);
+
   const invoiceDataRef = useRef<Invoice[]>([]);
   useEffect(() => {
     invoiceDataRef.current = invoiceData;
@@ -144,9 +147,9 @@ export const useInvoiceData = () => {
   const getAllInvoiceData = useCallback(async (): Promise<AllInvoicesData> => {
     if (
       Date.now() < nextAllowedRequestRef.current &&
-      allInvoiceData.invoices.length > 0
+      allInvoiceDataRef.current.invoices.length > 0
     ) {
-      return allInvoiceData;
+      return allInvoiceDataRef.current;
     }
 
     const invoices: AllInvoice[] = [];
@@ -258,7 +261,7 @@ export const useInvoiceData = () => {
     }
 
     return { invoices, actions, marketplaceInvoices };
-  }, [chainId, allInvoiceData, handleRateLimit]);
+  }, [chainId, handleRateLimit]);
 
   const getInvoiceData = useCallback(
     async (page = 0) => {
