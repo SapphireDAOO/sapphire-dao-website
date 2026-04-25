@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { type Log } from "viem";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Loader2, ChevronLeft, ChevronRight } from "lucide-react";
@@ -14,14 +15,14 @@ import {
 import TransactionDetail from "./TransactionDetail";
 
 const STATUS_BADGE: Record<string, string> = {
-  PENDING: "bg-yellow-100 text-yellow-800 border-yellow-200",
+  PROPOSED: "bg-yellow-100 text-yellow-800 border-yellow-200",
   APPROVED: "bg-blue-100 text-blue-800 border-blue-200",
   EXECUTED: "bg-green-100 text-green-800 border-green-200",
   CANCELED: "bg-red-100 text-red-800 border-red-200",
 };
 
 const CANCEL_PROPOSAL_BADGE: Record<string, string> = {
-  PENDING: "bg-orange-50 text-orange-700 border-orange-200",
+  PROPOSED: "bg-orange-50 text-orange-700 border-orange-200",
   APPROVED: "bg-orange-100 text-orange-800 border-orange-300",
   EXECUTED: "bg-red-50 text-red-700 border-red-200",
 };
@@ -35,6 +36,7 @@ interface Props {
   hasNextPage: boolean;
   onNextPage: () => void;
   onPrevPage: () => void;
+  onApplyLogs: (logs: readonly Log[]) => void;
 }
 
 export default function TransactionList({
@@ -46,6 +48,7 @@ export default function TransactionList({
   hasNextPage,
   onNextPage,
   onPrevPage,
+  onApplyLogs,
 }: Props) {
   const [selectedTx, setSelectedTx] = useState<MultiSigTransaction | null>(null);
 
@@ -133,9 +136,15 @@ export default function TransactionList({
                         </p>
                       </div>
                     ) : (
-                      <span className="font-mono text-xs text-muted-foreground">
+                      <a
+                        href={`https://sepolia.basescan.org/address/${tx.target}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-mono text-xs text-blue-500 underline"
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         {formatAddress(tx.target)}
-                      </span>
+                      </a>
                     )}
                   </td>
                   <td className="px-4 py-3">
@@ -149,7 +158,7 @@ export default function TransactionList({
                       >
                         {tx.status}
                       </Badge>
-                      {cancelProposal && (tx.status === "PENDING" || tx.status === "APPROVED") && (
+                      {cancelProposal && (tx.status === "PROPOSED" || tx.status === "APPROVED") && (
                         <Badge
                           variant="outline"
                           className={CANCEL_PROPOSAL_BADGE[cancelProposal.status] ?? "bg-orange-50 text-orange-700 border-orange-200"}
@@ -203,6 +212,7 @@ export default function TransactionList({
         }
         onClose={() => setSelectedTx(null)}
         onActionSuccess={() => {}}
+        onApplyLogs={onApplyLogs}
       />
     </>
   );

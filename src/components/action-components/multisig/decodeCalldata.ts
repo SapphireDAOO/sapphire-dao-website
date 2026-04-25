@@ -4,7 +4,7 @@ import { GOVERNABLE_CONTRACTS } from "./governableFunctions";
 export interface DecodedCall {
   contractLabel: string;
   functionLabel: string;
-  params: { label: string; value: string }[];
+  params: { label: string; value: string; href?: string }[];
 }
 
 function truncateHex(hex: string, prefixLen = 8, suffixLen = 6): string {
@@ -60,10 +60,14 @@ export function decodeMultiSigCalldata(data: string): DecodedCall | null {
         if (decoded.functionName !== fn.name) continue;
 
         const args = decoded.args ?? [];
-        const params = fn.params.map((p, i) => ({
-          label: p.label,
-          value: formatParamValue(args[i], p.kind),
-        }));
+        const params = fn.params.map((p, i) => {
+          const raw = args[i];
+          const href =
+            p.kind === "address" && typeof raw === "string"
+              ? `https://sepolia.basescan.org/address/${raw}`
+              : undefined;
+          return { label: p.label, value: formatParamValue(raw, p.kind), href };
+        });
 
         return {
           contractLabel: contract.label,

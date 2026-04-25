@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { type Log } from "viem";
 import { useAccount, useChainId } from "wagmi";
 import { useWalletClient, usePublicClient } from "wagmi";
 import { Button } from "@/components/ui/button";
@@ -15,9 +16,10 @@ import { toast } from "sonner";
 
 interface ProposeFormProps {
   onSuccess?: () => void;
+  onApplyLogs?: (logs: readonly Log[]) => void;
 }
 
-export default function ProposeForm({ onSuccess }: ProposeFormProps) {
+export default function ProposeForm({ onSuccess, onApplyLogs }: ProposeFormProps) {
   const { address } = useAccount();
   const chainId = useChainId() || BASE_SEPOLIA;
   const { data: walletClient } = useWalletClient();
@@ -66,7 +68,7 @@ export default function ProposeForm({ onSuccess }: ProposeFormProps) {
     }
 
     const target = selectedContract.getAddress(chainId);
-    const ok = await proposeMultiSigTransaction(
+    const { ok, receipt } = await proposeMultiSigTransaction(
       { walletClient, publicClient },
       target,
       calldata,
@@ -75,6 +77,7 @@ export default function ProposeForm({ onSuccess }: ProposeFormProps) {
     );
 
     if (ok) {
+      if (receipt) onApplyLogs?.(receipt.logs);
       setContractKey("");
       setFnName("");
       setParamValues({});

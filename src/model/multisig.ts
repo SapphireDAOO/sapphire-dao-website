@@ -20,7 +20,7 @@ export interface MultiSigTransaction {
   data: string;        // hex-encoded calldata
   nonce: string;
   proposer: string;
-  status: "PENDING" | "APPROVED" | "EXECUTED" | "CANCELED";
+  status: "PROPOSED" | "APPROVED" | "EXECUTED" | "CANCELED";
   approvalCount: string;
   proposedAt: string;
   executedAt?: string;

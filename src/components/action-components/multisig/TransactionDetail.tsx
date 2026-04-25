@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, ExternalLink } from "lucide-react";
-import { type AbiEvent, Address, encodeFunctionData, Hex } from "viem";
+import { type AbiEvent, type Log, Address, encodeFunctionData, Hex } from "viem";
 import { MultiSigTransaction } from "@/model/multisig";
 import { useHasApproved } from "@/hooks/useHasApproved";
 import { BASE_SEPOLIA, MULTISIG_CONTRACT } from "@/constants";
@@ -28,13 +28,16 @@ import {
 } from "./decodeCalldata";
 
 const STATUS_BADGE: Record<string, string> = {
-  PENDING: "bg-yellow-100 text-yellow-800",
+  PROPOSED: "bg-yellow-100 text-yellow-800",
   APPROVED: "bg-blue-100 text-blue-800",
   EXECUTED: "bg-green-100 text-green-800",
   CANCELED: "bg-red-100 text-red-800",
 };
 
-const approvedEvent = Multisig.find(
+const approvalAddedEvent = Multisig.find(
+  (e) => e.type === "event" && e.name === "ApprovalAdded",
+) as AbiEvent;
+const txApprovedEvent = Multisig.find(
   (e) => e.type === "event" && e.name === "TransactionApproved",
 ) as AbiEvent;
 const executedEvent = Multisig.find(
@@ -51,6 +54,7 @@ interface Props {
   cancelProposal: MultiSigTransaction | null;
   onClose: () => void;
   onActionSuccess: () => void;
+  onApplyLogs: (logs: readonly Log[]) => void;
 }
 
 export default function TransactionDetail({
@@ -60,6 +64,7 @@ export default function TransactionDetail({
   cancelProposal,
   onClose,
   onActionSuccess,
+  onApplyLogs,
 }: Props) {
   const { address } = useAccount();
   const chainId = useChainId() || BASE_SEPOLIA;
@@ -69,7 +74,7 @@ export default function TransactionDetail({
   const [isLoading, setIsLoading] = useState("");
   const [cancelActionLoading, setCancelActionLoading] = useState("");
   const [localApprovalCount, setLocalApprovalCount] = useState(0);
-  const [localStatus, setLocalStatus] = useState<string>("PENDING");
+  const [localStatus, setLocalStatus] = useState<string>("PROPOSED");
 
   const onActionSuccessRef = useRef(onActionSuccess);
   onActionSuccessRef.current = onActionSuccess;
@@ -102,9 +107,9 @@ export default function TransactionDetail({
     const txHash = tx.id as Hex;
     const contractAddr = MULTISIG_CONTRACT[chainId];
 
-    const unwatchApproved = publicClient.watchEvent({
+    const unwatchApprovalAdded = publicClient.watchEvent({
       address: contractAddr,
-      event: approvedEvent,
+      event: approvalAddedEvent,
       args: { txHash },
       onLogs: (logs) => {
         const log = logs[logs.length - 1];
@@ -114,6 +119,16 @@ export default function TransactionDetail({
           if (newCount >= threshold) setLocalStatus("APPROVED");
         }
         void refetchHasApproved();
+        onActionSuccessRef.current();
+      },
+    });
+
+    const unwatchTxApproved = publicClient.watchEvent({
+      address: contractAddr,
+      event: txApprovedEvent,
+      args: { txHash },
+      onLogs: () => {
+        setLocalStatus("APPROVED");
         onActionSuccessRef.current();
       },
     });
@@ -141,7 +156,8 @@ export default function TransactionDetail({
     });
 
     return () => {
-      unwatchApproved();
+      unwatchApprovalAdded();
+      unwatchTxApproved();
       unwatchExecuted();
       unwatchCanceled();
     };
@@ -178,24 +194,32 @@ export default function TransactionDetail({
 
   const handleApprove = async () => {
     if (!walletClient || !publicClient) return;
-    const ok = await approveMultiSigTransaction(
+    const { ok, receipt } = await approveMultiSigTransaction(
       { walletClient, publicClient },
       tx.id as Hex,
       chainId,
       setIsLoading,
     );
-    if (ok) { void refetchHasApproved(); onActionSuccess(); }
+    if (ok) {
+      if (receipt) onApplyLogs(receipt.logs);
+      void refetchHasApproved();
+      onActionSuccess();
+    }
   };
 
   const handleExecute = async () => {
     if (!walletClient || !publicClient) return;
-    const ok = await executeMultiSigTransaction(
+    const { ok, receipt } = await executeMultiSigTransaction(
       { walletClient, publicClient },
       tx.id as Hex,
       chainId,
       setIsLoading,
     );
-    if (ok) { onActionSuccess(); onClose(); }
+    if (ok) {
+      if (receipt) onApplyLogs(receipt.logs);
+      onActionSuccess();
+      onClose();
+    }
   };
 
   const handleProposeCancel = async () => {
@@ -205,36 +229,46 @@ export default function TransactionDetail({
       functionName: "cancelTransaction",
       args: [tx.id as `0x${string}`],
     });
-    const ok = await proposeMultiSigTransaction(
+    const { ok, receipt } = await proposeMultiSigTransaction(
       { walletClient, publicClient },
       MULTISIG_CONTRACT[chainId] as Address,
       calldata,
       chainId,
       setIsLoading,
     );
-    if (ok) onActionSuccess();
+    if (ok) {
+      if (receipt) onApplyLogs(receipt.logs);
+      onActionSuccess();
+    }
   };
 
   const handleApproveCancel = async () => {
     if (!walletClient || !publicClient || !cancelProposal) return;
-    const ok = await approveMultiSigTransaction(
+    const { ok, receipt } = await approveMultiSigTransaction(
       { walletClient, publicClient },
       cancelProposal.id as Hex,
       chainId,
       setCancelActionLoading,
     );
-    if (ok) { void refetchHasApprovedCancel(); onActionSuccess(); }
+    if (ok) {
+      if (receipt) onApplyLogs(receipt.logs);
+      void refetchHasApprovedCancel();
+      onActionSuccess();
+    }
   };
 
   const handleExecuteCancel = async () => {
     if (!walletClient || !publicClient || !cancelProposal) return;
-    const ok = await executeMultiSigTransaction(
+    const { ok, receipt } = await executeMultiSigTransaction(
       { walletClient, publicClient },
       cancelProposal.id as Hex,
       chainId,
       setCancelActionLoading,
     );
-    if (ok) onActionSuccess();
+    if (ok) {
+      if (receipt) onApplyLogs(receipt.logs);
+      onActionSuccess();
+    }
   };
 
   return (
@@ -279,7 +313,19 @@ export default function TransactionDetail({
               </p>
               {decoded.params.map((p) => (
                 <Row key={p.label} label={p.label}>
-                  <span className="font-mono">{p.value}</span>
+                  {p.href ? (
+                    <a
+                      href={p.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-500 underline flex items-center gap-1 font-mono"
+                    >
+                      {p.value}
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                  ) : (
+                    <span className="font-mono">{p.value}</span>
+                  )}
                 </Row>
               ))}
             </div>
@@ -301,7 +347,15 @@ export default function TransactionDetail({
           </Row>
 
           <Row label="Proposer">
-            <span className="font-mono">{formatAddress(tx.proposer)}</span>
+            <a
+              href={`https://sepolia.basescan.org/address/${tx.proposer}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-500 underline flex items-center gap-1 font-mono"
+            >
+              {formatAddress(tx.proposer)}
+              <ExternalLink className="h-3 w-3" />
+            </a>
           </Row>
           <Row label="Proposed At">{formatTimestamp(tx.proposedAt)}</Row>
 
@@ -310,7 +364,15 @@ export default function TransactionDetail({
               <Row label="Executed At">{formatTimestamp(tx.executedAt)}</Row>
               {tx.executor && (
                 <Row label="Executor">
-                  <span className="font-mono">{formatAddress(tx.executor)}</span>
+                  <a
+                    href={`https://sepolia.basescan.org/address/${tx.executor}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-500 underline flex items-center gap-1 font-mono"
+                  >
+                    {formatAddress(tx.executor)}
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
                 </Row>
               )}
             </>

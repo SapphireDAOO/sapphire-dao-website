@@ -65,6 +65,7 @@ export default function MultiSigPage() {
     page,
     nextPage,
     prevPage,
+    applyLogs,
   } = useMultiSigData();
 
   const threshold = wallet ? Number(wallet.threshold) : 0;
@@ -84,39 +85,48 @@ export default function MultiSigPage() {
 
   const handleAddSigner = async () => {
     if (!addSignerAddr || !walletClient || !publicClient) return;
-    const ok = await proposeMultiSigTransaction(
+    const { ok, receipt } = await proposeMultiSigTransaction(
       { walletClient, publicClient },
       MULTISIG_CONTRACT[chainId] as Address,
       encodeFunctionData({ abi: fn1("addSigner", "address"), functionName: "addSigner", args: [addSignerAddr as Address] }),
       chainId,
       setAddLoading,
     );
-    if (ok) { setAddSignerAddr(""); }
+    if (ok) {
+      if (receipt) applyLogs(receipt.logs);
+      setAddSignerAddr("");
+    }
   };
 
   const handleRemoveSigner = async () => {
     if (!removeSignerAddr || !walletClient || !publicClient) return;
-    const ok = await proposeMultiSigTransaction(
+    const { ok, receipt } = await proposeMultiSigTransaction(
       { walletClient, publicClient },
       MULTISIG_CONTRACT[chainId] as Address,
       encodeFunctionData({ abi: fn1("removeSigner", "address"), functionName: "removeSigner", args: [removeSignerAddr as Address] }),
       chainId,
       setRemoveLoading,
     );
-    if (ok) { setRemoveSignerAddr(""); }
+    if (ok) {
+      if (receipt) applyLogs(receipt.logs);
+      setRemoveSignerAddr("");
+    }
   };
 
   const handleUpdateThreshold = async () => {
     const n = Number(newThreshold);
     if (!n || n < 1 || !walletClient || !publicClient) return;
-    const ok = await proposeMultiSigTransaction(
+    const { ok, receipt } = await proposeMultiSigTransaction(
       { walletClient, publicClient },
       MULTISIG_CONTRACT[chainId] as Address,
       encodeFunctionData({ abi: fn1("updateThreshold", "uint256"), functionName: "updateThreshold", args: [BigInt(n)] }),
       chainId,
       setThresholdLoading,
     );
-    if (ok) { setNewThreshold(""); }
+    if (ok) {
+      if (receipt) applyLogs(receipt.logs);
+      setNewThreshold("");
+    }
   };
 
   return (
@@ -224,6 +234,7 @@ export default function MultiSigPage() {
               hasNextPage={hasNextPage}
               onNextPage={nextPage}
               onPrevPage={prevPage}
+              onApplyLogs={applyLogs}
             />
           </TabsContent>
 
@@ -233,7 +244,7 @@ export default function MultiSigPage() {
                 <CardTitle className="text-base">Propose New Transaction</CardTitle>
               </CardHeader>
               <CardContent>
-                <ProposeForm />
+                <ProposeForm onApplyLogs={applyLogs} />
               </CardContent>
             </Card>
           </TabsContent>

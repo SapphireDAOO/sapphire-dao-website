@@ -1,10 +1,12 @@
 import { toast } from "sonner";
-import { Address, encodeFunctionData, Hex } from "viem";
+import { Address, encodeFunctionData, Hex, TransactionReceipt } from "viem";
 import { baseSepolia } from "viem/chains";
 import { MULTISIG_CONTRACT } from "@/constants";
 import { fetchGasPrice, getError } from "./utils";
 import { Multisig } from "@/abis/MultiSig";
 import { WagmiClient } from "./types";
+
+export type MultiSigResult = { ok: boolean; receipt?: TransactionReceipt };
 
 export const proposeMultiSigTransaction = async (
   { walletClient, publicClient }: WagmiClient,
@@ -12,7 +14,7 @@ export const proposeMultiSigTransaction = async (
   calldata: Hex,
   chainId: number,
   setIsLoading: (value: string) => void,
-): Promise<boolean> => {
+): Promise<MultiSigResult> => {
   setIsLoading("proposeTransaction");
   try {
     const gasPrice = await fetchGasPrice(publicClient, chainId);
@@ -29,20 +31,20 @@ export const proposeMultiSigTransaction = async (
 
     if (!tx) {
       toast.error("Transaction failed to initiate");
-      return false;
+      return { ok: false };
     }
 
     const receipt = await publicClient?.waitForTransactionReceipt({ hash: tx });
     if (receipt?.status === "success") {
       toast.success("Transaction proposed successfully");
-      return true;
+      return { ok: true, receipt };
     } else {
       toast.error("Failed to propose transaction");
-      return false;
+      return { ok: false };
     }
   } catch (error) {
     getError(error);
-    return false;
+    return { ok: false };
   } finally {
     setIsLoading("");
   }
@@ -53,7 +55,7 @@ export const approveMultiSigTransaction = async (
   txHash: Hex,
   chainId: number,
   setIsLoading: (value: string) => void,
-): Promise<boolean> => {
+): Promise<MultiSigResult> => {
   setIsLoading(`approve:${txHash}`);
   try {
     const gasPrice = await fetchGasPrice(publicClient, chainId);
@@ -70,20 +72,20 @@ export const approveMultiSigTransaction = async (
 
     if (!tx) {
       toast.error("Transaction failed to initiate");
-      return false;
+      return { ok: false };
     }
 
     const receipt = await publicClient?.waitForTransactionReceipt({ hash: tx });
     if (receipt?.status === "success") {
       toast.success("Transaction approved");
-      return true;
+      return { ok: true, receipt };
     } else {
       toast.error("Approval failed");
-      return false;
+      return { ok: false };
     }
   } catch (error) {
     getError(error);
-    return false;
+    return { ok: false };
   } finally {
     setIsLoading("");
   }
@@ -94,7 +96,7 @@ export const cancelMultiSigTransaction = async (
   txHash: Hex,
   chainId: number,
   setIsLoading: (value: string) => void,
-): Promise<boolean> => {
+): Promise<MultiSigResult> => {
   setIsLoading(`cancel:${txHash}`);
   try {
     const gasPrice = await fetchGasPrice(publicClient, chainId);
@@ -111,20 +113,20 @@ export const cancelMultiSigTransaction = async (
 
     if (!tx) {
       toast.error("Transaction failed to initiate");
-      return false;
+      return { ok: false };
     }
 
     const receipt = await publicClient?.waitForTransactionReceipt({ hash: tx });
     if (receipt?.status === "success") {
       toast.success("Transaction canceled");
-      return true;
+      return { ok: true, receipt };
     } else {
       toast.error("Cancellation failed");
-      return false;
+      return { ok: false };
     }
   } catch (error) {
     getError(error);
-    return false;
+    return { ok: false };
   } finally {
     setIsLoading("");
   }
@@ -135,7 +137,7 @@ export const executeMultiSigTransaction = async (
   txHash: Hex,
   chainId: number,
   setIsLoading: (value: string) => void,
-): Promise<boolean> => {
+): Promise<MultiSigResult> => {
   setIsLoading(`execute:${txHash}`);
   try {
     const gasPrice = await fetchGasPrice(publicClient, chainId);
@@ -152,20 +154,20 @@ export const executeMultiSigTransaction = async (
 
     if (!tx) {
       toast.error("Transaction failed to initiate");
-      return false;
+      return { ok: false };
     }
 
     const receipt = await publicClient?.waitForTransactionReceipt({ hash: tx });
     if (receipt?.status === "success") {
       toast.success("Transaction executed successfully");
-      return true;
+      return { ok: true, receipt };
     } else {
       toast.error("Execution failed");
-      return false;
+      return { ok: false };
     }
   } catch (error) {
     getError(error);
-    return false;
+    return { ok: false };
   } finally {
     setIsLoading("");
   }

@@ -176,6 +176,13 @@ export const GOVERNABLE_CONTRACTS: GovernableContract[] = [
         inputTypes: ["address"],
         params: [{ name: "marketplace", label: "Marketplace address", kind: "address", placeholder: "0x..." }],
       },
+      {
+        name: "transferOwnership",
+        label: "Transfer Ownership",
+        signature: "transferOwnership(address)",
+        inputTypes: ["address"],
+        params: [{ name: "newOwner", label: "New owner address", kind: "address", placeholder: "0x..." }],
+      },
     ],
   },
   {
