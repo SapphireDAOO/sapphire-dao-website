@@ -49,6 +49,7 @@ const WalletProvider = ({ children }: Props) => {
 
   const {
     invoiceData,
+    liveInvoiceData,
     allInvoiceData,
     invoicePage,
     hasNextPage,
@@ -106,6 +107,7 @@ const WalletProvider = ({ children }: Props) => {
       value={{
         isLoading,
         invoiceData,
+        liveInvoiceData,
         allInvoiceData,
         invoicePage,
         hasNextPage,

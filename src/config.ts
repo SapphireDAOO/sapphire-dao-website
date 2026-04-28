@@ -11,6 +11,7 @@ import {
 import { http, webSocket, fallback } from "viem";
 import { baseSepolia } from "viem/chains";
 
+// remove NEXT_PUBLIC_*
 const apiKey = process.env.NEXT_PUBLIC_INFURA_ID;
 const walletConnectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID!;
 
@@ -25,6 +26,7 @@ const wallets = [
     groupName: "Popular",
     wallets: [
       metaMaskWallet,
+      // remove safe wallet
       safeWallet,
       rainbowWallet,
       walletConnectWallet,

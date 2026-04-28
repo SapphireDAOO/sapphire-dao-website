@@ -14,6 +14,7 @@ interface Params {
   chainId: number;
   publicClient: PublicClient | undefined;
   setInvoiceData: React.Dispatch<React.SetStateAction<Invoice[]>>;
+  onLiveInvoices?: (invoices: Invoice[]) => void;
 }
 
 export function useMarketplaceInvoiceEvents({
@@ -22,6 +23,7 @@ export function useMarketplaceInvoiceEvents({
   chainId,
   publicClient,
   setInvoiceData,
+  onLiveInvoices,
 }: Params) {
   useEffect(() => {
     if (!active || !publicClient || !address) return;
@@ -50,8 +52,10 @@ export function useMarketplaceInvoiceEvents({
       onLogs: (logs) => {
         const batchTime = nowInSeconds();
         setInvoiceData((prev) => {
+          const liveInvoices: Invoice[] = [];
+          // Key by `id` (nonce). `invoiceId` differs by source — see useSimpleInvoiceEvents.
           const updatedMap = new Map<string, Invoice>(
-            prev.map((inv) => [`${inv.invoiceId.toString()}-${inv.source}`, inv]),
+            prev.map((inv) => [`${inv.id}-${inv.source}`, inv]),
           );
 
           for (const log of logs) {
@@ -97,7 +101,7 @@ export function useMarketplaceInvoiceEvents({
               ) {
                 const marketKey = `${invoiceId}-Marketplace`;
                 if (!updatedMap.has(marketKey) && invoiceId && invoice) {
-                  updatedMap.set(marketKey, {
+                  const nextInvoice = {
                     id: invoiceId,
                     invoiceId: BigInt(invoiceId),
                     createdAt: invoice.createdAt
@@ -127,7 +131,9 @@ export function useMarketplaceInvoiceEvents({
                       ? invoice.releaseAt.toString()
                       : undefined,
                     history: appendHistoryEntry(undefined, "CREATED", historyTime),
-                  } as Invoice);
+                  } as Invoice;
+                  updatedMap.set(marketKey, nextInvoice);
+                  liveInvoices.push(nextInvoice);
                 }
               }
               continue;
@@ -178,7 +184,13 @@ export function useMarketplaceInvoiceEvents({
               updatedFields.releaseAt = releaseUpdate.toString();
             }
 
-            updatedMap.set(marketKey, { ...inv, ...updatedFields });
+            const nextInvoice = { ...inv, ...updatedFields };
+            updatedMap.set(marketKey, nextInvoice);
+            liveInvoices.push(nextInvoice);
+          }
+
+          if (liveInvoices.length > 0) {
+            queueMicrotask(() => onLiveInvoices?.(liveInvoices));
           }
 
           return Array.from(updatedMap.values());
@@ -191,5 +203,5 @@ export function useMarketplaceInvoiceEvents({
     return () => {
       unwatch();
     };
-  }, [active, publicClient, address, chainId, setInvoiceData]);
+  }, [active, publicClient, address, chainId, setInvoiceData, onLiveInvoices]);
 }

@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useCallback, useEffect, useRef } from "react";
+import { LRUCache } from "lru-cache";
 import {
   GET_ALL_INVOICES,
   invoiceQuery,
@@ -8,10 +9,6 @@ import {
   metaInvoiceQuery,
 } from "@/services/graphql/queries";
 
-const CHECKOUT_QUERIES = {
-  smartInvoice: smartInvoiceQuery,
-  metaInvoice: metaInvoiceQuery,
-} as const;
 import { useAccount, usePublicClient } from "wagmi";
 import { unixToGMT } from "@/utils";
 import { BASE_SEPOLIA, SIMPLE_PAYMENT_PROCESSOR } from "@/constants";
@@ -50,18 +47,30 @@ import { useIsWindowVisible } from "./useIsWindowVisible";
 
 const ERROR_BACKOFF_MS = 15_000;
 const PAGE_SIZE = 24;
-const MAX_ADMIN_PAGES = 10;
+const ADMIN_INVOICE_CACHE_TTL_MS = 5_000;
 const USER_INVOICE_PAGE_CACHE_TTL_MS = 2_000;
+const USER_INVOICE_PAGE_CACHE_MAX = 100;
+const LIVE_INVOICE_OVERLAY_LIMIT = 100;
+const SIMPLE_INVOICE_READ_TTL_MS = 5_000;
 
+const CHECKOUT_QUERIES = {
+  smartInvoice: smartInvoiceQuery,
+  metaInvoice: metaInvoiceQuery,
+} as const;
+
+// seperate the contents of this file. admin cache should be different from users
+// caching in here might not be neccessary
+// paginate data from subgraph, when it is exhausted, make another query
+// use cache first in query
 type UserInvoicePageResult = {
   data?: any;
   error?: any;
 };
 
-const userInvoicePageCache = new Map<
-  string,
-  { timestamp: number; result: UserInvoicePageResult }
->();
+const userInvoicePageCache = new LRUCache<string, UserInvoicePageResult>({
+  max: USER_INVOICE_PAGE_CACHE_MAX,
+  ttl: USER_INVOICE_PAGE_CACHE_TTL_MS,
+});
 const userInvoicePageInflight = new Map<
   string,
   Promise<UserInvoicePageResult>
@@ -70,14 +79,34 @@ const userInvoicePageInflight = new Map<
 const getCachedUserInvoicePage = (
   key: string,
 ): UserInvoicePageResult | null => {
-  const cached = userInvoicePageCache.get(key);
-  if (!cached) return null;
-  if (Date.now() - cached.timestamp > USER_INVOICE_PAGE_CACHE_TTL_MS) {
-    userInvoicePageCache.delete(key);
-    return null;
-  }
-  return cached.result;
+  return userInvoicePageCache.get(key) ?? null;
 };
+
+const compareInvoicesByLastActionDesc = (a: Invoice, b: Invoice) => {
+  const timeA = getLastActionTime(a);
+  const timeB = getLastActionTime(b);
+  if (timeA === timeB) return 0;
+  if (!timeA) return 1;
+  if (!timeB) return -1;
+  return Number(timeB) - Number(timeA);
+};
+
+const getInvoiceCacheSignature = (invoices: Invoice[]) =>
+  invoices
+    .map(
+      (invoice) =>
+        `${invoice.invoiceId.toString()}:${invoice.type ?? ""}:${invoice.source ?? ""}:${invoice.status ?? ""}:${getLastActionTime(invoice) ?? ""}`,
+    )
+    .join("|");
+
+// Use `id` (the nonce string) — `invoiceId` differs by source: event-hook
+// entries hold BigInt(nonce); subgraph transforms hold the subgraph entity id
+// ("0x..."). Mixing them caused the same invoice to render twice.
+const getInvoiceMergeKey = (invoice: {
+  id?: string | null;
+  type?: string;
+  source?: string;
+}) => `${invoice.id ?? ""}-${invoice.type ?? ""}-${invoice.source ?? ""}`;
 
 export const useInvoiceData = () => {
   const { chain, address } = useAccount();
@@ -88,6 +117,7 @@ export const useInvoiceData = () => {
   });
 
   const [invoiceData, setInvoiceData] = useState<Invoice[]>([]);
+  const [liveInvoiceData, setLiveInvoiceData] = useState<Invoice[]>([]);
   const [allInvoiceData, setAllInvoiceData] = useState<AllInvoicesData>({
     invoices: [],
     actions: [],
@@ -97,6 +127,7 @@ export const useInvoiceData = () => {
   const cacheWriteTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
+  const lastCacheWriteSignatureRef = useRef("");
 
   const [invoicePage, setInvoicePage] = useState(0);
   const [hasNextPage, setHasNextPage] = useState(false);
@@ -111,21 +142,60 @@ export const useInvoiceData = () => {
   const hasFetchedRef = useRef(false);
   const cacheKey = getInvoiceCacheKey(address, chainId);
 
-  // Keep refs so callbacks don't depend on state and cause re-subscribe loops
-  const allInvoiceDataRef = useRef<AllInvoicesData>({ invoices: [], actions: [], marketplaceInvoices: [] });
-  useEffect(() => { allInvoiceDataRef.current = allInvoiceData; }, [allInvoiceData]);
+  const publishLiveInvoices = useCallback((updates: Invoice[]) => {
+    if (updates.length === 0) return;
 
-  const invoiceDataRef = useRef<Invoice[]>([]);
+    setLiveInvoiceData((prev) => {
+      const byKey = new Map<string, Invoice>();
+
+      for (const invoice of updates) {
+        byKey.set(`${invoice.invoiceId.toString()}-${invoice.type}`, invoice);
+      }
+
+      for (const invoice of prev) {
+        const key = `${invoice.invoiceId.toString()}-${invoice.type}`;
+        if (!byKey.has(key)) {
+          byKey.set(key, invoice);
+        }
+      }
+
+      return Array.from(byKey.values()).slice(0, LIVE_INVOICE_OVERLAY_LIMIT);
+    });
+  }, []);
+
+  // Keep refs so callbacks don't depend on state and cause re-subscribe loops
+  const allInvoiceDataRef = useRef<AllInvoicesData>({
+    invoices: [],
+    actions: [],
+    marketplaceInvoices: [],
+  });
+  const allInvoiceDataCacheRef = useRef<{
+    chainId: number;
+    timestamp: number;
+    data: AllInvoicesData;
+  } | null>(null);
+  const allInvoiceDataInflightRef = useRef<Promise<AllInvoicesData> | null>(
+    null,
+  );
+  const simpleInvoiceReadCacheRef = useRef<
+    Map<string, { timestamp: number; data: unknown }>
+  >(new Map());
+  const simpleInvoiceReadInflightRef = useRef<Map<string, Promise<unknown>>>(
+    new Map(),
+  );
   useEffect(() => {
-    invoiceDataRef.current = invoiceData;
-  }, [invoiceData]);
+    allInvoiceDataRef.current = allInvoiceData;
+  }, [allInvoiceData]);
 
   useEffect(() => {
     if (!cacheKey) return;
     if (!hasFetchedRef.current && invoiceData.length === 0) return;
+    const signature = getInvoiceCacheSignature(invoiceData);
+    if (signature === lastCacheWriteSignatureRef.current) return;
     if (cacheWriteTimeoutRef.current)
       clearTimeout(cacheWriteTimeoutRef.current);
     cacheWriteTimeoutRef.current = setTimeout(() => {
+      lastCacheWriteSignatureRef.current = signature;
       writeInvoiceCache(cacheKey, invoiceData);
       cacheWriteTimeoutRef.current = null;
     }, 1000);
@@ -144,124 +214,148 @@ export const useInvoiceData = () => {
     }
   }, []);
 
-  const getAllInvoiceData = useCallback(async (): Promise<AllInvoicesData> => {
-    if (
-      Date.now() < nextAllowedRequestRef.current &&
-      allInvoiceDataRef.current.invoices.length > 0
-    ) {
-      return allInvoiceDataRef.current;
-    }
+  const getAllInvoiceData = useCallback(
+    async (force = false): Promise<AllInvoicesData> => {
+      if (
+        Date.now() < nextAllowedRequestRef.current &&
+        allInvoiceDataRef.current.invoices.length > 0
+      ) {
+        return allInvoiceDataRef.current;
+      }
 
-    const invoices: AllInvoice[] = [];
-    const actions: AdminAction[] = [];
-    const marketplaceInvoices: AllInvoice[] = [];
+      const cached = allInvoiceDataCacheRef.current;
+      if (
+        !force &&
+        cached &&
+        cached.chainId === chainId &&
+        Date.now() - cached.timestamp < ADMIN_INVOICE_CACHE_TTL_MS
+      ) {
+        return cached.data;
+      }
 
-    let page = 0;
-    let hasMore = true;
+      if (!force && allInvoiceDataInflightRef.current) {
+        return allInvoiceDataInflightRef.current;
+      }
 
-    try {
-      while (hasMore && page < MAX_ADMIN_PAGES) {
-        const { data, error } = await client(chainId)
-          .query(GET_ALL_INVOICES, {
-            skipInvoices: page * PAGE_SIZE,
-            firstInvoices: PAGE_SIZE,
-            skipActions: page * PAGE_SIZE,
-            firstActions: PAGE_SIZE,
-            skipSmartInvoices: page * PAGE_SIZE,
-            firstSmartInvoices: PAGE_SIZE,
-          })
-          .toPromise();
+      const request = (async (): Promise<AllInvoicesData> => {
+        const invoices: AllInvoice[] = [];
+        const actions: AdminAction[] = [];
+        const marketplaceInvoices: AllInvoice[] = [];
 
-        if (error) {
-          console.error("GraphQL Error:", error.message);
-          handleRateLimit(error.message);
-          break;
+        try {
+          const { data, error } = await client(chainId)
+            .query(GET_ALL_INVOICES, {
+              skipInvoices: 0,
+              firstInvoices: PAGE_SIZE,
+              skipActions: 0,
+              firstActions: PAGE_SIZE,
+              skipSmartInvoices: 0,
+              firstSmartInvoices: PAGE_SIZE,
+            })
+            .toPromise();
+
+          if (error) {
+            console.error("GraphQL Error:", error.message);
+            handleRateLimit(error.message);
+            return allInvoiceDataRef.current;
+          }
+
+          const rawInvoices = data?.invoices || [];
+          const rawAdminActions = data?.adminActions || [];
+          const rawMarketplaceInvoices = data?.smartInvoices || [];
+
+          for (const list of rawInvoices) {
+            invoices[invoices.length] = {
+              id: list.invoiceId || "",
+              invoiceId: list.id || "",
+              contract: list.contract || "",
+              seller: list.seller?.id || "",
+              payment: list.paymentTxHash || "",
+              createdAt: unixToGMT(list.createdAt) || "-",
+              paidAt: unixToGMT(list.paidAt),
+              by: list.buyer?.id || "",
+              release:
+                list.releasedAt && !isNaN(list.releasedAt)
+                  ? unixToGMT(list.releasedAt)
+                  : "Pending",
+              fee: list.fee ? formatEther(BigInt(list.fee)) : "0",
+              releaseHash: list.releaseHash,
+              status: sortState(list.state, list.invalidateAt),
+              creationTxHash: list.creationTxHash,
+              commisionTxHash: list.commisionTxHash,
+              refundTxHash: list.refundTxHash,
+            };
+          }
+
+          for (const list of rawAdminActions) {
+            actions[actions.length] = {
+              id: list.invoiceId || "",
+              invoiceId: (() => {
+                try {
+                  return BigInt(list.invoiceId || "0");
+                } catch {
+                  return BigInt(0);
+                }
+              })(),
+              action: list.action || "Unknown",
+              time: list.time ? unixToGMT(list.time) : null,
+              type: list.type,
+              txHash: list.txHash,
+              balance: list.balance ? formatEther(BigInt(list.balance)) : "0",
+            };
+          }
+
+          for (const list of rawMarketplaceInvoices) {
+            marketplaceInvoices[marketplaceInvoices.length] = {
+              id: list.invoiceId,
+              invoiceId: list.id,
+              contract: list.contract || "",
+              seller: list.seller?.id || "",
+              payment: list.paymentTxHash || "",
+              createdAt: unixToGMT(list.createdAt) || "-",
+              paidAt: unixToGMT(list.paidAt),
+              by: list.buyer?.id || "",
+              release:
+                list.releasedAt && !isNaN(list.releasedAt)
+                  ? unixToGMT(list.releasedAt)
+                  : "Pending",
+              fee: list.fee ? formatEther(BigInt(list.fee)) : "0",
+              state: list.state,
+              releaseHash: list.releaseHash,
+              status: sortState(list.state),
+              creationTxHash: list.creationTxHash,
+              commisionTxHash: list.commisionTxHash,
+              refundTxHash: list.refundTxHash,
+            };
+          }
+
+          const result = { invoices, actions, marketplaceInvoices };
+          allInvoiceDataCacheRef.current = {
+            chainId,
+            timestamp: Date.now(),
+            data: result,
+          };
+          return result;
+        } catch (error) {
+          console.error("Error fetching invoice data:", error);
+          if (
+            typeof error === "object" &&
+            error !== null &&
+            "message" in error
+          ) {
+            handleRateLimit((error as any).message);
+          }
+          return allInvoiceDataRef.current;
+        } finally {
+          allInvoiceDataInflightRef.current = null;
         }
+      })();
 
-        const rawInvoices = data?.invoices || [];
-        const rawAdminActions = data?.adminActions || [];
-        const rawMarketplaceInvoices = data?.smartInvoices || [];
-
-        invoices.push(
-          ...rawInvoices.map((list: any) => ({
-            id: list.invoiceId || "",
-            invoiceId: list.id || "",
-            contract: list.contract || "",
-            seller: list.seller?.id || "",
-            payment: list.paymentTxHash || "",
-            createdAt: unixToGMT(list.createdAt) || "-",
-            paidAt: unixToGMT(list.paidAt),
-            by: list.buyer?.id || "",
-            release:
-              list.releasedAt && !isNaN(list.releasedAt)
-                ? unixToGMT(list.releasedAt)
-                : "Pending",
-            fee: list.fee ? formatEther(BigInt(list.fee)) : "0",
-            releaseHash: list.releaseHash,
-            status: sortState(list.state, list.invalidateAt),
-            creationTxHash: list.creationTxHash,
-            commisionTxHash: list.commisionTxHash,
-            refundTxHash: list.refundTxHash,
-          })),
-        );
-
-        actions.push(
-          ...rawAdminActions.map((list: any) => ({
-            id: list.invoiceId || "",
-            invoiceId: (() => {
-              try {
-                return BigInt(list.invoiceId || "0");
-              } catch {
-                return BigInt(0);
-              }
-            })(),
-            action: list.action || "Unknown",
-            time: list.time ? unixToGMT(list.time) : null,
-            type: list.type,
-            txHash: list.txHash,
-            balance: list.balance ? formatEther(BigInt(list.balance)) : "0",
-          })),
-        );
-
-        marketplaceInvoices.push(
-          ...rawMarketplaceInvoices.map((list: any) => ({
-            id: list.invoiceId,
-            invoiceId: list.id,
-            contract: list.contract || "",
-            seller: list.seller?.id || "",
-            payment: list.paymentTxHash || "",
-            createdAt: unixToGMT(list.createdAt) || "-",
-            paidAt: unixToGMT(list.paidAt),
-            by: list.buyer?.id || "",
-            release:
-              list.releasedAt && !isNaN(list.releasedAt)
-                ? unixToGMT(list.releasedAt)
-                : "Pending",
-            fee: list.fee ? formatEther(BigInt(list.fee)) : "0",
-            state: list.state,
-            releaseHash: list.releaseHash,
-            status: sortState(list.state),
-            creationTxHash: list.creationTxHash,
-            commisionTxHash: list.commisionTxHash,
-            refundTxHash: list.refundTxHash,
-          })),
-        );
-
-        page += 1;
-        hasMore =
-          rawInvoices.length === PAGE_SIZE ||
-          rawAdminActions.length === PAGE_SIZE ||
-          rawMarketplaceInvoices.length === PAGE_SIZE;
-      }
-    } catch (error) {
-      console.error("Error fetching invoice data:", error);
-      if (typeof error === "object" && error !== null && "message" in error) {
-        handleRateLimit((error as any).message);
-      }
-    }
-
-    return { invoices, actions, marketplaceInvoices };
-  }, [chainId, handleRateLimit]);
+      allInvoiceDataInflightRef.current = request;
+      return request;
+    },
+    [chainId, handleRateLimit],
+  );
 
   const getInvoiceData = useCallback(
     async (page = 0) => {
@@ -269,7 +363,7 @@ export const useInvoiceData = () => {
 
       if (
         Date.now() < nextAllowedRequestRef.current &&
-        invoiceDataRef.current.length > 0
+        invoiceData.length > 0
       ) {
         return;
       }
@@ -296,10 +390,7 @@ export const useInvoiceData = () => {
               .toPromise()
               .then((queryResult) => {
                 if (!queryResult.error) {
-                  userInvoicePageCache.set(requestKey, {
-                    timestamp: Date.now(),
-                    result: queryResult,
-                  });
+                  userInvoicePageCache.set(requestKey, queryResult);
                 }
                 return queryResult;
               })
@@ -445,83 +536,64 @@ export const useInvoiceData = () => {
           ...receivedInvoicesData,
         ];
 
-        const sortedInvoiceData = allInvoiceDataCombined.sort((a, b) => {
-          const timeA = getLastActionTime(a);
-          const timeB = getLastActionTime(b);
-          if (timeA === timeB) return 0;
-          if (!timeA) return 1;
-          if (!timeB) return -1;
-          return Number(timeB) - Number(timeA);
-        });
-
-        // Seed the merge map with ALL in-memory invoices (not just the current
-        // page). This ensures event-created invoices that haven't yet been indexed
-        // by the subgraph survive subsequent getInvoiceData calls. Subgraph results
-        // for the current page then overlay and update these entries below.
-        const mergedByKey = new Map<string, Invoice>(
-          invoiceDataRef.current.map((inv) => [
-            `${inv.invoiceId.toString()}-${inv.type}-${inv.source}`,
-            inv,
-          ]),
-        );
-
-        sortedInvoiceData.forEach((inv) => {
-          const key = `${inv.invoiceId?.toString()}-${inv.type}-${inv.source}`;
-          const existing = mergedByKey.get(key);
-          if (!existing) {
-            mergedByKey.set(key, inv as Invoice);
-            return;
-          }
-
-          mergedByKey.set(key, {
-            ...existing,
-            ...inv,
-            amountPaid:
-              inv.amountPaid && inv.amountPaid !== "0"
-                ? inv.amountPaid
-                : existing.amountPaid,
-            paidAt:
-              inv.paidAt && inv.paidAt !== "Not Paid"
-                ? inv.paidAt
-                : existing.paidAt,
-            paymentTxHash: inv.paymentTxHash || existing.paymentTxHash,
-            refundTxHash: inv.refundTxHash || existing.refundTxHash,
-            // Prefer the in-memory releaseAt (set by updateSimpleInvoiceTiming from
-            // the contract). The subgraph field mapped here is actually `releasedAt`
-            // (past event timestamp, "0" until released) — "0" is truthy as a string
-            // so `inv.releaseAt || existing` would incorrectly discard the valid
-            // contract-read hold-period timestamp and break the release countdown.
-            releaseAt:
-              Number(existing.releaseAt) > 0
-                ? existing.releaseAt
-                : Number(inv.releaseAt) > 0
-                  ? inv.releaseAt
-                  : undefined,
-            expiresAt: inv.expiresAt || existing.expiresAt,
-            buyer: inv.buyer || existing.buyer,
-            history: mergeHistory(existing.history, inv.history),
-            status: pickNewerStatus(existing.status ?? "", inv.status ?? ""),
-          } as Invoice);
-        });
-
-        const mergedInvoiceData = Array.from(mergedByKey.values()).sort(
-          (a, b) => {
-            const timeA = getLastActionTime(a);
-            const timeB = getLastActionTime(b);
-            if (timeA === timeB) return 0;
-            if (!timeA) return 1;
-            if (!timeB) return -1;
-            return Number(timeB) - Number(timeA);
-          },
-        );
-
         const moreAvailable =
           createdInvoice.length === PAGE_SIZE ||
           paidInvoices.length === PAGE_SIZE ||
           issuedInvoices.length === PAGE_SIZE ||
           receivedInvoices.length === PAGE_SIZE;
 
-        setInvoiceData(mergedInvoiceData);
+        setInvoiceData((prev) => {
+          // Seed the merge map with ALL in-memory invoices (not just the current
+          // page). This ensures event-created invoices that haven't yet been indexed
+          // by the subgraph survive subsequent getInvoiceData calls. Subgraph results
+          // for the current page then overlay and update these entries below.
+          const mergedByKey = new Map<string, Invoice>(
+            prev.map((inv) => [getInvoiceMergeKey(inv), inv]),
+          );
+
+          allInvoiceDataCombined.forEach((inv) => {
+            const key = getInvoiceMergeKey(inv);
+            const existing = mergedByKey.get(key);
+            if (!existing) {
+              mergedByKey.set(key, inv as Invoice);
+              return;
+            }
+
+            mergedByKey.set(key, {
+              ...existing,
+              ...inv,
+              amountPaid:
+                inv.amountPaid && inv.amountPaid !== "0"
+                  ? inv.amountPaid
+                  : existing.amountPaid,
+              paidAt:
+                inv.paidAt && inv.paidAt !== "Not Paid"
+                  ? inv.paidAt
+                  : existing.paidAt,
+              paymentTxHash: inv.paymentTxHash || existing.paymentTxHash,
+              refundTxHash: inv.refundTxHash || existing.refundTxHash,
+              // Prefer the in-memory releaseAt (set by updateSimpleInvoiceTiming from
+              // the contract). The subgraph field mapped here is actually `releasedAt`
+              // (past event timestamp, "0" until released) — "0" is truthy as a string
+              // so `inv.releaseAt || existing` would incorrectly discard the valid
+              // contract-read hold-period timestamp and break the release countdown.
+              releaseAt:
+                Number(existing.releaseAt) > 0
+                  ? existing.releaseAt
+                  : Number(inv.releaseAt) > 0
+                    ? inv.releaseAt
+                    : undefined,
+              expiresAt: inv.expiresAt || existing.expiresAt,
+              buyer: inv.buyer || existing.buyer,
+              history: mergeHistory(existing.history, inv.history),
+              status: pickNewerStatus(existing.status ?? "", inv.status ?? ""),
+            } as Invoice);
+          });
+
+          return Array.from(mergedByKey.values()).sort(
+            compareInvoicesByLastActionDesc,
+          );
+        });
         setHasNextPage(moreAvailable);
         setInvoicePage(page);
         currentPageRef.current = page;
@@ -533,7 +605,7 @@ export const useInvoiceData = () => {
         }
       }
     },
-    [address, chainId, handleRateLimit],
+    [address, chainId, handleRateLimit, invoiceData.length],
   );
 
   const getInvoiceOwner = async (id: string): Promise<string> => {
@@ -575,10 +647,55 @@ export const useInvoiceData = () => {
     return data || "";
   };
 
-  const refetchAllInvoiceData = useCallback(async () => {
-    const fetchedInvoices = await getAllInvoiceData();
-    setAllInvoiceData(fetchedInvoices);
-  }, [getAllInvoiceData]);
+  const refetchAllInvoiceData = useCallback(
+    async (force = false) => {
+      const fetchedInvoices = await getAllInvoiceData(force);
+      setAllInvoiceData(fetchedInvoices);
+    },
+    [getAllInvoiceData],
+  );
+
+  const readSimpleInvoiceChainData = useCallback(
+    async (invoiceId: bigint) => {
+      if (!publicClient) return undefined;
+      const contractAddress = SIMPLE_PAYMENT_PROCESSOR[chainId];
+      if (!contractAddress) return undefined;
+
+      const key = `${chainId}:${contractAddress}:${invoiceId.toString()}`;
+      const cached = simpleInvoiceReadCacheRef.current.get(key);
+      if (
+        cached &&
+        Date.now() - cached.timestamp < SIMPLE_INVOICE_READ_TTL_MS
+      ) {
+        return cached.data;
+      }
+
+      const existing = simpleInvoiceReadInflightRef.current.get(key);
+      if (existing) return existing;
+
+      const request = publicClient
+        .readContract({
+          address: contractAddress,
+          abi: paymentProcessor,
+          functionName: "getInvoiceData",
+          args: [invoiceId],
+        })
+        .then((data) => {
+          simpleInvoiceReadCacheRef.current.set(key, {
+            timestamp: Date.now(),
+            data,
+          });
+          return data;
+        })
+        .finally(() => {
+          simpleInvoiceReadInflightRef.current.delete(key);
+        });
+
+      simpleInvoiceReadInflightRef.current.set(key, request);
+      return request;
+    },
+    [chainId, publicClient],
+  );
 
   const updateSimpleInvoiceTiming = useCallback(
     async (invoiceId: bigint) => {
@@ -587,12 +704,8 @@ export const useInvoiceData = () => {
       if (!contractAddress) return;
 
       try {
-        const data = await publicClient.readContract({
-          address: contractAddress,
-          abi: paymentProcessor,
-          functionName: "getInvoiceData",
-          args: [invoiceId],
-        });
+        const data = await readSimpleInvoiceChainData(invoiceId);
+        if (!data) return;
 
         const invoiceData = data as unknown;
         const invoiceArray = Array.isArray(invoiceData)
@@ -627,11 +740,12 @@ export const useInvoiceData = () => {
           ? readBigInt(invoiceObject.expiresAt)
           : readBigInt(invoiceArray?.[5] as bigint | number | undefined);
 
-        setInvoiceData((prev) =>
-          prev.map((inv) => {
+        setInvoiceData((prev) => {
+          const liveUpdates: Invoice[] = [];
+          const next = prev.map((inv) => {
             if (inv.invoiceId.toString() !== invoiceId.toString()) return inv;
 
-            return {
+            const nextInvoice = {
               ...inv,
               status: inv.status === "PAID" ? "ACCEPTED" : inv.status,
               paidAt:
@@ -646,13 +760,21 @@ export const useInvoiceData = () => {
                 : inv.invalidateAt,
               expiresAt: expiresAt ? expiresAt.toString() : inv.expiresAt,
             };
-          }),
-        );
+            liveUpdates.push(nextInvoice);
+            return nextInvoice;
+          });
+
+          if (liveUpdates.length > 0) {
+            queueMicrotask(() => publishLiveInvoices(liveUpdates));
+          }
+
+          return next;
+        });
       } catch (error) {
         console.error("Failed to read invoice timing", error);
       }
     },
-    [chainId, publicClient],
+    [chainId, publicClient, publishLiveInvoices, readSimpleInvoiceChainData],
   );
 
   const hydrateSimpleInvoiceFromChain = useCallback(
@@ -662,12 +784,8 @@ export const useInvoiceData = () => {
       if (!contractAddress) return;
 
       try {
-        const data = await publicClient.readContract({
-          address: contractAddress,
-          abi: paymentProcessor,
-          functionName: "getInvoiceData",
-          args: [inv],
-        });
+        const data = await readSimpleInvoiceChainData(inv);
+        if (!data) return;
 
         const invoiceData = data as unknown;
         const invoiceArray = Array.isArray(invoiceData)
@@ -753,7 +871,9 @@ export const useInvoiceData = () => {
         const resolvedInvoiceId = invoiceId ?? inv;
 
         const nextInvoice: Invoice = {
-          id: invoiceNonce ? invoiceNonce.toString() : resolvedInvoiceId.toString(),
+          id: invoiceNonce
+            ? invoiceNonce.toString()
+            : resolvedInvoiceId.toString(),
           invoiceId: resolvedInvoiceId,
           createdAt: createdAt ? unixToGMT(Number(createdAt)) : null,
           paidAt: paidAt && Number(paidAt) > 0 ? paidAt.toString() : "Not Paid",
@@ -786,7 +906,8 @@ export const useInvoiceData = () => {
           }
 
           return prev.map((inv) => {
-            if (inv.invoiceId.toString() !== resolvedInvoiceId.toString()) return inv;
+            if (inv.invoiceId.toString() !== resolvedInvoiceId.toString())
+              return inv;
 
             return {
               ...inv,
@@ -807,11 +928,18 @@ export const useInvoiceData = () => {
             };
           });
         });
+        publishLiveInvoices([nextInvoice]);
       } catch (error) {
         console.error("Failed to hydrate invoice from chain", error);
       }
     },
-    [address, chainId, publicClient],
+    [
+      address,
+      chainId,
+      publicClient,
+      publishLiveInvoices,
+      readSimpleInvoiceChainData,
+    ],
   );
 
   const fetchLatestInvoices = useCallback(
@@ -827,7 +955,7 @@ export const useInvoiceData = () => {
           await getInvoiceData();
         }
         if (mode === "admin" || mode === "both") {
-          await refetchAllInvoiceData();
+          await refetchAllInvoiceData(force);
         }
       } finally {
         isFetchingRef.current = false;
@@ -845,13 +973,16 @@ export const useInvoiceData = () => {
         actions: [],
         marketplaceInvoices: [],
       });
+      setLiveInvoiceData([]);
       return;
     }
 
     hasFetchedRef.current = false;
+    lastCacheWriteSignatureRef.current = "";
     currentPageRef.current = 0;
     setInvoicePage(0);
     setHasNextPage(false);
+    setLiveInvoiceData([]);
     const cachedInvoices = readInvoiceCache(cacheKey);
     if (cachedInvoices.length > 0) {
       setInvoiceData(cachedInvoices);
@@ -870,6 +1001,7 @@ export const useInvoiceData = () => {
     setInvoiceData,
     updateSimpleInvoiceTiming,
     hydrateSimpleInvoiceFromChain,
+    onLiveInvoices: publishLiveInvoices,
   });
 
   useMarketplaceInvoiceEvents({
@@ -878,10 +1010,12 @@ export const useInvoiceData = () => {
     chainId,
     publicClient,
     setInvoiceData,
+    onLiveInvoices: publishLiveInvoices,
   });
 
   return {
     invoiceData,
+    liveInvoiceData,
     allInvoiceData,
     invoicePage,
     hasNextPage,
@@ -891,7 +1025,7 @@ export const useInvoiceData = () => {
     getAdvancedInvoiceData,
     setActiveEventTab,
     refetchAllInvoiceData: async () => {
-      const data = await getAllInvoiceData();
+      const data = await getAllInvoiceData(true);
       setAllInvoiceData(data);
     },
     refreshAdminData: async (force = false) =>

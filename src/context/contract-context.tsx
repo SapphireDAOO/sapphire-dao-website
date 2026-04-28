@@ -9,6 +9,7 @@ import type { Address } from "viem";
 export interface ContractContextData {
   isLoading: string | undefined;
   invoiceData: Invoice[];
+  liveInvoiceData: Invoice[];
   allInvoiceData: {
     invoices: AllInvoice[];
     actions: AdminAction[];
@@ -65,6 +66,7 @@ export interface ContractContextData {
 export const contractContextDefaults: ContractContextData = {
   isLoading: undefined,
   invoiceData: [],
+  liveInvoiceData: [],
   invoicePage: 0,
   hasNextPage: false,
   allInvoiceData: {

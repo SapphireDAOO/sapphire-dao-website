@@ -2,9 +2,13 @@ import type { ErrorMessages, TokenData } from "./model/model";
 import type { Address } from "viem";
 import { baseSepolia } from "viem/chains";
 
-export const POLYGON = 137;
-export const POLYGON_AMOY = 80_002;
+// remove unused chains
 export const BASE_SEPOLIA = baseSepolia.id;
+export const ONE_SECOND_MS = 1_000;
+export const ONE_DAY_MS = 24 * 60 * 60 * ONE_SECOND_MS;
+export const DEFAULT_QUERY_STALE_TIME_MS = 15 * ONE_SECOND_MS;
+export const DEFAULT_QUERY_GC_TIME_MS = ONE_DAY_MS;
+export const DEFAULT_BLOCK_POLLING_INTERVAL_MS = 12 * ONE_SECOND_MS;
 
 export const PAYMENT_PROCESSOR_STORAGE: Record<number, Address> = {
   [BASE_SEPOLIA]: "0x13676A686fA96408a70ACBDa6312b330D11Ce390",
@@ -34,6 +38,8 @@ export const MOCK_WBTC_CONTRACT: Record<number, Address> = {
   [BASE_SEPOLIA]: "0x8Cdaf12598d71cad44e91FB1c05d565a383e3dba",
 };
 
+
+// query should come from the subgraph
 export const KNOWN_PAYMENT_TOKENS: Record<number, TokenData[]> = {
   [BASE_SEPOLIA]: [
     {
@@ -49,6 +55,7 @@ export const KNOWN_PAYMENT_TOKENS: Record<number, TokenData[]> = {
   ],
 };
 
+// this should be in utils
 export const getKnownPaymentToken = (
   chainId: number,
   tokenId?: string | null,
@@ -62,6 +69,7 @@ export const getKnownPaymentToken = (
   );
 };
 
+// this should be in utils
 export const mergeKnownPaymentTokens = (
   chainId: number,
   tokens: TokenData[] = [],
@@ -92,6 +100,7 @@ export const THE_GRAPH_API_URL: Record<number, string> = {
     "https://api.studio.thegraph.com/query/100227/payment-processor/version/latest",
 };
 
+// review errors and seperate using contract address as key(maybe)
 export const errorMessages: ErrorMessages = {
   // SimplePaymentProcessor errors
   "0x5033f274":
@@ -135,6 +144,7 @@ export const errorMessages: ErrorMessages = {
   "0x00bfc921": "InvalidPrice: The price provided is invalid.",
   "0x453fb42d":
     "InvalidSellersPayoutShare: The seller's payout share is invalid.",
+  "0xbab7ca35": "InvalidSeller: The seller address is invalid.",
   "0x715d9228": "InvoiceDoesNotExist: No invoice exists with this ID.",
   "0xf04e9cf0": "InvoiceExpired: The invoice has expired.",
   "0xb09960c1":
@@ -148,6 +158,8 @@ export const errorMessages: ErrorMessages = {
     "StalePriceFeed: The price feed has not been updated recently enough.",
   "0x6a172882": "UnsupportedToken: This payment token is not supported.",
   // Escrow errors
+  "0x667ecf9d":
+    "EscrowWithdrawFailed: The escrow withdrawal could not be completed.",
   "0x82b42900":
     "Unauthorized: An unauthorized address attempted a restricted action.",
 };

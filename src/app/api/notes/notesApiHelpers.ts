@@ -6,6 +6,11 @@ import {
 import { privateKeyToAccount } from "viem/accounts";
 import { baseSepolia } from "viem/chains";
 
+type NotesClients = ReturnType<typeof createNotesClients>;
+let cachedClients: NotesClients | null = null;
+let cachedClientKey = "";
+
+// use better approach
 const normalizePrivateKey = (value: string) =>
   value.startsWith("0x") ? value : `0x${value}`;
 
@@ -14,7 +19,7 @@ const getRpcUrl = () =>
   process.env.NEXT_PUBLIC_BASE_SEPOLIA_RPC_URL ||
   "https://base-sepolia-rpc.publicnode.com";
 
-export const getNotesClients = () => {
+const createNotesClients = () => {
   const privateKey =
     process.env.NOTES_SIGNER_PRIVATE_KEY || process.env.NOTES_PRIVATE_KEY;
 
@@ -33,6 +38,20 @@ export const getNotesClients = () => {
     publicClient: createPublicClient({ chain: baseSepolia, transport }),
     walletClient: createWalletClient({ account, chain: baseSepolia, transport }),
   };
+};
+
+export const getNotesClients = () => {
+  const privateKey =
+    process.env.NOTES_SIGNER_PRIVATE_KEY || process.env.NOTES_PRIVATE_KEY;
+  const rpcUrl = getRpcUrl();
+  const clientKey = `${rpcUrl}:${privateKey ?? ""}`;
+
+  if (!cachedClients || cachedClientKey !== clientKey) {
+    cachedClients = createNotesClients();
+    cachedClientKey = clientKey;
+  }
+
+  return cachedClients;
 };
 
 export const parseBigInt = (value: unknown, label: string): bigint => {

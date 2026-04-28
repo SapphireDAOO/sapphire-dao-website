@@ -4,9 +4,22 @@ import { WagmiProvider } from "wagmi";
 import { RainbowKitProvider, darkTheme } from "@rainbow-me/rainbowkit";
 import config from "@/config";
 import WalletProvider from "./WalletProvider";
+import {
+  DEFAULT_QUERY_GC_TIME_MS,
+  DEFAULT_QUERY_STALE_TIME_MS,
+} from "@/constants";
 
 // Create a new QueryClient instance for React Query
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: DEFAULT_QUERY_STALE_TIME_MS,
+      gcTime: DEFAULT_QUERY_GC_TIME_MS,
+      refetchOnWindowFocus: false,
+      retry: false,
+    },
+  },
+});
 
 const blackTheme = (() => {
   const base = darkTheme({

@@ -1,6 +1,49 @@
 import type { Address } from "viem";
+export type { AdminAction, AllInvoice, AllInvoicesData } from "./admin";
 
 // Define the base Invoice type that represents an invoice's properties
+// turn this into two seperate invoices for third party and in-invoices
+// seperate into different files too
+
+// Shared fields between SimplePaymentProcessor and AdvancedPaymentProcessor
+// in the subgraph schema, plus UI-only fields the dashboard uses.
+export type InvoiceType = {
+  // Subgraph-shared fields
+  id: string;
+  invoiceNonce?: string;
+  state?: string;
+  createdAt?: string | null;
+  paidAt?: string;
+  releasedAt?: string;
+  seller?: string;
+  buyer?: string;
+  price?: string | null;
+  amountPaid?: string | null;
+  releaseHash?: string;
+  paymentTxHash?: string;
+  fee?: string;
+  contract?: string;
+  creationTxHash?: string;
+  commissionTxHash?: string;
+  refundTxHash?: string;
+  lastActionTime?: string;
+  buyerNote?: string;
+  sellerNote?: string;
+
+  // UI-only fields
+  invoiceId: bigint;
+  status?: string;
+  type?: "Seller" | "Buyer" | "IssuedInvoice" | "ReceivedInvoice";
+  source?: string;
+  holdPeriod?: string | null;
+  releaseAt?: string | null;
+  cancelAt?: string;
+  notes?: Note[];
+  note?: string;
+  history?: History[];
+};
+
+// remove
 export type Invoice = {
   releaseAt?: string | null;
   id: string;
@@ -43,6 +86,7 @@ export interface History {
   time: string;
 }
 
+// remove
 export interface Note {
   id: string;
   sender: string;
@@ -50,62 +94,33 @@ export interface Note {
   timestamp: string;
 }
 
+// used on ui
 export interface InvoiceCardProps {
   invoice: Invoice;
   onAddNote?: (invoiceId: string, message: string) => void;
 }
 
-export type AllInvoice = {
-  id: string;
-  invoiceId: bigint;
-  contract: string;
-  seller: string;
-  createdAt: string;
-  payment: string;
-  paidAt: string;
-  by: string;
-  state: string;
-  release: string;
-  fee: string;
-  releaseHash: string;
-  status: string;
-  creationTxHash: string;
-  commisionTxHash: string;
-};
-
-export type AdminAction = {
-  id: string;
-  invoiceId: bigint;
-  action: string;
-  time: string;
-  type: "Single Invoice" | "Meta Invoice";
-  txHash: string;
-  balance: string;
-};
-
-export type AllInvoicesData = {
-  invoices: AllInvoice[];
-  actions: AdminAction[];
-  marketplaceInvoices: AllInvoice[];
-};
-
+//remove
 // Specialized invoice type for invoices created by the user
 export interface UserCreatedInvoice extends Invoice {
   type?: "Seller"; // Specifies that the invoice type is "Seller"
   source?: "Simple";
 }
 
+//remove
 // Specialized invoice type for invoices paid by the user
 export interface UserPaidInvoice extends Invoice {
   type?: "Buyer"; // Specifies that the invoice type is "Buyer"
   source?: "Simple";
 }
 
+//remove
 export interface UserIssuedInvoiceInvoice extends Invoice {
   type?: "IssuedInvoice"; // Specifies that the invoice type is "IssuedInvoice"
   source?: "Marketplace";
 }
 
+//remove
 export interface UserReceivedInvoicesInvoice extends Invoice {
   type?: "ReceivedInvoice"; // Specifies that the invoice type is "ReceivedInvoices"
   source?: "Marketplace";
@@ -128,6 +143,7 @@ export interface TokenData {
   id: string;
   decimals: number;
 }
+
 export interface InvoiceDetails {
   id?: string;
   invoiceId: bigint;
@@ -153,6 +169,7 @@ export interface SmartInvoice {
   state?: string;
 }
 
+// remove
 export interface MetaInvoice {
   id: string;
   invoiceId: string;

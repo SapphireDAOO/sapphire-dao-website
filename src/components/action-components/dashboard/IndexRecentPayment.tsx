@@ -51,7 +51,7 @@ export default function IndexRecentPayment({
   enabled?: boolean;
 }) {
   const {
-    invoiceData,
+    liveInvoiceData,
     refetchInvoiceData,
     loadNextPage: loadContextNextPage,
   } = useContext(ContractContext);
@@ -106,56 +106,59 @@ export default function IndexRecentPayment({
     refetch: refetchPage,
   } = usePagedInvoiceQuery({ isMarketplace: isMarketplaceTab, enabled });
 
-  // ── Merge live websocket updates from context on top of cached data ───────
-  const liveById = useMemo(() => {
-    return new Map(invoiceData.map((invoice) => [`${invoice.invoiceId.toString()}-${invoice.type}`, invoice]));
-  }, [invoiceData]);
-
+  // Dedup by `id` (the nonce string). `invoiceId` is not stable across data
+  // sources: event-hook entries hold BigInt(nonce), subgraph transforms hold
+  // the subgraph entity id ("0x..."). Keying off `invoiceId` produced two
+  // cards for the same invoice once the subgraph indexed an event-created one.
   const sellerPagedIds = useMemo(
-    () => new Set(sellerInvoices.map((invoice) => invoice.invoiceId.toString())),
+    () => new Set(sellerInvoices.map((invoice) => invoice.id)),
     [sellerInvoices],
   );
   const buyerPagedIds = useMemo(
-    () => new Set(buyerInvoices.map((invoice) => invoice.invoiceId.toString())),
+    () => new Set(buyerInvoices.map((invoice) => invoice.id)),
     [buyerInvoices],
   );
 
   const sellerType = isMarketplaceTab ? "IssuedInvoice" : "Seller";
   const buyerType = isMarketplaceTab ? "ReceivedInvoice" : "Buyer";
 
-  const contextOnlyInvoices = useMemo(() => {
-    const contextSellerOnly: Invoice[] = [];
-    const contextBuyerOnly: Invoice[] = [];
+  // ── Merge recent live updates from context on top of paged subgraph data ───
+  const liveOverlay = useMemo(() => {
+    const byKey = new Map<string, Invoice>();
+    const sellerOnly: Invoice[] = [];
+    const buyerOnly: Invoice[] = [];
 
-    for (const invoice of invoiceData) {
-      if (invoice.type === sellerType && !sellerPagedIds.has(invoice.invoiceId.toString())) {
-        contextSellerOnly.push(invoice);
+    for (const invoice of liveInvoiceData) {
+      byKey.set(`${invoice.id}-${invoice.type}`, invoice);
+
+      if (invoice.type === sellerType && !sellerPagedIds.has(invoice.id)) {
+        sellerOnly.push(invoice);
       }
-      if (invoice.type === buyerType && !buyerPagedIds.has(invoice.invoiceId.toString())) {
-        contextBuyerOnly.push(invoice);
+      if (invoice.type === buyerType && !buyerPagedIds.has(invoice.id)) {
+        buyerOnly.push(invoice);
       }
     }
 
-    return { contextSellerOnly, contextBuyerOnly };
-  }, [invoiceData, sellerType, buyerType, sellerPagedIds, buyerPagedIds]);
+    return { byKey, sellerOnly, buyerOnly };
+  }, [liveInvoiceData, sellerType, buyerType, sellerPagedIds, buyerPagedIds]);
 
   // Also surface invoices that only exist in context (e.g. just-created or
   // just-paid invoices not yet indexed by the subgraph).
   const liveSellerInvoices = useMemo(() => {
     const updated = sellerInvoices.map((invoice) => {
-      return liveById.get(`${invoice.invoiceId.toString()}-${invoice.type}`) ?? invoice;
+      return liveOverlay.byKey.get(`${invoice.id}-${invoice.type}`) ?? invoice;
     });
 
-    return [...contextOnlyInvoices.contextSellerOnly, ...updated];
-  }, [sellerInvoices, liveById, contextOnlyInvoices.contextSellerOnly]);
+    return [...liveOverlay.sellerOnly, ...updated];
+  }, [sellerInvoices, liveOverlay]);
 
   const liveBuyerInvoices = useMemo(() => {
     const updated = buyerInvoices.map((invoice) => {
-      return liveById.get(`${invoice.invoiceId.toString()}-${invoice.type}`) ?? invoice;
+      return liveOverlay.byKey.get(`${invoice.id}-${invoice.type}`) ?? invoice;
     });
 
-    return [...contextOnlyInvoices.contextBuyerOnly, ...updated];
-  }, [buyerInvoices, liveById, contextOnlyInvoices.contextBuyerOnly]);
+    return [...liveOverlay.buyerOnly, ...updated];
+  }, [buyerInvoices, liveOverlay]);
 
   // ── Tab selection filters in-memory (no new subgraph query) ───────────────
   const allForTab = useMemo(() => {
@@ -166,7 +169,7 @@ export default function IndexRecentPayment({
   }, [activeTab, liveSellerInvoices, liveBuyerInvoices]);
 
   const canonicalStatus = useCallback(
-    (value?: string | null, invoice?: Invoice) => {
+    (value?: string | null, invoice?: Invoice, nowMs = Date.now()) => {
       if (!value) return "";
       const normalized = value.replace(/_/g, " ").toUpperCase().trim();
 
@@ -176,7 +179,7 @@ export default function IndexRecentPayment({
           normalized === "CREATED" ||
           normalized === "INITIATED") &&
         invoice?.invalidateAt &&
-        Date.now() > Number(invoice.invalidateAt) * 1000
+        nowMs > Number(invoice.invalidateAt) * 1000
       ) {
         return "EXPIRED";
       }
@@ -202,8 +205,9 @@ export default function IndexRecentPayment({
 
     if (statusFilter !== "All") {
       const targetStatus = canonicalStatus(statusFilter);
+      const nowMs = Date.now();
       invoices = invoices.filter((invoice) => {
-        return canonicalStatus(invoice.status, invoice) === targetStatus;
+        return canonicalStatus(invoice.status, invoice, nowMs) === targetStatus;
       });
     }
 
@@ -240,10 +244,7 @@ export default function IndexRecentPayment({
       });
     }
 
-    return invoices.map((inv) => ({
-      ...inv,
-      notes: [...(inv.notes || []), ...(localNotes[inv.id] || [])],
-    }));
+    return invoices;
   }, [
     allForTab,
     statusFilter,
@@ -255,14 +256,22 @@ export default function IndexRecentPayment({
   ]);
 
   // ── Client-side pagination over the filtered set ──────────────────────────
-  const displayInvoices = useMemo(
-    () =>
-      filteredInvoices.slice(
-        (page - 1) * INVOICE_PAGE_SIZE,
-        page * INVOICE_PAGE_SIZE,
-      ),
-    [filteredInvoices, page],
-  );
+  const displayInvoices = useMemo(() => {
+    const pageInvoices = filteredInvoices.slice(
+      (page - 1) * INVOICE_PAGE_SIZE,
+      page * INVOICE_PAGE_SIZE,
+    );
+
+    return pageInvoices.map((invoice) => {
+      const notes = localNotes[invoice.id];
+      if (!notes?.length) return invoice;
+
+      return {
+        ...invoice,
+        notes: [...(invoice.notes || []), ...notes],
+      };
+    });
+  }, [filteredInvoices, page, localNotes]);
 
   const hasNextPageInMemory =
     page * INVOICE_PAGE_SIZE < filteredInvoices.length;
@@ -306,6 +315,8 @@ export default function IndexRecentPayment({
     loadContextNextPage,
   ]);
 
+  // refreshInvoicesData might not be needed, refresh should only happen after reload
+  // websocket should use the current data
   const refreshInvoices = useCallback(async () => {
     try {
       await Promise.all([refetchInvoiceData?.(), refetchPage()]);
@@ -411,7 +422,7 @@ export default function IndexRecentPayment({
                   ) : displayInvoices.length > 0 ? (
                     displayInvoices.map((invoice) => (
                       <div
-                        key={`${invoice.invoiceId.toString()}-${invoice.type}`}
+                        key={`${invoice.id}-${invoice.type}`}
                         className="w-full md:w-[48%] lg:w-[31%]"
                       >
                         {isMarketplaceTab ? (

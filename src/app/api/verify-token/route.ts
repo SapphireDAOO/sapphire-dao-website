@@ -14,6 +14,7 @@ export async function GET(req: NextRequest) {
   }
 
   try {
+    // use a better type here?
     const decoded = jwt.verify(token, secret) as { invoiceId?: unknown };
     return NextResponse.json({ valid: true, data: { invoiceId: decoded.invoiceId } });
   } catch {

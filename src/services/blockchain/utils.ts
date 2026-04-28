@@ -1,39 +1,28 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { toast } from "sonner";
-import { errorMessages, POLYGON_AMOY } from "@/constants";
+import { errorMessages } from "@/constants";
 import { Address, encodeFunctionData, erc20Abi } from "viem";
 import { baseSepolia } from "viem/chains";
 
 export const fetchGasPrice = async (
   publicClient: any,
-  chainId: number
+  chainId: number,
 ): Promise<bigint> => {
+  void chainId;
   const fallbackGasPrice = BigInt(1_000_000_000); // 1 gwei
-  const gasPrice = (await publicClient?.getGasPrice()) as bigint | undefined;
-  let adjusted = gasPrice ?? fallbackGasPrice;
-
   try {
-    const latestBlock = (await publicClient?.getBlock({
-      blockTag: "latest",
-    })) as { baseFeePerGas?: bigint } | undefined;
-    const baseFeePerGas = latestBlock?.baseFeePerGas;
+    const fees = (await publicClient?.estimateFeesPerGas?.()) as
+      | {
+          gasPrice?: bigint;
+          maxFeePerGas?: bigint;
+          maxPriorityFeePerGas?: bigint;
+        }
+      | undefined;
 
-    // Some wallets map `gasPrice` into EIP-1559 fee caps. Ensure the value
-    // is safely above base fee to avoid `maxFeePerGas < baseFee` rejections.
-    if (typeof baseFeePerGas === "bigint" && baseFeePerGas > BigInt(0)) {
-      const priorityBuffer = BigInt(100_000_000); // 0.1 gwei
-      const minSafeFeeCap = baseFeePerGas * BigInt(2) + priorityBuffer;
-      if (adjusted < minSafeFeeCap) {
-        adjusted = minSafeFeeCap;
-      }
-    }
+    return fees?.maxFeePerGas ?? fees?.gasPrice ?? fallbackGasPrice;
   } catch {
-    // Ignore block read errors and keep the fetched gas price.
+    return fallbackGasPrice;
   }
-
-  return chainId === POLYGON_AMOY
-    ? (adjusted * BigInt(300)) / BigInt(100)
-    : adjusted;
 };
 
 export const getError = (error: any) => {
@@ -53,7 +42,7 @@ export const getError = (error: any) => {
     }
   }
   const message = error?.data?.message || error?.error?.data?.message;
-  console.log(error)
+  console.log(error);
   toast.error(message || "Something went wrong");
 };
 
@@ -64,7 +53,7 @@ export const handleApproval = async (
   owner: Address,
   walletClient: any,
   publicClient: any,
-  chainId: number
+  chainId: number,
 ): Promise<boolean> => {
   try {
     if (!amountIntoken || amountIntoken <= 0) {

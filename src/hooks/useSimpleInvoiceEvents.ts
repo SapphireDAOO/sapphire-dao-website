@@ -18,8 +18,13 @@ interface Params {
     invoiceId: bigint,
     txHash?: string,
   ) => Promise<void>;
+  onLiveInvoices?: (invoices: Invoice[]) => void;
 }
 
+// expectation
+// trigger when a transaction occurs, cache the result, including current block number have a ttl too
+// if reload occurs, get current block number of the graph, if less than that on the tx, use cached data
+// else use that of the graph
 export function useSimpleInvoiceEvents({
   active,
   address,
@@ -28,6 +33,7 @@ export function useSimpleInvoiceEvents({
   setInvoiceData,
   updateSimpleInvoiceTiming,
   hydrateSimpleInvoiceFromChain,
+  onLiveInvoices,
 }: Params) {
   useEffect(() => {
     if (!active || !publicClient || !address) return;
@@ -44,9 +50,9 @@ export function useSimpleInvoiceEvents({
       InvoiceCreated: "AWAITING PAYMENT",
     };
 
-    const simpleEvents = (paymentProcessor as readonly { type: string }[]).filter(
-      (item): item is AbiEvent => item.type === "event",
-    );
+    const simpleEvents = (
+      paymentProcessor as readonly { type: string }[]
+    ).filter((item): item is AbiEvent => item.type === "event");
 
     const unwatch = publicClient.watchEvent({
       address: contractAddress,
@@ -56,8 +62,12 @@ export function useSimpleInvoiceEvents({
         const acceptedinvoiceIds: string[] = [];
         const hydrateRequests = new Map<string, string | undefined>();
         setInvoiceData((prev) => {
+          const liveInvoices: Invoice[] = [];
+          // Key by `id` (the nonce string). `invoiceId` is not stable across
+          // sources: event-hook entries hold BigInt(nonce); subgraph entries
+          // hold the subgraph entity id ("0x..."). Mixing them caused dupes.
           const updatedMap = new Map<string, Invoice>(
-            prev.map((inv) => [`${inv.invoiceId.toString()}-${inv.source}`, inv]),
+            prev.map((inv) => [`${inv.id}-${inv.source}`, inv]),
           );
 
           for (const log of logs) {
@@ -83,9 +93,15 @@ export function useSimpleInvoiceEvents({
                   };
                 }
               | undefined;
-            const invoiceId = (args?.invoiceId ?? args?.invoiceNonce)?.toString();
+
+            // check id nonce thing
+            const invoiceId = (
+              args?.invoiceId ?? args?.invoiceNonce
+            )?.toString();
+
             const invoice = args?.invoice;
 
+            // each function for various types of event
             if (name === "InvoiceCreated") {
               const buyer = invoice?.buyer?.toLowerCase?.();
               const seller = invoice?.seller?.toLowerCase?.();
@@ -99,9 +115,10 @@ export function useSimpleInvoiceEvents({
                 (buyer === address.toLowerCase() ||
                   seller === address.toLowerCase())
               ) {
+                // is this neccessary??
                 const simpleKey = `${invoiceId}-Simple`;
                 if (!updatedMap.has(simpleKey) && invoiceId && invoice) {
-                  updatedMap.set(simpleKey, {
+                  const nextInvoice = {
                     id: invoiceId,
                     invoiceId: BigInt(invoiceId),
                     createdAt: invoice.createdAt
@@ -113,11 +130,12 @@ export function useSimpleInvoiceEvents({
                         : "Not Paid",
                     status: "AWAITING PAYMENT",
                     price: invoice.price ? formatEther(invoice.price) : null,
-                    amountPaid: (invoice.balance ?? invoice.amountPaid)
-                      ? formatEther(
-                          invoice.balance ?? invoice.amountPaid ?? BigInt(0),
-                        )
-                      : "0",
+                    amountPaid:
+                      (invoice.balance ?? invoice.amountPaid)
+                        ? formatEther(
+                            invoice.balance ?? invoice.amountPaid ?? BigInt(0),
+                          )
+                        : "0",
                     type:
                       seller === address.toLowerCase()
                         ? ("Seller" as const)
@@ -132,8 +150,14 @@ export function useSimpleInvoiceEvents({
                     expiresAt: invoice.expiresAt
                       ? invoice.expiresAt.toString()
                       : undefined,
-                    history: appendHistoryEntry(undefined, "CREATED", historyTime),
-                  } as Invoice);
+                    history: appendHistoryEntry(
+                      undefined,
+                      "CREATED",
+                      historyTime,
+                    ),
+                  } as Invoice;
+                  updatedMap.set(simpleKey, nextInvoice);
+                  liveInvoices.push(nextInvoice);
                 }
               }
               continue;
@@ -151,7 +175,7 @@ export function useSimpleInvoiceEvents({
                 const isBuyer = address && buyer === address.toLowerCase();
 
                 if (isBuyer && invoiceId) {
-                  updatedMap.set(simpleKey, {
+                  const nextInvoice = {
                     id: invoiceId,
                     invoiceId: BigInt(invoiceId),
                     createdAt: null,
@@ -170,7 +194,9 @@ export function useSimpleInvoiceEvents({
                     expiresAt: args?.expiresAt?.toString(),
                     paymentTxHash: log.transactionHash,
                     history: appendHistoryEntry(undefined, "PAID", batchTime),
-                  } as Invoice);
+                  } as Invoice;
+                  updatedMap.set(simpleKey, nextInvoice);
+                  liveInvoices.push(nextInvoice);
                 }
 
                 hydrateRequests.set(invoiceId, log.transactionHash);
@@ -211,14 +237,21 @@ export function useSimpleInvoiceEvents({
             }
 
             if (name === "InvoiceReleased") {
-              updatedFields.releaseHash = log.transactionHash ?? inv.releaseHash;
+              updatedFields.releaseHash =
+                log.transactionHash ?? inv.releaseHash;
             }
 
-            updatedMap.set(simpleKey, { ...inv, ...updatedFields });
+            const nextInvoice = { ...inv, ...updatedFields };
+            updatedMap.set(simpleKey, nextInvoice);
+            liveInvoices.push(nextInvoice);
 
             if (name === "InvoiceAccepted") {
               acceptedinvoiceIds.push(invoiceId);
             }
+          }
+
+          if (liveInvoices.length > 0) {
+            queueMicrotask(() => onLiveInvoices?.(liveInvoices));
           }
 
           return Array.from(updatedMap.values());
@@ -240,8 +273,7 @@ export function useSimpleInvoiceEvents({
           }
         });
       },
-      onError: (err) =>
-        console.error("invoice status subscription error", err),
+      onError: (err) => console.error("invoice status subscription error", err),
     });
 
     return () => {
@@ -255,5 +287,6 @@ export function useSimpleInvoiceEvents({
     setInvoiceData,
     updateSimpleInvoiceTiming,
     hydrateSimpleInvoiceFromChain,
+    onLiveInvoices,
   ]);
 }

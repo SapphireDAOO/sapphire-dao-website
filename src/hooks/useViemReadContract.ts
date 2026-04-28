@@ -1,8 +1,13 @@
 "use client";
 
+import { useMemo } from "react";
 import { useQuery, type UseQueryResult } from "@tanstack/react-query";
 import { usePublicClient } from "wagmi";
 import { Abi, Address } from "viem";
+import {
+  DEFAULT_QUERY_GC_TIME_MS,
+  DEFAULT_QUERY_STALE_TIME_MS,
+} from "@/constants";
 
 type ReadContractParams<T> = {
   abi: Abi;
@@ -14,6 +19,10 @@ type ReadContractParams<T> = {
   enabled?: boolean;
   queryKey?: unknown[];
   select?: (value: unknown) => T;
+  staleTime?: number;
+  gcTime?: number;
+  refetchInterval?: number | false;
+  refetchOnWindowFocus?: boolean;
 };
 
 // React Query hashes `queryKey` values with `JSON.stringify`, which throws on BigInt.
@@ -43,15 +52,27 @@ export const useViemReadContract = <T = unknown>({
   enabled = true,
   queryKey,
   select,
+  staleTime = DEFAULT_QUERY_STALE_TIME_MS,
+  gcTime = DEFAULT_QUERY_GC_TIME_MS,
+  refetchInterval = false,
+  refetchOnWindowFocus = false,
 }: ReadContractParams<T>): UseQueryResult<T | undefined> => {
   const publicClient = usePublicClient({ chainId });
-  const normalizedQueryKey = serializeQueryKeyPart(
-    queryKey ?? ["viem-read", chainId, address, functionName, args, account],
-  ) as readonly unknown[];
+  const normalizedQueryKey = useMemo(
+    () =>
+      serializeQueryKeyPart(
+        queryKey ?? ["viem-read", chainId, address, functionName, args, account],
+      ) as readonly unknown[],
+    [queryKey, chainId, address, functionName, args, account],
+  );
 
   return useQuery({
     queryKey: normalizedQueryKey,
     enabled: Boolean(publicClient && address && enabled),
+    staleTime,
+    gcTime,
+    refetchInterval,
+    refetchOnWindowFocus,
     queryFn: async () => {
       if (!publicClient || !address) return undefined as T | undefined;
 
