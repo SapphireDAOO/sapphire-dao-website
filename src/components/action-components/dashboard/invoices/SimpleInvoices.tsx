@@ -395,7 +395,7 @@ export function InvoiceCard({
         {/* Cancel button in header */}
         {invoice.status === "AWAITING PAYMENT" && (
           <div className="mt-3">
-            <CancelInvoice invoiceId={invoice.invoiceId} />
+            <CancelInvoice invoiceId={invoice.invoiceId} invoice={invoice} />
           </div>
         )}
 

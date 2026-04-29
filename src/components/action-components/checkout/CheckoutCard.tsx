@@ -90,7 +90,7 @@ const CheckoutCard = ({ data, isMetaInvoice }: CheckoutCardProps) => {
     try {
       const timestamp = Math.floor(Date.now() / 1000);
       const invoiceId = data.invoiceId.toString();
-      const message = `Sapphire DAO: Create note for order ${invoiceId}\nAuthor: ${address}\nTimestamp: ${timestamp}`;
+      const message = `Sapphire DAO: Create note for order ${invoiceId}\nAuthor: ${address}\nContent: ${trimmed}\nShare: ${shareNote}\nTimestamp: ${timestamp}`;
       const signature = await signMessageAsync({ message });
 
       await createInvoiceNote({

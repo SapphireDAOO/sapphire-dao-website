@@ -18,7 +18,7 @@ export const client = (chainId: number) => {
     // hit the network when the cache is empty. Real-time freshness is handled
     // by event-based refresh calls (watchEvent) rather than background refetches.
     // The server-side proxy (/api/graphql) adds a 15-second cache layer on top.
-    requestPolicy: "cache-and-network",
+    requestPolicy: "cache-first",
     exchanges: [cacheExchange, fetchExchange],
   });
 

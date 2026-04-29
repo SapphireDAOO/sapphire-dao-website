@@ -11,7 +11,11 @@ import {
 
 import { useAccount, usePublicClient } from "wagmi";
 import { unixToGMT } from "@/utils";
-import { BASE_SEPOLIA, SIMPLE_PAYMENT_PROCESSOR } from "@/constants";
+import {
+  ADVANCED_PAYMENT_PROCESSOR,
+  BASE_SEPOLIA,
+  SIMPLE_PAYMENT_PROCESSOR,
+} from "@/constants";
 import {
   AllInvoice,
   AdminAction,
@@ -26,6 +30,7 @@ import {
 import { formatEther } from "viem";
 import { client } from "@/services/graphql/client";
 import { paymentProcessor } from "@/abis/PaymentProcessor";
+import { advancedPaymentProcessor } from "@/abis/AdvancedPaymentProcessor";
 import {
   sortState,
   sortHistory,
@@ -41,9 +46,15 @@ import {
   readInvoiceCache,
   writeInvoiceCache,
 } from "@/lib/invoiceCache";
+import {
+  getContractInvoiceIdBigInt,
+  getDisplayInvoiceIdString,
+  getInvoiceMergeKey,
+} from "@/lib/invoiceIdentifiers";
 import { useSimpleInvoiceEvents } from "./useSimpleInvoiceEvents";
 import { useMarketplaceInvoiceEvents } from "./useMarketplaceInvoiceEvents";
 import { useIsWindowVisible } from "./useIsWindowVisible";
+import type { CreatedSimpleInvoice } from "@/services/blockchain/SimplePaymentProcessor";
 
 const ERROR_BACKOFF_MS = 15_000;
 const PAGE_SIZE = 24;
@@ -52,6 +63,20 @@ const USER_INVOICE_PAGE_CACHE_TTL_MS = 2_000;
 const USER_INVOICE_PAGE_CACHE_MAX = 100;
 const LIVE_INVOICE_OVERLAY_LIMIT = 100;
 const SIMPLE_INVOICE_READ_TTL_MS = 5_000;
+const MARKETPLACE_INVOICE_READ_TTL_MS = 5_000;
+
+const ADVANCED_STATE_LABELS: Record<number, string> = {
+  1: "CREATED",
+  2: "PAID",
+  3: "REFUNDED",
+  4: "CANCELED",
+  5: "DISPUTED",
+  6: "DISPUTE_RESOLVED",
+  7: "DISPUTE_DISMISSED",
+  8: "DISPUTE_SETTLED",
+  9: "RELEASED",
+  10: "LOCKED",
+};
 
 const CHECKOUT_QUERIES = {
   smartInvoice: smartInvoiceQuery,
@@ -99,15 +124,6 @@ const getInvoiceCacheSignature = (invoices: Invoice[]) =>
     )
     .join("|");
 
-// Use `id` (the nonce string) — `invoiceId` differs by source: event-hook
-// entries hold BigInt(nonce); subgraph transforms hold the subgraph entity id
-// ("0x..."). Mixing them caused the same invoice to render twice.
-const getInvoiceMergeKey = (invoice: {
-  id?: string | null;
-  type?: string;
-  source?: string;
-}) => `${invoice.id ?? ""}-${invoice.type ?? ""}-${invoice.source ?? ""}`;
-
 export const useInvoiceData = () => {
   const { chain, address } = useAccount();
   const chainId = chain?.id || BASE_SEPOLIA;
@@ -135,6 +151,7 @@ export const useInvoiceData = () => {
     "simple" | "marketplace"
   >("simple");
   const currentPageRef = useRef(0);
+  const invoiceDataLengthRef = useRef(0);
   const isWindowVisible = useIsWindowVisible();
 
   const isFetchingRef = useRef(false);
@@ -149,11 +166,11 @@ export const useInvoiceData = () => {
       const byKey = new Map<string, Invoice>();
 
       for (const invoice of updates) {
-        byKey.set(`${invoice.invoiceId.toString()}-${invoice.type}`, invoice);
+        byKey.set(getInvoiceMergeKey(invoice), invoice);
       }
 
       for (const invoice of prev) {
-        const key = `${invoice.invoiceId.toString()}-${invoice.type}`;
+        const key = getInvoiceMergeKey(invoice);
         if (!byKey.has(key)) {
           byKey.set(key, invoice);
         }
@@ -162,6 +179,69 @@ export const useInvoiceData = () => {
       return Array.from(byKey.values()).slice(0, LIVE_INVOICE_OVERLAY_LIMIT);
     });
   }, []);
+
+  const upsertLocalInvoice = useCallback(
+    (invoice: Invoice) => {
+      setInvoiceData((prev) => {
+        const mergedByKey = new Map<string, Invoice>(
+          prev.map((inv) => [getInvoiceMergeKey(inv), inv]),
+        );
+        const key = getInvoiceMergeKey(invoice);
+        const existing = mergedByKey.get(key);
+
+        mergedByKey.set(
+          key,
+          existing
+            ? {
+                ...existing,
+                ...invoice,
+                status: pickNewerStatus(
+                  existing.status ?? "",
+                  invoice.status ?? "",
+                ),
+                history: mergeHistory(existing.history, invoice.history),
+              }
+            : invoice,
+        );
+
+        return Array.from(mergedByKey.values()).sort(
+          compareInvoicesByLastActionDesc,
+        );
+      });
+      publishLiveInvoices([invoice]);
+    },
+    [publishLiveInvoices],
+  );
+
+  const addCreatedSimpleInvoice = useCallback(
+    (created: CreatedSimpleInvoice) => {
+      if (!address) return;
+      const contractAddress = SIMPLE_PAYMENT_PROCESSOR[chainId];
+      if (!contractAddress) return;
+
+      const createdAt = created.createdAt?.toString() ?? nowInSeconds();
+      const invoice: Invoice = {
+        id: created.invoiceNonce?.toString() ?? created.invoiceId.toString(),
+        invoiceId: created.invoiceId,
+        createdAt: unixToGMT(Number(createdAt)),
+        paidAt: "Not Paid",
+        status: "AWAITING PAYMENT",
+        price: created.price ? formatEther(created.price) : null,
+        amountPaid: "0",
+        type: "Seller",
+        contract: contractAddress,
+        seller: created.seller ?? address,
+        buyer: "",
+        source: "Simple",
+        creationTxHash: created.txHash,
+        invalidateAt: created.invalidateAt?.toString(),
+        history: appendHistoryEntry(undefined, "CREATED", createdAt),
+      };
+
+      upsertLocalInvoice(invoice);
+    },
+    [address, chainId, upsertLocalInvoice],
+  );
 
   // Keep refs so callbacks don't depend on state and cause re-subscribe loops
   const allInvoiceDataRef = useRef<AllInvoicesData>({
@@ -183,9 +263,19 @@ export const useInvoiceData = () => {
   const simpleInvoiceReadInflightRef = useRef<Map<string, Promise<unknown>>>(
     new Map(),
   );
+  const marketplaceInvoiceReadCacheRef = useRef<
+    Map<string, { timestamp: number; data: unknown }>
+  >(new Map());
+  const marketplaceInvoiceReadInflightRef = useRef<
+    Map<string, Promise<unknown>>
+  >(new Map());
   useEffect(() => {
     allInvoiceDataRef.current = allInvoiceData;
   }, [allInvoiceData]);
+
+  useEffect(() => {
+    invoiceDataLengthRef.current = invoiceData.length;
+  }, [invoiceData.length]);
 
   useEffect(() => {
     if (!cacheKey) return;
@@ -202,6 +292,29 @@ export const useInvoiceData = () => {
     return () => {
       if (cacheWriteTimeoutRef.current)
         clearTimeout(cacheWriteTimeoutRef.current);
+    };
+  }, [cacheKey, invoiceData]);
+
+  useEffect(() => {
+    if (!cacheKey || typeof window === "undefined") return;
+
+    const flushInvoiceCache = () => {
+      if (!hasFetchedRef.current && invoiceData.length === 0) return;
+      if (cacheWriteTimeoutRef.current) {
+        clearTimeout(cacheWriteTimeoutRef.current);
+        cacheWriteTimeoutRef.current = null;
+      }
+
+      const signature = getInvoiceCacheSignature(invoiceData);
+      if (signature === lastCacheWriteSignatureRef.current) return;
+
+      lastCacheWriteSignatureRef.current = signature;
+      writeInvoiceCache(cacheKey, invoiceData);
+    };
+
+    window.addEventListener("pagehide", flushInvoiceCache);
+    return () => {
+      window.removeEventListener("pagehide", flushInvoiceCache);
     };
   }, [cacheKey, invoiceData]);
 
@@ -243,31 +356,71 @@ export const useInvoiceData = () => {
         const marketplaceInvoices: AllInvoice[] = [];
 
         try {
-          const { data, error } = await client(chainId)
-            .query(GET_ALL_INVOICES, {
-              skipInvoices: 0,
-              firstInvoices: PAGE_SIZE,
-              skipActions: 0,
-              firstActions: PAGE_SIZE,
-              skipSmartInvoices: 0,
-              firstSmartInvoices: PAGE_SIZE,
-            })
-            .toPromise();
+          // Page through each list until exhausted; subgraph caps a single
+          // request at PAGE_SIZE, so the previous one-shot query silently
+          // dropped anything past the first page.
+          let skipInvoices = 0;
+          let skipActions = 0;
+          let skipSmartInvoices = 0;
+          let moreInvoices = true;
+          let moreActions = true;
+          let moreSmartInvoices = true;
+          const rawInvoices: any[] = [];
+          const rawAdminActions: any[] = [];
+          const rawMarketplaceInvoices: any[] = [];
 
-          if (error) {
-            console.error("GraphQL Error:", error.message);
-            handleRateLimit(error.message);
-            return allInvoiceDataRef.current;
+          while (moreInvoices || moreActions || moreSmartInvoices) {
+            const queryResult = await client(chainId)
+              .query(
+                GET_ALL_INVOICES,
+                {
+                  skipInvoices,
+                  firstInvoices: PAGE_SIZE,
+                  includeInvoices: moreInvoices,
+                  skipActions,
+                  firstActions: PAGE_SIZE,
+                  includeActions: moreActions,
+                  skipSmartInvoices,
+                  firstSmartInvoices: PAGE_SIZE,
+                  includeSmartInvoices: moreSmartInvoices,
+                },
+                force ? { requestPolicy: "network-only" } : undefined,
+              )
+              .toPromise();
+            const data = queryResult.data as any;
+            const error = queryResult.error;
+
+            if (error) {
+              console.error("GraphQL Error:", error.message);
+              handleRateLimit(error.message);
+              return allInvoiceDataRef.current;
+            }
+
+            const pageInvoices: any[] = data?.invoices || [];
+            const pageActions: any[] = data?.adminActions || [];
+            const pageSmart: any[] = data?.smartInvoices || [];
+
+            if (moreInvoices) {
+              rawInvoices.push(...pageInvoices);
+              moreInvoices = pageInvoices.length === PAGE_SIZE;
+              skipInvoices += pageInvoices.length;
+            }
+            if (moreActions) {
+              rawAdminActions.push(...pageActions);
+              moreActions = pageActions.length === PAGE_SIZE;
+              skipActions += pageActions.length;
+            }
+            if (moreSmartInvoices) {
+              rawMarketplaceInvoices.push(...pageSmart);
+              moreSmartInvoices = pageSmart.length === PAGE_SIZE;
+              skipSmartInvoices += pageSmart.length;
+            }
           }
-
-          const rawInvoices = data?.invoices || [];
-          const rawAdminActions = data?.adminActions || [];
-          const rawMarketplaceInvoices = data?.smartInvoices || [];
 
           for (const list of rawInvoices) {
             invoices[invoices.length] = {
-              id: list.invoiceId || "",
-              invoiceId: list.id || "",
+              id: getDisplayInvoiceIdString(list),
+              invoiceId: getContractInvoiceIdBigInt(list),
               contract: list.contract || "",
               seller: list.seller?.id || "",
               payment: list.paymentTxHash || "",
@@ -289,14 +442,8 @@ export const useInvoiceData = () => {
 
           for (const list of rawAdminActions) {
             actions[actions.length] = {
-              id: list.invoiceId || "",
-              invoiceId: (() => {
-                try {
-                  return BigInt(list.invoiceId || "0");
-                } catch {
-                  return BigInt(0);
-                }
-              })(),
+              id: getDisplayInvoiceIdString(list),
+              invoiceId: getContractInvoiceIdBigInt(list),
               action: list.action || "Unknown",
               time: list.time ? unixToGMT(list.time) : null,
               type: list.type,
@@ -307,8 +454,8 @@ export const useInvoiceData = () => {
 
           for (const list of rawMarketplaceInvoices) {
             marketplaceInvoices[marketplaceInvoices.length] = {
-              id: list.invoiceId,
-              invoiceId: list.id,
+              id: getDisplayInvoiceIdString(list),
+              invoiceId: getContractInvoiceIdBigInt(list),
               contract: list.contract || "",
               seller: list.seller?.id || "",
               payment: list.paymentTxHash || "",
@@ -358,13 +505,10 @@ export const useInvoiceData = () => {
   );
 
   const getInvoiceData = useCallback(
-    async (page = 0) => {
+    async (page = 0, force = false) => {
       if (!address) return;
 
-      if (
-        Date.now() < nextAllowedRequestRef.current &&
-        invoiceData.length > 0
-      ) {
+      if (Date.now() < nextAllowedRequestRef.current && invoiceDataLengthRef.current > 0) {
         return;
       }
 
@@ -373,20 +517,26 @@ export const useInvoiceData = () => {
       const requestKey = `${chainId}:${normalizedAddress}:${PAGE_SIZE}:${skip}`;
 
       try {
-        const cached = getCachedUserInvoicePage(requestKey);
+        const cached = force ? null : getCachedUserInvoicePage(requestKey);
         let result: UserInvoicePageResult;
 
         if (cached) {
           result = cached;
         } else {
-          let inflight = userInvoicePageInflight.get(requestKey);
+          let inflight = force
+            ? undefined
+            : userInvoicePageInflight.get(requestKey);
           if (!inflight) {
             inflight = client(chainId)
-              .query(invoiceQuery, {
-                address: normalizedAddress,
-                first: PAGE_SIZE,
-                skip,
-              })
+              .query(
+                invoiceQuery,
+                {
+                  address: normalizedAddress,
+                  first: PAGE_SIZE,
+                  skip,
+                },
+                force ? { requestPolicy: "network-only" } : undefined,
+              )
               .toPromise()
               .then((queryResult) => {
                 if (!queryResult.error) {
@@ -398,7 +548,9 @@ export const useInvoiceData = () => {
                 userInvoicePageInflight.delete(requestKey);
               });
 
-            userInvoicePageInflight.set(requestKey, inflight);
+            if (!force) {
+              userInvoicePageInflight.set(requestKey, inflight);
+            }
           }
 
           result = await inflight;
@@ -423,8 +575,8 @@ export const useInvoiceData = () => {
           data.user.receivedInvoices || [];
 
         const createdInvoiceData = createdInvoice.map((invoice: any) => ({
-          id: invoice.invoiceId,
-          invoiceId: invoice.id,
+          id: getDisplayInvoiceIdString(invoice),
+          invoiceId: getContractInvoiceIdBigInt(invoice),
           createdAt: invoice.createdAt ? unixToGMT(invoice.createdAt) : null,
           paidAt: invoice.paidAt || "Not Paid",
           status: sortState(invoice.state, invoice.invalidateAt),
@@ -447,8 +599,8 @@ export const useInvoiceData = () => {
         }));
 
         const paidInvoiceData = paidInvoices.map((invoice: any) => ({
-          id: invoice.invoiceId,
-          invoiceId: invoice.id,
+          id: getDisplayInvoiceIdString(invoice),
+          invoiceId: getContractInvoiceIdBigInt(invoice),
           createdAt: invoice.createdAt ? unixToGMT(invoice.createdAt) : null,
           paidAt: invoice.paidAt || "Not Paid",
           status: sortState(invoice.state, invoice.invalidateAt),
@@ -473,8 +625,8 @@ export const useInvoiceData = () => {
           invoice: any,
           type: "IssuedInvoice" | "ReceivedInvoice",
         ) => ({
-          id: invoice.invoiceId ?? invoice.id,
-          invoiceId: invoice.id,
+          id: getDisplayInvoiceIdString(invoice),
+          invoiceId: getContractInvoiceIdBigInt(invoice),
           createdAt: invoice.createdAt ? unixToGMT(invoice.createdAt) : null,
           paidAt: invoice.paidAt || "Not Paid",
           status: sortState(invoice.state),
@@ -605,7 +757,7 @@ export const useInvoiceData = () => {
         }
       }
     },
-    [address, chainId, handleRateLimit, invoiceData.length],
+    [address, chainId, handleRateLimit],
   );
 
   const getInvoiceOwner = async (id: string): Promise<string> => {
@@ -692,6 +844,48 @@ export const useInvoiceData = () => {
         });
 
       simpleInvoiceReadInflightRef.current.set(key, request);
+      return request;
+    },
+    [chainId, publicClient],
+  );
+
+  const readMarketplaceInvoiceChainData = useCallback(
+    async (invoiceId: bigint) => {
+      if (!publicClient) return undefined;
+      const contractAddress = ADVANCED_PAYMENT_PROCESSOR[chainId];
+      if (!contractAddress) return undefined;
+
+      const key = `${chainId}:${contractAddress}:${invoiceId.toString()}`;
+      const cached = marketplaceInvoiceReadCacheRef.current.get(key);
+      if (
+        cached &&
+        Date.now() - cached.timestamp < MARKETPLACE_INVOICE_READ_TTL_MS
+      ) {
+        return cached.data;
+      }
+
+      const existing = marketplaceInvoiceReadInflightRef.current.get(key);
+      if (existing) return existing;
+
+      const request = publicClient
+        .readContract({
+          address: contractAddress,
+          abi: advancedPaymentProcessor,
+          functionName: "getInvoice",
+          args: [invoiceId],
+        })
+        .then((data) => {
+          marketplaceInvoiceReadCacheRef.current.set(key, {
+            timestamp: Date.now(),
+            data,
+          });
+          return data;
+        })
+        .finally(() => {
+          marketplaceInvoiceReadInflightRef.current.delete(key);
+        });
+
+      marketplaceInvoiceReadInflightRef.current.set(key, request);
       return request;
     },
     [chainId, publicClient],
@@ -817,11 +1011,6 @@ export const useInvoiceData = () => {
         const readString = (value: unknown) =>
           typeof value === "string" ? value : undefined;
 
-        const invoiceId = readBigInt(
-          invoiceObject?.invoiceId ??
-            (invoiceArray?.[0] as bigint | number | undefined),
-        );
-
         const invoiceNonce = readBigInt(
           invoiceObject?.invoiceNonce ??
             (invoiceArray?.[0] as bigint | number | undefined),
@@ -846,15 +1035,15 @@ export const useInvoiceData = () => {
           invoiceObject?.expiresAt ??
             (invoiceArray?.[5] as bigint | number | undefined),
         );
-        const seller = readString(invoiceObject?.seller ?? invoiceArray?.[7]);
-        const buyer = readString(invoiceObject?.buyer ?? invoiceArray?.[8]);
+        const seller = readString(invoiceObject?.seller ?? invoiceArray?.[8]);
+        const buyer = readString(invoiceObject?.buyer ?? invoiceArray?.[9]);
         const price = readBigInt(
           invoiceObject?.price ??
-            (invoiceArray?.[10] as bigint | number | undefined),
+            (invoiceArray?.[11] as bigint | number | undefined),
         );
         const amountPaid = readBigInt(
           invoiceObject?.balance ??
-            (invoiceArray?.[11] as bigint | number | undefined),
+            (invoiceArray?.[12] as bigint | number | undefined),
         );
 
         const normalizedAddress = address.toLowerCase();
@@ -867,8 +1056,7 @@ export const useInvoiceData = () => {
 
         if (!isSeller && !isBuyer) return;
 
-        // invoiceId from chain data may be undefined; fall back to the parameter
-        const resolvedInvoiceId = invoiceId ?? inv;
+        const resolvedInvoiceId = inv;
 
         const nextInvoice: Invoice = {
           id: invoiceNonce
@@ -942,6 +1130,200 @@ export const useInvoiceData = () => {
     ],
   );
 
+  const hydrateMarketplaceInvoiceFromChain = useCallback(
+    async (
+      invoiceId: bigint,
+      eventStatus?: Invoice["status"],
+      txHash?: string,
+      eventFields?: Partial<Invoice>,
+    ) => {
+      if (!publicClient || !address) return;
+      const contractAddress = ADVANCED_PAYMENT_PROCESSOR[chainId];
+      if (!contractAddress) return;
+
+      try {
+        const data = await readMarketplaceInvoiceChainData(invoiceId);
+        if (!data) return;
+
+        const invoiceData = data as unknown;
+        const invoiceArray = Array.isArray(invoiceData)
+          ? (invoiceData as readonly unknown[])
+          : null;
+        const invoiceObject =
+          invoiceData && typeof invoiceData === "object"
+            ? (invoiceData as {
+                invoiceNonce?: bigint | number;
+                paidAt?: bigint | number;
+                createdAt?: bigint | number;
+                releaseAt?: bigint | number;
+                expiresAt?: bigint | number;
+                state?: bigint | number;
+                buyer?: string;
+                seller?: string;
+                paymentToken?: string;
+                amountPaid?: bigint | number;
+                price?: bigint | number;
+                balance?: bigint | number;
+              })
+            : null;
+
+        const readBigInt = (value: bigint | number | undefined) => {
+          if (typeof value === "bigint") return value;
+          if (typeof value === "number") return BigInt(value);
+          return undefined;
+        };
+
+        const readString = (value: unknown) =>
+          typeof value === "string" ? value : undefined;
+
+        const invoiceNonce = readBigInt(
+          invoiceObject?.invoiceNonce ??
+            (invoiceArray?.[0] as bigint | number | undefined),
+        );
+        const paidAt = readBigInt(
+          invoiceObject?.paidAt ??
+            (invoiceArray?.[1] as bigint | number | undefined),
+        );
+        const createdAt = readBigInt(
+          invoiceObject?.createdAt ??
+            (invoiceArray?.[2] as bigint | number | undefined),
+        );
+        const releaseAt = readBigInt(
+          invoiceObject?.releaseAt ??
+            (invoiceArray?.[3] as bigint | number | undefined),
+        );
+        const expiresAt = readBigInt(
+          invoiceObject?.expiresAt ??
+            (invoiceArray?.[4] as bigint | number | undefined),
+        );
+        const state = readBigInt(
+          invoiceObject?.state ??
+            (invoiceArray?.[5] as bigint | number | undefined),
+        );
+        const buyer = readString(invoiceObject?.buyer ?? invoiceArray?.[9]);
+        const seller = readString(invoiceObject?.seller ?? invoiceArray?.[10]);
+        const paymentToken = readString(
+          invoiceObject?.paymentToken ?? invoiceArray?.[12],
+        );
+        const amountPaid = readBigInt(
+          invoiceObject?.amountPaid ??
+            (invoiceArray?.[13] as bigint | number | undefined),
+        );
+        const price = readBigInt(
+          invoiceObject?.price ??
+            (invoiceArray?.[14] as bigint | number | undefined),
+        );
+        const balance = readBigInt(
+          invoiceObject?.balance ??
+            (invoiceArray?.[15] as bigint | number | undefined),
+        );
+
+        if (!state || state === BigInt(0)) return;
+
+        const normalizedAddress = address.toLowerCase();
+        const isSeller =
+          typeof seller === "string" &&
+          seller.toLowerCase() === normalizedAddress;
+        const isBuyer =
+          typeof buyer === "string" &&
+          buyer.toLowerCase() === normalizedAddress;
+
+        if (!isSeller && !isBuyer) return;
+
+        const rawState = ADVANCED_STATE_LABELS[Number(state)] ?? "";
+        const status = eventStatus ?? sortState(rawState);
+        const paidTimestamp =
+          paidAt && paidAt > BigInt(0) ? paidAt.toString() : undefined;
+        const historyTime = eventStatus
+          ? nowInSeconds()
+          : paidTimestamp ?? createdAt?.toString();
+        const initialHistory = createdAt
+          ? [{ status: "CREATED", time: createdAt.toString() }]
+          : undefined;
+
+        const nextInvoice: Invoice = {
+          id: invoiceNonce ? invoiceNonce.toString() : invoiceId.toString(),
+          invoiceId,
+          createdAt: createdAt ? unixToGMT(Number(createdAt)) : null,
+          paidAt: paidTimestamp ?? "Not Paid",
+          status,
+          price: price ? price.toString() : null,
+          amountPaid:
+            amountPaid && amountPaid > BigInt(0)
+              ? amountPaid.toString()
+              : balance
+                ? balance.toString()
+                : "0",
+          type: isSeller ? "IssuedInvoice" : "ReceivedInvoice",
+          contract: contractAddress,
+          buyer: buyer ?? "",
+          seller: seller ?? "",
+          source: "Marketplace",
+          paymentToken: paymentToken ?? "",
+          paymentTxHash: status === "PAID" ? txHash : undefined,
+          refundTxHash: status === "REFUNDED" ? txHash : undefined,
+          releaseHash: status === "RELEASED" ? txHash : undefined,
+          disputeSettledTxHash:
+            status === "DISPUTE_SETTLED" ? txHash : undefined,
+          releaseAt: releaseAt ? releaseAt.toString() : undefined,
+          expiresAt: expiresAt ? expiresAt.toString() : undefined,
+          history: appendHistoryEntry(initialHistory, status, historyTime),
+          ...eventFields,
+        };
+
+        setInvoiceData((prev) => {
+          const mergedByKey = new Map<string, Invoice>(
+            prev.map((inv) => [getInvoiceMergeKey(inv), inv]),
+          );
+          const key = getInvoiceMergeKey(nextInvoice);
+          const existing = mergedByKey.get(key);
+
+          if (!existing) {
+            mergedByKey.set(key, nextInvoice);
+          } else {
+            mergedByKey.set(key, {
+              ...existing,
+              ...nextInvoice,
+              status: pickNewerStatus(
+                existing.status ?? "",
+                nextInvoice.status ?? "",
+              ),
+              paymentTxHash:
+                nextInvoice.paymentTxHash ?? existing.paymentTxHash,
+              refundTxHash: nextInvoice.refundTxHash ?? existing.refundTxHash,
+              releaseHash: nextInvoice.releaseHash ?? existing.releaseHash,
+              disputeSettledTxHash:
+                nextInvoice.disputeSettledTxHash ??
+                existing.disputeSettledTxHash,
+              releaseAt: nextInvoice.releaseAt || existing.releaseAt,
+              expiresAt: nextInvoice.expiresAt || existing.expiresAt,
+              buyer: nextInvoice.buyer || existing.buyer,
+              seller: nextInvoice.seller || existing.seller,
+              paymentToken: nextInvoice.paymentToken || existing.paymentToken,
+              price: nextInvoice.price ?? existing.price,
+              amountPaid: nextInvoice.amountPaid ?? existing.amountPaid,
+              history: mergeHistory(existing.history, nextInvoice.history),
+            });
+          }
+
+          return Array.from(mergedByKey.values()).sort(
+            compareInvoicesByLastActionDesc,
+          );
+        });
+        publishLiveInvoices([nextInvoice]);
+      } catch (error) {
+        console.error("Failed to hydrate marketplace invoice from chain", error);
+      }
+    },
+    [
+      address,
+      chainId,
+      publicClient,
+      publishLiveInvoices,
+      readMarketplaceInvoiceChainData,
+    ],
+  );
+
   const fetchLatestInvoices = useCallback(
     async (
       force = false,
@@ -952,7 +1334,7 @@ export const useInvoiceData = () => {
       isFetchingRef.current = true;
       try {
         if (mode === "user" || mode === "both") {
-          await getInvoiceData();
+          await getInvoiceData(currentPageRef.current, force);
         }
         if (mode === "admin" || mode === "both") {
           await refetchAllInvoiceData(force);
@@ -988,8 +1370,10 @@ export const useInvoiceData = () => {
       setInvoiceData(cachedInvoices);
     }
 
-    fetchLatestInvoices(true, "user");
-
+    // No initial network fetch here — IndexRecentPayment runs its own paged
+    // query, event watchers stream new invoices into invoiceData, and
+    // refetchInvoiceData is invoked after actions complete. The cache above
+    // gives an instant render in the meantime.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [address, chainId]);
 
@@ -1011,6 +1395,7 @@ export const useInvoiceData = () => {
     publicClient,
     setInvoiceData,
     onLiveInvoices: publishLiveInvoices,
+    hydrateMarketplaceInvoiceFromChain,
   });
 
   return {
@@ -1019,10 +1404,15 @@ export const useInvoiceData = () => {
     allInvoiceData,
     invoicePage,
     hasNextPage,
-    getInvoiceData,
+    // Default to the same cache-aware behavior as loadNextPage/loadPrevPage.
+    // Call refetchInvoiceData or pass force=true when a network refresh is needed.
+    getInvoiceData: (page?: number, force = false) =>
+      getInvoiceData(page ?? currentPageRef.current, force),
     getAllInvoiceData,
     getInvoiceOwner,
     getAdvancedInvoiceData,
+    addCreatedSimpleInvoice,
+    upsertLocalInvoice,
     setActiveEventTab,
     refetchAllInvoiceData: async () => {
       const data = await getAllInvoiceData(true);
@@ -1030,7 +1420,7 @@ export const useInvoiceData = () => {
     },
     refreshAdminData: async (force = false) =>
       fetchLatestInvoices(force, "admin"),
-    refetchInvoiceData: () => getInvoiceData(currentPageRef.current),
+    refetchInvoiceData: () => getInvoiceData(currentPageRef.current, true),
     loadNextPage: () => getInvoiceData(currentPageRef.current + 1),
     loadPrevPage: () =>
       currentPageRef.current > 0

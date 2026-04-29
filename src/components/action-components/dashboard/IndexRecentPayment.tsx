@@ -106,17 +106,20 @@ export default function IndexRecentPayment({
     refetch: refetchPage,
   } = usePagedInvoiceQuery({ isMarketplace: isMarketplaceTab, enabled });
 
-  // Dedup by `id` (the nonce string). `invoiceId` is not stable across data
-  // sources: event-hook entries hold BigInt(nonce), subgraph transforms hold
-  // the subgraph entity id ("0x..."). Keying off `invoiceId` produced two
-  // cards for the same invoice once the subgraph indexed an event-created one.
+  const invoiceKey = useCallback(
+    (invoice: Pick<Invoice, "invoiceId">) => invoice.invoiceId.toString(),
+    [],
+  );
+
+  // Dedup by contract invoice id. `id` is the display nonce and does not match
+  // status events, which emit the hashed uint216 invoice id.
   const sellerPagedIds = useMemo(
-    () => new Set(sellerInvoices.map((invoice) => invoice.id)),
-    [sellerInvoices],
+    () => new Set(sellerInvoices.map((invoice) => invoiceKey(invoice))),
+    [invoiceKey, sellerInvoices],
   );
   const buyerPagedIds = useMemo(
-    () => new Set(buyerInvoices.map((invoice) => invoice.id)),
-    [buyerInvoices],
+    () => new Set(buyerInvoices.map((invoice) => invoiceKey(invoice))),
+    [buyerInvoices, invoiceKey],
   );
 
   const sellerType = isMarketplaceTab ? "IssuedInvoice" : "Seller";
@@ -129,36 +132,56 @@ export default function IndexRecentPayment({
     const buyerOnly: Invoice[] = [];
 
     for (const invoice of liveInvoiceData) {
-      byKey.set(`${invoice.id}-${invoice.type}`, invoice);
+      const key = `${invoiceKey(invoice)}-${invoice.type}`;
+      byKey.set(key, invoice);
 
-      if (invoice.type === sellerType && !sellerPagedIds.has(invoice.id)) {
+      if (
+        invoice.type === sellerType &&
+        !sellerPagedIds.has(invoiceKey(invoice))
+      ) {
         sellerOnly.push(invoice);
       }
-      if (invoice.type === buyerType && !buyerPagedIds.has(invoice.id)) {
+      if (
+        invoice.type === buyerType &&
+        !buyerPagedIds.has(invoiceKey(invoice))
+      ) {
         buyerOnly.push(invoice);
       }
     }
 
     return { byKey, sellerOnly, buyerOnly };
-  }, [liveInvoiceData, sellerType, buyerType, sellerPagedIds, buyerPagedIds]);
+  }, [
+    liveInvoiceData,
+    sellerType,
+    buyerType,
+    sellerPagedIds,
+    buyerPagedIds,
+    invoiceKey,
+  ]);
 
   // Also surface invoices that only exist in context (e.g. just-created or
   // just-paid invoices not yet indexed by the subgraph).
   const liveSellerInvoices = useMemo(() => {
     const updated = sellerInvoices.map((invoice) => {
-      return liveOverlay.byKey.get(`${invoice.id}-${invoice.type}`) ?? invoice;
+      return (
+        liveOverlay.byKey.get(`${invoiceKey(invoice)}-${invoice.type}`) ??
+        invoice
+      );
     });
 
     return [...liveOverlay.sellerOnly, ...updated];
-  }, [sellerInvoices, liveOverlay]);
+  }, [invoiceKey, sellerInvoices, liveOverlay]);
 
   const liveBuyerInvoices = useMemo(() => {
     const updated = buyerInvoices.map((invoice) => {
-      return liveOverlay.byKey.get(`${invoice.id}-${invoice.type}`) ?? invoice;
+      return (
+        liveOverlay.byKey.get(`${invoiceKey(invoice)}-${invoice.type}`) ??
+        invoice
+      );
     });
 
     return [...liveOverlay.buyerOnly, ...updated];
-  }, [buyerInvoices, liveOverlay]);
+  }, [buyerInvoices, invoiceKey, liveOverlay]);
 
   // ── Tab selection filters in-memory (no new subgraph query) ───────────────
   const allForTab = useMemo(() => {
@@ -263,7 +286,7 @@ export default function IndexRecentPayment({
     );
 
     return pageInvoices.map((invoice) => {
-      const notes = localNotes[invoice.id];
+      const notes = localNotes[invoiceKey(invoice)];
       if (!notes?.length) return invoice;
 
       return {
@@ -271,7 +294,7 @@ export default function IndexRecentPayment({
         notes: [...(invoice.notes || []), ...notes],
       };
     });
-  }, [filteredInvoices, page, localNotes]);
+  }, [filteredInvoices, invoiceKey, page, localNotes]);
 
   const hasNextPageInMemory =
     page * INVOICE_PAGE_SIZE < filteredInvoices.length;
@@ -420,27 +443,31 @@ export default function IndexRecentPayment({
                       </div>
                     </div>
                   ) : displayInvoices.length > 0 ? (
-                    displayInvoices.map((invoice) => (
-                      <div
-                        key={`${invoice.id}-${invoice.type}`}
-                        className="w-full md:w-[48%] lg:w-[31%]"
-                      >
-                        {isMarketplaceTab ? (
-                          <MarketplaceCard
-                            invoice={invoice}
-                            isExpanded={expandedId === String(invoice.id)}
-                            onToggle={() => handleToggle(String(invoice.id))}
-                            onAddNote={handleAddNote}
-                          />
-                        ) : (
-                          <InvoiceCard
-                            invoice={invoice}
-                            isExpanded={expandedId === String(invoice.id)}
-                            onToggle={() => handleToggle(String(invoice.id))}
-                          />
-                        )}
-                      </div>
-                    ))
+                    displayInvoices.map((invoice) => {
+                      const key = invoiceKey(invoice);
+
+                      return (
+                        <div
+                          key={`${key}-${invoice.type}`}
+                          className="w-full md:w-[48%] lg:w-[31%]"
+                        >
+                          {isMarketplaceTab ? (
+                            <MarketplaceCard
+                              invoice={invoice}
+                              isExpanded={expandedId === key}
+                              onToggle={() => handleToggle(key)}
+                              onAddNote={handleAddNote}
+                            />
+                          ) : (
+                            <InvoiceCard
+                              invoice={invoice}
+                              isExpanded={expandedId === key}
+                              onToggle={() => handleToggle(key)}
+                            />
+                          )}
+                        </div>
+                      );
+                    })
                   ) : (
                     <div className="w-full text-center py-10 text-gray-500 border rounded-lg">
                       <span>

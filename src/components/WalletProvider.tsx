@@ -4,7 +4,7 @@ import { useAccount, usePublicClient, useWalletClient } from "wagmi";
 import { ContractContext } from "@/context/contract-context";
 import { useInvoiceData } from "@/hooks/useInvoiceData";
 import {
-  createInvoice,
+  createInvoice as createSimpleInvoice,
   makeInvoicePayment,
   sellerAction,
   cancelInvoice,
@@ -61,6 +61,8 @@ const WalletProvider = ({ children }: Props) => {
     loadPrevPage,
     getInvoiceData,
     refreshAdminData,
+    addCreatedSimpleInvoice,
+    upsertLocalInvoice,
     setActiveEventTab,
   } = useInvoiceData();
 
@@ -113,19 +115,26 @@ const WalletProvider = ({ children }: Props) => {
         hasNextPage,
         loadNextPage,
         loadPrevPage,
-        createInvoice: (
+        createInvoice: async (
           invoicePrice: bigint,
           storageRef?: string,
           share?: boolean,
-        ) =>
-          createInvoice(
+        ) => {
+          const created = await createSimpleInvoice(
             wagmiClients,
             invoicePrice,
             chainId,
             setIsLoading,
             storageRef,
             share,
-          ),
+          );
+
+          if (created) {
+            addCreatedSimpleInvoice(created);
+          }
+
+          return created?.invoiceId;
+        },
         makeInvoicePayment: (
           amount: bigint,
           invoiceId: bigint,
@@ -255,6 +264,7 @@ const WalletProvider = ({ children }: Props) => {
         refetchAllInvoiceData,
         refetchInvoiceData,
         refreshAdminData,
+        upsertLocalInvoice,
         setActiveEventTab,
       }}
     >

@@ -4,15 +4,20 @@ export const GET_ALL_INVOICES = `
   query GetAllInvoices(
     $skipInvoices: Int! = 0
     $firstInvoices: Int! = 50
+    $includeInvoices: Boolean! = true
     $skipActions: Int! = 0
     $firstActions: Int! = 50
+    $includeActions: Boolean! = true
     $skipSmartInvoices: Int! = 0
     $firstSmartInvoices: Int! = 50
+    $includeSmartInvoices: Boolean! = true
   ) {
     invoices: simplePaymentProcessors(
       first: $firstInvoices
       skip: $skipInvoices
-    ) {
+      orderBy: createdAt
+      orderDirection: desc
+    ) @include(if: $includeInvoices) {
       contract
       createdAt
       fee
@@ -36,7 +41,7 @@ export const GET_ALL_INVOICES = `
       skip: $skipActions
       orderBy: time
       orderDirection: desc
-    ) {
+    ) @include(if: $includeActions) {
       id
       invoiceId: invoiceNonce
       time
@@ -49,7 +54,9 @@ export const GET_ALL_INVOICES = `
     smartInvoices: advancedPaymentProcessors(
       first: $firstSmartInvoices
       skip: $skipSmartInvoices
-    ) {
+      orderBy: createdAt
+      orderDirection: desc
+    ) @include(if: $includeSmartInvoices) {
       contract
       createdAt
       id

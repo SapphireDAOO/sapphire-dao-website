@@ -2,6 +2,10 @@ import { formatEther } from "viem";
 import { Invoice } from "@/model/model";
 import { unixToGMT } from "@/utils";
 import { sortState, sortHistory, synthesizeMarketplaceHistory } from "@/lib/invoiceHistory";
+import {
+  getContractInvoiceIdBigInt,
+  getDisplayInvoiceIdString,
+} from "@/lib/invoiceIdentifiers";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type RawInvoice = any;
@@ -11,8 +15,8 @@ export const transformSimple = (
   inv: RawInvoice,
   type: "Seller" | "Buyer"
 ): Invoice => ({
-  id: inv.invoiceId ?? inv.invoiceNonce ?? inv.id,
-  invoiceId: inv.id,
+  id: getDisplayInvoiceIdString(inv),
+  invoiceId: getContractInvoiceIdBigInt(inv),
   createdAt: inv.createdAt ? unixToGMT(inv.createdAt) : null,
   paidAt: inv.paidAt || "Not Paid",
   status: sortState(inv.state, inv.invalidateAt),
@@ -40,8 +44,8 @@ export const transformMarketplace = (
   const history = synthesizeMarketplaceHistory(inv);
 
   return {
-    id: inv.invoiceId ?? inv.invoiceNonce ?? inv.id,
-    invoiceId: inv.id,
+    id: getDisplayInvoiceIdString(inv),
+    invoiceId: getContractInvoiceIdBigInt(inv),
     createdAt: inv.createdAt ? unixToGMT(inv.createdAt) : null,
     paidAt: inv.paidAt || "Not Paid",
     status: sortState(inv.state),

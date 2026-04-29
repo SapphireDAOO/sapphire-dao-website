@@ -71,10 +71,16 @@ export function usePagedInvoiceQuery({
       sellerSkip,
       buyerSkip,
       append,
+      requestPolicy,
     }: {
       sellerSkip: number | null; // null = skip this category
       buyerSkip: number | null; // null = skip this category
       append: boolean;
+      requestPolicy?:
+        | "cache-first"
+        | "cache-and-network"
+        | "network-only"
+        | "cache-only";
     }) => {
       if (!enabled) {
         setSellerInvoices([]);
@@ -113,15 +119,19 @@ export function usePagedInvoiceQuery({
         ) {
           // Both at same skip: one combined query (common case: initial load)
           const { data, error: gqlError } = await client(chainId)
-            .query(userInvoicesPageQuery, {
-              address: address.toLowerCase(),
-              first,
-              skip: sellerSkip,
-              includeOwned: !isMarketplace,
-              includePaid: !isMarketplace,
-              includeIssued: isMarketplace,
-              includeReceived: isMarketplace,
-            })
+            .query(
+              userInvoicesPageQuery,
+              {
+                address: address.toLowerCase(),
+                first,
+                skip: sellerSkip,
+                includeOwned: !isMarketplace,
+                includePaid: !isMarketplace,
+                includeIssued: isMarketplace,
+                includeReceived: isMarketplace,
+              },
+              requestPolicy ? { requestPolicy } : undefined,
+            )
             .toPromise();
 
           if (id !== fetchIdRef.current) return;
@@ -139,28 +149,36 @@ export function usePagedInvoiceQuery({
           const [sellerResult, buyerResult] = await Promise.all([
             sellerSkip !== null
               ? client(chainId)
-                  .query(userInvoicesPageQuery, {
-                    address: address.toLowerCase(),
-                    first,
-                    skip: sellerSkip,
-                    includeOwned: !isMarketplace,
-                    includePaid: false,
-                    includeIssued: isMarketplace,
-                    includeReceived: false,
-                  })
+                  .query(
+                    userInvoicesPageQuery,
+                    {
+                      address: address.toLowerCase(),
+                      first,
+                      skip: sellerSkip,
+                      includeOwned: !isMarketplace,
+                      includePaid: false,
+                      includeIssued: isMarketplace,
+                      includeReceived: false,
+                    },
+                    requestPolicy ? { requestPolicy } : undefined,
+                  )
                   .toPromise()
               : Promise.resolve({ data: null, error: null }),
             buyerSkip !== null
               ? client(chainId)
-                  .query(userInvoicesPageQuery, {
-                    address: address.toLowerCase(),
-                    first,
-                    skip: buyerSkip,
-                    includeOwned: false,
-                    includePaid: !isMarketplace,
-                    includeIssued: false,
-                    includeReceived: isMarketplace,
-                  })
+                  .query(
+                    userInvoicesPageQuery,
+                    {
+                      address: address.toLowerCase(),
+                      first,
+                      skip: buyerSkip,
+                      includeOwned: false,
+                      includePaid: !isMarketplace,
+                      includeIssued: false,
+                      includeReceived: isMarketplace,
+                    },
+                    requestPolicy ? { requestPolicy } : undefined,
+                  )
                   .toPromise()
               : Promise.resolve({ data: null, error: null }),
           ]);
@@ -249,14 +267,24 @@ export function usePagedInvoiceQuery({
 
     nextSellerSkipRef.current = 0;
     nextBuyerSkipRef.current = 0;
-    void doFetch({ sellerSkip: 0, buyerSkip: 0, append: false });
+    void doFetch({
+      sellerSkip: 0,
+      buyerSkip: 0,
+      append: false,
+      requestPolicy: "network-only",
+    });
   }, [doFetch, enabled, isWindowVisible]);
 
   const refetch = useCallback(() => {
     if (!enabled) return;
     nextSellerSkipRef.current = 0;
     nextBuyerSkipRef.current = 0;
-    void doFetch({ sellerSkip: 0, buyerSkip: 0, append: false });
+    void doFetch({
+      sellerSkip: 0,
+      buyerSkip: 0,
+      append: false,
+      requestPolicy: "network-only",
+    });
   }, [doFetch, enabled]);
 
   const loadMoreSeller = useCallback(() => {

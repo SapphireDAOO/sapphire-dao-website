@@ -1,5 +1,11 @@
 import { toast } from "sonner";
-import { Address, encodeFunctionData } from "viem";
+import {
+  Address,
+  decodeEventLog,
+  encodeFunctionData,
+  type Hex,
+  type Log,
+} from "viem";
 import { baseSepolia } from "viem/chains";
 import {
   ADVANCED_PAYMENT_PROCESSOR,
@@ -15,6 +21,16 @@ import { WagmiClient } from "./types";
 import { advancedPaymentProcessor } from "@/abis/AdvancedPaymentProcessor";
 import { toEncryptedNoteHex } from "@/utils";
 
+export type CreatedSimpleInvoice = {
+  invoiceId: bigint;
+  invoiceNonce?: bigint;
+  createdAt?: bigint;
+  invalidateAt?: bigint;
+  price?: bigint;
+  seller?: Address;
+  txHash: Hex;
+};
+
 export const createInvoice = async (
   { walletClient, publicClient }: WagmiClient,
   invoicePrice: bigint,
@@ -22,7 +38,7 @@ export const createInvoice = async (
   setIsLoading: (value: string) => void,
   storageRef?: string,
   share?: boolean,
-): Promise<bigint | undefined> => {
+): Promise<CreatedSimpleInvoice | undefined> => {
   setIsLoading("createInvoice");
   const storageRefHex = toEncryptedNoteHex(storageRef);
   const shareFlag = Boolean(share && storageRef?.trim());
@@ -46,12 +62,49 @@ export const createInvoice = async (
 
     const receipt = await publicClient?.waitForTransactionReceipt({
       hash: tx,
-      confirmations: 1,
     });
 
     if (receipt?.status) {
-      const invoiceId = receipt?.logs?.[0]?.topics?.[1];
-      return invoiceId ? BigInt(invoiceId) : undefined;
+      const contractAddress = SIMPLE_PAYMENT_PROCESSOR[chainId]?.toLowerCase();
+      const createdLog = receipt.logs.find(
+        (log: Log) => log.address.toLowerCase() === contractAddress,
+      );
+
+      if (!createdLog) return undefined;
+
+      const decoded = decodeEventLog({
+        abi: paymentProcessor,
+        data: createdLog.data,
+        topics: createdLog.topics,
+        eventName: "InvoiceCreated",
+      }) as unknown as {
+        args: {
+          invoiceId: bigint;
+          invoice?: {
+            invoiceNonce?: bigint;
+            createdAt?: bigint | number;
+            invalidateAt?: bigint | number;
+            price?: bigint;
+            seller?: Address;
+          };
+        };
+      };
+
+      const toBigInt = (value?: bigint | number) => {
+        if (typeof value === "bigint") return value;
+        if (typeof value === "number") return BigInt(value);
+        return undefined;
+      };
+
+      return {
+        invoiceId: decoded.args.invoiceId,
+        invoiceNonce: decoded.args.invoice?.invoiceNonce,
+        createdAt: toBigInt(decoded.args.invoice?.createdAt),
+        invalidateAt: toBigInt(decoded.args.invoice?.invalidateAt),
+        price: decoded.args.invoice?.price,
+        seller: decoded.args.invoice?.seller,
+        txHash: tx,
+      };
     } else {
       toast.error("Error creating invoice, Please try again.");
       return undefined;
@@ -110,8 +163,9 @@ export const makeInvoicePayment = async (
     }
   } catch (error) {
     getError(error);
+  } finally {
+    setIsLoading("");
   }
-  setIsLoading("");
   return success;
 };
 
@@ -157,8 +211,9 @@ export const sellerAction = async (
     }
   } catch (error) {
     getError(error);
+  } finally {
+    setIsLoading("");
   }
-  setIsLoading("");
   return success;
 };
 
@@ -192,7 +247,6 @@ export const cancelInvoice = async (
 
     const receipt = await publicClient?.waitForTransactionReceipt({
       hash: tx,
-      confirmations: 2,
     });
 
     if (receipt?.status) {
@@ -202,8 +256,9 @@ export const cancelInvoice = async (
     }
   } catch (error) {
     getError(error);
+  } finally {
+    setIsLoading("");
   }
-  setIsLoading("");
   return success;
 };
 
@@ -249,8 +304,9 @@ export const releaseInvoice = async (
     }
   } catch (error) {
     getError(error);
+  } finally {
+    setIsLoading("");
   }
-  setIsLoading("");
   return success;
 };
 
@@ -296,8 +352,9 @@ export const refundBuyerAfterWindow = async (
     }
   } catch (error) {
     getError(error);
+  } finally {
+    setIsLoading("");
   }
-  setIsLoading("");
   return success;
 };
 
@@ -343,8 +400,9 @@ export const transferOwnership = async (
     }
   } catch (error) {
     getError(error);
+  } finally {
+    setIsLoading("");
   }
-  setIsLoading("");
   return success;
 };
 
@@ -390,8 +448,9 @@ export const setFeeReceiversAddress = async (
     }
   } catch (error) {
     getError(error);
+  } finally {
+    setIsLoading("");
   }
-  setIsLoading("");
   return success;
 };
 
@@ -434,8 +493,6 @@ export const setInvoiceHoldPeriod = async (
       gasPrice,
     });
 
-    tx.wait(1);
-
     if (!tx) {
       toast.error("Transaction failed to initiate");
       return false;
@@ -454,9 +511,9 @@ export const setInvoiceHoldPeriod = async (
     }
   } catch (error) {
     getError(error);
+  } finally {
+    setIsLoading("");
   }
-
-  setIsLoading("");
   return success;
 };
 
@@ -502,8 +559,9 @@ export const setDefaultHoldPeriod = async (
     }
   } catch (error) {
     getError(error);
+  } finally {
+    setIsLoading("");
   }
-  setIsLoading("");
   return success;
 };
 
@@ -549,8 +607,9 @@ export const setFee = async (
     }
   } catch (error) {
     getError(error);
+  } finally {
+    setIsLoading("");
   }
-  setIsLoading("");
   return success;
 };
 
@@ -596,8 +655,9 @@ export const setMinimumInvoiceValue = async (
     }
   } catch (error) {
     getError(error);
+  } finally {
+    setIsLoading("");
   }
-  setIsLoading("");
   return success;
 };
 
@@ -643,9 +703,9 @@ export const setDecisionWindow = async (
     }
   } catch (error) {
     getError(error);
+  } finally {
+    setIsLoading("");
   }
-
-  setIsLoading("");
   return success;
 };
 
@@ -691,9 +751,9 @@ export const setValidPeriod = async (
     }
   } catch (error) {
     getError(error);
+  } finally {
+    setIsLoading("");
   }
-
-  setIsLoading("");
   return success;
 };
 

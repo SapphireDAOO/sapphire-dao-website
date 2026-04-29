@@ -15,7 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ContractContext } from "@/context/contract-context";
 import { CircleCheckBig, Loader2 } from "lucide-react";
-import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { PaymentCardProps } from "@/model/model";
 import {
@@ -26,7 +26,7 @@ import {
   DialogPortal,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { formatEther, parseEther } from "viem";
+import { formatEther, parseEther, type AbiEvent } from "viem";
 import { useGetInvoiceData } from "@/hooks/useGetInvoiceData";
 import { useInvoiceNotes, ThreadNote } from "@/hooks/useInvoiceNotes";
 import { SIMPLE_PAYMENT_PROCESSOR } from "@/constants";
@@ -47,6 +47,37 @@ type InvoiceLike = {
   notes?: { message?: string }[];
 };
 
+const paymentStatusFromEvent = {
+  InvoicePaid: "PAID",
+  InvoiceAccepted: "ACCEPTED",
+  InvoiceRejected: "REFUNDED",
+  InvoiceRefunded: "REFUNDED",
+  InvoiceReleased: "RELEASED",
+  InvoiceCanceled: "CANCELED",
+} as const;
+
+const paymentStatusEventNames = new Set(Object.keys(paymentStatusFromEvent));
+
+const paymentStatusEvents = (
+  paymentProcessor as readonly { type: string; name?: string }[]
+).filter(
+  (item): item is AbiEvent =>
+    item.type === "event" &&
+    typeof item.name === "string" &&
+    paymentStatusEventNames.has(item.name),
+);
+
+const getInvoiceSeller = (invoice: unknown) => {
+  const item = invoice as
+    | { seller?: unknown; [index: number]: unknown }
+    | undefined;
+  if (typeof item?.seller === "string" && item.seller) return item.seller;
+
+  // ISimplePaymentProcessor.Invoice tuple index 8 is seller.
+  const tupleSeller = item?.[8];
+  return typeof tupleSeller === "string" && tupleSeller ? tupleSeller : undefined;
+};
+
 const PaymentCard = ({ data }: PaymentCardProps) => {
   const { address, chain } = useAccount();
   const publicClient = usePublicClient();
@@ -59,6 +90,7 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
   const [paymentNote, setPaymentNote] = useState("");
   const [shareNote, setShareNote] = useState(false);
   const countdownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const paymentSubmittedRef = useRef(false);
 
   useEffect(() => {
     return () => {
@@ -75,7 +107,6 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
 
   const {
     invoiceData,
-    getInvoiceOwner,
     makeInvoicePayment,
     isLoading,
     refetchInvoiceData,
@@ -90,6 +121,10 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
 
   const resolvedInvoice = liveInvoice ?? fetchedInvoice;
   const invoiceLike = resolvedInvoice as InvoiceLike | undefined;
+  const invoiceSeller = useMemo(
+    () => getInvoiceSeller(liveInvoice) ?? getInvoiceSeller(fetchedInvoice),
+    [fetchedInvoice, liveInvoice],
+  );
 
   const displayinvoiceId = useMemo(() => {
     const fetched = fetchedInvoice as
@@ -140,10 +175,7 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
     const sharedNotes = invoiceNotes.filter((note) => note.share);
     if (!sharedNotes.length) return undefined;
 
-    const creator =
-      typeof invoiceLike?.seller === "string"
-        ? invoiceLike.seller.toLowerCase()
-        : undefined;
+    const creator = invoiceSeller?.toLowerCase();
     if (!creator) return undefined;
 
     const creatorNotes = sharedNotes.filter(
@@ -162,7 +194,7 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
         return earliest;
       }
     }, undefined);
-  }, [invoiceNotes, invoiceLike?.seller]);
+  }, [invoiceNotes, invoiceSeller]);
 
   useEffect(() => {
     setLiveStatus(normalizedStatus);
@@ -171,64 +203,35 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
   useEffect(() => {
     if (!publicClient || !invoiceId) return;
 
-    const shouldSubscribe =
-      liveStatus === "AWAITING PAYMENT" ||
-      liveStatus === "CREATED" ||
-      liveStatus === "1" ||
-      liveStatus === undefined;
-
-    if (!shouldSubscribe) return;
-
     const activeChainId = chain?.id || BASE_SEPOLIA;
+    const processorAddress = SIMPLE_PAYMENT_PROCESSOR[activeChainId];
+    if (!processorAddress) return;
 
-    const statusFromEvent: Record<
-      | "InvoicePaid"
-      | "InvoiceAccepted"
-      | "InvoiceRejected"
-      | "InvoiceRefunded"
-      | "InvoiceReleased"
-      | "InvoiceCanceled",
-      string
-    > = {
-      InvoicePaid: "PAID",
-      InvoiceAccepted: "ACCEPTED",
-      InvoiceRejected: "REFUNDED",
-      InvoiceRefunded: "REFUNDED",
-      InvoiceReleased: "RELEASED",
-      InvoiceCanceled: "CANCELED",
-    };
+    const unwatch = publicClient.watchEvent({
+      address: processorAddress,
+      events: paymentStatusEvents,
+      onLogs: (logs) => {
+        for (const log of logs) {
+          const name = log.eventName as
+            | keyof typeof paymentStatusFromEvent
+            | undefined;
+          const nextStatus = name ? paymentStatusFromEvent[name] : undefined;
+          if (!nextStatus) continue;
 
-    const eventNames: Array<keyof typeof statusFromEvent> = [
-      "InvoicePaid",
-      "InvoiceAccepted",
-      "InvoiceRejected",
-      "InvoiceRefunded",
-      "InvoiceReleased",
-      "InvoiceCanceled",
-    ];
-
-    const unwatch = eventNames.map((name) =>
-      publicClient.watchContractEvent({
-        address: SIMPLE_PAYMENT_PROCESSOR[activeChainId],
-        abi: paymentProcessor,
-        eventName: name,
-        onLogs: (logs) => {
-          for (const log of logs) {
-            const args = log.args as
-              | { invoiceId?: bigint; invoiceNonce?: bigint }
-              | undefined;
-            const id = (args?.invoiceId ?? args?.invoiceNonce)?.toString();
-            if (id !== invoiceId?.toString()) continue;
-            setLiveStatus(statusFromEvent[name]);
-          }
-        },
-      }),
-    );
+          const args = log.args as
+            | { invoiceId?: bigint; invoiceNonce?: bigint }
+            | undefined;
+          const id = (args?.invoiceId ?? args?.invoiceNonce)?.toString();
+          if (id !== invoiceId.toString()) continue;
+          setLiveStatus(nextStatus);
+        }
+      },
+    });
 
     return () => {
-      unwatch.forEach((u) => u?.());
+      unwatch();
     };
-  }, [publicClient, invoiceId, chain?.id, liveStatus]);
+  }, [publicClient, invoiceId, chain?.id]);
 
   const canPay =
     liveStatus === "AWAITING PAYMENT" ||
@@ -236,37 +239,32 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
     liveStatus === "1" ||
     liveStatus === undefined;
 
-  const isCreator = useCallback(async () => {
-    if (!invoiceId) return false;
-    const creator = await getInvoiceOwner(invoiceId.toString());
-    return address?.toLowerCase() === creator?.toLowerCase();
-  }, [address, getInvoiceOwner, invoiceId]);
-
   useEffect(() => {
-    const check = async () => {
-      if (!address || !invoiceId) {
-        setUserIsCreator(false);
-        setCreatorChecked(false);
-        return;
-      }
-
+    if (!address || !invoiceId) {
+      setUserIsCreator(false);
       setCreatorChecked(false);
-      try {
-        const result = await isCreator();
-        setUserIsCreator(result);
-      } catch (err) {
-        console.error("Failed to determine invoice creator:", err);
-        setUserIsCreator(false);
-      } finally {
-        setCreatorChecked(true);
-      }
-    };
-    check();
-  }, [address, invoiceId, isCreator]);
+      return;
+    }
+
+    if (!invoiceSeller) {
+      setUserIsCreator(false);
+      setCreatorChecked(false);
+      return;
+    }
+
+    setUserIsCreator(address.toLowerCase() === invoiceSeller.toLowerCase());
+    setCreatorChecked(true);
+  }, [address, invoiceId, invoiceSeller]);
 
   useEffect(() => {
     if (!invoiceId || canPay || open) return;
-    if (!creatorChecked || isLoading === "makeInvoicePayment") return;
+    if (
+      !creatorChecked ||
+      isLoading === "makeInvoicePayment" ||
+      paymentSubmittedRef.current
+    ) {
+      return;
+    }
 
     const nextTab = userIsCreator ? "seller" : "buyer";
 
@@ -310,14 +308,15 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
     }
 
     try {
-      if (
-        await makeInvoicePayment(
-          priceWei,
-          invoiceId,
-          paymentNote.trim(),
-          shareNote,
-        )
-      ) {
+      paymentSubmittedRef.current = true;
+      const paid = await makeInvoicePayment(
+        priceWei,
+        invoiceId,
+        paymentNote.trim(),
+        shareNote,
+      );
+
+      if (paid) {
         setOpen(true);
 
         setCountdown(3);
@@ -335,8 +334,11 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
             return next;
           });
         }, 1000);
+      } else {
+        paymentSubmittedRef.current = false;
       }
     } catch (err) {
+      paymentSubmittedRef.current = false;
       console.error("Payment failed:", err);
       toast.error("Payment failed. Please try again.");
     }

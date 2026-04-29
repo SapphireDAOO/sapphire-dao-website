@@ -101,9 +101,9 @@ export const payAdvancedInvoice = async (
     }
   } catch (error) {
     getError(error);
+  } finally {
+    setIsLoading("");
   }
-
-  setIsLoading("");
   return success;
 };
 
@@ -148,8 +148,9 @@ export const setMarketplaceAddress = async (
   } catch (error) {
     // toast.dismiss(progressToastId);
     getError(error);
+  } finally {
+    setIsLoading("");
   }
-  setIsLoading("");
   return success;
 };
 

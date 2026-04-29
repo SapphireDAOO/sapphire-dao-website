@@ -14,8 +14,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { type AbiEvent, Address, encodeFunctionData } from "viem";
-import { ethers } from "ethers";
+import { type AbiEvent, Address, encodeFunctionData, formatEther, parseEther } from "viem";
 import { CalendarIcon, Info, Loader2 } from "lucide-react";
 import {
   SIMPLE_PAYMENT_PROCESSOR,
@@ -35,6 +34,7 @@ import { useGetDecisionWindow } from "@/hooks/useGetDecisionWindow";
 import { useGetValidPeriod } from "@/hooks/useGetValidPeriod";
 import { proposeMultiSigTransaction } from "@/services/blockchain/MultiSig";
 import AdminSettingRow from "./AdminSettingRow";
+import { toast } from "sonner";
 
 const fn1 = (name: string, type: string) =>
   [{ name, type: "function" as const, inputs: [{ name: "v", type, internalType: type }], outputs: [], stateMutability: "nonpayable" as const }] as const;
@@ -108,7 +108,14 @@ const AdminCard = () => {
   const propose = useCallback(
     async (target: Address, calldata: `0x${string}`, loader: (v: string) => void) => {
       if (!walletClient || !publicClient) return false;
-      return proposeMultiSigTransaction({ walletClient, publicClient }, target, calldata, chainId, loader);
+      const result = await proposeMultiSigTransaction(
+        { walletClient, publicClient },
+        target,
+        calldata,
+        chainId,
+        loader,
+      );
+      return result.ok;
     },
     [walletClient, publicClient, chainId],
   );
@@ -160,7 +167,10 @@ const AdminCard = () => {
     const [hours, minutes] = holdTime.split(":").map(Number);
     const deadline = new Date(holdDate);
     deadline.setHours(hours, minutes, 0, 0);
-    const releaseTimestamp = BigInt(Math.floor(deadline.getTime() / 1000));
+    const deadlineSeconds = BigInt(Math.floor(deadline.getTime() / 1000));
+    const nowSeconds = BigInt(Math.floor(Date.now() / 1000));
+    if (deadlineSeconds <= nowSeconds) return;
+    const holdPeriod = deadlineSeconds - nowSeconds;
     const id = BigInt(invoiceId);
 
     const isAdvanced = holdContract === "advanced";
@@ -168,7 +178,7 @@ const AdminCard = () => {
     const calldata = encodeFunctionData({
       abi: fn2("setInvoiceReleaseTime", "uint216", isAdvanced ? "uint256" : "uint40"),
       functionName: "setInvoiceReleaseTime",
-      args: [id, releaseTimestamp],
+      args: [id, holdPeriod],
     });
 
     const ok = await propose(target, calldata, makeLoader("invoiceRelease"));
@@ -217,9 +227,17 @@ const AdminCard = () => {
   };
 
   const handleMinimumInvoiceValue = async () => {
+    let minimumValue: bigint;
+    try {
+      minimumValue = parseEther(value);
+    } catch {
+      toast.error("Enter a valid ETH amount.");
+      return;
+    }
+
     const ok = await propose(
       SIMPLE_PAYMENT_PROCESSOR[chainId] as Address,
-      encodeFunctionData({ abi: fn1("setMinimumInvoiceValue", "uint256"), functionName: "setMinimumInvoiceValue", args: [ethers.parseEther(value)] }),
+      encodeFunctionData({ abi: fn1("setMinimumInvoiceValue", "uint256"), functionName: "setMinimumInvoiceValue", args: [minimumValue] }),
       makeLoader("minimumValue"),
     );
     if (ok) setValue("");
@@ -292,7 +310,7 @@ const AdminCard = () => {
           <p className="text-sm font-medium">
             <span className="text-muted-foreground">Minimum Invoice Value: </span>
             <span className="font-mono text-primary">
-              {minimumInvoiceValue ? ethers.formatEther(minimumInvoiceValue) + " ETH" : "Loading..."}
+              {minimumInvoiceValue ? formatEther(minimumInvoiceValue) + " ETH" : "Loading..."}
             </span>
           </p>
         </div>

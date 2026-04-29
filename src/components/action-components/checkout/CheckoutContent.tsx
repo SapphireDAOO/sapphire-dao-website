@@ -12,6 +12,11 @@ import { useChainId } from "wagmi";
 import CheckoutCard from "./CheckoutCard";
 import Container from "@/components/Container";
 import { useGetMarketplaceInvoiceData } from "@/hooks/useGetMarketplaceInvoiceData";
+import {
+  getContractInvoiceIdBigInt,
+  getDisplayInvoiceIdString,
+  toInvoiceIdBigInt,
+} from "@/lib/invoiceIdentifiers";
 
 
 const CheckoutPage = () => {
@@ -36,7 +41,12 @@ const CheckoutPage = () => {
 
         const result = await response.json();
         if (response.ok && result.valid) {
-          setinvoiceId(result.data.invoiceId);
+          const parsedInvoiceId = toInvoiceIdBigInt(result.data.invoiceId);
+          if (parsedInvoiceId) {
+            setinvoiceId(parsedInvoiceId);
+          } else {
+            setError("Invalid invoice ID in payment link.");
+          }
         } else {
           setError(result.error || "Token verification failed.");
         }
@@ -82,8 +92,8 @@ const CheckoutPage = () => {
         let structured: InvoiceDetails;
         if (invoice) {
           structured = {
-            id: invoice.invoiceId ?? invoice.invoiceNonce,
-            invoiceId: invoice.id,
+            id: getDisplayInvoiceIdString(invoice),
+            invoiceId: getContractInvoiceIdBigInt(invoice),
             price: invoice.price,
             tokenList: paymentTokens,
             status: invoice.state,

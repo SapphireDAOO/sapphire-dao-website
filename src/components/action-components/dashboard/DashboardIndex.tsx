@@ -5,7 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import DashboardHeader from "./Header";
 import RecentPayment from "./IndexRecentPayment";
 import { useRouter } from "next/navigation";
-import { useState, useContext } from "react";
+import { useState, useContext, useEffect } from "react";
 import { ContractContext } from "@/context/contract-context";
 
 const DashboardIndex = ({
@@ -18,6 +18,13 @@ const DashboardIndex = ({
   const [activeTab, setActiveTab] = useState(
     isMarketplaceTab ? "marketplace" : "invoices",
   );
+
+  // Sync the event watcher to the current route on mount and route changes.
+  // Without this, opening /marketplace-dashboard directly leaves the simple
+  // watcher active because setActiveEventTab was only fired in handleTabChange.
+  useEffect(() => {
+    setActiveEventTab?.(isMarketplaceTab ? "marketplace" : "simple");
+  }, [isMarketplaceTab, setActiveEventTab]);
 
   const handleTabChange = (value: string) => {
     setActiveTab(value);

@@ -60,6 +60,7 @@ export interface ContractContextData {
   refetchInvoiceData?: () => Promise<void>;
   refetchAllInvoiceData?: () => Promise<void>;
   refreshAdminData?: (force?: boolean) => Promise<void>;
+  upsertLocalInvoice?: (invoice: Invoice) => void;
   setActiveEventTab?: (tab: "simple" | "marketplace") => void;
 }
 
@@ -93,6 +94,7 @@ export const contractContextDefaults: ContractContextData = {
   refetchInvoiceData: async () => Promise.resolve(),
   refetchAllInvoiceData: async () => Promise.resolve(),
   refreshAdminData: async () => Promise.resolve(),
+  upsertLocalInvoice: () => {},
   getInvoiceOwner: async () => Promise.resolve(""),
   getAdvancedInvoiceData: async () => Promise.resolve(""),
   setActiveEventTab: () => {},
