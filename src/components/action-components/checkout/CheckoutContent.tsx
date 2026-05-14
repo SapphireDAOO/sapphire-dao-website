@@ -136,7 +136,7 @@ const CheckoutPage = () => {
     return (
       <Container>
         <div className="flex items-center justify-center min-h-[calc(100vh-4rem)] text-red-500">
-          An error occcureed. Try again
+          An error occurred. Try again
         </div>
       </Container>
     );
