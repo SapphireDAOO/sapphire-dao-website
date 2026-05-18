@@ -6,7 +6,12 @@ import { useSearchParams } from "next/navigation";
 import { ContractContext } from "@/context/contract-context";
 import { useGetMetaInvoice } from "@/hooks/useGetMetaInvoice";
 import { InvoiceDetails, TokenData } from "@/model/model";
-import { BASE_SEPOLIA, mergeKnownPaymentTokens } from "@/constants";
+import {
+  BASE_SEPOLIA,
+  ENABLE_SUBGRAPH_PAYMENT_TOKENS,
+  KNOWN_PAYMENT_TOKENS,
+  mergeKnownPaymentTokens,
+} from "@/constants";
 import { useChainId } from "wagmi";
 
 import CheckoutCard from "./CheckoutCard";
@@ -84,10 +89,12 @@ const CheckoutPage = () => {
         const response = await getAdvancedInvoiceData(invoiceId, type);
 
         const invoice = response?.[type];
-        const paymentTokens: TokenData[] = mergeKnownPaymentTokens(
-          chainId,
-          response?.paymentTokens || [],
-        );
+        // KNOWN_PAYMENT_TOKENS is the source of truth while the subgraph
+        // PaymentToken entity isn't reliable. Flip ENABLE_SUBGRAPH_PAYMENT_TOKENS
+        // to merge the subgraph's list in.
+        const paymentTokens: TokenData[] = ENABLE_SUBGRAPH_PAYMENT_TOKENS
+          ? mergeKnownPaymentTokens(chainId, response?.paymentTokens || [])
+          : (KNOWN_PAYMENT_TOKENS[chainId] ?? []);
 
         let structured: InvoiceDetails;
         if (invoice) {
