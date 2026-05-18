@@ -23,9 +23,15 @@ import { useSharedSecondTicker } from "@/hooks/useSharedSecondTicker";
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 const isZeroAddress = (value?: string) => value?.toLowerCase() === ZERO_ADDRESS;
 
+/** Display floor — anything > 0 but below this collapses to a "<min" sentinel */
+const TOKEN_DISPLAY_MIN = 0.0001;
+
 /** Format a numeric amount without scientific notation */
 const fmtAmount = (value: number): string => {
   if (!Number.isFinite(value) || value === 0) return "0";
+  // A tiny payment (e.g. 0.00005 ETH) would otherwise round to "0" at 4 fraction
+  // digits and read as if nothing was paid. Surface it explicitly instead.
+  if (value > 0 && value < TOKEN_DISPLAY_MIN) return `<${TOKEN_DISPLAY_MIN}`;
   return value.toLocaleString("en-US", {
     minimumFractionDigits: 0,
     maximumFractionDigits: 4,
@@ -101,13 +107,34 @@ export function MarketplaceCard({
   const isBuyerView = invoice.type === "ReceivedInvoice";
 
   const tokenData = useGetPaymentTokenData(invoice.paymentToken ?? "");
-  // Token decimals for actual token amounts (amountPaid, amountReleased, etc.)
-  const tokenDecimals = tokenData?.decimals ?? 8;
-  const paymentCurrency = useMemo(() => {
-    const namedCurrency = tokenData?.name?.trim();
-    if (namedCurrency) return namedCurrency;
-    return isZeroAddress(invoice.paymentToken) ? "ETH" : "";
-  }, [tokenData?.name, invoice.paymentToken]);
+  // Resolve (decimals, symbol) from the same source so the rendered amount and the
+  // suffix always agree. Hardcoded KNOWN_PAYMENT_TOKENS is the source of truth; the
+  // subgraph fallback is gated by ENABLE_SUBGRAPH_PAYMENT_TOKENS. DEFAULT_TOKEN
+  // (decimals=18, name="") is treated as "not yet resolved" via the empty id.
+  const { tokenDecimals, paymentCurrency } = useMemo(() => {
+    // Native ETH: the marketplace subgraph stores ETH-paid invoices with no
+    // PaymentToken entity, so paymentToken arrives as "" (or the zero address).
+    // Both cases mean ETH — must be matched before the unknown-token fallback,
+    // otherwise an 18-decimal value gets divided by 10^8 (the 10^10 blow-up).
+    if (!invoice.paymentToken || isZeroAddress(invoice.paymentToken)) {
+      return { tokenDecimals: 18, paymentCurrency: "ETH" };
+    }
+    if (tokenData?.id) {
+      return {
+        tokenDecimals: tokenData.decimals,
+        paymentCurrency: tokenData.name?.trim() || "tokens",
+      };
+    }
+    // Unknown token (not in the hardcoded list, subgraph disabled or empty result).
+    // Fall back to 8 decimals — the most common marketplace token width — and a
+    // generic label so the amount still renders with a unit.
+    return { tokenDecimals: 8, paymentCurrency: "tokens" };
+  }, [
+    invoice.paymentToken,
+    tokenData?.id,
+    tokenData?.decimals,
+    tokenData?.name,
+  ]);
 
   /** Format a raw bigint string (token units) to a human-readable string */
   const formatTokenAmount = useCallback(
@@ -298,8 +325,7 @@ export function MarketplaceCard({
   /* ── Amount display helpers ─────────────────────────────────────────────── */
 
   const withCurrencySuffix = useCallback(
-    (value: string) =>
-      paymentCurrency ? `${value} ${paymentCurrency}` : value,
+    (value: string) => `${value} ${paymentCurrency}`,
     [paymentCurrency],
   );
 
@@ -581,7 +607,6 @@ export function MarketplaceCard({
                 link="https://sapphiredao.gitbook.io/sapphiredao-docs/user-docs/publish-your-docs#buyer"
               />
             )}
-
 
           {/* Dispute Status — PAID only (pre-dispute window) */}
           {displayStatus === "PAID" && (

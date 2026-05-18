@@ -6,6 +6,7 @@ import {
   getContractInvoiceIdBigInt,
   getDisplayInvoiceIdString,
 } from "@/lib/invoiceIdentifiers";
+import { ZERO_ADDRESS } from "@/constants";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type RawInvoice = any;
@@ -67,7 +68,9 @@ export const transformMarketplace = (
     invalidateAt: inv.invalidateAt,
     expiresAt: inv.expiresAt,
     source: "Marketplace" as const,
-    paymentToken: inv.paymentToken?.id ?? "",
+    // Native ETH has no PaymentToken entity in the subgraph — normalize to the
+    // zero address so downstream code (token lookup, display) has a real sentinel.
+    paymentToken: inv.paymentToken?.id ?? ZERO_ADDRESS,
     refundTxHash: inv.refundTxHash,
     history,
   };

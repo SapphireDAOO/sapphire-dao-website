@@ -15,6 +15,7 @@ import {
   ADVANCED_PAYMENT_PROCESSOR,
   BASE_SEPOLIA,
   SIMPLE_PAYMENT_PROCESSOR,
+  ZERO_ADDRESS,
 } from "@/constants";
 import {
   AllInvoice,
@@ -655,7 +656,9 @@ export const useInvoiceData = () => {
           releaseAt: invoice.releasedAt,
           buyer: invoice.buyer?.id ?? "",
           source: "Marketplace" as const,
-          paymentToken: invoice.paymentToken?.id ?? "",
+          // Native ETH has no PaymentToken entity in the subgraph — normalize to the
+          // zero address so downstream lookups (decimals, symbol) match correctly.
+          paymentToken: invoice.paymentToken?.id ?? ZERO_ADDRESS,
           cancelAt: invoice.cancelAt,
           refundTxHash: invoice.refundTxHash,
           history: synthesizeMarketplaceHistory(invoice),

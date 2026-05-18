@@ -5,7 +5,11 @@ import { TokenData } from "@/model/model";
 import { client } from "@/services/graphql/client";
 import { paymentTokenQuery } from "@/services/graphql/queries";
 import { useChainId } from "wagmi";
-import { BASE_SEPOLIA, getKnownPaymentToken } from "@/constants";
+import {
+  BASE_SEPOLIA,
+  ENABLE_SUBGRAPH_PAYMENT_TOKENS,
+  getKnownPaymentToken,
+} from "@/constants";
 
 const DEFAULT_TOKEN: TokenData = {
   name: "",
@@ -47,6 +51,13 @@ export const useGetPaymentTokenData = (tokenId: string) => {
       if (knownToken) {
         tokenCache.set(cacheKey, knownToken);
         setToken(knownToken);
+        return;
+      }
+
+      // Subgraph PaymentToken lookup is gated — hardcoded KNOWN_PAYMENT_TOKENS is
+      // the source of truth until ENABLE_SUBGRAPH_PAYMENT_TOKENS is flipped to true.
+      if (!ENABLE_SUBGRAPH_PAYMENT_TOKENS) {
+        setToken(DEFAULT_TOKEN);
         return;
       }
 

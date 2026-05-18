@@ -38,19 +38,31 @@ export const MOCK_WBTC_CONTRACT: Record<number, Address> = {
   [BASE_SEPOLIA]: "0x8Cdaf12598d71cad44e91FB1c05d565a383e3dba",
 };
 
+export const ZERO_ADDRESS: Address =
+  "0x0000000000000000000000000000000000000000";
 
-// query should come from the subgraph
+// Feature flag: the subgraph PaymentToken entity is not reliably available yet,
+// so we use a hardcoded list as the source of truth. Flip to `true` once the
+// subgraph is ready and the hook will fall back to querying it for unknown tokens.
+export const ENABLE_SUBGRAPH_PAYMENT_TOKENS = false;
+
+// Hardcoded source of truth while ENABLE_SUBGRAPH_PAYMENT_TOKENS is false.
 export const KNOWN_PAYMENT_TOKENS: Record<number, TokenData[]> = {
   [BASE_SEPOLIA]: [
     {
       id: MOCK_USDC_CONTRACT[BASE_SEPOLIA],
-      name: "MockUsdc",
+      name: "mUSDC",
       decimals: 6,
     },
     {
       id: MOCK_WBTC_CONTRACT[BASE_SEPOLIA],
-      name: "MockWbtc",
+      name: "wBTC",
       decimals: 8,
+    },
+    {
+      id: ZERO_ADDRESS,
+      name: "ETH",
+      decimals: 18,
     },
   ],
 };
