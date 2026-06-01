@@ -9,7 +9,7 @@ import {
   zerionWallet,
 } from "@rainbow-me/rainbowkit/wallets";
 import { http, webSocket, fallback } from "viem";
-import { baseSepolia } from "viem/chains";
+import { baseSepolia, hardhat } from "viem/chains";
 
 // remove NEXT_PUBLIC_*
 const apiKey = process.env.NEXT_PUBLIC_INFURA_ID;
@@ -40,10 +40,11 @@ const config =
   getDefaultConfig({
     appName: "Sapphire DAO Invoice",
     projectId: walletConnectId,
-    chains: [baseSepolia],
+    chains: [baseSepolia, hardhat],
     wallets,
     ssr: false,
     transports: {
+      [hardhat.id]: http("http://127.0.0.1:8545"),
       [baseSepolia.id]: fallback(
         [
           // Prefer websocket endpoints for live updates, keep HTTP as backup

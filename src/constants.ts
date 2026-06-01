@@ -1,9 +1,11 @@
 import type { ErrorMessages, TokenData } from "./model/model";
 import type { Address } from "viem";
-import { baseSepolia } from "viem/chains";
+import { baseSepolia, hardhat } from "viem/chains";
 
 // remove unused chains
 export const BASE_SEPOLIA = baseSepolia.id;
+// Local Hardhat/Anvil node (http://127.0.0.1:8545)
+export const LOCALHOST = hardhat.id;
 export const ONE_SECOND_MS = 1_000;
 export const ONE_DAY_MS = 24 * 60 * 60 * ONE_SECOND_MS;
 export const DEFAULT_QUERY_STALE_TIME_MS = 15 * ONE_SECOND_MS;
@@ -12,30 +14,37 @@ export const DEFAULT_BLOCK_POLLING_INTERVAL_MS = 12 * ONE_SECOND_MS;
 
 export const PAYMENT_PROCESSOR_STORAGE: Record<number, Address> = {
   [BASE_SEPOLIA]: "0x13676A686fA96408a70ACBDa6312b330D11Ce390",
+  [LOCALHOST]: "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9",
 };
 
 export const SIMPLE_PAYMENT_PROCESSOR: Record<number, Address> = {
   [BASE_SEPOLIA]: "0xd70c10C73a716F85d97b5619dADfb6B1b6b6a706",
+  [LOCALHOST]: "0x5FC8d32690cc91D4c39d9d3abcBD16989F875707",
 };
 
 export const ADVANCED_PAYMENT_PROCESSOR: Record<number, Address> = {
   [BASE_SEPOLIA]: "0x792AF6DF4f32Ac3b8C2745dEE42f9e08090C0746",
+  [LOCALHOST]: "0xa513E6E4b8f2a923D98304ec87F64353C4D5C853",
 };
 
 export const MULTISIG_CONTRACT: Record<number, Address> = {
   [BASE_SEPOLIA]: "0x331798Ef8A2a46b6e6A5864ba7F03016b875F193",
+  [LOCALHOST]: "0x5FbDB2315678afecb367f032d93F642f64180aa3",
 };
 
 export const NOTES_CONTRACT: Record<number, Address> = {
   [BASE_SEPOLIA]: "0x8391a68c01834d252C1dFf975A621e8F99020b65",
+  [LOCALHOST]: "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9",
 };
 
 export const MOCK_USDC_CONTRACT: Record<number, Address> = {
   [BASE_SEPOLIA]: "0x41A196b1fF165419A1320F029E689A41F30c70b0",
+  [LOCALHOST]: "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
 };
 
 export const MOCK_WBTC_CONTRACT: Record<number, Address> = {
   [BASE_SEPOLIA]: "0x8Cdaf12598d71cad44e91FB1c05d565a383e3dba",
+  [LOCALHOST]: "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0",
 };
 
 export const ZERO_ADDRESS: Address =
@@ -56,6 +65,23 @@ export const KNOWN_PAYMENT_TOKENS: Record<number, TokenData[]> = {
     },
     {
       id: MOCK_WBTC_CONTRACT[BASE_SEPOLIA],
+      name: "wBTC",
+      decimals: 8,
+    },
+    {
+      id: ZERO_ADDRESS,
+      name: "ETH",
+      decimals: 18,
+    },
+  ],
+  [LOCALHOST]: [
+    {
+      id: MOCK_USDC_CONTRACT[LOCALHOST],
+      name: "mUSDC",
+      decimals: 6,
+    },
+    {
+      id: MOCK_WBTC_CONTRACT[LOCALHOST],
       name: "wBTC",
       decimals: 8,
     },
@@ -110,6 +136,7 @@ export const NOTES_SIGNER_ADDRESS =
 export const THE_GRAPH_API_URL: Record<number, string> = {
   [BASE_SEPOLIA]:
     "https://api.studio.thegraph.com/query/100227/payment-processor/version/latest",
+  [LOCALHOST]: "http://localhost:8000/subgraphs/name/payment-processor",
 };
 
 // review errors and seperate using contract address as key(maybe)
