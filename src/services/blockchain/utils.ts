@@ -1,8 +1,18 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { toast } from "sonner";
 import { errorMessages } from "@/constants";
-import { Address, encodeFunctionData, erc20Abi } from "viem";
-import { baseSepolia } from "viem/chains";
+import { Address, Chain, encodeFunctionData, erc20Abi } from "viem";
+import { baseSepolia, hardhat } from "viem/chains";
+
+// Resolve the viem chain for a given chainId so writes target the wallet's
+// connected network (e.g. local Hardhat) instead of always Base Sepolia.
+const SUPPORTED_CHAINS: Record<number, Chain> = {
+  [baseSepolia.id]: baseSepolia,
+  [hardhat.id]: hardhat,
+};
+
+export const getChainById = (chainId: number): Chain =>
+  SUPPORTED_CHAINS[chainId] ?? baseSepolia;
 
 export const fetchGasPrice = async (
   publicClient: any,
@@ -79,7 +89,7 @@ export const handleApproval = async (
     }
 
     const tx = await walletClient?.sendTransaction({
-      chain: baseSepolia,
+      chain: getChainById(chainId),
       to: tokenAddress,
       data: encodeFunctionData({
         abi: erc20Abi,

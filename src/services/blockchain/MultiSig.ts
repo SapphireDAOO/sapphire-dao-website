@@ -1,8 +1,7 @@
 import { toast } from "sonner";
 import { Address, encodeFunctionData, Hex, TransactionReceipt } from "viem";
-import { baseSepolia } from "viem/chains";
 import { MULTISIG_CONTRACT } from "@/constants";
-import { fetchGasPrice, getError } from "./utils";
+import { fetchGasPrice, getError, getChainById } from "./utils";
 import { Multisig } from "@/abis/MultiSig";
 import { WagmiClient } from "./types";
 
@@ -19,7 +18,7 @@ export const proposeMultiSigTransaction = async (
   try {
     const gasPrice = await fetchGasPrice(publicClient, chainId);
     const tx = await walletClient?.sendTransaction({
-      chain: baseSepolia,
+      chain: getChainById(chainId),
       to: MULTISIG_CONTRACT[chainId],
       data: encodeFunctionData({
         abi: Multisig,
@@ -60,7 +59,7 @@ export const approveMultiSigTransaction = async (
   try {
     const gasPrice = await fetchGasPrice(publicClient, chainId);
     const tx = await walletClient?.sendTransaction({
-      chain: baseSepolia,
+      chain: getChainById(chainId),
       to: MULTISIG_CONTRACT[chainId],
       data: encodeFunctionData({
         abi: Multisig,
@@ -101,7 +100,7 @@ export const cancelMultiSigTransaction = async (
   try {
     const gasPrice = await fetchGasPrice(publicClient, chainId);
     const tx = await walletClient?.sendTransaction({
-      chain: baseSepolia,
+      chain: getChainById(chainId),
       to: MULTISIG_CONTRACT[chainId],
       data: encodeFunctionData({
         abi: Multisig,
@@ -142,7 +141,7 @@ export const executeMultiSigTransaction = async (
   try {
     const gasPrice = await fetchGasPrice(publicClient, chainId);
     const tx = await walletClient?.sendTransaction({
-      chain: baseSepolia,
+      chain: getChainById(chainId),
       to: MULTISIG_CONTRACT[chainId],
       data: encodeFunctionData({
         abi: Multisig,
