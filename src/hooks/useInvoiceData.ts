@@ -41,6 +41,7 @@ import {
   appendHistoryEntry,
   mergeHistory,
   getLastActionTime,
+  flattenInvoiceEvents,
 } from "@/lib/invoiceHistory";
 import {
   getInvoiceCacheKey,
@@ -364,7 +365,9 @@ export const useInvoiceData = () => {
           let skipActions = 0;
           let skipSmartInvoices = 0;
           let moreInvoices = true;
-          let moreActions = true;
+          // Admin actions disabled: the AdminAction entity was dropped in the
+          // subgraph's event-log migration. TODO: rebuild from InvoiceEvent.
+          let moreActions = false;
           let moreSmartInvoices = true;
           const rawInvoices: any[] = [];
           const rawAdminActions: any[] = [];
@@ -418,7 +421,8 @@ export const useInvoiceData = () => {
             }
           }
 
-          for (const list of rawInvoices) {
+          for (const raw of rawInvoices) {
+            const list = flattenInvoiceEvents(raw);
             invoices[invoices.length] = {
               id: getDisplayInvoiceIdString(list),
               invoiceId: getContractInvoiceIdBigInt(list),
@@ -453,7 +457,8 @@ export const useInvoiceData = () => {
             };
           }
 
-          for (const list of rawMarketplaceInvoices) {
+          for (const raw of rawMarketplaceInvoices) {
+            const list = flattenInvoiceEvents(raw);
             marketplaceInvoices[marketplaceInvoices.length] = {
               id: getDisplayInvoiceIdString(list),
               invoiceId: getContractInvoiceIdBigInt(list),
@@ -567,13 +572,20 @@ export const useInvoiceData = () => {
 
         if (!data?.user) return;
 
-        const createdInvoice: UserCreatedInvoice[] =
-          data.user.ownedInvoices || [];
-        const paidInvoices: UserPaidInvoice[] = data.user.paidInvoices || [];
-        const issuedInvoices: UserIssuedInvoiceInvoice[] =
-          data.user.issuedInvoices || [];
-        const receivedInvoices: UserReceivedInvoicesInvoice[] =
-          data.user.receivedInvoices || [];
+        // The subgraph now exposes invoice history via an `events` relation;
+        // flatten it back into the legacy flat fields the mappings below read.
+        const createdInvoice: any[] = (data.user.ownedSimpleInvoices || []).map(
+          flattenInvoiceEvents,
+        );
+        const paidInvoices: any[] = (data.user.paidSimpleInvoices || []).map(
+          flattenInvoiceEvents,
+        );
+        const issuedInvoices: any[] = (
+          data.user.issuedAdvancedInvoices || []
+        ).map(flattenInvoiceEvents);
+        const receivedInvoices: any[] = (
+          data.user.receivedAdvancedInvoices || []
+        ).map(flattenInvoiceEvents);
 
         const createdInvoiceData = createdInvoice.map((invoice: any) => ({
           id: getDisplayInvoiceIdString(invoice),

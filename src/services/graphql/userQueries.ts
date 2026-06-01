@@ -11,7 +11,7 @@ export const userInvoicesPageQuery = `
     $includeReceived: Boolean!
   ) {
     user(id: $address) {
-      ownedInvoices(
+      ownedSimpleInvoices(
         first: $first
         skip: $skip
         orderBy: lastActionTime
@@ -19,25 +19,20 @@ export const userInvoicesPageQuery = `
       ) @include(if: $includeOwned) {
         amountPaid
         contract
-        createdAt
         fee
         id
         invoiceNonce
-        paidAt
-        paymentTxHash
         price
-        releaseHash
-        releasedAt
-        refundTxHash
         invalidateAt
         expiresAt
         state
+        releaseAt
+        lastActionTime
         buyer { id }
         seller { id }
-        history
-        historyTime
+        events { eventType txHash timestamp }
       }
-      paidInvoices(
+      paidSimpleInvoices(
         first: $first
         skip: $skip
         orderBy: lastActionTime
@@ -45,25 +40,20 @@ export const userInvoicesPageQuery = `
       ) @include(if: $includePaid) {
         amountPaid
         contract
-        createdAt
         fee
         id
         invoiceNonce
-        paidAt
-        paymentTxHash
         price
-        releaseHash
-        releasedAt
-        refundTxHash
         invalidateAt
         expiresAt
         state
+        releaseAt
+        lastActionTime
         buyer { id }
         seller { id }
-        history
-        historyTime
+        events { eventType txHash timestamp }
       }
-      issuedInvoices(
+      issuedAdvancedInvoices(
         first: $first
         skip: $skip
         orderBy: lastActionTime
@@ -72,27 +62,21 @@ export const userInvoicesPageQuery = `
         amountPaid
         amountReleased
         amountRefunded
-        disputeSettledTxHash
         sellerAmountReceivedAfterDispute
         buyerAmountReceivedAfterDispute
         contract
-        createdAt
         id
         invoiceNonce
-        paidAt
         price
-        releaseHash
-        releasedAt
         state
-        refundTxHash
+        releaseAt
+        lastActionTime
         paymentToken { id }
-        paymentTxHash
         seller { id }
         buyer { id }
-        history
-        historyTime
+        events { eventType txHash timestamp }
       }
-      receivedInvoices(
+      receivedAdvancedInvoices(
         first: $first
         skip: $skip
         orderBy: lastActionTime
@@ -101,25 +85,19 @@ export const userInvoicesPageQuery = `
         amountPaid
         amountReleased
         amountRefunded
-        disputeSettledTxHash
         sellerAmountReceivedAfterDispute
         buyerAmountReceivedAfterDispute
         contract
-        createdAt
         id
         invoiceNonce
-        paidAt
         price
-        releaseHash
-        releasedAt
         state
-        refundTxHash
+        releaseAt
+        lastActionTime
         paymentToken { id }
-        paymentTxHash
         seller { id }
         buyer { id }
-        history
-        historyTime
+        events { eventType txHash timestamp }
       }
     }
   }
@@ -131,7 +109,7 @@ export const invoiceQuery = `query (
   $skip: Int! = 0
 ) {
   user (id: $address) {
-    ownedInvoices (
+    ownedSimpleInvoices (
       first: $first
       skip: $skip
       orderBy: lastActionTime
@@ -139,25 +117,20 @@ export const invoiceQuery = `query (
     ) {
       amountPaid
       contract
-      createdAt
       fee
       id
       invoiceId: invoiceNonce
-      paidAt
-      paymentTxHash
       price
-      releaseHash
-      releasedAt
-      refundTxHash
       invalidateAt
       expiresAt
       state
+      releaseAt
+      lastActionTime
       buyer { id }
       seller { id }
-      history
-      historyTime
+      events { eventType txHash timestamp }
     }
-    paidInvoices (
+    paidSimpleInvoices (
       first: $first
       skip: $skip
       orderBy: lastActionTime
@@ -165,25 +138,20 @@ export const invoiceQuery = `query (
     ) {
       amountPaid
       contract
-      createdAt
       fee
       id
       invoiceId: invoiceNonce
-      paidAt
-      paymentTxHash
       price
-      releaseHash
-      refundTxHash
-      releasedAt
       invalidateAt
       expiresAt
       state
+      releaseAt
+      lastActionTime
       seller { id }
       buyer { id }
-      history
-      historyTime
+      events { eventType txHash timestamp }
     }
-    issuedInvoices (
+    issuedAdvancedInvoices (
       first: $first
       skip: $skip
       orderBy: lastActionTime
@@ -192,27 +160,21 @@ export const invoiceQuery = `query (
       amountPaid
       amountReleased
       amountRefunded
-      disputeSettledTxHash
       sellerAmountReceivedAfterDispute
       buyerAmountReceivedAfterDispute
       contract
-      createdAt
       id
       invoiceId: invoiceNonce
-      paidAt
       price
-      releaseHash
-      releasedAt
       state
-      refundTxHash
+      releaseAt
+      lastActionTime
       paymentToken { id }
-      paymentTxHash
       seller { id }
       buyer { id }
-      history
-      historyTime
+      events { eventType txHash timestamp }
     }
-    receivedInvoices (
+    receivedAdvancedInvoices (
       first: $first
       skip: $skip
       orderBy: lastActionTime
@@ -221,25 +183,19 @@ export const invoiceQuery = `query (
       amountPaid
       amountReleased
       amountRefunded
-      disputeSettledTxHash
       sellerAmountReceivedAfterDispute
       buyerAmountReceivedAfterDispute
       contract
-      createdAt
       id
       invoiceId: invoiceNonce
-      paidAt
       price
-      releaseHash
-      releasedAt
       state
-      refundTxHash
+      releaseAt
+      lastActionTime
       paymentToken { id }
-      paymentTxHash
       seller { id }
       buyer { id }
-      history
-      historyTime
+      events { eventType txHash timestamp }
     }
   }
 }`;
@@ -268,26 +224,20 @@ export const smartInvoiceQuery = `
       amountPaid
       amountReleased
       amountRefunded
-      disputeSettledTxHash
       sellerAmountReceivedAfterDispute
       buyerAmountReceivedAfterDispute
       contract
-      createdAt
       escrow
       id
       invoiceId: invoiceNonce
-      paidAt
       paymentToken { id }
       price
-      paymentTxHash
-      releaseHash
-      refundTxHash
-      releasedAt
       state
+      releaseAt
+      lastActionTime
       seller { id }
       buyer { id }
-      history
-      historyTime
+      events { eventType txHash timestamp }
     }
     ${paymentTokensFragment}
   }
@@ -298,7 +248,7 @@ export const metaInvoiceQuery = `
     metaInvoice(id: $id) {
       contract
       id
-      invoiceId
+      invoiceId: invoiceNonce
       price
     }
     ${paymentTokensFragment}
