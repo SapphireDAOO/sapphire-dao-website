@@ -100,6 +100,18 @@ const Navbar = () => {
                   className={cn(
                     buttonVariants({ variant: "ghost" }),
                     "hover:text-blue-400",
+                    router === "/metrics" && "text-blue-400"
+                  )}
+                  onClick={() => goTo("/metrics")}
+                  aria-label="Go to metrics"
+                >
+                  METRICS
+                </button>
+                <button
+                  type="button"
+                  className={cn(
+                    buttonVariants({ variant: "ghost" }),
+                    "hover:text-blue-400",
                     router === "/multisig" && "text-blue-400"
                   )}
                   onClick={() => goTo("/multisig")}
