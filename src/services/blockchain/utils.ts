@@ -5,11 +5,12 @@ import { Address, Chain, encodeFunctionData, erc20Abi } from "viem";
 import { baseSepolia, hardhat } from "viem/chains";
 
 // Resolve the viem chain for a given chainId so writes target the wallet's
-// connected network (e.g. local Hardhat) instead of always Base Sepolia.
-const SUPPORTED_CHAINS: Record<number, Chain> = {
-  [baseSepolia.id]: baseSepolia,
-  [hardhat.id]: hardhat,
-};
+// connected network (e.g. local Hardhat in development) instead of always
+// Base Sepolia. Hardhat is excluded from the production map.
+const SUPPORTED_CHAINS: Record<number, Chain> =
+  process.env.NODE_ENV === "production"
+    ? { [baseSepolia.id]: baseSepolia }
+    : { [baseSepolia.id]: baseSepolia, [hardhat.id]: hardhat };
 
 export const getChainById = (chainId: number): Chain =>
   SUPPORTED_CHAINS[chainId] ?? baseSepolia;
