@@ -1,105 +1,54 @@
-// Subgraph queries for the dashboard metric page (first section).
+// Subgraph queries for the metrics dashboard.
 //
-// These read from the subgraph's native Timeseries & Aggregations — daily
-// (and, for escrow, hourly) buckets rolled up automatically by graph-node — so
-// windowed and percentage-change views need no block-by-timestamp lookups or
-// time-travel queries. Window totals are summed on the client from the daily
-// buckets; closed daily buckets are immutable and safely cacheable.
+// Reads from the subgraph's native Timeseries & Aggregations — daily buckets
+// pre-aggregated by graph-node — so windowed totals and % change views need no
+// block-by-timestamp lookups or time-travel queries. graph-node renames the
+// collection query to `<entityName>_collection` when the entity name already
+// ends in "s" (here: VolumeStats → volumeStats_collection,
+// FeePaidStats → feePaidStats_collection), otherwise the simple plural
+// (EscrowStat → escrowStats) works directly.
 //
+// One batched document covers every first-section metric: 60 days of volume +
+// fee buckets and the full escrow series share a single round-trip.
 
-// Token metadata (decimals/name) for normalizing raw BigInt amounts before the
-// read-time USD conversion. Native ETH uses the zero-address PaymentToken id.
-export const PAYMENT_TOKENS_QUERY = `
-  query MetricsPaymentTokens {
-    paymentTokens(first: 100) {
-      id
-      name
-      decimal
-    }
-  }
-`;
-
-// Total Volume — daily VolumeStats buckets within a window, per token.
-// Run once per window ([sixtyDaysAgo, thirtyDaysAgo] for W_prior and
-// [thirtyDaysAgo, now] for W_curr); Σ dailyVolume per token, then convert to
-// USD and sum across tokens on the client.
-export const VOLUME_WINDOW_QUERY = `
-  query VolumeWindow($start: Timestamp!, $end: Timestamp!) {
-    volumeStats(
-      interval: day
-      where: { timestamp_gte: $start, timestamp_lte: $end }
-      orderBy: timestamp
-      orderDirection: desc
+export const METRICS_SNAPSHOT_QUERY = `
+  query MetricsSnapshot($now: Timestamp!, $sixtyDaysAgo: Timestamp!) {
+    # Volume & cumulative invoicePaid — daily buckets per token over 60 days.
+    # Drives Total Volume (30d vs prior 30d) and Invoices Paid (7d vs prior 7d).
+    volumeBuckets: volumeStats_collection(
+      interval: "day"
+      where: { timestamp_gte: $sixtyDaysAgo, timestamp_lte: $now }
       first: 1000
+      current: include
     ) {
       timestamp
-      token {
-        id
-        decimal
-      }
+      token { id }
       dailyVolume
-    }
-  }
-`;
-
-// Total Invoices Paid — cumulative count surfaced over a 7-day window.
-// VolumeStats.invoicePaid is cumulative; the window count is the latest
-// cumulative value minus the cumulative value at the window's start edge.
-export const INVOICES_PAID_WINDOW_QUERY = `
-  query InvoicesPaidWindow($start: Timestamp!, $end: Timestamp!) {
-    volumeStats(
-      interval: day
-      where: { timestamp_gte: $start, timestamp_lte: $end }
-      orderBy: timestamp
-      orderDirection: desc
-      first: 1000
-    ) {
-      timestamp
       invoicePaid
     }
-  }
-`;
-
-// Total Escrow Balance — live balance is the running sum of signed EscrowStat
-// buckets per token. Pull the daily buckets across the window so the client can
-// derive the live total and the day-over-day change.
-export const ESCROW_WINDOW_QUERY = `
-  query EscrowWindow($start: Timestamp!, $end: Timestamp!) {
-    escrowStats(
-      interval: day
-      where: { timestamp_gte: $start, timestamp_lte: $end }
-      orderBy: timestamp
-      orderDirection: desc
+    # Protocol fees — daily buckets per token over 60 days.
+    feeBuckets: feePaidStats_collection(
+      interval: "day"
+      where: { timestamp_gte: $sixtyDaysAgo, timestamp_lte: $now }
       first: 1000
+      current: include
     ) {
       timestamp
-      token {
-        id
-        decimal
-      }
-      total
-    }
-  }
-`;
-
-// Total Fees Paid — daily FeePaidStats buckets within a window, per token.
-// Same windowed pattern as Total Volume: Σ totalFeePaid per token per window,
-// converted to USD and summed on the client.
-export const FEES_WINDOW_QUERY = `
-  query FeesWindow($start: Timestamp!, $end: Timestamp!) {
-    feePaidStats(
-      interval: day
-      where: { timestamp_gte: $start, timestamp_lte: $end }
-      orderBy: timestamp
-      orderDirection: desc
-      first: 1000
-    ) {
-      timestamp
-      token {
-        id
-        decimal
-      }
+      token { id }
       totalFeePaid
+    }
+    # Signed escrow deltas — daily buckets per token across the full history.
+    # The live balance is the running sum; day-over-day change is the running
+    # sum up to today vs. the running sum up to yesterday.
+    escrowBuckets: escrowStats(
+      interval: "day"
+      where: { timestamp_lte: $now }
+      first: 1000
+      current: include
+    ) {
+      timestamp
+      token { id }
+      total
     }
   }
 `;
