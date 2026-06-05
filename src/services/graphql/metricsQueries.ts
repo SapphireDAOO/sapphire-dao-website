@@ -67,3 +67,20 @@ export const METRICS_SNAPSHOT_QUERY = `
     }
   }
 `;
+
+// Wallet Balance — Fee Receiver. All-time protocol fees collected per token
+// (FeePaidStats.totalFeePaid is a per-day sum, so the lifetime total is the sum
+// across every daily bucket). Converted to USD on the read path, this is the
+// fees the receiver has accrued. No time bound — closed buckets are immutable.
+export const FEE_RECEIVER_TOTALS_QUERY = `
+  query FeeReceiverTotals {
+    feeBuckets: feePaidStats_collection(
+      interval: "day"
+      first: 1000
+      current: include
+    ) {
+      token { id }
+      totalFeePaid
+    }
+  }
+`;

@@ -8,6 +8,7 @@ import { MetricCard } from "./MetricCard";
 import { VolumeChart } from "./VolumeChart";
 import { EscrowChart } from "./EscrowChart";
 import { InvoiceActivityChart } from "./InvoiceActivityChart";
+import { WalletBalances } from "./WalletBalances";
 import {
   formatUsd,
   formatCount,
@@ -124,6 +125,10 @@ export default function MetricsIndex() {
             series={snapshot?.invoiceActivitySeries ?? []}
             isLoading={isLoading}
           />
+        </section>
+
+        <section className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2">
+          <WalletBalances />
         </section>
       </main>
     </div>

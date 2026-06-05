@@ -4,7 +4,7 @@
 // Raw token amounts are converted to USD at read time against a globally-cached
 // price (see fetchTokenPricesUsd).
 
-import { ONE_DAY_MS, KNOWN_PAYMENT_TOKENS } from "@/constants";
+import { ONE_DAY_MS, KNOWN_PAYMENT_TOKENS, ZERO_ADDRESS } from "@/constants";
 import type {
   EscrowSeriesPoint,
   InvoiceActivityPoint,
@@ -13,7 +13,10 @@ import type {
   VolumeSeriesPoint,
 } from "./types";
 import { client } from "../graphql/client";
-import { METRICS_SNAPSHOT_QUERY } from "../graphql/metricsQueries";
+import {
+  METRICS_SNAPSHOT_QUERY,
+  FEE_RECEIVER_TOTALS_QUERY,
+} from "../graphql/metricsQueries";
 
 const SECONDS_PER_DAY = ONE_DAY_MS / 1000;
 const MICROS_PER_SECOND = 1_000_000;
@@ -400,4 +403,44 @@ export const fetchMetricsSnapshot = async (
     ),
     fetchedAt: bounds.now,
   };
+};
+
+interface FeeTotalBucket {
+  token: TokenRef;
+  totalFeePaid: string;
+}
+
+/**
+ * Wallet Balance — Fee Receiver. Lifetime protocol fees collected, summed across
+ * every daily bucket per token and converted to USD against the cached price.
+ */
+export const fetchFeeReceiverTotalUsd = async (
+  chainId: number,
+): Promise<number> => {
+  const meta = tokenMetaByChain(chainId);
+  const result = await client(chainId)
+    .query<{ feeBuckets: FeeTotalBucket[] }>(FEE_RECEIVER_TOTALS_QUERY, {})
+    .toPromise();
+
+  if (result.error) throw new Error(result.error.message);
+
+  let usd = 0;
+  for (const b of result.data?.feeBuckets ?? []) {
+    const m = meta.get(b.token.id.toLowerCase());
+    if (!m) continue;
+    usd += toUsd(BigInt(b.totalFeePaid), m.decimals, m.priceUsd);
+  }
+  return usd;
+};
+
+/**
+ * Current USD price of the chain's native token (ETH, the zero-address entry in
+ * KNOWN_PAYMENT_TOKENS), used to value the gas-reserve balance. Async to match
+ * the price-feed read path that will replace the testnet placeholder prices.
+ */
+export const fetchNativePriceUsd = async (
+  chainId: number,
+): Promise<number> => {
+  const meta = tokenMetaByChain(chainId);
+  return meta.get(ZERO_ADDRESS.toLowerCase())?.priceUsd ?? 0;
 };
