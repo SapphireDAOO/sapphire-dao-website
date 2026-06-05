@@ -10,6 +10,7 @@ import type {
   InvoiceActivityPoint,
   MetricsSnapshot,
   MetricValue,
+  UserMetrics,
   VolumeSeriesPoint,
 } from "./types";
 import { client } from "../graphql/client";
@@ -125,11 +126,30 @@ interface InvoiceActivityBucket {
   totalActivity: string;
 }
 
+type UserRole = "CREATOR" | "PAYER";
+
+interface NewUserBucket {
+  timestamp: string;
+  role: UserRole;
+  /** Users added this day for the role. */
+  newUsers: string;
+  /** Cumulative users for the role through this day. */
+  totalUsers: string;
+}
+
+interface ActiveUserBucket {
+  timestamp: string;
+  /** Unique users active this day. */
+  activeUsers: string;
+}
+
 interface MetricsSnapshotData {
   volumeBuckets: VolumeBucket[];
   feeBuckets: FeeBucket[];
   escrowBuckets: EscrowBucket[];
   invoiceActivityBuckets: InvoiceActivityBucket[];
+  newUserBuckets: NewUserBucket[];
+  activeUserBuckets: ActiveUserBucket[];
 }
 
 const toUsd = (raw: bigint, decimals: number, priceUsd: number): number => {
@@ -304,6 +324,75 @@ const buildInvoiceActivitySeries = (
     .map(([timestamp, counts]) => ({ timestamp, ...counts }));
 };
 
+/** Σ per-day `newUsers` for a role within [start, end]. */
+const sumNewUsers = (
+  buckets: NewUserBucket[],
+  role: UserRole,
+  start: number,
+  end: number,
+): number => {
+  let total = 0;
+  for (const b of buckets) {
+    if (b.role !== role) continue;
+    const ts = tsToSeconds(b.timestamp);
+    if (ts < start || ts > end) continue;
+    total += Number(b.newUsers);
+  }
+  return total;
+};
+
+/** Cumulative user total for a role: the latest bucket's `totalUsers`. */
+const latestTotalUsers = (buckets: NewUserBucket[], role: UserRole): number => {
+  let best: { ts: number; value: number } | undefined;
+  for (const b of buckets) {
+    if (b.role !== role) continue;
+    const ts = tsToSeconds(b.timestamp);
+    if (!best || ts > best.ts) best = { ts, value: Number(b.totalUsers) };
+  }
+  return best?.value ?? 0;
+};
+
+/**
+ * User metrics: 7-day new-creator / new-payer counts vs. the prior 7 days, the
+ * latest day's active-user count with day-over-day growth, and the cumulative
+ * user total.
+ */
+const buildUserMetrics = (
+  newUserBuckets: NewUserBucket[],
+  activeUserBuckets: ActiveUserBucket[],
+  bounds: ReturnType<typeof getWindowBounds>,
+): UserMetrics => {
+  const windowed = (role: UserRole): MetricValue => {
+    const current = sumNewUsers(newUserBuckets, role, bounds.sevenDaysAgo, bounds.now);
+    const prior = sumNewUsers(
+      newUserBuckets,
+      role,
+      bounds.fourteenDaysAgo,
+      bounds.sevenDaysAgo,
+    );
+    return { value: current, changePct: percentChange(current, prior) };
+  };
+
+  // Day-over-day growth from the two most recent populated active-user buckets.
+  const active = activeUserBuckets
+    .map((b) => ({ ts: tsToSeconds(b.timestamp), value: Number(b.activeUsers) }))
+    .sort((a, b) => a.ts - b.ts);
+  const activeLatest = active[active.length - 1]?.value ?? 0;
+  const activePrev = active[active.length - 2]?.value ?? 0;
+
+  return {
+    newCreators: windowed("CREATOR"),
+    newPayers: windowed("PAYER"),
+    activeUsers: {
+      value: activeLatest,
+      changePct: percentChange(activeLatest, activePrev),
+    },
+    totalUsers:
+      latestTotalUsers(newUserBuckets, "CREATOR") +
+      latestTotalUsers(newUserBuckets, "PAYER"),
+  };
+};
+
 /**
  * Build the first-section metric snapshot from the subgraph. Runs a single
  * batched query for all four metrics and converts per-token amounts to USD
@@ -400,6 +489,11 @@ export const fetchMetricsSnapshot = async (
     escrowSeries: buildEscrowSeries(data.escrowBuckets, meta),
     invoiceActivitySeries: buildInvoiceActivitySeries(
       data.invoiceActivityBuckets,
+    ),
+    userMetrics: buildUserMetrics(
+      data.newUserBuckets,
+      data.activeUserBuckets,
+      bounds,
     ),
     fetchedAt: bounds.now,
   };

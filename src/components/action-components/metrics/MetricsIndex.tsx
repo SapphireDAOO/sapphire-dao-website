@@ -9,6 +9,9 @@ import { VolumeChart } from "./VolumeChart";
 import { EscrowChart } from "./EscrowChart";
 import { InvoiceActivityChart } from "./InvoiceActivityChart";
 import { WalletBalances } from "./WalletBalances";
+import { UserMetrics } from "./UserMetrics";
+import { RecentTransactions } from "./RecentTransactions";
+import { GasTracker } from "./GasTracker";
 import {
   formatUsd,
   formatCount,
@@ -129,6 +132,15 @@ export default function MetricsIndex() {
 
         <section className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2">
           <WalletBalances />
+          <UserMetrics
+            data={snapshot?.userMetrics}
+            isLoading={isLoading}
+          />
+        </section>
+
+        <section className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2">
+          <RecentTransactions />
+          <GasTracker />
         </section>
       </main>
     </div>

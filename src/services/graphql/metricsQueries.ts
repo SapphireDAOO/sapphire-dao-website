@@ -6,12 +6,14 @@
 // collection query to `<entityName>_collection` when the entity name already
 // ends in "s" (here: VolumeStats → volumeStats_collection,
 // FeePaidStats → feePaidStats_collection,
-// InvoiceActivityStats → invoiceActivityStats_collection), otherwise the simple
-// plural (EscrowStat → escrowStats) works directly.
+// InvoiceActivityStats → invoiceActivityStats_collection,
+// NewUserStats → newUserStats_collection,
+// ActiveUserStats → activeUserStats_collection), otherwise the simple plural
+// (EscrowStat → escrowStats) works directly.
 //
 // One batched document covers the dashboard charts and first-section metrics:
-// 60 days of volume + fee + invoice-activity buckets and the full escrow series
-// share a single round-trip.
+// 60 days of volume + fee + invoice-activity + user buckets and the full escrow
+// series share a single round-trip.
 
 export const METRICS_SNAPSHOT_QUERY = `
   query MetricsSnapshot($now: Timestamp!, $sixtyDaysAgo: Timestamp!) {
@@ -65,6 +67,30 @@ export const METRICS_SNAPSHOT_QUERY = `
       invoiceType
       totalActivity
     }
+    # New users per day by role (CREATOR = seller, PAYER = buyer). newUsers is a
+    # per-day count (summed over a window); totalUsers is the cumulative total.
+    newUserBuckets: newUserStats_collection(
+      interval: "day"
+      where: { timestamp_gte: $sixtyDaysAgo, timestamp_lte: $now }
+      first: 1000
+      current: include
+    ) {
+      timestamp
+      role
+      newUsers
+      totalUsers
+    }
+    # Unique users active per day; day-over-day growth comes from the last two
+    # populated buckets.
+    activeUserBuckets: activeUserStats_collection(
+      interval: "day"
+      where: { timestamp_gte: $sixtyDaysAgo, timestamp_lte: $now }
+      first: 1000
+      current: include
+    ) {
+      timestamp
+      activeUsers
+    }
   }
 `;
 
@@ -81,6 +107,56 @@ export const FEE_RECEIVER_TOTALS_QUERY = `
     ) {
       token { id }
       totalFeePaid
+    }
+  }
+`;
+
+export const RECENT_TRANSACTIONS_QUERY = `
+  query RecentTransactions($first: Int = 5) {
+    invoiceEvents(
+      first: $first
+      orderBy: timestamp
+      orderDirection: desc
+      where: {
+        eventType_in: [
+          INVOICE_PAID
+          INVOICE_REFUNDED
+          REFUNDED
+          INVOICE_RELEASED
+          PAYMENT_RELEASED
+          DISPUTE_SETTLED
+        ]
+      }
+    ) {
+      id
+      eventType
+      txHash
+      timestamp
+      simpleInvoice {
+        invoiceNonce
+        price
+        amountPaid
+        buyer { id }
+        seller { id }
+      }
+      advancedInvoice {
+        invoiceNonce
+        price
+        amountPaid
+        paymentToken { id name decimal }
+        buyer { id }
+        seller { id }
+      }
+    }
+  }
+`;
+
+export const GAS_TRACKER_QUERY = `
+  query GasTracker {
+    gasPaid(id: "global") {
+      amount
+      transactionCount
+      lastTimeStamp
     }
   }
 `;

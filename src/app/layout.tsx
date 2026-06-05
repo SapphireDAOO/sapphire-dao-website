@@ -3,6 +3,7 @@ import "@/styles/globals.css";
 import "@rainbow-me/rainbowkit/styles.css";
 import Web3Provider from "@/components/Web3Provider";
 import Navbar from "@/components/Navigation";
+import Footer from "@/components/Footer";
 import { Toaster } from "sonner";
 
 if (typeof globalThis.indexedDB === "undefined") {
@@ -45,8 +46,11 @@ export default function RootLayout({
     <html lang="en">
       <body>
         <Web3Provider>
-          <Navbar />
-          {children}
+          <div className="flex min-h-screen flex-col">
+            <Navbar />
+            <div className="flex-1">{children}</div>
+            <Footer />
+          </div>
           <Toaster position="bottom-right" richColors />
         </Web3Provider>
       </body>
