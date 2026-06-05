@@ -5,11 +5,13 @@
 // block-by-timestamp lookups or time-travel queries. graph-node renames the
 // collection query to `<entityName>_collection` when the entity name already
 // ends in "s" (here: VolumeStats → volumeStats_collection,
-// FeePaidStats → feePaidStats_collection), otherwise the simple plural
-// (EscrowStat → escrowStats) works directly.
+// FeePaidStats → feePaidStats_collection,
+// InvoiceActivityStats → invoiceActivityStats_collection), otherwise the simple
+// plural (EscrowStat → escrowStats) works directly.
 //
-// One batched document covers every first-section metric: 60 days of volume +
-// fee buckets and the full escrow series share a single round-trip.
+// One batched document covers the dashboard charts and first-section metrics:
+// 60 days of volume + fee + invoice-activity buckets and the full escrow series
+// share a single round-trip.
 
 export const METRICS_SNAPSHOT_QUERY = `
   query MetricsSnapshot($now: Timestamp!, $sixtyDaysAgo: Timestamp!) {
@@ -49,6 +51,19 @@ export const METRICS_SNAPSHOT_QUERY = `
       timestamp
       token { id }
       total
+    }
+    # Invoices paid per day, split by processor (SIMPLE = website,
+    # ADVANCED = marketplace). totalActivity is a cumulative count, so per-day
+    # activity is the diff between consecutive daily buckets.
+    invoiceActivityBuckets: invoiceActivityStats_collection(
+      interval: "day"
+      where: { timestamp_gte: $sixtyDaysAgo, timestamp_lte: $now }
+      first: 1000
+      current: include
+    ) {
+      timestamp
+      invoiceType
+      totalActivity
     }
   }
 `;

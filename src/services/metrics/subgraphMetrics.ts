@@ -5,7 +5,13 @@
 // price (see fetchTokenPricesUsd).
 
 import { ONE_DAY_MS, KNOWN_PAYMENT_TOKENS } from "@/constants";
-import type { MetricsSnapshot, MetricValue } from "./types";
+import type {
+  EscrowSeriesPoint,
+  InvoiceActivityPoint,
+  MetricsSnapshot,
+  MetricValue,
+  VolumeSeriesPoint,
+} from "./types";
 import { client } from "../graphql/client";
 import { METRICS_SNAPSHOT_QUERY } from "../graphql/metricsQueries";
 
@@ -46,10 +52,8 @@ export const getWindowBounds = (nowSeconds = Math.floor(Date.now() / 1000)) => {
 };
 
 /** % change vs. the prior window, null when the prior window has no activity. */
-export const percentChange = (
-  current: number,
-  prior: number,
-): number | null => (prior ? ((current - prior) / prior) * 100 : null);
+export const percentChange = (current: number, prior: number): number | null =>
+  prior ? ((current - prior) / prior) * 100 : null;
 
 interface TokenMeta {
   decimals: number;
@@ -109,10 +113,20 @@ interface EscrowBucket {
   total: string;
 }
 
+type InvoiceType = "SIMPLE" | "ADVANCED";
+
+interface InvoiceActivityBucket {
+  timestamp: string;
+  invoiceType: InvoiceType;
+  /** Cumulative paid-invoice count for this processor through this day. */
+  totalActivity: string;
+}
+
 interface MetricsSnapshotData {
   volumeBuckets: VolumeBucket[];
   feeBuckets: FeeBucket[];
   escrowBuckets: EscrowBucket[];
+  invoiceActivityBuckets: InvoiceActivityBucket[];
 }
 
 const toUsd = (raw: bigint, decimals: number, priceUsd: number): number => {
@@ -182,6 +196,109 @@ const invoicesPaidAt = (buckets: VolumeBucket[], cutoff: number): number => {
   let total = BigInt(0);
   for (const { value } of latestByToken.values()) total += value;
   return Number(total);
+};
+
+/**
+ * Daily USD volume series (oldest → newest). Collapses the per-token daily
+ * buckets into one USD total per day so the volume chart can plot a single
+ * area. Day buckets are keyed by their (day-aligned) timestamp in seconds.
+ */
+const buildVolumeSeries = (
+  buckets: VolumeBucket[],
+  meta: Map<string, TokenMeta>,
+): VolumeSeriesPoint[] => {
+  const byDay = new Map<number, number>();
+  for (const b of buckets) {
+    const m = meta.get(b.token.id.toLowerCase());
+    if (!m) continue;
+    const ts = tsToSeconds(b.timestamp);
+    const usd = toUsd(BigInt(b.dailyVolume), m.decimals, m.priceUsd);
+    byDay.set(ts, (byDay.get(ts) ?? 0) + usd);
+  }
+  return [...byDay.entries()]
+    .sort(([a], [b]) => a - b)
+    .map(([timestamp, volumeUsd]) => ({ timestamp, volumeUsd }));
+};
+
+/**
+ * Daily running escrow balance (oldest → newest). Each day's `total` is the net
+ * signed change for that token that day; the running per-token sum, converted to
+ * USD at the current price, is the live balance plotted on the escrow chart.
+ * Only days with escrow movement produce a point — the line steps between them.
+ */
+const buildEscrowSeries = (
+  buckets: EscrowBucket[],
+  meta: Map<string, TokenMeta>,
+): EscrowSeriesPoint[] => {
+  // ts -> tokenId -> net signed delta that day.
+  const days = new Map<number, Map<string, bigint>>();
+  for (const b of buckets) {
+    const id = b.token.id.toLowerCase();
+    if (!meta.has(id)) continue;
+    const ts = tsToSeconds(b.timestamp);
+    const dayMap = days.get(ts) ?? new Map<string, bigint>();
+    dayMap.set(id, (dayMap.get(id) ?? BigInt(0)) + BigInt(b.total));
+    days.set(ts, dayMap);
+  }
+
+  const runningByToken = new Map<string, bigint>();
+  return [...days.keys()]
+    .sort((a, b) => a - b)
+    .map((ts) => {
+      for (const [id, delta] of days.get(ts)!) {
+        runningByToken.set(id, (runningByToken.get(id) ?? BigInt(0)) + delta);
+      }
+      let balanceUsd = 0;
+      for (const [id, sum] of runningByToken) {
+        const m = meta.get(id);
+        if (!m) continue;
+        balanceUsd += toUsd(sum, m.decimals, m.priceUsd);
+      }
+      return { timestamp: ts, balanceUsd };
+    });
+};
+
+/**
+ * Daily invoice-paid activity split by processor (oldest → newest). The
+ * subgraph reports `totalActivity` as a cumulative count per processor, so the
+ * per-day count is the diff between consecutive daily buckets for that type
+ * (the earliest fetched bucket carries the full cumulative — it falls outside
+ * the chart's visible window).
+ */
+const buildInvoiceActivitySeries = (
+  buckets: InvoiceActivityBucket[],
+): InvoiceActivityPoint[] => {
+  const byType: Record<InvoiceType, { ts: number; cumulative: number }[]> = {
+    SIMPLE: [],
+    ADVANCED: [],
+  };
+  for (const b of buckets) {
+    if (b.invoiceType !== "SIMPLE" && b.invoiceType !== "ADVANCED") continue;
+    byType[b.invoiceType].push({
+      ts: tsToSeconds(b.timestamp),
+      cumulative: Number(b.totalActivity),
+    });
+  }
+
+  const perDay = new Map<number, { website: number; marketplace: number }>();
+  const accumulate = (type: InvoiceType, key: "website" | "marketplace") => {
+    const series = byType[type].sort((a, b) => a.ts - b.ts);
+    let prior = 0;
+    for (let i = 0; i < series.length; i++) {
+      const { ts, cumulative } = series[i];
+      const delta = i === 0 ? cumulative : cumulative - prior;
+      prior = cumulative;
+      const entry = perDay.get(ts) ?? { website: 0, marketplace: 0 };
+      entry[key] += delta;
+      perDay.set(ts, entry);
+    }
+  };
+  accumulate("SIMPLE", "website");
+  accumulate("ADVANCED", "marketplace");
+
+  return [...perDay.entries()]
+    .sort(([a], [b]) => a - b)
+    .map(([timestamp, counts]) => ({ timestamp, ...counts }));
 };
 
 /**
@@ -262,7 +379,10 @@ export const fetchMetricsSnapshot = async (
 
   const invNow = invoicesPaidAt(data.volumeBuckets, bounds.now);
   const invSeven = invoicesPaidAt(data.volumeBuckets, bounds.sevenDaysAgo);
-  const invFourteen = invoicesPaidAt(data.volumeBuckets, bounds.fourteenDaysAgo);
+  const invFourteen = invoicesPaidAt(
+    data.volumeBuckets,
+    bounds.fourteenDaysAgo,
+  );
   const invoicesPaid: MetricValue = {
     value: invNow - invSeven,
     changePct: percentChange(invNow - invSeven, invSeven - invFourteen),
@@ -273,6 +393,11 @@ export const fetchMetricsSnapshot = async (
     escrowBalance,
     feesPaid,
     invoicesPaid,
+    volumeSeries: buildVolumeSeries(data.volumeBuckets, meta),
+    escrowSeries: buildEscrowSeries(data.escrowBuckets, meta),
+    invoiceActivitySeries: buildInvoiceActivitySeries(
+      data.invoiceActivityBuckets,
+    ),
     fetchedAt: bounds.now,
   };
 };

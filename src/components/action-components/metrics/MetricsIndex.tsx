@@ -5,6 +5,9 @@ import { cn } from "@/lib/utils";
 import { useMetricsData } from "@/hooks/useMetricsData";
 import type { MetricValue } from "@/services/metrics/types";
 import { MetricCard } from "./MetricCard";
+import { VolumeChart } from "./VolumeChart";
+import { EscrowChart } from "./EscrowChart";
+import { InvoiceActivityChart } from "./InvoiceActivityChart";
 import {
   formatUsd,
   formatCount,
@@ -101,6 +104,24 @@ export default function MetricsIndex() {
             change={change(snapshot?.invoicesPaid)}
             changeLabel="vs last week"
             icon={<Receipt className="h-4 w-4" />}
+            isLoading={isLoading}
+          />
+        </section>
+
+        <section className="mt-6">
+          <VolumeChart
+            series={snapshot?.volumeSeries ?? []}
+            isLoading={isLoading}
+          />
+        </section>
+
+        <section className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2">
+          <EscrowChart
+            series={snapshot?.escrowSeries ?? []}
+            isLoading={isLoading}
+          />
+          <InvoiceActivityChart
+            series={snapshot?.invoiceActivitySeries ?? []}
             isLoading={isLoading}
           />
         </section>

@@ -48,6 +48,25 @@ const applyDelta = (
           ...snapshot.invoicesPaid,
           value: snapshot.invoicesPaid.value + delta.invoicesPaid,
         },
+  // Roll a live volume delta into the most recent day so the chart's tip
+  // tracks the same optimistic total as the Total Volume card.
+  volumeSeries:
+    delta.volumeUsd === undefined || snapshot.volumeSeries.length === 0
+      ? snapshot.volumeSeries
+      : snapshot.volumeSeries.map((point, i) =>
+          i === snapshot.volumeSeries.length - 1
+            ? { ...point, volumeUsd: point.volumeUsd + delta.volumeUsd! }
+            : point,
+        ),
+  // Same treatment for escrow: nudge the latest running balance by the delta.
+  escrowSeries:
+    delta.escrowUsd === undefined || snapshot.escrowSeries.length === 0
+      ? snapshot.escrowSeries
+      : snapshot.escrowSeries.map((point, i) =>
+          i === snapshot.escrowSeries.length - 1
+            ? { ...point, balanceUsd: point.balanceUsd + delta.escrowUsd! }
+            : point,
+        ),
 });
 
 export interface UseMetricsDataResult {
