@@ -41,9 +41,10 @@ export const METRICS_SNAPSHOT_QUERY = `
       token { id }
       totalFeePaid
     }
-    # Signed escrow deltas — daily buckets per token across the full history.
-    # The live balance is the running sum; day-over-day change is the running
-    # sum up to today vs. the running sum up to yesterday.
+    # Escrow — daily buckets per token across the full history.
+    # totalBalance is the signed-delta sum (running sum = live balance, shown as
+    # the card value); totalAmountPaid is the gross-paid sum (drives the chart
+    # and the card's day-over-day % change).
     escrowBuckets: escrowStats(
       interval: "day"
       where: { timestamp_lte: $now }
@@ -52,7 +53,8 @@ export const METRICS_SNAPSHOT_QUERY = `
     ) {
       timestamp
       token { id }
-      total
+      totalBalance
+      totalAmountPaid
     }
     # Invoices paid per day, split by processor (SIMPLE = website,
     # ADVANCED = marketplace). totalActivity is a cumulative count, so per-day

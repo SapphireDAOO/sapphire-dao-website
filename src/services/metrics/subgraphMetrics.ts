@@ -114,7 +114,10 @@ interface FeeBucket {
 interface EscrowBucket {
   timestamp: string;
   token: TokenRef;
-  total: string;
+  /** Σ signed balance deltas for the day (running sum = live escrow balance). */
+  totalBalance: string;
+  /** Σ gross amount paid into escrow for the day. */
+  totalAmountPaid: string;
 }
 
 type InvoiceType = "SIMPLE" | "ADVANCED";
@@ -177,19 +180,22 @@ const sumWindowUsd = <T extends { timestamp: string; token: TokenRef }>(
 };
 
 /**
- * Running USD escrow balance: sum of signed per-day deltas across every bucket
- * with timestamp <= cutoff, converted at the current price per token.
+ * Running USD escrow figure at `cutoff`: per-token sum of the chosen field
+ * across every bucket with timestamp <= cutoff, converted at the current price.
+ * Used for both the live balance (totalBalance) and the gross-paid running total
+ * (totalAmountPaid) behind the card's % change.
  */
 const escrowAtUsd = (
   buckets: EscrowBucket[],
   cutoff: number,
   meta: Map<string, TokenMeta>,
+  amount: (b: EscrowBucket) => string,
 ): number => {
   const perToken = new Map<string, bigint>();
   for (const b of buckets) {
     if (tsToSeconds(b.timestamp) > cutoff) continue;
     const id = b.token.id.toLowerCase();
-    perToken.set(id, (perToken.get(id) ?? BigInt(0)) + BigInt(b.total));
+    perToken.set(id, (perToken.get(id) ?? BigInt(0)) + BigInt(amount(b)));
   }
   let usd = 0;
   for (const [id, sum] of perToken) {
@@ -244,23 +250,23 @@ const buildVolumeSeries = (
 };
 
 /**
- * Daily running escrow balance (oldest → newest). Each day's `total` is the net
- * signed change for that token that day; the running per-token sum, converted to
- * USD at the current price, is the live balance plotted on the escrow chart.
+ * Escrow chart series (oldest → newest), built from gross amount paid
+ * (totalAmountPaid). Each day's value is summed per token and added to the
+ * running per-token total, converted to USD — a cumulative escrowed-value line.
  * Only days with escrow movement produce a point — the line steps between them.
  */
 const buildEscrowSeries = (
   buckets: EscrowBucket[],
   meta: Map<string, TokenMeta>,
 ): EscrowSeriesPoint[] => {
-  // ts -> tokenId -> net signed delta that day.
+  // ts -> tokenId -> gross amount paid that day.
   const days = new Map<number, Map<string, bigint>>();
   for (const b of buckets) {
     const id = b.token.id.toLowerCase();
     if (!meta.has(id)) continue;
     const ts = tsToSeconds(b.timestamp);
     const dayMap = days.get(ts) ?? new Map<string, bigint>();
-    dayMap.set(id, (dayMap.get(id) ?? BigInt(0)) + BigInt(b.total));
+    dayMap.set(id, (dayMap.get(id) ?? BigInt(0)) + BigInt(b.totalAmountPaid));
     days.set(ts, dayMap);
   }
 
@@ -458,15 +464,29 @@ export const fetchMetricsSnapshot = async (
     changePct: percentChange(feesCurrent, feesPrior),
   };
 
-  const escrowNow = escrowAtUsd(data.escrowBuckets, bounds.now, meta);
-  const escrowYesterday = escrowAtUsd(
+  // Card value: live balance = running sum of signed deltas (totalBalance).
+  const escrowNow = escrowAtUsd(
+    data.escrowBuckets,
+    bounds.now,
+    meta,
+    (b) => b.totalBalance,
+  );
+  // Card % change: day-over-day on the gross-paid running total (totalAmountPaid).
+  const amountPaidNow = escrowAtUsd(
+    data.escrowBuckets,
+    bounds.now,
+    meta,
+    (b) => b.totalAmountPaid,
+  );
+  const amountPaidYesterday = escrowAtUsd(
     data.escrowBuckets,
     bounds.yesterdayMark,
     meta,
+    (b) => b.totalAmountPaid,
   );
   const escrowBalance: MetricValue = {
     value: escrowNow,
-    changePct: percentChange(escrowNow, escrowYesterday),
+    changePct: percentChange(amountPaidNow, amountPaidYesterday),
   };
 
   const invNow = invoicesPaidAt(data.volumeBuckets, bounds.now);

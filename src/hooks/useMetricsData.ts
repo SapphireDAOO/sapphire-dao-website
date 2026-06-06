@@ -58,15 +58,10 @@ const applyDelta = (
             ? { ...point, volumeUsd: point.volumeUsd + delta.volumeUsd! }
             : point,
         ),
-  // Same treatment for escrow: nudge the latest running balance by the delta.
-  escrowSeries:
-    delta.escrowUsd === undefined || snapshot.escrowSeries.length === 0
-      ? snapshot.escrowSeries
-      : snapshot.escrowSeries.map((point, i) =>
-          i === snapshot.escrowSeries.length - 1
-            ? { ...point, balanceUsd: point.balanceUsd + delta.escrowUsd! }
-            : point,
-        ),
+  // The escrow chart tracks cumulative gross amount paid, not the net balance,
+  // so the signed escrowUsd delta doesn't map onto it — leave it to the next
+  // subgraph poll to refresh.
+  escrowSeries: snapshot.escrowSeries,
 });
 
 export interface UseMetricsDataResult {
