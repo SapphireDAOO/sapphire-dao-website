@@ -51,6 +51,26 @@ const formatTokenAmount = (raw: string, decimals: number): string =>
     maximumFractionDigits: 4,
   });
 
+/** Settlement-type events surfaced in the feed, keyed by PaymentProcessorEventType. */
+export const RECENT_TX_KIND_BY_EVENT = KIND_BY_EVENT;
+
+/**
+ * Format a raw token amount for display, resolving decimals + symbol from the
+ * known-token list. The zero address (or an unknown token) falls back to native
+ * ETH. Shared with the live socket so live rows match polled rows.
+ */
+export const formatTokenDisplay = (
+  chainId: number,
+  tokenId: string,
+  raw: bigint,
+): { amount: string; currency: string } => {
+  const known = getKnownPaymentToken(chainId, tokenId);
+  return {
+    amount: formatTokenAmount(raw.toString(), known?.decimals ?? NATIVE_DECIMALS),
+    currency: known?.name ?? NATIVE_SYMBOL,
+  };
+};
+
 export const fetchRecentTransactions = async (
   chainId: number,
   first = 5,

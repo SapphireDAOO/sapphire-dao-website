@@ -160,6 +160,21 @@ const toUsd = (raw: bigint, decimals: number, priceUsd: number): number => {
   return (Number(raw) / 10 ** decimals) * priceUsd;
 };
 
+/**
+ * Build a reusable (tokenId, rawAmount) → USD converter for a chain, using the
+ * same decimals + cached price map the snapshot uses. Returns 0 for unknown
+ * tokens. Shared with the live socket so optimistic deltas convert identically.
+ */
+export const createUsdConverter = (
+  chainId: number,
+): ((tokenId: string, raw: bigint) => number) => {
+  const meta = tokenMetaByChain(chainId);
+  return (tokenId, raw) => {
+    const m = meta.get(tokenId.toLowerCase());
+    return m ? toUsd(raw, m.decimals, m.priceUsd) : 0;
+  };
+};
+
 /** Σ (raw token amount × price) across buckets within [start, end]. */
 const sumWindowUsd = <T extends { timestamp: string; token: TokenRef }>(
   buckets: T[],

@@ -14,6 +14,13 @@ import type {
   MetricsSocketStatus,
 } from "@/services/metrics/types";
 
+/** Return a copy of `series` with `fn` applied to its last point (the current
+ *  day), leaving earlier points untouched. No-op on an empty series. */
+const bumpLast = <T>(series: T[], fn: (point: T) => T): T[] =>
+  series.length === 0
+    ? series
+    : series.map((point, i) => (i === series.length - 1 ? fn(point) : point));
+
 /** Add a live websocket delta on top of the current snapshot's values. */
 const applyDelta = (
   snapshot: MetricsSnapshot,
@@ -48,20 +55,25 @@ const applyDelta = (
           ...snapshot.invoicesPaid,
           value: snapshot.invoicesPaid.value + delta.invoicesPaid,
         },
-  // Roll a live volume delta into the most recent day so the chart's tip
-  // tracks the same optimistic total as the Total Volume card.
-  volumeSeries:
-    delta.volumeUsd === undefined || snapshot.volumeSeries.length === 0
-      ? snapshot.volumeSeries
-      : snapshot.volumeSeries.map((point, i) =>
-          i === snapshot.volumeSeries.length - 1
-            ? { ...point, volumeUsd: point.volumeUsd + delta.volumeUsd! }
-            : point,
-        ),
-  // The escrow chart tracks cumulative gross amount paid, not the net balance,
-  // so the signed escrowUsd delta doesn't map onto it — leave it to the next
-  // subgraph poll to refresh.
-  escrowSeries: snapshot.escrowSeries,
+  // Roll live deltas into the most recent day so each chart's tip tracks the
+  // same optimistic totals as the cards.
+  volumeSeries: bumpLast(snapshot.volumeSeries, (p) =>
+    delta.volumeUsd === undefined
+      ? p
+      : { ...p, volumeUsd: p.volumeUsd + delta.volumeUsd },
+  ),
+  // The escrow chart tracks cumulative gross amount paid — bump it only on the
+  // payment-side delta (escrowPaidUsd), never the signed balance delta.
+  escrowSeries: bumpLast(snapshot.escrowSeries, (p) =>
+    delta.escrowPaidUsd === undefined
+      ? p
+      : { ...p, balanceUsd: p.balanceUsd + delta.escrowPaidUsd },
+  ),
+  invoiceActivitySeries: bumpLast(snapshot.invoiceActivitySeries, (p) => ({
+    ...p,
+    website: p.website + (delta.activityWebsite ?? 0),
+    marketplace: p.marketplace + (delta.activityMarketplace ?? 0),
+  })),
 });
 
 export interface UseMetricsDataResult {

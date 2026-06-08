@@ -133,12 +133,18 @@ export interface MetricsSnapshot {
 export interface MetricsDelta {
   /** USD volume added by a new payment. */
   volumeUsd?: number;
-  /** Signed USD escrow delta (+ on payment, − on settlement). */
+  /** Signed USD escrow delta for the live balance (+ on payment, − on settlement). */
   escrowUsd?: number;
-  /** USD fees realized. */
+  /** USD gross-paid added by a payment (drives the escrow chart; payment only). */
+  escrowPaidUsd?: number;
+  /** USD fees realized (release / dispute settlement). */
   feesUsd?: number;
   /** Number of invoices paid (cumulative, never decremented). */
   invoicesPaid?: number;
+  /** Invoice-activity bumps via the simple processor (website). */
+  activityWebsite?: number;
+  /** Invoice-activity bumps via the advanced processor (marketplace). */
+  activityMarketplace?: number;
 }
 
 export type MetricsSocketStatus = "connecting" | "open" | "closed" | "error";
