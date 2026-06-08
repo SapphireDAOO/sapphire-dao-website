@@ -135,7 +135,7 @@ export const NOTES_SIGNER_ADDRESS =
 
 export const THE_GRAPH_API_URL: Record<number, string> = {
   [BASE_SEPOLIA]:
-    "https://api.studio.thegraph.com/query/100227/payment-processor/version/latest",
+    "https://api.studio.thegraph.com/query/100227/payment-processor-indexer/version/latest",
   [LOCALHOST]: "http://localhost:8000/subgraphs/name/payment-processor",
 };
 
