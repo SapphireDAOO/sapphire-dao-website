@@ -73,6 +73,7 @@ export const useWalletBalances = () => {
   } = useViemBalance({
     address: gasWallet,
     chainId,
+    watchBlock: false,
   });
 
   const {
