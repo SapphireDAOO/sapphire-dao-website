@@ -46,9 +46,12 @@ const Navbar = () => {
   const router = usePathname();
   const navigator = useRouter();
 
-  const goTo = useCallback((path: string) => {
-    navigator.push(path);
-  }, [navigator]);
+  const goTo = useCallback(
+    (path: string) => {
+      navigator.push(path);
+    },
+    [navigator],
+  );
 
   const isHome = useMemo(() => router === "/", [router]);
   const isAdminSection = useMemo(
@@ -108,7 +111,7 @@ const Navbar = () => {
                   />
                 )}
 
-                {router === "/metrics" ? (
+                {router === "/metrics/" ? (
                   <NavLink
                     label="Dashboard"
                     ariaLabel="Go to dashboard"
