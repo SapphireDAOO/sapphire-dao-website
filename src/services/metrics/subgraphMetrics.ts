@@ -243,14 +243,16 @@ const invoicesPaidAt = (buckets: VolumeBucket[], cutoff: number): number => {
 };
 
 /**
- * Daily USD volume series (oldest → newest). Collapses the per-token daily
- * buckets into one USD total per day so the volume chart can plot a single
- * area. Day buckets are keyed by their (day-aligned) timestamp in seconds.
+ * Total-volume series (oldest → newest) from VolumeStats. Per-token daily
+ * `dailyVolume` is collapsed into one USD total per day, then accumulated into a
+ * running total so the chart plots total volume growing over time. Day buckets
+ * are keyed by their (day-aligned) timestamp in seconds.
  */
 const buildVolumeSeries = (
   buckets: VolumeBucket[],
   meta: Map<string, TokenMeta>,
 ): VolumeSeriesPoint[] => {
+  // Per-day USD volume across every token.
   const byDay = new Map<number, number>();
   for (const b of buckets) {
     const m = meta.get(b.token.id.toLowerCase());
@@ -259,9 +261,14 @@ const buildVolumeSeries = (
     const usd = toUsd(BigInt(b.dailyVolume), m.decimals, m.priceUsd);
     byDay.set(ts, (byDay.get(ts) ?? 0) + usd);
   }
+  // Accumulate into a running total — each point is total volume through that day.
+  let running = 0;
   return [...byDay.entries()]
     .sort(([a], [b]) => a - b)
-    .map(([timestamp, volumeUsd]) => ({ timestamp, volumeUsd }));
+    .map(([timestamp, daily]) => {
+      running += daily;
+      return { timestamp, volumeUsd: running };
+    });
 };
 
 /**
@@ -486,22 +493,16 @@ export const fetchMetricsSnapshot = async (
     meta,
     (b) => b.totalBalance,
   );
-  // Card % change: day-over-day on the gross-paid running total (totalAmountPaid).
-  const amountPaidNow = escrowAtUsd(
-    data.escrowBuckets,
-    bounds.now,
-    meta,
-    (b) => b.totalAmountPaid,
-  );
-  const amountPaidYesterday = escrowAtUsd(
+  // Card % change: escrow balance today vs. the balance as of yesterday.
+  const escrowYesterday = escrowAtUsd(
     data.escrowBuckets,
     bounds.yesterdayMark,
     meta,
-    (b) => b.totalAmountPaid,
+    (b) => b.totalBalance,
   );
   const escrowBalance: MetricValue = {
     value: escrowNow,
-    changePct: percentChange(amountPaidNow, amountPaidYesterday),
+    changePct: percentChange(escrowNow, escrowYesterday),
   };
 
   const invNow = invoicesPaidAt(data.volumeBuckets, bounds.now);

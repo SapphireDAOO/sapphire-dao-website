@@ -35,7 +35,7 @@ const dayLabel = (timestampSeconds: number): string =>
   });
 
 interface VolumeChartProps {
-  /** Daily USD volume series, oldest → newest. */
+  /** Cumulative USD total-volume series, oldest → newest. */
   series: VolumeSeriesPoint[];
   isLoading?: boolean;
 }
@@ -56,7 +56,7 @@ export function VolumeChart({ series, isLoading = false }: VolumeChartProps) {
   return (
     <Card className="bg-card border-border">
       <CardHeader className="flex flex-row items-center justify-between pb-2">
-        <CardTitle className="text-sm font-medium">Volume</CardTitle>
+        <CardTitle className="text-sm font-medium">Total Volume</CardTitle>
         <div className="flex gap-1">
           {TIME_RANGES.map((range) => (
             <Button
@@ -125,12 +125,12 @@ export function VolumeChart({ series, isLoading = false }: VolumeChartProps) {
                     borderRadius: "8px",
                     color: "hsl(var(--card-foreground))",
                   }}
-                  formatter={(value: number) => [formatUsd(value), "Volume"]}
+                  formatter={(value: number) => [formatUsd(value), "Total Volume"]}
                 />
                 <Area
                   type="monotone"
                   dataKey="volume"
-                  name="Volume"
+                  name="Total Volume"
                   stroke="hsl(var(--chart-1))"
                   fillOpacity={1}
                   fill="url(#colorVolume)"

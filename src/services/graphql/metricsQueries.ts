@@ -35,6 +35,7 @@ export const METRICS_SNAPSHOT_QUERY = `
       interval: "day"
       where: { timestamp_gte: $sixtyDaysAgo, timestamp_lte: $now }
       first: 1000
+      current: include
     ) {
       timestamp
       token { id }
@@ -104,6 +105,7 @@ export const FEE_RECEIVER_TOTALS_QUERY = `
     feeBuckets: feePaidStats_collection(
       interval: "day"
       first: 1000
+      current: include
     ) {
       token { id }
       totalFeePaid
