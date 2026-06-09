@@ -23,6 +23,7 @@ export const METRICS_SNAPSHOT_QUERY = `
       interval: "day"
       where: { timestamp_gte: $sixtyDaysAgo, timestamp_lte: $now }
       first: 1000
+      current: include
     ) {
       timestamp
       token { id }
@@ -47,6 +48,7 @@ export const METRICS_SNAPSHOT_QUERY = `
       interval: "day"
       where: { timestamp_lte: $now }
       first: 1000
+      current: include
     ) {
       timestamp
       token { id }
@@ -60,6 +62,7 @@ export const METRICS_SNAPSHOT_QUERY = `
       interval: "day"
       where: { timestamp_gte: $sixtyDaysAgo, timestamp_lte: $now }
       first: 1000
+      current: include
     ) {
       timestamp
       invoiceType
@@ -71,6 +74,7 @@ export const METRICS_SNAPSHOT_QUERY = `
       interval: "day"
       where: { timestamp_gte: $sixtyDaysAgo, timestamp_lte: $now }
       first: 1000
+      current: include
     ) {
       timestamp
       role
@@ -83,6 +87,7 @@ export const METRICS_SNAPSHOT_QUERY = `
       interval: "day"
       where: { timestamp_gte: $sixtyDaysAgo, timestamp_lte: $now }
       first: 1000
+      current: include
     ) {
       timestamp
       activeUsers
