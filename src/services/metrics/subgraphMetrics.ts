@@ -421,6 +421,40 @@ const buildUserMetrics = (
   };
 };
 
+// graph-node nulls the synthesized current (today) bucket's non-null `timestamp`
+// when the new day has no data yet, which propagates up and fails the whole
+// query with this message.
+const NULL_NON_NULL_FIELD_ERROR = "Null value resolved for non-null field";
+
+/**
+ * Run a metrics query, tolerating the empty-current-bucket error above. On that
+ * error we retry with `current: include` swapped for `current: ignore`, so a
+ * brand-new day with no activity simply contributes 0 instead of failing.
+ */
+const queryMetrics = async <T>(
+  chainId: number,
+  query: string,
+  variables: Record<string, unknown>,
+): Promise<T> => {
+  let result = await client(chainId).query<T>(query, variables).toPromise();
+
+  if (
+    result.error?.message.includes(NULL_NON_NULL_FIELD_ERROR) &&
+    query.includes("current: include")
+  ) {
+    const withoutCurrent = query
+      .split("current: include")
+      .join("current: exclude");
+    result = await client(chainId)
+      .query<T>(withoutCurrent, variables)
+      .toPromise();
+  }
+
+  if (result.error) throw new Error(result.error.message);
+  if (!result.data) throw new Error("Metrics query returned no data");
+  return result.data;
+};
+
 /**
  * Build the first-section metric snapshot from the subgraph. Runs a single
  * batched query for all four metrics and converts per-token amounts to USD
@@ -437,16 +471,14 @@ export const fetchMetricsSnapshot = async (
   const toTimestamp = (seconds: number): string =>
     (BigInt(seconds) * BigInt(MICROS_PER_SECOND)).toString();
 
-  const result = await client(chainId)
-    .query<MetricsSnapshotData>(METRICS_SNAPSHOT_QUERY, {
+  const data = await queryMetrics<MetricsSnapshotData>(
+    chainId,
+    METRICS_SNAPSHOT_QUERY,
+    {
       now: toTimestamp(bounds.now),
       sixtyDaysAgo: toTimestamp(bounds.sixtyDaysAgo),
-    })
-    .toPromise();
-
-  if (result.error) throw new Error(result.error.message);
-  const data = result.data;
-  if (!data) throw new Error("Metrics snapshot returned no data");
+    },
+  );
 
   const volumeCurrent = sumWindowUsd(
     data.volumeBuckets,
@@ -548,14 +580,14 @@ export const fetchFeeReceiverTotalUsd = async (
   chainId: number,
 ): Promise<number> => {
   const meta = tokenMetaByChain(chainId);
-  const result = await client(chainId)
-    .query<{ feeBuckets: FeeTotalBucket[] }>(FEE_RECEIVER_TOTALS_QUERY, {})
-    .toPromise();
-
-  if (result.error) throw new Error(result.error.message);
+  const data = await queryMetrics<{ feeBuckets: FeeTotalBucket[] }>(
+    chainId,
+    FEE_RECEIVER_TOTALS_QUERY,
+    {},
+  );
 
   let usd = 0;
-  for (const b of result.data?.feeBuckets ?? []) {
+  for (const b of data.feeBuckets ?? []) {
     const m = meta.get(b.token.id.toLowerCase());
     if (!m) continue;
     usd += toUsd(BigInt(b.totalFeePaid), m.decimals, m.priceUsd);
