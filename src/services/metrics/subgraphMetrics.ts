@@ -391,7 +391,12 @@ const buildUserMetrics = (
   bounds: ReturnType<typeof getWindowBounds>,
 ): UserMetrics => {
   const windowed = (role: UserRole): MetricValue => {
-    const current = sumNewUsers(newUserBuckets, role, bounds.sevenDaysAgo, bounds.now);
+    const current = sumNewUsers(
+      newUserBuckets,
+      role,
+      bounds.sevenDaysAgo,
+      bounds.now,
+    );
     const prior = sumNewUsers(
       newUserBuckets,
       role,
@@ -403,7 +408,10 @@ const buildUserMetrics = (
 
   // Day-over-day growth from the two most recent populated active-user buckets.
   const active = activeUserBuckets
-    .map((b) => ({ ts: tsToSeconds(b.timestamp), value: Number(b.activeUsers) }))
+    .map((b) => ({
+      ts: tsToSeconds(b.timestamp),
+      value: Number(b.activeUsers),
+    }))
     .sort((a, b) => a.ts - b.ts);
   const activeLatest = active[active.length - 1]?.value ?? 0;
   const activePrev = active[active.length - 2]?.value ?? 0;
@@ -421,11 +429,6 @@ const buildUserMetrics = (
   };
 };
 
-// graph-node nulls the synthesized current (today) bucket's non-null `timestamp`
-// when the new day has no data yet, which propagates up and fails the whole
-// query with this message.
-const NULL_NON_NULL_FIELD_ERROR = "Null value resolved for non-null field";
-
 /**
  * Run a metrics query, tolerating the empty-current-bucket error above. On that
  * error we retry with `current: include` swapped for `current: ignore`, so a
@@ -436,19 +439,7 @@ const queryMetrics = async <T>(
   query: string,
   variables: Record<string, unknown>,
 ): Promise<T> => {
-  let result = await client(chainId).query<T>(query, variables).toPromise();
-
-  if (
-    result.error?.message.includes(NULL_NON_NULL_FIELD_ERROR) &&
-    query.includes("current: include")
-  ) {
-    const withoutCurrent = query
-      .split("current: include")
-      .join("current: exclude");
-    result = await client(chainId)
-      .query<T>(withoutCurrent, variables)
-      .toPromise();
-  }
+  const result = await client(chainId).query<T>(query, variables).toPromise();
 
   if (result.error) throw new Error(result.error.message);
   if (!result.data) throw new Error("Metrics query returned no data");
@@ -600,9 +591,7 @@ export const fetchFeeReceiverTotalUsd = async (
  * KNOWN_PAYMENT_TOKENS), used to value the gas-reserve balance. Async to match
  * the price-feed read path that will replace the testnet placeholder prices.
  */
-export const fetchNativePriceUsd = async (
-  chainId: number,
-): Promise<number> => {
+export const fetchNativePriceUsd = async (chainId: number): Promise<number> => {
   const meta = tokenMetaByChain(chainId);
   return meta.get(ZERO_ADDRESS.toLowerCase())?.priceUsd ?? 0;
 };

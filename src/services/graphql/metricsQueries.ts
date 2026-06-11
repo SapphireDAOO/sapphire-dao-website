@@ -90,7 +90,6 @@ export const METRICS_SNAPSHOT_QUERY = `
       first: 1000
       current: include
     ) {
-      timestamp
       activeUsers
     }
   }
