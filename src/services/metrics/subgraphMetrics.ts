@@ -141,8 +141,7 @@ interface NewUserBucket {
 }
 
 interface ActiveUserBucket {
-  timestamp: string;
-  /** Unique users active this day. */
+  /** Unique users active this day (the day is pinned by the query's filter). */
   activeUsers: string;
 }
 
@@ -152,7 +151,8 @@ interface MetricsSnapshotData {
   escrowBuckets: EscrowBucket[];
   invoiceActivityBuckets: InvoiceActivityBucket[];
   newUserBuckets: NewUserBucket[];
-  activeUserBuckets: ActiveUserBucket[];
+  activeTodayBuckets: ActiveUserBucket[];
+  activeYesterdayBuckets: ActiveUserBucket[];
 }
 
 const toUsd = (raw: bigint, decimals: number, priceUsd: number): number => {
@@ -387,7 +387,8 @@ const latestTotalUsers = (buckets: NewUserBucket[], role: UserRole): number => {
  */
 const buildUserMetrics = (
   newUserBuckets: NewUserBucket[],
-  activeUserBuckets: ActiveUserBucket[],
+  activeTodayBuckets: ActiveUserBucket[],
+  activeYesterdayBuckets: ActiveUserBucket[],
   bounds: ReturnType<typeof getWindowBounds>,
 ): UserMetrics => {
   const windowed = (role: UserRole): MetricValue => {
@@ -406,15 +407,12 @@ const buildUserMetrics = (
     return { value: current, changePct: percentChange(current, prior) };
   };
 
-  // Day-over-day growth from the two most recent populated active-user buckets.
-  const active = activeUserBuckets
-    .map((b) => ({
-      ts: tsToSeconds(b.timestamp),
-      value: Number(b.activeUsers),
-    }))
-    .sort((a, b) => a.ts - b.ts);
-  const activeLatest = active[active.length - 1]?.value ?? 0;
-  const activePrev = active[active.length - 2]?.value ?? 0;
+  // Active users (24h): today's unique count vs. yesterday's. Each set is
+  // already pinned to its day by the query filter, so just sum across tokens.
+  const sumActive = (buckets: ActiveUserBucket[]): number =>
+    buckets.reduce((total, b) => total + Number(b.activeUsers), 0);
+  const activeLatest = sumActive(activeTodayBuckets);
+  const activePrev = sumActive(activeYesterdayBuckets);
 
   return {
     newCreators: windowed("CREATOR"),
@@ -468,6 +466,8 @@ export const fetchMetricsSnapshot = async (
     {
       now: toTimestamp(bounds.now),
       sixtyDaysAgo: toTimestamp(bounds.sixtyDaysAgo),
+      dayMark: toTimestamp(bounds.dayMark),
+      yesterdayMark: toTimestamp(bounds.yesterdayMark),
     },
   );
 
@@ -551,7 +551,8 @@ export const fetchMetricsSnapshot = async (
     ),
     userMetrics: buildUserMetrics(
       data.newUserBuckets,
-      data.activeUserBuckets,
+      data.activeTodayBuckets,
+      data.activeYesterdayBuckets,
       bounds,
     ),
     fetchedAt: bounds.now,

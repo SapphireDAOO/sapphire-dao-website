@@ -16,7 +16,12 @@
 // series share a single round-trip.
 
 export const METRICS_SNAPSHOT_QUERY = `
-  query MetricsSnapshot($now: Timestamp!, $sixtyDaysAgo: Timestamp!) {
+  query MetricsSnapshot(
+    $now: Timestamp!
+    $sixtyDaysAgo: Timestamp!
+    $dayMark: Timestamp!
+    $yesterdayMark: Timestamp!
+  ) {
     # Volume & cumulative invoicePaid — daily buckets per token over 60 days.
     # Drives Total Volume (30d vs prior 30d) and Invoices Paid (7d vs prior 7d).
     volumeBuckets: volumeStats_collection(
@@ -82,13 +87,21 @@ export const METRICS_SNAPSHOT_QUERY = `
       newUsers
       totalUsers
     }
-    # Unique users active per day; day-over-day growth comes from the last two
-    # populated buckets.
-    activeUserBuckets: activeUserStats_collection(
+    # Active users (24h): only today and yesterday — no 60-day fetch. Each day is
+    # pinned by its own where-filter, so we don't select the timestamp field (and
+    # thus avoid the empty-current-bucket null) and don't depend on bucket order.
+    activeTodayBuckets: activeUserStats_collection(
       interval: "day"
-      where: { timestamp_gte: $sixtyDaysAgo, timestamp_lte: $now }
+      where: { timestamp_gte: $dayMark }
       first: 1000
       current: include
+    ) {
+      activeUsers
+    }
+    activeYesterdayBuckets: activeUserStats_collection(
+      interval: "day"
+      where: { timestamp_gte: $yesterdayMark, timestamp_lt: $dayMark }
+      first: 1000
     ) {
       activeUsers
     }
