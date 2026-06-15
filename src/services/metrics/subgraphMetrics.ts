@@ -55,9 +55,18 @@ export const getWindowBounds = (nowSeconds = Math.floor(Date.now() / 1000)) => {
   };
 };
 
-/** % change vs. the prior window, null when the prior window has no activity. */
-export const percentChange = (current: number, prior: number): number | null =>
-  prior ? ((current - prior) / prior) * 100 : null;
+/**
+ * % change vs. the prior window. When the prior window is 0 we can't divide, so
+ * a move from nothing to a non-zero value reads as a full ±100% (and 0 → 0 stays
+ * null, i.e. no change to show).
+ */
+export const percentChange = (current: number, prior: number): number | null => {
+  if (prior === 0) {
+    if (current === 0) return null;
+    return current > 0 ? 100 : -100;
+  }
+  return ((current - prior) / prior) * 100;
+};
 
 interface TokenMeta {
   decimals: number;
@@ -243,16 +252,15 @@ const invoicesPaidAt = (buckets: VolumeBucket[], cutoff: number): number => {
 };
 
 /**
- * Total-volume series (oldest → newest) from VolumeStats. Per-token daily
- * `dailyVolume` is collapsed into one USD total per day, then accumulated into a
- * running total so the chart plots total volume growing over time. Day buckets
- * are keyed by their (day-aligned) timestamp in seconds.
+ * Volume series (oldest → newest) from VolumeStats: each point is that day's own
+ * volume (per-token `dailyVolume` summed into one USD total per day). Per-day,
+ * standalone — not cumulative. Day buckets are keyed by their (day-aligned)
+ * timestamp in seconds.
  */
 const buildVolumeSeries = (
   buckets: VolumeBucket[],
   meta: Map<string, TokenMeta>,
 ): VolumeSeriesPoint[] => {
-  // Per-day USD volume across every token.
   const byDay = new Map<number, number>();
   for (const b of buckets) {
     const m = meta.get(b.token.id.toLowerCase());
@@ -261,34 +269,29 @@ const buildVolumeSeries = (
     const usd = toUsd(BigInt(b.dailyVolume), m.decimals, m.priceUsd);
     byDay.set(ts, (byDay.get(ts) ?? 0) + usd);
   }
-  // Accumulate into a running total — each point is total volume through that day.
-  let running = 0;
   return [...byDay.entries()]
     .sort(([a], [b]) => a - b)
-    .map(([timestamp, daily]) => {
-      running += daily;
-      return { timestamp, volumeUsd: running };
-    });
+    .map(([timestamp, volumeUsd]) => ({ timestamp, volumeUsd }));
 };
 
 /**
- * Escrow chart series (oldest → newest), built from gross amount paid
- * (totalAmountPaid). Each day's value is summed per token and added to the
- * running per-token total, converted to USD — a cumulative escrowed-value line.
- * Only days with escrow movement produce a point — the line steps between them.
+ * Escrow chart series (oldest → newest): that day's escrow balance. Each day's
+ * signed `totalBalance` deltas are summed per token into a running per-token
+ * balance and converted to USD, so each point is the balance held as of that
+ * day. Only days with escrow movement produce a point.
  */
 const buildEscrowSeries = (
   buckets: EscrowBucket[],
   meta: Map<string, TokenMeta>,
 ): EscrowSeriesPoint[] => {
-  // ts -> tokenId -> gross amount paid that day.
+  // ts -> tokenId -> net signed balance delta that day.
   const days = new Map<number, Map<string, bigint>>();
   for (const b of buckets) {
     const id = b.token.id.toLowerCase();
     if (!meta.has(id)) continue;
     const ts = tsToSeconds(b.timestamp);
     const dayMap = days.get(ts) ?? new Map<string, bigint>();
-    dayMap.set(id, (dayMap.get(id) ?? BigInt(0)) + BigInt(b.totalAmountPaid));
+    dayMap.set(id, (dayMap.get(id) ?? BigInt(0)) + BigInt(b.totalBalance));
     days.set(ts, dayMap);
   }
 
