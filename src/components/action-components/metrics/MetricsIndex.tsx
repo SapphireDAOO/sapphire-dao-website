@@ -12,6 +12,7 @@ import { WalletBalances } from "./WalletBalances";
 import { UserMetrics } from "./UserMetrics";
 import { RecentTransactions } from "./RecentTransactions";
 import { GasTracker } from "./GasTracker";
+import { SystemHealth } from "./SystemHealth";
 import {
   formatUsd,
   formatCount,
@@ -140,7 +141,10 @@ export default function MetricsIndex() {
 
         <section className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2">
           <RecentTransactions />
-          <GasTracker />
+          <div className="space-y-6">
+            <GasTracker />
+            <SystemHealth />
+          </div>
         </section>
       </main>
     </div>

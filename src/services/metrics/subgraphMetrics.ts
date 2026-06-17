@@ -17,6 +17,7 @@ import { client } from "../graphql/client";
 import {
   METRICS_SNAPSHOT_QUERY,
   FEE_RECEIVER_TOTALS_QUERY,
+  STORAGE_CONFIG_QUERY,
 } from "../graphql/metricsQueries";
 
 const SECONDS_PER_DAY = ONE_DAY_MS / 1000;
@@ -598,4 +599,25 @@ export const fetchFeeReceiverTotalUsd = async (
 export const fetchNativePriceUsd = async (chainId: number): Promise<number> => {
   const meta = tokenMetaByChain(chainId);
   return meta.get(ZERO_ADDRESS.toLowerCase())?.priceUsd ?? 0;
+};
+
+/**
+ * Unix seconds of the last storage-config change (StorageConfiguration.updatedAt),
+ * used to show how long ago the fee receiver was changed. Null when the config
+ * singleton hasn't been indexed yet.
+ */
+export const fetchFeeReceiverChangedAt = async (
+  chainId: number,
+): Promise<number | null> => {
+  const result = await client(chainId)
+    .query<{ storageConfiguration: { updatedAt: string | null } | null }>(
+      STORAGE_CONFIG_QUERY,
+      {},
+    )
+    .toPromise();
+
+  if (result.error) throw new Error(result.error.message);
+
+  const updatedAt = result.data?.storageConfiguration?.updatedAt;
+  return updatedAt != null ? Number(updatedAt) : null;
 };

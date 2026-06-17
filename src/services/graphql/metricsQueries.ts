@@ -174,3 +174,15 @@ export const GAS_TRACKER_QUERY = `
     }
   }
 `;
+
+// Storage configuration singleton (id: "global"). updatedAt is the unix-seconds
+// timestamp of the last config-changing storage event — used to show how long
+// ago the fee receiver was changed.
+export const STORAGE_CONFIG_QUERY = `
+  query StorageConfig {
+    storageConfiguration(id: "global") {
+      feeReceiver
+      updatedAt
+    }
+  }
+`;
