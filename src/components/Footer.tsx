@@ -4,7 +4,17 @@ const Footer = () => (
       <span>
         © {new Date().getFullYear()} Sapphire DAO. All rights reserved.
       </span>
-      <span>Built on Base</span>
+      <div className="flex items-center gap-4">
+        <a
+          href="https://status.sapphiredaotesting.com"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="transition-colors hover:text-white"
+        >
+          Status
+        </a>
+        <span>Built on Base</span>
+      </div>
     </div>
   </footer>
 );
