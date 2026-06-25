@@ -286,3 +286,24 @@ export const STORAGE_CONFIG_QUERY = `
     }
   }
 `;
+
+// Most recent multisig transactions (admin actions), newest first. id is the
+// txHash, used for the block-explorer link.
+export const ADMIN_TRANSACTIONS_QUERY = `
+  query AdminTransactions($first: Int = 5) {
+    multiSigTransactions(
+      first: $first
+      orderBy: proposedAt
+      orderDirection: desc
+    ) {
+      id
+      status
+      proposer
+      executor
+      approvalCount
+      nonce
+      proposedAt
+      executedAt
+    }
+  }
+`;

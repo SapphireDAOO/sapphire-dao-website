@@ -13,6 +13,7 @@ import { UserMetrics } from "./UserMetrics";
 import { RecentTransactions } from "./RecentTransactions";
 import { GasTracker } from "./GasTracker";
 import { SystemHealth } from "./SystemHealth";
+import { AdminActivity } from "./AdminActivity";
 import { PaidTransactionsModal } from "./PaidTransactionsModal";
 import { EscrowTransactionsModal } from "./EscrowTransactionsModal";
 import { InvoicesPaidModal } from "./InvoicesPaidModal";
@@ -185,6 +186,10 @@ export default function MetricsIndex() {
             <GasTracker />
             <SystemHealth />
           </div>
+        </section>
+
+        <section className="mt-6">
+          <AdminActivity />
         </section>
       </main>
     </div>
