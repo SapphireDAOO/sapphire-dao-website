@@ -13,6 +13,10 @@ import { UserMetrics } from "./UserMetrics";
 import { RecentTransactions } from "./RecentTransactions";
 import { GasTracker } from "./GasTracker";
 import { SystemHealth } from "./SystemHealth";
+import { PaidTransactionsModal } from "./PaidTransactionsModal";
+import { EscrowTransactionsModal } from "./EscrowTransactionsModal";
+import { InvoicesPaidModal } from "./InvoicesPaidModal";
+import { FeesPaidModal } from "./FeesPaidModal";
 import {
   formatUsd,
   formatCount,
@@ -79,38 +83,74 @@ export default function MetricsIndex() {
         )}
 
         <section className="grid grid-cols-2 gap-4 md:grid-cols-4">
-          <MetricCard
-            title="Total Volume (30d)"
-            value={show(snapshot?.totalVolume, formatUsd)}
-            change={change(snapshot?.totalVolume)}
-            changeLabel="vs last month"
-            icon={<ArrowUpDown className="h-4 w-4" />}
-            isLoading={isLoading}
-          />
-          <MetricCard
-            title="Escrow Balance"
-            value={show(snapshot?.escrowBalance, formatUsd)}
-            change={change(snapshot?.escrowBalance)}
-            changeLabel="vs yesterday"
-            icon={<Wallet className="h-4 w-4" />}
-            isLoading={isLoading}
-          />
-          <MetricCard
-            title="Fees Paid (30d)"
-            value={show(snapshot?.feesPaid, formatUsd)}
-            change={change(snapshot?.feesPaid)}
-            changeLabel="vs last month"
-            icon={<DollarSign className="h-4 w-4" />}
-            isLoading={isLoading}
-          />
-          <MetricCard
-            title="Invoices Paid (7d)"
-            value={show(snapshot?.invoicesPaid, formatCount)}
-            change={change(snapshot?.invoicesPaid)}
-            changeLabel="vs last week"
-            icon={<Receipt className="h-4 w-4" />}
-            isLoading={isLoading}
-          />
+          <PaidTransactionsModal>
+            <button
+              type="button"
+              aria-label="View payments in the last 30 days"
+              className="group w-full rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <MetricCard
+                title="Total Volume (30d)"
+                value={show(snapshot?.totalVolume, formatUsd)}
+                change={change(snapshot?.totalVolume)}
+                changeLabel="vs last month"
+                icon={<ArrowUpDown className="h-4 w-4" />}
+                isLoading={isLoading}
+                actionLabel="View payments"
+              />
+            </button>
+          </PaidTransactionsModal>
+          <EscrowTransactionsModal>
+            <button
+              type="button"
+              aria-label="View escrow movements in the last 30 days"
+              className="group w-full rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <MetricCard
+                title="Escrow Balance"
+                value={show(snapshot?.escrowBalance, formatUsd)}
+                change={change(snapshot?.escrowBalance)}
+                changeLabel="vs yesterday"
+                icon={<Wallet className="h-4 w-4" />}
+                isLoading={isLoading}
+                actionLabel="View escrow movements"
+              />
+            </button>
+          </EscrowTransactionsModal>
+          <FeesPaidModal>
+            <button
+              type="button"
+              aria-label="View fees paid in the last 30 days"
+              className="group w-full rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <MetricCard
+                title="Fees Paid (30d)"
+                value={show(snapshot?.feesPaid, formatUsd)}
+                change={change(snapshot?.feesPaid)}
+                changeLabel="vs last month"
+                icon={<DollarSign className="h-4 w-4" />}
+                isLoading={isLoading}
+                actionLabel="View fees paid"
+              />
+            </button>
+          </FeesPaidModal>
+          <InvoicesPaidModal>
+            <button
+              type="button"
+              aria-label="View invoices paid in the last 7 days"
+              className="group w-full rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <MetricCard
+                title="Invoices Paid (7d)"
+                value={show(snapshot?.invoicesPaid, formatCount)}
+                change={change(snapshot?.invoicesPaid)}
+                changeLabel="vs last week"
+                icon={<Receipt className="h-4 w-4" />}
+                isLoading={isLoading}
+                actionLabel="View invoices paid"
+              />
+            </button>
+          </InvoicesPaidModal>
         </section>
 
         <section className="mt-6">

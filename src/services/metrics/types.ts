@@ -39,6 +39,8 @@ export interface RecentTransaction {
   amount: string;
   /** Token symbol (e.g. "ETH", "mUSDC"). */
   currency: string;
+  /** USD-converted value of the amount; undefined when not computed. */
+  amountUsd?: number;
   /** Counterparty address (payer, falling back to seller). */
   counterparty?: string;
 }

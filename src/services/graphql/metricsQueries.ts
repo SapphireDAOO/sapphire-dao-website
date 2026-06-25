@@ -165,6 +165,106 @@ export const RECENT_TRANSACTIONS_QUERY = `
   }
 `;
 
+// Paginated INVOICE_PAID events since a unix-seconds cutoff (e.g. last 30 days),
+// newest first. `first`/`skip` page through the list; the amount is read from the
+// linked invoice, same as the Recent Transactions feed.
+export const PAID_TRANSACTIONS_QUERY = `
+  query PaidTransactions($since: BigInt!, $first: Int!, $skip: Int!) {
+    invoiceEvents(
+      first: $first
+      skip: $skip
+      orderBy: timestamp
+      orderDirection: desc
+      where: { eventType: INVOICE_PAID, timestamp_gte: $since }
+    ) {
+      id
+      eventType
+      txHash
+      timestamp
+      simpleInvoice {
+        invoiceNonce
+        price
+        amountPaid
+        buyer { id }
+        seller { id }
+      }
+      advancedInvoice {
+        invoiceNonce
+        price
+        amountPaid
+        paymentToken { id name decimal }
+        buyer { id }
+        seller { id }
+      }
+    }
+  }
+`;
+
+// Paginated escrow-moving events since a unix-seconds cutoff, newest first.
+// INVOICE_PAID is an inflow; releases / refunds / dispute settlements are
+// outflows (both simple and advanced processor variants).
+export const ESCROW_TRANSACTIONS_QUERY = `
+  query EscrowTransactions($since: BigInt!, $first: Int!, $skip: Int!) {
+    invoiceEvents(
+      first: $first
+      skip: $skip
+      orderBy: timestamp
+      orderDirection: desc
+      where: {
+        eventType_in: [
+          INVOICE_PAID
+          INVOICE_RELEASED
+          PAYMENT_RELEASED
+          INVOICE_REFUNDED
+          REFUNDED
+          DISPUTE_SETTLED
+        ]
+        timestamp_gte: $since
+      }
+    ) {
+      id
+      eventType
+      txHash
+      timestamp
+      simpleInvoice {
+        invoiceNonce
+        price
+        amountPaid
+        buyer { id }
+        seller { id }
+      }
+      advancedInvoice {
+        invoiceNonce
+        price
+        amountPaid
+        paymentToken { id name decimal }
+        buyer { id }
+        seller { id }
+      }
+    }
+  }
+`;
+
+// Paginated fee payments from the FeePaid timeseries since a microsecond cutoff,
+// newest first. FeePaid only carries timestamp + token + amount.
+export const FEES_PAID_QUERY = `
+  query FeesPaid($since: Timestamp!, $first: Int!, $skip: Int!) {
+    feePaids(
+      first: $first
+      skip: $skip
+      orderBy: timestamp
+      orderDirection: desc
+      where: { timestamp_gte: $since }
+    ) {
+      id
+      timestamp
+      token { id }
+      amount
+      txHash
+    }
+  }
+`;
+
 export const GAS_TRACKER_QUERY = `
   query GasTracker {
     gasPaid(id: "global") {

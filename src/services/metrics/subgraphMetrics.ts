@@ -619,5 +619,6 @@ export const fetchFeeReceiverChangedAt = async (
   if (result.error) throw new Error(result.error.message);
 
   const updatedAt = result.data?.storageConfiguration?.updatedAt;
+  
   return updatedAt != null ? Number(updatedAt) : null;
 };
