@@ -61,15 +61,14 @@ export function MetricCard({
         <CardTitle className="text-sm font-medium text-muted-foreground">
           {title}
         </CardTitle>
-        <div className="flex items-center gap-1.5">
-          {icon && <div className="text-primary">{icon}</div>}
-          {actionLabel && (
-            <ChevronDown
-              aria-hidden
-              className="h-4 w-4 text-muted-foreground transition-colors group-hover:text-primary"
-            />
-          )}
-        </div>
+        {actionLabel ? (
+          <ChevronDown
+            aria-hidden
+            className="h-4 w-4 text-muted-foreground transition-colors group-hover:text-primary"
+          />
+        ) : (
+          icon && <div className="text-primary">{icon}</div>
+        )}
       </CardHeader>
       <CardContent className="p-4 pt-0">
         {isLoading ? (

@@ -22,7 +22,7 @@ import { formatUsd } from "./formatMetric";
 
 const TIME_RANGES = [
   { label: "7D", days: 7 },
-  { label: "21D", days: 21 },
+  { label: "30D", days: 30 },
   { label: "60D", days: 60 },
 ] as const;
 
@@ -39,7 +39,7 @@ interface EscrowChartProps {
 }
 
 export function EscrowChart({ series, isLoading = false }: EscrowChartProps) {
-  const [activeDays, setActiveDays] = useState<number>(21);
+  const [activeDays, setActiveDays] = useState<number>(30);
 
   // Points within the last `activeDays` days (filter by timestamp, not count —
   // the series only has points for days with escrow movement).
