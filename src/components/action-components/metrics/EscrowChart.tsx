@@ -41,14 +41,17 @@ interface EscrowChartProps {
 export function EscrowChart({ series, isLoading = false }: EscrowChartProps) {
   const [activeDays, setActiveDays] = useState<number>(21);
 
-  const data = useMemo(
-    () =>
-      series.slice(-activeDays).map((point) => ({
+  // Points within the last `activeDays` days (filter by timestamp, not count —
+  // the series only has points for days with escrow movement).
+  const data = useMemo(() => {
+    const cutoff = Math.floor(Date.now() / 1000) - activeDays * 86400;
+    return series
+      .filter((point) => point.timestamp >= cutoff)
+      .map((point) => ({
         date: dayLabel(point.timestamp),
         balance: point.balanceUsd,
-      })),
-    [series, activeDays],
-  );
+      }));
+  }, [series, activeDays]);
 
   return (
     <Card className="bg-card border-border">

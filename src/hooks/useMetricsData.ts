@@ -62,12 +62,12 @@ const applyDelta = (
       ? p
       : { ...p, volumeUsd: p.volumeUsd + delta.volumeUsd },
   ),
-  // The escrow chart tracks the running balance, so bump the current day by the
-  // same signed escrow delta as the card.
+  // The escrow chart shows the amount paid into escrow per day, so bump the
+  // current day only by the payment-side (gross-in) delta.
   escrowSeries: bumpLast(snapshot.escrowSeries, (p) =>
-    delta.escrowUsd === undefined
+    delta.escrowPaidUsd === undefined
       ? p
-      : { ...p, balanceUsd: p.balanceUsd + delta.escrowUsd },
+      : { ...p, balanceUsd: p.balanceUsd + delta.escrowPaidUsd },
   ),
   invoiceActivitySeries: bumpLast(snapshot.invoiceActivitySeries, (p) => ({
     ...p,

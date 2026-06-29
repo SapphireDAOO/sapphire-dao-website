@@ -43,15 +43,17 @@ interface VolumeChartProps {
 export function VolumeChart({ series, isLoading = false }: VolumeChartProps) {
   const [activeDays, setActiveDays] = useState<number>(30);
 
-  // Last `activeDays` points, shaped for recharts.
-  const data = useMemo(
-    () =>
-      series.slice(-activeDays).map((point) => ({
+  // Points within the last `activeDays` days (filter by timestamp, not count —
+  // the series only has points for days with activity).
+  const data = useMemo(() => {
+    const cutoff = Math.floor(Date.now() / 1000) - activeDays * 86400;
+    return series
+      .filter((point) => point.timestamp >= cutoff)
+      .map((point) => ({
         date: dayLabel(point.timestamp),
         volume: point.volumeUsd,
-      })),
-    [series, activeDays],
-  );
+      }));
+  }, [series, activeDays]);
 
   return (
     <Card className="bg-card border-border">

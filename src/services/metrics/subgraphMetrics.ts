@@ -276,41 +276,26 @@ const buildVolumeSeries = (
 };
 
 /**
- * Escrow chart series (oldest → newest): that day's escrow balance. Each day's
- * signed `totalBalance` deltas are summed per token into a running per-token
- * balance and converted to USD, so each point is the balance held as of that
- * day. Only days with escrow movement produce a point.
+ * Escrow chart series (oldest → newest): the escrow volume paid in each day
+ * (per-token `totalAmountPaid` summed into one USD total per day). Per-day,
+ * standalone — not a running balance. Only days with escrow movement produce
+ * a point.
  */
 const buildEscrowSeries = (
   buckets: EscrowBucket[],
   meta: Map<string, TokenMeta>,
 ): EscrowSeriesPoint[] => {
-  // ts -> tokenId -> net signed balance delta that day.
-  const days = new Map<number, Map<string, bigint>>();
+  const byDay = new Map<number, number>();
   for (const b of buckets) {
-    const id = b.token.id.toLowerCase();
-    if (!meta.has(id)) continue;
+    const m = meta.get(b.token.id.toLowerCase());
+    if (!m) continue;
     const ts = tsToSeconds(b.timestamp);
-    const dayMap = days.get(ts) ?? new Map<string, bigint>();
-    dayMap.set(id, (dayMap.get(id) ?? BigInt(0)) + BigInt(b.totalBalance));
-    days.set(ts, dayMap);
+    const usd = toUsd(BigInt(b.totalAmountPaid), m.decimals, m.priceUsd);
+    byDay.set(ts, (byDay.get(ts) ?? 0) + usd);
   }
-
-  const runningByToken = new Map<string, bigint>();
-  return [...days.keys()]
-    .sort((a, b) => a - b)
-    .map((ts) => {
-      for (const [id, delta] of days.get(ts)!) {
-        runningByToken.set(id, (runningByToken.get(id) ?? BigInt(0)) + delta);
-      }
-      let balanceUsd = 0;
-      for (const [id, sum] of runningByToken) {
-        const m = meta.get(id);
-        if (!m) continue;
-        balanceUsd += toUsd(sum, m.decimals, m.priceUsd);
-      }
-      return { timestamp: ts, balanceUsd };
-    });
+  return [...byDay.entries()]
+    .sort(([a], [b]) => a - b)
+    .map(([timestamp, balanceUsd]) => ({ timestamp, balanceUsd }));
 };
 
 /**
