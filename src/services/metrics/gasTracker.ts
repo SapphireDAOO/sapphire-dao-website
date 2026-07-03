@@ -1,6 +1,7 @@
 import type { GasStats } from "./types";
 import { client } from "../graphql/client";
 import { GAS_TRACKER_QUERY } from "../graphql/metricsQueries";
+import { throwSubgraphError } from "./errors";
 
 interface GasPaidRow {
   amount: string;
@@ -21,7 +22,7 @@ export const fetchGasStats = async (
     )
     .toPromise();
 
-  if (result.error) throw new Error(result.error.message);
+  if (result.error) throwSubgraphError(result.error);
 
   const row = result.data?.gasPaid;
   if (!row) return null;

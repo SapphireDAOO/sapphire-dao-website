@@ -7,6 +7,7 @@ import { getKnownPaymentToken } from "@/constants";
 import { client } from "../graphql/client";
 import { FEES_PAID_QUERY } from "../graphql/metricsQueries";
 import { createUsdConverter } from "./subgraphMetrics";
+import { throwSubgraphError } from "./errors";
 
 const MICROS_PER_SECOND = 1_000_000;
 const NATIVE_DECIMALS = 18;
@@ -60,7 +61,7 @@ export const fetchFeesPaid = async (
     )
     .toPromise();
 
-  if (result.error) throw new Error(result.error.message);
+  if (result.error) throwSubgraphError(result.error);
 
   const toUsd = createUsdConverter(chainId);
   const raw = result.data?.feePaids ?? [];

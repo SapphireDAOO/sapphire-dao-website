@@ -19,6 +19,7 @@ import {
   FEE_RECEIVER_TOTALS_QUERY,
   STORAGE_CONFIG_QUERY,
 } from "../graphql/metricsQueries";
+import { throwSubgraphError } from "./errors";
 
 const SECONDS_PER_DAY = ONE_DAY_MS / 1000;
 const MICROS_PER_SECOND = 1_000_000;
@@ -435,7 +436,7 @@ const queryMetrics = async <T>(
     .query<T>(query, variables, { requestPolicy: "network-only" })
     .toPromise();
 
-  if (result.error) throw new Error(result.error.message);
+  if (result.error) throwSubgraphError(result.error);
   if (!result.data) throw new Error("Metrics query returned no data");
   return result.data;
 };
@@ -613,7 +614,7 @@ export const fetchFeeReceiverChangedAt = async (
     )
     .toPromise();
 
-  if (result.error) throw new Error(result.error.message);
+  if (result.error) throwSubgraphError(result.error);
 
   const updatedAt = result.data?.storageConfiguration?.updatedAt;
   

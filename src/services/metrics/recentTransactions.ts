@@ -7,6 +7,7 @@ import { formatUnits } from "viem";
 import { getKnownPaymentToken, ZERO_ADDRESS } from "@/constants";
 import type { RecentTransaction, TransactionKind } from "./types";
 import { createUsdConverter } from "./subgraphMetrics";
+import { throwSubgraphError } from "./errors";
 import { client } from "../graphql/client";
 import {
   RECENT_TRANSACTIONS_QUERY,
@@ -128,7 +129,7 @@ export const fetchRecentTransactions = async (
     )
     .toPromise();
 
-  if (result.error) throw new Error(result.error.message);
+  if (result.error) throwSubgraphError(result.error);
 
   const toUsd = createUsdConverter(chainId);
   return (result.data?.invoiceEvents ?? [])
@@ -159,7 +160,7 @@ const fetchPaginatedEvents = async (
     )
     .toPromise();
 
-  if (result.error) throw new Error(result.error.message);
+  if (result.error) throwSubgraphError(result.error);
 
   const toUsd = createUsdConverter(chainId);
   const raw = result.data?.invoiceEvents ?? [];

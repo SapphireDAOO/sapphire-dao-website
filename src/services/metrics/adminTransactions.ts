@@ -3,6 +3,7 @@
 
 import { client } from "../graphql/client";
 import { ADMIN_TRANSACTIONS_QUERY } from "../graphql/metricsQueries";
+import { throwSubgraphError } from "./errors";
 
 export type MultisigStatus =
   | "PROPOSED"
@@ -48,7 +49,7 @@ export const fetchAdminTransactions = async (
     )
     .toPromise();
 
-  if (result.error) throw new Error(result.error.message);
+  if (result.error) throwSubgraphError(result.error);
 
   return (result.data?.multiSigTransactions ?? []).map((t) => ({
     id: t.id,
