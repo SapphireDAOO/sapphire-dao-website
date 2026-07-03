@@ -43,7 +43,7 @@ const NavLink = ({
 
 const Navbar = () => {
   const { isAllowed: canAccessAdmin } = useAdminAccess();
-  const router = usePathname();
+  const pathname = usePathname();
   const navigator = useRouter();
 
   const goTo = useCallback(
@@ -53,11 +53,17 @@ const Navbar = () => {
     [navigator],
   );
 
-  const isHome = useMemo(() => router === "/", [router]);
-  const isAdminSection = useMemo(
-    () => router === "/admin" || router === "/invoices",
-    [router],
+  // `trailingSlash: true` makes usePathname return e.g. "/admin/", so strip the
+  // trailing slash before comparing.
+  const path = useMemo(
+    () => (pathname ?? "/").replace(/\/+$/, "") || "/",
+    [pathname],
   );
+
+  const isHome = path === "/";
+  const isMetrics = path === "/metrics";
+  const isAdminSection =
+    path === "/admin" || path === "/invoices" || path === "/multisig";
 
   return (
     <>
@@ -87,49 +93,68 @@ const Navbar = () => {
               </button>
             ) : (
               <div className="flex items-center gap-1 sm:gap-2">
-                {canAccessAdmin &&
-                  (router === "/admin" ? (
+                {isAdminSection ? (
+                  <>
+                    {/* Return out of the admin section. */}
                     <NavLink
                       label="Dashboard"
-                      ariaLabel="Go to dashboard"
+                      ariaLabel="Return to dashboard"
                       onClick={() => goTo("/dashboard")}
                     />
-                  ) : (
-                    <NavLink
-                      label="Admin"
-                      ariaLabel="Go to admin"
-                      active={router === "/admin"}
-                      onClick={() => goTo("/admin")}
-                    />
-                  ))}
-                {canAccessAdmin && isAdminSection && (
-                  <NavLink
-                    label="Invoices"
-                    ariaLabel="Go to invoices"
-                    active={router === "/invoices"}
-                    onClick={() => goTo("/invoices")}
-                  />
-                )}
-
-                {router === "/metrics/" ? (
-                  <NavLink
-                    label="Dashboard"
-                    ariaLabel="Go to dashboard"
-                    onClick={() => goTo("/dashboard")}
-                  />
+                    {canAccessAdmin && (
+                      <>
+                        <NavLink
+                          label="Invoices"
+                          ariaLabel="Go to invoices"
+                          active={path === "/invoices"}
+                          onClick={() => goTo("/invoices")}
+                        />
+                        <NavLink
+                          label="Admin"
+                          ariaLabel="Go to admin"
+                          active={path === "/admin"}
+                          onClick={() => goTo("/admin")}
+                        />
+                        <NavLink
+                          label="Multisig"
+                          ariaLabel="Go to multisig"
+                          active={path === "/multisig"}
+                          onClick={() => goTo("/multisig")}
+                        />
+                      </>
+                    )}
+                  </>
                 ) : (
-                  <NavLink
-                    label="Metrics"
-                    ariaLabel="Go to metrics"
-                    onClick={() => goTo("/metrics")}
-                  />
+                  <>
+                    {isMetrics ? (
+                      <NavLink
+                        label="Dashboard"
+                        ariaLabel="Go to dashboard"
+                        onClick={() => goTo("/dashboard")}
+                      />
+                    ) : (
+                      <NavLink
+                        label="Metrics"
+                        ariaLabel="Go to metrics"
+                        onClick={() => goTo("/metrics")}
+                      />
+                    )}
+                    {canAccessAdmin && (
+                      <>
+                        <NavLink
+                          label="Admin"
+                          ariaLabel="Go to admin"
+                          onClick={() => goTo("/admin")}
+                        />
+                        <NavLink
+                          label="Multisig"
+                          ariaLabel="Go to multisig"
+                          onClick={() => goTo("/multisig")}
+                        />
+                      </>
+                    )}
+                  </>
                 )}
-                <NavLink
-                  label="Multisig"
-                  ariaLabel="Go to multisig"
-                  active={router === "/multisig"}
-                  onClick={() => goTo("/multisig")}
-                />
                 <div className="ml-2">
                   <ConnectButton chainStatus="icon" showBalance={false} />
                 </div>

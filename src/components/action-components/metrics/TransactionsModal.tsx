@@ -3,22 +3,17 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAccount } from "wagmi";
-import { ExternalLink } from "lucide-react";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+  Card,
+  CardContent,
+  CardHeader,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
@@ -30,40 +25,46 @@ import type {
   RecentTransaction,
   TransactionKind,
 } from "@/services/metrics/types";
+import { unixToGMT, formatAddress } from "@/utils";
 import { formatUsd } from "./formatMetric";
 
-/** Human label for each transaction kind. */
-const KIND_LABEL: Record<TransactionKind, string> = {
-  paid: "Payment",
-  released: "Release",
-  refunded: "Refund",
-  settled: "Settlement",
-};
+type BadgeVariant = "default" | "secondary" | "destructive";
 
-const PAGE_SIZE = 10;
+/** Label + badge treatment per transaction kind. */
+const KIND_META: Record<TransactionKind, { label: string; badge: BadgeVariant }> =
+  {
+    paid: { label: "Payment", badge: "default" },
+    released: { label: "Release", badge: "secondary" },
+    refunded: { label: "Refund", badge: "destructive" },
+    settled: { label: "Settlement", badge: "secondary" },
+  };
+
+const PAGE_SIZE = 12;
 const WINDOW_DAYS = 30;
 
 const explorerTxUrl = (txHash: string): string =>
   `https://sepolia.basescan.org/tx/${txHash}`;
 
-const formatTime = (unixSeconds: number): string =>
-  new Date(unixSeconds * 1000).toLocaleString("en-US", {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+/** One labelled field row inside a card. */
+function Field({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className="font-medium text-muted-foreground">{label}:</span>
+      <span className="text-foreground">{children}</span>
+    </div>
+  );
+}
 
 export interface TransactionsModalProps {
   /** Clickable trigger (e.g. a metric card). */
   children: ReactNode;
-  /** Dialog title. */
+  /** Dropdown panel title. */
   title: string;
   /** Stable React Query cache-key segment, e.g. "paid" | "escrow". */
   cacheKey: string;
   /** Empty-state message. */
   emptyLabel: string;
-  /** Fetch one page of rows for the given 30-day cutoff. */
+  /** Fetch one page of rows for the given cutoff. */
   fetchPage: (
     chainId: number,
     page: number,
@@ -77,8 +78,70 @@ export interface TransactionsModalProps {
   showDirection?: boolean;
   /** Unix-seconds cutoff; defaults to 30 days ago. */
   sinceSeconds?: number;
-  /** Show the Type column (Payment / Release / …). Defaults to true. */
+  /** Show the kind badge (Payment / Release / …). Defaults to true. */
   showType?: boolean;
+}
+
+/** One transaction rendered as a dashboard-style card. */
+function TransactionCard({
+  tx,
+  showDirection,
+  showType,
+}: {
+  tx: RecentTransaction;
+  showDirection: boolean;
+  showType: boolean;
+}) {
+  const meta = KIND_META[tx.kind];
+  const inflow = tx.kind === "paid";
+  const sign = showDirection ? (inflow ? "+" : "−") : "";
+  return (
+    <Card className="transition-shadow hover:shadow-md">
+      <CardHeader className="p-2.5 pb-1">
+        <div className="flex items-center justify-between">
+          <h3 className="font-mono text-sm font-semibold">
+            #{tx.invoiceNonce}
+          </h3>
+          {showType && (
+            <Badge variant={meta.badge} className="text-xs">
+              {meta.label}
+            </Badge>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-1 p-2.5 pt-0 text-xs">
+        <Field label="Amount">
+          <span
+            className={cn(
+              "font-mono font-medium",
+              showDirection &&
+                (inflow ? "text-emerald-500" : "text-destructive"),
+            )}
+          >
+            {sign}
+            {tx.amount} {tx.currency}
+          </span>
+          {tx.amountUsd !== undefined && (
+            <span className="ml-1 text-muted-foreground">
+              ({formatUsd(tx.amountUsd)})
+            </span>
+          )}
+        </Field>
+        <Field label="Source">{tx.source}</Field>
+        <Field label="Time">{unixToGMT(tx.timestamp)}</Field>
+        <Field label="Tx">
+          <a
+            href={explorerTxUrl(tx.txHash)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-mono text-blue-600 underline hover:text-blue-800"
+          >
+            {formatAddress(tx.txHash)}
+          </a>
+        </Field>
+      </CardContent>
+    </Card>
+  );
 }
 
 export function TransactionsModal({
@@ -93,11 +156,10 @@ export function TransactionsModal({
 }: TransactionsModalProps) {
   const { chain } = useAccount();
   const chainId = chain?.id ?? BASE_SEPOLIA;
-  const columnCount = showType ? 6 : 5;
 
   const [open, setOpen] = useState(false);
   const [page, setPage] = useState(0);
-  // Fix the cutoff for the lifetime of the modal so paging is stable.
+  // Fix the cutoff for the lifetime of the dropdown so paging is stable.
   const defaultSince = useMemo(
     () => Math.floor(Date.now() / 1000) - WINDOW_DAYS * 86400,
     [],
@@ -117,110 +179,58 @@ export function TransactionsModal({
   const busy = isLoading || isFetching;
 
   return (
-    <Dialog
+    <Popover
       open={open}
       onOpenChange={(next) => {
         setOpen(next);
         if (!next) setPage(0);
       }}
     >
-      <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent className="max-w-3xl">
-        <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-        </DialogHeader>
+      <PopoverTrigger asChild>{children}</PopoverTrigger>
+      <PopoverContent
+        align="start"
+        sideOffset={8}
+        className="w-[min(92vw,680px)] p-0"
+      >
+        <div className="border-b border-border px-4 py-3">
+          <h3 className="text-sm font-semibold">{title}</h3>
+        </div>
 
         {error ? (
-          <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          <div className="m-4 rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
             {(error as Error).message}
           </div>
         ) : (
-          <>
-            <div className="min-h-[360px]">
-              <Table>
-                <TableHeader>
-                  <TableRow className="hover:bg-transparent [&>th]:text-center [&>th]:text-xs [&>th]:uppercase [&>th]:tracking-wide">
-                    <TableHead>Invoice</TableHead>
-                    <TableHead>Source</TableHead>
-                    <TableHead>Amount</TableHead>
-                    {showType && <TableHead>Type</TableHead>}
-                    <TableHead>Time</TableHead>
-                    <TableHead>Tx</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {busy ? (
-                    Array.from({ length: PAGE_SIZE }).map((_, i) => (
-                      <TableRow key={i} className="hover:bg-transparent">
-                        <TableCell colSpan={columnCount}>
-                          <div className="h-5 w-full animate-pulse rounded bg-muted" />
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  ) : rows.length === 0 ? (
-                    <TableRow className="hover:bg-transparent">
-                      <TableCell
-                        colSpan={columnCount}
-                        className="py-10 text-center text-sm text-muted-foreground"
-                      >
-                        {emptyLabel}
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    rows.map((tx) => {
-                      const inflow = tx.kind === "paid";
-                      const sign = showDirection ? (inflow ? "+" : "−") : "";
-                      return (
-                        <TableRow key={tx.id} className="text-center">
-                          <TableCell className="font-mono font-medium">
-                            #{tx.invoiceNonce}
-                          </TableCell>
-                          <TableCell>{tx.source}</TableCell>
-                          <TableCell className="font-mono whitespace-nowrap">
-                            <div
-                              className={cn(
-                                "font-medium",
-                                showDirection &&
-                                  (inflow
-                                    ? "text-emerald-500"
-                                    : "text-destructive"),
-                              )}
-                            >
-                              {sign}
-                              {tx.amount} {tx.currency}
-                            </div>
-                            {tx.amountUsd !== undefined && (
-                              <div className="text-xs text-muted-foreground">
-                                ({formatUsd(tx.amountUsd)})
-                              </div>
-                            )}
-                          </TableCell>
-                          {showType && (
-                            <TableCell>{KIND_LABEL[tx.kind]}</TableCell>
-                          )}
-                          <TableCell className="whitespace-nowrap text-muted-foreground">
-                            {formatTime(tx.timestamp)}
-                          </TableCell>
-                          <TableCell>
-                            <a
-                              href={explorerTxUrl(tx.txHash)}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              aria-label="View transaction on the block explorer"
-                              className="inline-flex text-muted-foreground transition hover:text-foreground"
-                            >
-                              <ExternalLink className="h-3.5 w-3.5" />
-                            </a>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })
-                  )}
-                </TableBody>
-              </Table>
+          <div className="space-y-3 p-4">
+            <div className="min-h-[320px]">
+              {busy ? (
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                  {Array.from({ length: PAGE_SIZE }).map((_, i) => (
+                    <div
+                      key={i}
+                      className="h-[96px] w-full animate-pulse rounded-lg bg-muted"
+                    />
+                  ))}
+                </div>
+              ) : rows.length === 0 ? (
+                <div className="py-10 text-center text-sm text-muted-foreground">
+                  {emptyLabel}
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                  {rows.map((tx) => (
+                    <TransactionCard
+                      key={tx.id}
+                      tx={tx}
+                      showDirection={showDirection}
+                      showType={showType}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
 
-            <div className="flex items-center justify-between pt-2">
+            <div className="flex items-center justify-between pt-1">
               <span className="text-xs text-muted-foreground">
                 Page {page + 1}
               </span>
@@ -243,9 +253,9 @@ export function TransactionsModal({
                 </Button>
               </div>
             </div>
-          </>
+          </div>
         )}
-      </DialogContent>
-    </Dialog>
+      </PopoverContent>
+    </Popover>
   );
 }
