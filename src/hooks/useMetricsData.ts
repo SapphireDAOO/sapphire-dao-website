@@ -135,6 +135,10 @@ export const useMetricsData = (): UseMetricsDataResult => {
   // Websocket: apply live deltas optimistically; reseed on reconnect.
   useEffect(() => {
     let handle: MetricsSocketHandle | null = null;
+    // The socket emits "open" synchronously on creation, which always
+    // coincides with the initial-load effect above (same deps) — reseeding
+    // there would just duplicate that fetch. Only reseed on a later reopen.
+    let initialOpen = true;
 
     const handleDelta = (delta: MetricsDelta) => {
       setSnapshot((prev) => (prev ? applyDelta(prev, delta) : prev));
@@ -142,8 +146,12 @@ export const useMetricsData = (): UseMetricsDataResult => {
 
     const handleStatus = (status: MetricsSocketStatus) => {
       setSocketStatus(status);
-      // On (re)open, drop optimistic state and reseed from the subgraph.
+      // On reopen, drop optimistic state and reseed from the subgraph.
       if (status === "open") {
+        if (initialOpen) {
+          initialOpen = false;
+          return;
+        }
         if (baseSnapshotRef.current) setSnapshot(baseSnapshotRef.current);
         loadSnapshot();
       }

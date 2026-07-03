@@ -18,7 +18,25 @@ import { PaymentProcessorStorage } from "@/abis/PaymentProcessorStorage";
 import { invoiceOwnerQuery } from "../graphql/queries";
 import { WagmiClient } from "./types";
 import { advancedPaymentProcessor } from "@/abis/AdvancedPaymentProcessor";
-import { toEncryptedNoteHex } from "@/utils";
+import { encryptNoteContent } from "../notes";
+
+// The notes key lives server-side only, so the optional storageRef note is
+// encrypted through /api/notes before it is embedded in the transaction.
+// Returns null when encryption fails — callers must abort rather than fall
+// back to writing the note on-chain in plaintext.
+const resolveStorageRefHex = async (
+  storageRef?: string,
+): Promise<`0x${string}` | null> => {
+  const trimmed = storageRef?.trim();
+  if (!trimmed) return "0x";
+  try {
+    return await encryptNoteContent(trimmed);
+  } catch (error) {
+    console.error("Failed to encrypt invoice note", error);
+    toast.error("Unable to encrypt the attached note. Please try again.");
+    return null;
+  }
+};
 
 export type CreatedSimpleInvoice = {
   invoiceId: bigint;
@@ -39,7 +57,11 @@ export const createInvoice = async (
   share?: boolean,
 ): Promise<CreatedSimpleInvoice | undefined> => {
   setIsLoading("createInvoice");
-  const storageRefHex = toEncryptedNoteHex(storageRef);
+  const storageRefHex = await resolveStorageRefHex(storageRef);
+  if (!storageRefHex) {
+    setIsLoading("");
+    return undefined;
+  }
   const shareFlag = Boolean(share && storageRef?.trim());
   try {
     const gasPrice = await fetchGasPrice(publicClient, chainId);
@@ -128,7 +150,11 @@ export const makeInvoicePayment = async (
   setIsLoading("makeInvoicePayment");
 
   let success = false;
-  const storageRefHex = toEncryptedNoteHex(storageRef);
+  const storageRefHex = await resolveStorageRefHex(storageRef);
+  if (!storageRefHex) {
+    setIsLoading("");
+    return false;
+  }
   const shareFlag = Boolean(share && storageRef?.trim());
   try {
     const gasPrice = await fetchGasPrice(publicClient, chainId);

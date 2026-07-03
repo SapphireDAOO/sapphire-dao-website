@@ -4,14 +4,12 @@ import config from "@/config";
 import {
   SIMPLE_PAYMENT_PROCESSOR,
   ADVANCED_PAYMENT_PROCESSOR,
-  PAYMENT_PROCESSOR_STORAGE,
   ZERO_ADDRESS,
   BASE_SEPOLIA,
   LOCALHOST,
 } from "@/constants";
 import { paymentProcessor } from "@/abis/PaymentProcessor";
 import { advancedPaymentProcessor } from "@/abis/AdvancedPaymentProcessor";
-import { PaymentProcessorStorage } from "@/abis/PaymentProcessorStorage";
 import { formatTokenDisplay } from "./recentTransactions";
 import type {
   MetricsSocketStatus,
@@ -63,30 +61,65 @@ export const createRecentTransactionsSocket = (
     return { close: () => {} };
   }
 
-  const storageAddress = PAYMENT_PROCESSOR_STORAGE[chainId];
   const unwatchers: Array<() => void> = [];
   const handleError = () => onStatus?.("error");
 
-  let idChain: Promise<bigint> = (async () => {
-    if (!storageAddress) return BigInt(0);
-    try {
-      let next = (await publicClient.readContract({
-        address: storageAddress,
-        abi: PaymentProcessorStorage,
-        functionName: "getNextInvoiceNonce",
-      })) as bigint;
-      next = next + BigInt(1)
-      return next > BigInt(0) ? next - BigInt(1) : next;
-    } catch {
-      return BigInt(0);
-    }
-  })();
+  // Display nonce for a contract invoice id, read from the invoice itself.
+  // Events only carry the hashed uint216 id, so each new id costs one cached
+  // contract read — the polled subgraph rows show the same nonce, and the two
+  // must agree for the feed to make sense.
+  const nonceCache = new Map<string, string>();
 
-  const claimInvoiceNonce = async (): Promise<string> => {
-    const claimed = idChain; 
-    idChain = idChain.then((v) => v + BigInt(1));
-    const v_1 = await claimed;
-    return v_1.toString();
+  const readInvoiceNonce = (data: unknown): string => {
+    if (data && typeof data === "object" && !Array.isArray(data)) {
+      const value = (data as { invoiceNonce?: bigint | number }).invoiceNonce;
+      if (typeof value === "bigint" || typeof value === "number") {
+        return value.toString();
+      }
+    }
+    if (Array.isArray(data)) {
+      const value = data[0];
+      if (typeof value === "bigint" || typeof value === "number") {
+        return value.toString();
+      }
+    }
+    return "";
+  };
+
+  const resolveInvoiceNonce = async (
+    source: RecentTransaction["source"],
+    invoiceId?: bigint,
+  ): Promise<string> => {
+    if (invoiceId === undefined) return "?";
+    const key = `${source}:${invoiceId.toString()}`;
+    const cached = nonceCache.get(key);
+    if (cached) return cached;
+
+    try {
+      const data =
+        source === "Simple"
+          ? simpleAddress &&
+            (await publicClient.readContract({
+              address: simpleAddress,
+              abi: paymentProcessor,
+              functionName: "getInvoiceData",
+              args: [invoiceId],
+            }))
+          : advancedAddress &&
+            (await publicClient.readContract({
+              address: advancedAddress,
+              abi: advancedPaymentProcessor,
+              functionName: "getInvoice",
+              args: [invoiceId],
+            }));
+
+      const nonce = readInvoiceNonce(data);
+      if (!nonce) return "?";
+      nonceCache.set(key, nonce);
+      return nonce;
+    } catch {
+      return "?";
+    }
   };
 
   const emit = async (
@@ -96,6 +129,7 @@ export const createRecentTransactionsSocket = (
       source: RecentTransaction["source"];
       token: string;
       amount: bigint;
+      invoiceId?: bigint;
       counterparty?: string;
     },
   ) => {
@@ -108,7 +142,7 @@ export const createRecentTransactionsSocket = (
       id: `${log.transactionHash ?? ""}-${log.logIndex ?? 0}`,
       kind: fields.kind,
       source: fields.source,
-      invoiceNonce: await claimInvoiceNonce(),
+      invoiceNonce: await resolveInvoiceNonce(fields.source, fields.invoiceId),
       txHash: log.transactionHash ?? "",
       timestamp: Math.floor(Date.now() / 1000),
       amount,
@@ -135,6 +169,7 @@ export const createRecentTransactionsSocket = (
                   source: "Simple",
                   token: ZERO_ADDRESS,
                   amount,
+                  invoiceId: asBigInt(a.invoiceId),
                   counterparty: a.buyer as string | undefined,
                 });
                 break;
@@ -147,6 +182,7 @@ export const createRecentTransactionsSocket = (
                   source: "Simple",
                   token: ZERO_ADDRESS,
                   amount,
+                  invoiceId: asBigInt(a.invoiceId),
                 });
                 break;
               }
@@ -159,6 +195,7 @@ export const createRecentTransactionsSocket = (
                   source: "Simple",
                   token: ZERO_ADDRESS,
                   amount: sellerAmount + fee,
+                  invoiceId: asBigInt(a.invoiceId),
                 });
                 break;
               }
@@ -194,6 +231,7 @@ export const createRecentTransactionsSocket = (
                   source: "Marketplace",
                   token,
                   amount,
+                  invoiceId: asBigInt(a.invoiceId),
                 });
                 break;
               }
@@ -206,6 +244,7 @@ export const createRecentTransactionsSocket = (
                   source: "Marketplace",
                   token,
                   amount: sellerAmount,
+                  invoiceId: asBigInt(a.invoiceId),
                   counterparty: a.receiver as string | undefined,
                 });
                 break;
@@ -218,6 +257,7 @@ export const createRecentTransactionsSocket = (
                   source: "Marketplace",
                   token: cachedToken,
                   amount,
+                  invoiceId: asBigInt(a.invoiceId),
                 });
                 break;
               }
@@ -235,6 +275,7 @@ export const createRecentTransactionsSocket = (
                   source: "Marketplace",
                   token: cachedToken,
                   amount: sellerAmount + buyerAmount,
+                  invoiceId: asBigInt(a.invoiceId),
                 });
                 break;
               }

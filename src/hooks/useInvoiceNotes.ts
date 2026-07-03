@@ -9,8 +9,13 @@ import {
   removePendingNotesByIds,
   createNote as createNoteRequest,
   setNoteOpenState,
+  decryptNoteContents,
+  getCachedNoteReadAuth,
+  setCachedNoteReadAuth,
+  noteReadAuthMessage,
+  type NoteReadAuth,
 } from "@/services/notes";
-import { decryptNoteBlob, unixToGMT } from "@/utils";
+import { unixToGMT } from "@/utils";
 import {
   BASE_SEPOLIA,
   NOTES_CONTRACT,
@@ -20,6 +25,17 @@ import { Notes } from "@/abis/Notes";
 
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 const NOTE_REFRESH_DELAY_MS = 5_000;
+// Shown until (or unless) the server-side decrypt resolves a note's content.
+const ENCRYPTED_NOTE_PLACEHOLDER = "Encrypted note";
+
+const isNumericNoteId = (noteId: string) => {
+  try {
+    BigInt(noteId);
+    return true;
+  } catch {
+    return false;
+  }
+};
 
 type RawNote = {
   id: string;
@@ -100,6 +116,85 @@ export const useInvoiceNotes = (
   useEffect(() => {
     notesRef.current = notes;
   }, [notes]);
+
+  // Read-auth signature for decrypting the viewer's private notes. Notes are
+  // decrypted server-side (the key never ships to the browser); shared notes
+  // need no auth, private ones require the author to sign once per session.
+  const readAuthRef = useRef<NoteReadAuth | null>(null);
+  const readAuthDeclinedRef = useRef(false);
+
+  useEffect(() => {
+    readAuthRef.current = null;
+    readAuthDeclinedRef.current = false;
+  }, [address, normalizedinvoiceId]);
+
+  const ensureReadAuth = useCallback(
+    async (promptIfMissing: boolean): Promise<NoteReadAuth | null> => {
+      if (!address || normalizedinvoiceId === undefined) return null;
+      const invoiceKey = normalizedinvoiceId.toString();
+
+      const cached =
+        readAuthRef.current ?? getCachedNoteReadAuth(address, invoiceKey);
+      if (cached) {
+        readAuthRef.current = cached;
+        return cached;
+      }
+
+      if (!promptIfMissing || readAuthDeclinedRef.current) return null;
+
+      const timestamp = Math.floor(Date.now() / 1000);
+      try {
+        const signature = await signMessageAsync({
+          message: noteReadAuthMessage(invoiceKey, address, timestamp),
+        });
+        const auth: NoteReadAuth = { signature, timestamp };
+        readAuthRef.current = auth;
+        setCachedNoteReadAuth(address, invoiceKey, auth);
+        return auth;
+      } catch {
+        // Rejected — leave private notes locked and don't nag again this session.
+        readAuthDeclinedRef.current = true;
+        return null;
+      }
+    },
+    [address, normalizedinvoiceId, signMessageAsync],
+  );
+
+  const decryptMessages = useCallback(
+    async (
+      requests: { noteId: string; share: boolean; isAuthor: boolean }[],
+      options?: { allowPrompt?: boolean },
+    ): Promise<Map<string, string | null>> => {
+      const decryptable = requests.filter((request) =>
+        isNumericNoteId(request.noteId),
+      );
+      if (normalizedinvoiceId === undefined || decryptable.length === 0) {
+        return new Map();
+      }
+
+      // Only private notes authored by the viewer need the signature; the
+      // filters upstream never surface other users' private notes.
+      const needsAuth = decryptable.some(
+        (request) => !request.share && request.isAuthor,
+      );
+      const auth = needsAuth
+        ? await ensureReadAuth(options?.allowPrompt ?? true)
+        : null;
+
+      try {
+        return await decryptNoteContents({
+          invoiceId: normalizedinvoiceId.toString(),
+          noteIds: decryptable.map((request) => request.noteId),
+          viewer: address,
+          auth,
+        });
+      } catch (error) {
+        console.error("Failed to decrypt notes", error);
+        return new Map();
+      }
+    },
+    [address, ensureReadAuth, normalizedinvoiceId],
+  );
 
   useEffect(() => {
     if (!isEnabled) return;
@@ -220,8 +315,10 @@ export const useInvoiceNotes = (
           if (!share && !isAuthor) return;
 
           const noteId = args.noteId.toString();
-          const message =
-            decryptNoteBlob(args.encryptedContent) || "Encrypted note";
+          // Decryption happens server-side; insert with a placeholder (or the
+          // pending note's plaintext below) and patch the message once the
+          // decrypt call resolves after this handler.
+          const message = ENCRYPTED_NOTE_PLACEHOLDER;
           const txHash = log.transactionHash;
           const authorAddress = args.author || "";
           removePendingNote({
@@ -273,7 +370,9 @@ export const useInvoiceNotes = (
                 noteId,
                 author: authorAddress || pending.author,
                 share,
-                message,
+                // The optimistic pending note already holds the plaintext the
+                // user typed — keep it instead of the placeholder.
+                message: pending.message || message,
                 createdAtLabel: pending.createdAtLabel || formatNowLabel(),
                 opened: pending.opened,
                 hasOpenState: pending.hasOpenState || isAuthor,
@@ -320,6 +419,25 @@ export const useInvoiceNotes = (
                 return 0;
               }
             });
+          });
+
+          // Resolve the real content in the background. Never prompts for a
+          // signature from an event — a cached read-auth is used if present,
+          // otherwise the author's private note stays locked until the next
+          // explicit fetch.
+          void decryptMessages([{ noteId, share, isAuthor }], {
+            allowPrompt: false,
+          }).then((decrypted) => {
+            const content = decrypted.get(noteId);
+            if (!content) return;
+            setNotes((prev) =>
+              prev.map((note) =>
+                note.noteId === noteId &&
+                note.message === ENCRYPTED_NOTE_PLACEHOLDER
+                  ? { ...note, message: content }
+                  : note,
+              ),
+            );
           });
         });
       },
@@ -373,7 +491,14 @@ export const useInvoiceNotes = (
       unwatchCreated?.();
       unwatchState?.();
     };
-  }, [address, chainId, normalizedinvoiceId, publicClient, isEnabled]);
+  }, [
+    address,
+    chainId,
+    normalizedinvoiceId,
+    publicClient,
+    isEnabled,
+    decryptMessages,
+  ]);
 
   const hydrateBlockLabels = useCallback(
     async (blockNumbers: string[]) => {
@@ -492,17 +617,29 @@ export const useInvoiceNotes = (
         rawNotes.map((note) => note.createdAtBlock).filter(Boolean) as string[]
       );
 
-      const mapped = rawNotes
-        .filter((note) => {
-          if (note.share) return true;
-          if (!address) return false;
-          return note.author?.toLowerCase() === address.toLowerCase();
-        })
+      const visibleNotes = rawNotes.filter((note) => {
+        if (note.share) return true;
+        if (!address) return false;
+        return note.author?.toLowerCase() === address.toLowerCase();
+      });
+
+      // Server-side decrypt for everything we are about to show: shared notes
+      // need no auth; the viewer's own private notes ride on the (possibly
+      // prompted) read-auth signature.
+      const decrypted = await decryptMessages(
+        visibleNotes.map((note) => ({
+          noteId: note.noteId,
+          share: note.share,
+          isAuthor: address?.toLowerCase() === note.author?.toLowerCase(),
+        })),
+      );
+
+      const mapped = visibleNotes
         .map((note) => {
           const isAuthor =
             address?.toLowerCase() === note.author?.toLowerCase();
           const message =
-            decryptNoteBlob(note.encryptedContent) || "Encrypted note";
+            decrypted.get(note.noteId) || ENCRYPTED_NOTE_PLACEHOLDER;
           const createdAtLabel = note.createdAtBlock
             ? blockCacheRef.current.get(note.createdAtBlock) ||
               `Block ${note.createdAtBlock}`
@@ -569,7 +706,15 @@ export const useInvoiceNotes = (
     } finally {
       setIsLoading(false);
     }
-  }, [address, chainId, hydrateBlockLabels, normalizedinvoiceId, invoiceId, isEnabled]);
+  }, [
+    address,
+    chainId,
+    decryptMessages,
+    hydrateBlockLabels,
+    normalizedinvoiceId,
+    invoiceId,
+    isEnabled,
+  ]);
 
   useEffect(() => {
     if (!isEnabled) return;

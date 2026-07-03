@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { LRUCache } from "lru-cache";
 import {
   GET_ALL_INVOICES,
@@ -275,9 +275,11 @@ export const useInvoiceData = () => {
     allInvoiceDataRef.current = allInvoiceData;
   }, [allInvoiceData]);
 
+  const invoiceDataStateRef = useRef<Invoice[]>([]);
   useEffect(() => {
+    invoiceDataStateRef.current = invoiceData;
     invoiceDataLengthRef.current = invoiceData.length;
-  }, [invoiceData.length]);
+  }, [invoiceData]);
 
   useEffect(() => {
     if (!cacheKey) return;
@@ -331,10 +333,9 @@ export const useInvoiceData = () => {
 
   const getAllInvoiceData = useCallback(
     async (force = false): Promise<AllInvoicesData> => {
-      if (
-        Date.now() < nextAllowedRequestRef.current &&
-        allInvoiceDataRef.current.invoices.length > 0
-      ) {
+      // Respect the 429 backoff unconditionally — retrying while rate limited
+      // (even with nothing cached) only extends the lockout.
+      if (Date.now() < nextAllowedRequestRef.current) {
         return allInvoiceDataRef.current;
       }
 
@@ -358,68 +359,60 @@ export const useInvoiceData = () => {
         const marketplaceInvoices: AllInvoice[] = [];
 
         try {
-          // Page through each list until exhausted; subgraph caps a single
-          // request at PAGE_SIZE, so the previous one-shot query silently
-          // dropped anything past the first page.
-          let skipInvoices = 0;
-          let skipActions = 0;
-          let skipSmartInvoices = 0;
-          let moreInvoices = true;
+          // Page through each list until exhausted; the subgraph caps a single
+          // request at PAGE_SIZE, so a one-shot query would silently drop
+          // anything past the first page. Each list pages sequentially, but
+          // the lists run in parallel so total latency is the longest list,
+          // not the sum of all of them.
+          const fetchPagedList = async (
+            list: "invoices" | "smartInvoices",
+          ): Promise<any[]> => {
+            const rows: any[] = [];
+            let skip = 0;
+            let more = true;
+
+            while (more) {
+              const queryResult = await client(chainId)
+                .query(
+                  GET_ALL_INVOICES,
+                  {
+                    skipInvoices: skip,
+                    firstInvoices: PAGE_SIZE,
+                    includeInvoices: list === "invoices",
+                    skipActions: 0,
+                    firstActions: PAGE_SIZE,
+                    includeActions: false,
+                    skipSmartInvoices: skip,
+                    firstSmartInvoices: PAGE_SIZE,
+                    includeSmartInvoices: list === "smartInvoices",
+                  },
+                  force ? { requestPolicy: "network-only" } : undefined,
+                )
+                .toPromise();
+
+              if (queryResult.error) {
+                throw new Error(queryResult.error.message);
+              }
+
+              const data = queryResult.data as any;
+              const page: any[] =
+                (list === "invoices" ? data?.invoices : data?.smartInvoices) ||
+                [];
+              rows.push(...page);
+              more = page.length === PAGE_SIZE;
+              skip += page.length;
+            }
+
+            return rows;
+          };
+
+          const [rawInvoices, rawMarketplaceInvoices] = await Promise.all([
+            fetchPagedList("invoices"),
+            fetchPagedList("smartInvoices"),
+          ]);
           // Admin actions disabled: the AdminAction entity was dropped in the
           // subgraph's event-log migration. TODO: rebuild from InvoiceEvent.
-          let moreActions = false;
-          let moreSmartInvoices = true;
-          const rawInvoices: any[] = [];
           const rawAdminActions: any[] = [];
-          const rawMarketplaceInvoices: any[] = [];
-
-          while (moreInvoices || moreActions || moreSmartInvoices) {
-            const queryResult = await client(chainId)
-              .query(
-                GET_ALL_INVOICES,
-                {
-                  skipInvoices,
-                  firstInvoices: PAGE_SIZE,
-                  includeInvoices: moreInvoices,
-                  skipActions,
-                  firstActions: PAGE_SIZE,
-                  includeActions: moreActions,
-                  skipSmartInvoices,
-                  firstSmartInvoices: PAGE_SIZE,
-                  includeSmartInvoices: moreSmartInvoices,
-                },
-                force ? { requestPolicy: "network-only" } : undefined,
-              )
-              .toPromise();
-            const data = queryResult.data as any;
-            const error = queryResult.error;
-
-            if (error) {
-              console.error("GraphQL Error:", error.message);
-              handleRateLimit(error.message);
-              return allInvoiceDataRef.current;
-            }
-
-            const pageInvoices: any[] = data?.invoices || [];
-            const pageActions: any[] = data?.adminActions || [];
-            const pageSmart: any[] = data?.smartInvoices || [];
-
-            if (moreInvoices) {
-              rawInvoices.push(...pageInvoices);
-              moreInvoices = pageInvoices.length === PAGE_SIZE;
-              skipInvoices += pageInvoices.length;
-            }
-            if (moreActions) {
-              rawAdminActions.push(...pageActions);
-              moreActions = pageActions.length === PAGE_SIZE;
-              skipActions += pageActions.length;
-            }
-            if (moreSmartInvoices) {
-              rawMarketplaceInvoices.push(...pageSmart);
-              moreSmartInvoices = pageSmart.length === PAGE_SIZE;
-              skipSmartInvoices += pageSmart.length;
-            }
-          }
 
           for (const raw of rawInvoices) {
             const list = flattenInvoiceEvents(raw);
@@ -514,7 +507,7 @@ export const useInvoiceData = () => {
     async (page = 0, force = false) => {
       if (!address) return;
 
-      if (Date.now() < nextAllowedRequestRef.current && invoiceDataLengthRef.current > 0) {
+      if (Date.now() < nextAllowedRequestRef.current) {
         return;
       }
 
@@ -775,44 +768,50 @@ export const useInvoiceData = () => {
     [address, chainId, handleRateLimit],
   );
 
-  const getInvoiceOwner = async (id: string): Promise<string> => {
-    if (Date.now() < nextAllowedRequestRef.current) {
-      return "";
-    }
+  const getInvoiceOwner = useCallback(
+    async (id: string): Promise<string> => {
+      if (Date.now() < nextAllowedRequestRef.current) {
+        return "";
+      }
 
-    const { data, error } = await client(chainId)
-      .query(invoiceOwnerQuery, { id })
-      .toPromise();
+      const { data, error } = await client(chainId)
+        .query(invoiceOwnerQuery, { id })
+        .toPromise();
 
-    if (error) {
-      console.error("GraphQL Error:", error.message);
-      handleRateLimit(error.message);
-      return "";
-    }
+      if (error) {
+        console.error("GraphQL Error:", error.message);
+        handleRateLimit(error.message);
+        return "";
+      }
 
-    return data?.invoice?.seller?.id || "";
-  };
+      return data?.invoice?.seller?.id || "";
+    },
+    [chainId, handleRateLimit],
+  );
 
-  const getAdvancedInvoiceData = async (
-    invoiceId: bigint,
-    type: "smartInvoice" | "metaInvoice",
-  ): Promise<any> => {
-    if (Date.now() < nextAllowedRequestRef.current) {
-      return "";
-    }
+  const getAdvancedInvoiceData = useCallback(
+    async (
+      invoiceId: bigint,
+      type: "smartInvoice" | "metaInvoice",
+    ): Promise<any> => {
+      if (Date.now() < nextAllowedRequestRef.current) {
+        return "";
+      }
 
-    const { data, error } = await client(chainId)
-      .query(CHECKOUT_QUERIES[type], { id: invoiceId.toString() })
-      .toPromise();
+      const { data, error } = await client(chainId)
+        .query(CHECKOUT_QUERIES[type], { id: invoiceId.toString() })
+        .toPromise();
 
-    if (error) {
-      console.error(`[GraphQL Error] ${type}:`, error.message);
-      handleRateLimit(error.message);
-      return "";
-    }
+      if (error) {
+        console.error(`[GraphQL Error] ${type}:`, error.message);
+        handleRateLimit(error.message);
+        return "";
+      }
 
-    return data || "";
-  };
+      return data || "";
+    },
+    [chainId, handleRateLimit],
+  );
 
   const refetchAllInvoiceData = useCallback(
     async (force = false) => {
@@ -949,36 +948,37 @@ export const useInvoiceData = () => {
           ? readBigInt(invoiceObject.expiresAt)
           : readBigInt(invoiceArray?.[5] as bigint | number | undefined);
 
-        setInvoiceData((prev) => {
-          const liveUpdates: Invoice[] = [];
-          const next = prev.map((inv) => {
-            if (inv.invoiceId.toString() !== invoiceId.toString()) return inv;
-
-            const nextInvoice = {
-              ...inv,
-              status: inv.status === "PAID" ? "ACCEPTED" : inv.status,
-              paidAt:
-                inv.paidAt && inv.paidAt !== "Not Paid"
-                  ? inv.paidAt
-                  : paidAt
-                    ? paidAt.toString()
-                    : inv.paidAt,
-              releaseAt: releaseAt ? releaseAt.toString() : inv.releaseAt,
-              invalidateAt: invalidateAt
-                ? invalidateAt.toString()
-                : inv.invalidateAt,
-              expiresAt: expiresAt ? expiresAt.toString() : inv.expiresAt,
-            };
-            liveUpdates.push(nextInvoice);
-            return nextInvoice;
-          });
-
-          if (liveUpdates.length > 0) {
-            queueMicrotask(() => publishLiveInvoices(liveUpdates));
-          }
-
-          return next;
+        // Pure per-invoice patch so it can be applied both inside the state
+        // updater and against the ref snapshot for the live publish below —
+        // state updaters must stay side-effect free.
+        const matchesInvoice = (inv: Invoice) =>
+          inv.invoiceId.toString() === invoiceId.toString();
+        const applyTiming = (inv: Invoice): Invoice => ({
+          ...inv,
+          status: inv.status === "PAID" ? "ACCEPTED" : inv.status,
+          paidAt:
+            inv.paidAt && inv.paidAt !== "Not Paid"
+              ? inv.paidAt
+              : paidAt
+                ? paidAt.toString()
+                : inv.paidAt,
+          releaseAt: releaseAt ? releaseAt.toString() : inv.releaseAt,
+          invalidateAt: invalidateAt
+            ? invalidateAt.toString()
+            : inv.invalidateAt,
+          expiresAt: expiresAt ? expiresAt.toString() : inv.expiresAt,
         });
+
+        setInvoiceData((prev) =>
+          prev.map((inv) => (matchesInvoice(inv) ? applyTiming(inv) : inv)),
+        );
+
+        const liveUpdates = invoiceDataStateRef.current
+          .filter(matchesInvoice)
+          .map(applyTiming);
+        if (liveUpdates.length > 0) {
+          publishLiveInvoices(liveUpdates);
+        }
       } catch (error) {
         console.error("Failed to read invoice timing", error);
       }
@@ -987,7 +987,7 @@ export const useInvoiceData = () => {
   );
 
   const hydrateSimpleInvoiceFromChain = useCallback(
-    async (inv: bigint, paymentTxHash?: string) => {
+    async (inv: bigint, txHash?: string, eventStatus?: Invoice["status"]) => {
       if (!publicClient || !address) return;
       const contractAddress = SIMPLE_PAYMENT_PROCESSOR[chainId];
       if (!contractAddress) return;
@@ -1073,14 +1073,29 @@ export const useInvoiceData = () => {
 
         const resolvedInvoiceId = inv;
 
+        // Status comes from the event that triggered this hydration when we
+        // have it; otherwise infer from the contract's paidAt so an invoice
+        // hydrated off a refund/release event doesn't get stamped "PAID".
+        const isPaid = paidAt !== undefined && paidAt > BigInt(0);
+        const status: Invoice["status"] =
+          eventStatus ?? (isPaid ? "PAID" : "AWAITING PAYMENT");
+
+        let history = createdAt
+          ? appendHistoryEntry(undefined, "CREATED", createdAt.toString())
+          : undefined;
+        if (isPaid) {
+          history = appendHistoryEntry(history, "PAID", paidAt.toString());
+        }
+        history = appendHistoryEntry(history, status, nowInSeconds());
+
         const nextInvoice: Invoice = {
           id: invoiceNonce
             ? invoiceNonce.toString()
             : resolvedInvoiceId.toString(),
           invoiceId: resolvedInvoiceId,
           createdAt: createdAt ? unixToGMT(Number(createdAt)) : null,
-          paidAt: paidAt && Number(paidAt) > 0 ? paidAt.toString() : "Not Paid",
-          status: "PAID",
+          paidAt: isPaid ? paidAt.toString() : "Not Paid",
+          status,
           price: price ? formatEther(price) : null,
           amountPaid: amountPaid ? formatEther(amountPaid) : "0",
           type: isSeller ? "Seller" : "Buyer",
@@ -1088,15 +1103,13 @@ export const useInvoiceData = () => {
           buyer: buyer ?? "",
           seller: seller ?? "",
           source: "Simple",
-          paymentTxHash,
+          paymentTxHash: status === "PAID" ? txHash : undefined,
+          refundTxHash: status === "REFUNDED" ? txHash : undefined,
+          releaseHash: status === "RELEASED" ? txHash : undefined,
           releaseAt: releaseAt ? releaseAt.toString() : undefined,
           invalidateAt: invalidateAt ? invalidateAt.toString() : undefined,
           expiresAt: expiresAt ? expiresAt.toString() : undefined,
-          history: appendHistoryEntry(
-            undefined,
-            "PAID",
-            paidAt?.toString() ?? nowInSeconds(),
-          ),
+          history,
         };
 
         setInvoiceData((prev) => {
@@ -1120,7 +1133,9 @@ export const useInvoiceData = () => {
                 nextInvoice.status ?? "",
               ),
               amountPaid: nextInvoice.amountPaid ?? inv.amountPaid,
-              paymentTxHash: paymentTxHash ?? inv.paymentTxHash,
+              paymentTxHash: nextInvoice.paymentTxHash ?? inv.paymentTxHash,
+              refundTxHash: nextInvoice.refundTxHash ?? inv.refundTxHash,
+              releaseHash: nextInvoice.releaseHash ?? inv.releaseHash,
               releaseAt: nextInvoice.releaseAt || inv.releaseAt,
               invalidateAt: nextInvoice.invalidateAt || inv.invalidateAt,
               expiresAt: nextInvoice.expiresAt || inv.expiresAt,
@@ -1397,6 +1412,7 @@ export const useInvoiceData = () => {
     address,
     chainId,
     publicClient,
+    invoicesRef: invoiceDataStateRef,
     setInvoiceData,
     updateSimpleInvoiceTiming,
     hydrateSimpleInvoiceFromChain,
@@ -1408,38 +1424,82 @@ export const useInvoiceData = () => {
     address,
     chainId,
     publicClient,
+    invoicesRef: invoiceDataStateRef,
     setInvoiceData,
     onLiveInvoices: publishLiveInvoices,
     hydrateMarketplaceInvoiceFromChain,
   });
 
-  return {
-    invoiceData,
-    liveInvoiceData,
-    allInvoiceData,
-    invoicePage,
-    hasNextPage,
-    // Default to the same cache-aware behavior as loadNextPage/loadPrevPage.
-    // Call refetchInvoiceData or pass force=true when a network refresh is needed.
-    getInvoiceData: (page?: number, force = false) =>
+  // Stable wrappers so the returned object (and any context value built from
+  // it) only changes identity when the underlying data actually changes.
+  // Default to the same cache-aware behavior as loadNextPage/loadPrevPage;
+  // call refetchInvoiceData or pass force=true when a network refresh is needed.
+  const getInvoiceDataForPage = useCallback(
+    (page?: number, force = false) =>
       getInvoiceData(page ?? currentPageRef.current, force),
-    getAllInvoiceData,
-    getInvoiceOwner,
-    getAdvancedInvoiceData,
-    addCreatedSimpleInvoice,
-    upsertLocalInvoice,
-    setActiveEventTab,
-    refetchAllInvoiceData: async () => {
-      const data = await getAllInvoiceData(true);
-      setAllInvoiceData(data);
-    },
-    refreshAdminData: async (force = false) =>
-      fetchLatestInvoices(force, "admin"),
-    refetchInvoiceData: () => getInvoiceData(currentPageRef.current, true),
-    loadNextPage: () => getInvoiceData(currentPageRef.current + 1),
-    loadPrevPage: () =>
+    [getInvoiceData],
+  );
+  const forceRefetchAllInvoiceData = useCallback(async () => {
+    const data = await getAllInvoiceData(true);
+    setAllInvoiceData(data);
+  }, [getAllInvoiceData]);
+  const refreshAdminData = useCallback(
+    async (force = false) => fetchLatestInvoices(force, "admin"),
+    [fetchLatestInvoices],
+  );
+  const refetchInvoiceData = useCallback(
+    () => getInvoiceData(currentPageRef.current, true),
+    [getInvoiceData],
+  );
+  const loadNextPage = useCallback(
+    () => getInvoiceData(currentPageRef.current + 1),
+    [getInvoiceData],
+  );
+  const loadPrevPage = useCallback(
+    () =>
       currentPageRef.current > 0
         ? getInvoiceData(currentPageRef.current - 1)
         : Promise.resolve(),
-  };
+    [getInvoiceData],
+  );
+
+  return useMemo(
+    () => ({
+      invoiceData,
+      liveInvoiceData,
+      allInvoiceData,
+      invoicePage,
+      hasNextPage,
+      getInvoiceData: getInvoiceDataForPage,
+      getAllInvoiceData,
+      getInvoiceOwner,
+      getAdvancedInvoiceData,
+      addCreatedSimpleInvoice,
+      upsertLocalInvoice,
+      setActiveEventTab,
+      refetchAllInvoiceData: forceRefetchAllInvoiceData,
+      refreshAdminData,
+      refetchInvoiceData,
+      loadNextPage,
+      loadPrevPage,
+    }),
+    [
+      invoiceData,
+      liveInvoiceData,
+      allInvoiceData,
+      invoicePage,
+      hasNextPage,
+      getInvoiceDataForPage,
+      getAllInvoiceData,
+      getInvoiceOwner,
+      getAdvancedInvoiceData,
+      addCreatedSimpleInvoice,
+      upsertLocalInvoice,
+      forceRefetchAllInvoiceData,
+      refreshAdminData,
+      refetchInvoiceData,
+      loadNextPage,
+      loadPrevPage,
+    ],
+  );
 };

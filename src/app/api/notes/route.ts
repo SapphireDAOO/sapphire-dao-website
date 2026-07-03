@@ -9,7 +9,7 @@ import {
   NOTES_CONTRACT,
   SIMPLE_PAYMENT_PROCESSOR,
 } from "@/constants";
-import { toEncryptedNoteHex } from "@/utils";
+import { decryptNoteBlob, toEncryptedNoteHex } from "@/lib/noteEncryption";
 import { getNotesClients, parseBigInt } from "./notesApiHelpers";
 
 // this can be moved to a different server. the api will be called here
@@ -19,6 +19,13 @@ export const runtime = "nodejs";
 const MAX_NOTE_CONTENT_LENGTH = 1_000;
 const NOTE_RATE_LIMIT_WINDOW_MS = 5 * 60 * 1000;
 const NOTE_RATE_LIMIT_MAX = 10;
+// Read-path actions (decrypt/encrypt) fire on every thread open / refresh,
+// so they get a higher budget than the on-chain write actions.
+const READ_RATE_LIMIT_MAX = 60;
+// A read-auth signature stays valid for a day so viewers sign once per
+// session instead of on every background refresh.
+const READ_AUTH_MAX_AGE_SECONDS = 24 * 60 * 60;
+const MAX_DECRYPT_BATCH = 50;
 
 type RateLimitBucket = {
   count: number;
@@ -40,6 +47,7 @@ const enforceRateLimit = (
   req: Request,
   author: string,
   action: string,
+  max = NOTE_RATE_LIMIT_MAX,
 ) => {
   const now = Date.now();
 
@@ -58,7 +66,7 @@ const enforceRateLimit = (
     return null;
   }
 
-  if (current.count >= NOTE_RATE_LIMIT_MAX) {
+  if (current.count >= max) {
     const retryAfter = Math.ceil((current.resetAt - now) / 1000);
     return NextResponse.json(
       { success: false, error: "Too many note requests" },
@@ -373,6 +381,138 @@ export async function POST(req: Request) {
       });
 
       return NextResponse.json({ success: true, txHash });
+    }
+
+    // Encrypt arbitrary content with the server-held notes key (used for the
+    // storageRef note embedded in create/pay transactions). Encryption reveals
+    // nothing secret, so it only needs rate limiting.
+    if (action === "encrypt") {
+      const content = String(body?.content ?? "").trim();
+
+      if (!content) {
+        return NextResponse.json(
+          { success: false, error: "Content is required" },
+          { status: 400 },
+        );
+      }
+
+      if (content.length > MAX_NOTE_CONTENT_LENGTH) {
+        return NextResponse.json(
+          { success: false, error: "Content is too long" },
+          { status: 413 },
+        );
+      }
+
+      const rateLimit = enforceRateLimit(
+        req,
+        "anon",
+        action,
+        READ_RATE_LIMIT_MAX,
+      );
+      if (rateLimit) return rateLimit;
+
+      return NextResponse.json({
+        success: true,
+        payload: toEncryptedNoteHex(content),
+      });
+    }
+
+    // Decrypt notes resolved by (invoiceId, noteId) from the chain — never
+    // client-supplied ciphertext, or any participant could decrypt blobs
+    // lifted from other invoices. Shared notes are public by design (they are
+    // shown on pay/checkout pages); private notes decrypt only for their
+    // author, proven by a signed read-auth message.
+    if (action === "decrypt") {
+      const invoiceId = parseBigInt(body?.invoiceId, "invoiceId");
+      const rawNoteIds = Array.isArray(body?.noteIds) ? body.noteIds : [];
+
+      if (rawNoteIds.length === 0) {
+        return NextResponse.json(
+          { success: false, error: "noteIds is required" },
+          { status: 400 },
+        );
+      }
+
+      if (rawNoteIds.length > MAX_DECRYPT_BATCH) {
+        return NextResponse.json(
+          { success: false, error: "Too many notes requested" },
+          { status: 413 },
+        );
+      }
+
+      const noteIds = rawNoteIds.map((value: unknown) =>
+        parseBigInt(value, "noteId"),
+      );
+
+      const viewer = body?.viewer as string | undefined;
+      const signature = body?.signature as string | undefined;
+      const timestamp =
+        typeof body?.timestamp === "number" ? body.timestamp : undefined;
+
+      const rateLimit = enforceRateLimit(
+        req,
+        viewer && isAddress(viewer) ? viewer : "anon",
+        action,
+        READ_RATE_LIMIT_MAX,
+      );
+      if (rateLimit) return rateLimit;
+
+      let authorizedViewer: string | undefined;
+      if (viewer && isAddress(viewer) && signature && timestamp !== undefined) {
+        const now = Math.floor(Date.now() / 1000);
+        if (Math.abs(now - timestamp) <= READ_AUTH_MAX_AGE_SECONDS) {
+          const expectedMessage = `Sapphire DAO: Read notes for order ${invoiceId.toString()}\nViewer: ${viewer}\nTimestamp: ${timestamp}`;
+          const isValid = await verifyMessage({
+            address: viewer as `0x${string}`,
+            message: expectedMessage,
+            signature: signature as `0x${string}`,
+          });
+          if (isValid) authorizedViewer = viewer.toLowerCase();
+        }
+      }
+
+      const contractAddress = NOTES_CONTRACT[baseSepolia.id];
+      if (!contractAddress) {
+        return NextResponse.json(
+          { success: false, error: "Notes contract not configured" },
+          { status: 500 },
+        );
+      }
+
+      const { publicClient } = getNotesClients();
+      const notes = await Promise.all(
+        noteIds.map(async (noteId: bigint) => {
+          try {
+            const data = await publicClient.readContract({
+              address: contractAddress,
+              abi: Notes,
+              functionName: "getNote",
+              args: [invoiceId, noteId],
+            });
+            const [author, share, content] = data as readonly [
+              string,
+              boolean,
+              `0x${string}`,
+              boolean,
+              number,
+            ];
+
+            const canRead =
+              share ||
+              (authorizedViewer !== undefined &&
+                author.toLowerCase() === authorizedViewer);
+
+            return {
+              noteId: noteId.toString(),
+              content: canRead ? decryptNoteBlob(content) ?? null : null,
+            };
+          } catch {
+            return { noteId: noteId.toString(), content: null };
+          }
+        }),
+      );
+
+      return NextResponse.json({ success: true, notes });
     }
 
     return NextResponse.json(

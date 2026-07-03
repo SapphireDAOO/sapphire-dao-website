@@ -39,9 +39,13 @@ export const fetchAdminTransactions = async (
   first = 5,
 ): Promise<AdminTransaction[]> => {
   const result = await client(chainId)
-    .query<{ multiSigTransactions: AdminTxRow[] }>(ADMIN_TRANSACTIONS_QUERY, {
-      first,
-    })
+    // network-only: react-query owns caching for this fetcher; cache-first
+    // would turn its refetches into stale no-ops.
+    .query<{ multiSigTransactions: AdminTxRow[] }>(
+      ADMIN_TRANSACTIONS_QUERY,
+      { first },
+      { requestPolicy: "network-only" },
+    )
     .toPromise();
 
   if (result.error) throw new Error(result.error.message);

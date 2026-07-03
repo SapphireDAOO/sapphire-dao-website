@@ -119,9 +119,13 @@ export const fetchRecentTransactions = async (
   first = 5,
 ): Promise<RecentTransaction[]> => {
   const result = await client(chainId)
-    .query<{ invoiceEvents: InvoiceEventRow[] }>(RECENT_TRANSACTIONS_QUERY, {
-      first,
-    })
+    // network-only: react-query owns caching for this fetcher; cache-first
+    // would turn its refetches into stale no-ops.
+    .query<{ invoiceEvents: InvoiceEventRow[] }>(
+      RECENT_TRANSACTIONS_QUERY,
+      { first },
+      { requestPolicy: "network-only" },
+    )
     .toPromise();
 
   if (result.error) throw new Error(result.error.message);
@@ -144,11 +148,15 @@ const fetchPaginatedEvents = async (
   sinceSeconds: number,
 ): Promise<{ rows: RecentTransaction[]; hasNext: boolean }> => {
   const result = await client(chainId)
-    .query<{ invoiceEvents: InvoiceEventRow[] }>(query, {
-      since: sinceSeconds.toString(),
-      first: pageSize + 1,
-      skip: page * pageSize,
-    })
+    .query<{ invoiceEvents: InvoiceEventRow[] }>(
+      query,
+      {
+        since: sinceSeconds.toString(),
+        first: pageSize + 1,
+        skip: page * pageSize,
+      },
+      { requestPolicy: "network-only" },
+    )
     .toPromise();
 
   if (result.error) throw new Error(result.error.message);

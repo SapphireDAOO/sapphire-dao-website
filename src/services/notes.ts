@@ -141,6 +141,121 @@ const postNotesAction = async (payload: Record<string, unknown>) => {
   return data;
 };
 
+export type NoteReadAuth = {
+  signature: string;
+  timestamp: number;
+};
+
+export type DecryptNotesPayload = {
+  invoiceId: string;
+  noteIds: string[];
+  viewer?: string;
+  auth?: NoteReadAuth | null;
+};
+
+// Server-side read-auth signatures stay valid for 24h; refresh a little early
+// so an in-flight request never straddles the expiry.
+const READ_AUTH_TTL_SECONDS = 23 * 60 * 60;
+const READ_AUTH_STORAGE_PREFIX = "sapphire.noteReadAuth";
+
+const readAuthStorageKey = (viewer: string, invoiceId: string) =>
+  `${READ_AUTH_STORAGE_PREFIX}:${viewer.toLowerCase()}:${invoiceId}`;
+
+export const noteReadAuthMessage = (
+  invoiceId: string,
+  viewer: string,
+  timestamp: number,
+) =>
+  `Sapphire DAO: Read notes for order ${invoiceId}\nViewer: ${viewer}\nTimestamp: ${timestamp}`;
+
+export const getCachedNoteReadAuth = (
+  viewer: string,
+  invoiceId: string,
+): NoteReadAuth | null => {
+  const storage = getStorage();
+  if (!storage) return null;
+
+  try {
+    const raw = storage.getItem(readAuthStorageKey(viewer, invoiceId));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as NoteReadAuth;
+    if (
+      typeof parsed?.signature !== "string" ||
+      typeof parsed?.timestamp !== "number"
+    ) {
+      return null;
+    }
+    const ageSeconds = Math.floor(Date.now() / 1000) - parsed.timestamp;
+    if (ageSeconds < 0 || ageSeconds > READ_AUTH_TTL_SECONDS) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+};
+
+export const setCachedNoteReadAuth = (
+  viewer: string,
+  invoiceId: string,
+  auth: NoteReadAuth,
+) => {
+  const storage = getStorage();
+  if (!storage) return;
+
+  try {
+    storage.setItem(readAuthStorageKey(viewer, invoiceId), JSON.stringify(auth));
+  } catch {
+    // ignore storage errors
+  }
+};
+
+/**
+ * Encrypt note content with the server-held key (the key never ships to the
+ * browser). Used for the storageRef note embedded in create/pay transactions.
+ */
+export const encryptNoteContent = async (
+  content: string,
+): Promise<`0x${string}`> => {
+  const data = await postNotesAction({ action: "encrypt", content });
+  const payload = (data as { payload?: string }).payload;
+  if (typeof payload !== "string" || !payload.startsWith("0x")) {
+    throw new Error("Encryption service returned an invalid payload");
+  }
+  return payload as `0x${string}`;
+};
+
+/**
+ * Decrypt notes server-side by (invoiceId, noteId). Shared notes decrypt for
+ * anyone; private notes require the author's read-auth signature. Returns a
+ * map of noteId → plaintext (null when not readable by this viewer).
+ */
+export const decryptNoteContents = async ({
+  invoiceId,
+  noteIds,
+  viewer,
+  auth,
+}: DecryptNotesPayload): Promise<Map<string, string | null>> => {
+  const result = new Map<string, string | null>();
+  if (noteIds.length === 0) return result;
+
+  const data = await postNotesAction({
+    action: "decrypt",
+    invoiceId,
+    noteIds,
+    viewer,
+    signature: auth?.signature,
+    timestamp: auth?.timestamp,
+  });
+
+  const notes = (data as {
+    notes?: { noteId: string; content: string | null }[];
+  }).notes;
+
+  for (const note of notes ?? []) {
+    result.set(note.noteId, note.content);
+  }
+  return result;
+};
+
 export const createNote = async (payload: CreateNotePayload) =>
   postNotesAction({ action: "create", ...payload }).then((result) => {
     try {

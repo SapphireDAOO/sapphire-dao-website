@@ -52,14 +52,21 @@ export const useRecentTransactions = (count = 5) => {
 
   useEffect(() => {
     let handle: RecentTransactionsSocketHandle | null = null;
+    // The socket emits "open" synchronously on creation; the useQuery above
+    // already fetches on mount / chain change, so only reseed on a reopen.
+    let initialOpen = true;
     try {
       handle = createRecentTransactionsSocket(chainId, {
         onTransaction: (tx) =>
           setLiveTxs((prev) => [tx, ...prev].slice(0, count)),
         onStatus: (status) => {
           setSocketStatus(status);
-          // On (re)connect, reseed from the subgraph and drop optimistic rows.
+          // On reconnect, reseed from the subgraph and drop optimistic rows.
           if (status === "open") {
+            if (initialOpen) {
+              initialOpen = false;
+              return;
+            }
             setLiveTxs([]);
             refetchRef.current();
           }

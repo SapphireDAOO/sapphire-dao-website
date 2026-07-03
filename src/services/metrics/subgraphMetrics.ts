@@ -426,7 +426,14 @@ const queryMetrics = async <T>(
   query: string,
   variables: Record<string, unknown>,
 ): Promise<T> => {
-  const result = await client(chainId).query<T>(query, variables).toPromise();
+  // network-only: these fetchers sit behind react-query, which is the caching
+  // and freshness layer. Serving them cache-first would (a) make every
+  // react-query refetch a stale no-op and (b) with time-derived variables,
+  // pile a new entry into urql's never-evicted document cache per fetch —
+  // network-only overwrites the same key instead.
+  const result = await client(chainId)
+    .query<T>(query, variables, { requestPolicy: "network-only" })
+    .toPromise();
 
   if (result.error) throw new Error(result.error.message);
   if (!result.data) throw new Error("Metrics query returned no data");
@@ -453,7 +460,11 @@ export const fetchMetricsSnapshot = async (
     chainId,
     METRICS_SNAPSHOT_QUERY,
     {
-      now: toTimestamp(bounds.now),
+      // $now only upper-bounds day-aligned buckets, so end-of-current-day
+      // returns identical data while keeping the variables (and therefore the
+      // urql document-cache key) stable for the whole day instead of minting
+      // a new cache entry every fetch.
+      now: toTimestamp(bounds.dayMark + SECONDS_PER_DAY),
       sixtyDaysAgo: toTimestamp(bounds.sixtyDaysAgo),
       dayMark: toTimestamp(bounds.dayMark),
       yesterdayMark: toTimestamp(bounds.yesterdayMark),
@@ -598,6 +609,7 @@ export const fetchFeeReceiverChangedAt = async (
     .query<{ storageConfiguration: { updatedAt: string | null } | null }>(
       STORAGE_CONFIG_QUERY,
       {},
+      { requestPolicy: "network-only" },
     )
     .toPromise();
 

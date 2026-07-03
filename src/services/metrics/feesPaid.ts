@@ -49,11 +49,15 @@ export const fetchFeesPaid = async (
   const sinceMicros = (BigInt(sinceSeconds) * BigInt(MICROS_PER_SECOND)).toString();
 
   const result = await client(chainId)
-    .query<{ feePaids: FeePaidEventRow[] }>(FEES_PAID_QUERY, {
-      since: sinceMicros,
-      first: pageSize + 1,
-      skip: page * pageSize,
-    })
+    .query<{ feePaids: FeePaidEventRow[] }>(
+      FEES_PAID_QUERY,
+      {
+        since: sinceMicros,
+        first: pageSize + 1,
+        skip: page * pageSize,
+      },
+      { requestPolicy: "network-only" },
+    )
     .toPromise();
 
   if (result.error) throw new Error(result.error.message);

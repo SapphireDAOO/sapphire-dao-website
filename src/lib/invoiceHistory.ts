@@ -79,6 +79,7 @@ export const flattenInvoiceEvents = <T extends Record<string, unknown>>(
   let releaseHash: string | undefined;
   let refundTxHash: string | undefined;
   let disputeSettledTxHash: string | undefined;
+  let commisionTxHash: string | undefined;
 
   for (const ev of events) {
     const status = ev.eventType
@@ -101,6 +102,8 @@ export const flattenInvoiceEvents = <T extends Record<string, unknown>>(
       case "PAYMENT_RELEASED":
         releasedAt ??= ev.timestamp;
         releaseHash ??= ev.txHash;
+        // The protocol fee (commission) is transferred inside the release tx.
+        commisionTxHash ??= ev.txHash;
         break;
       case "INVOICE_REFUNDED":
       case "INVOICE_REJECTED":
@@ -109,6 +112,9 @@ export const flattenInvoiceEvents = <T extends Record<string, unknown>>(
         break;
       case "DISPUTE_SETTLED":
         disputeSettledTxHash ??= ev.txHash;
+        // Advanced invoices settled via dispute pay the fee in the settlement
+        // tx instead of a release.
+        commisionTxHash ??= ev.txHash;
         break;
     }
   }
@@ -124,6 +130,7 @@ export const flattenInvoiceEvents = <T extends Record<string, unknown>>(
     releaseHash,
     refundTxHash,
     disputeSettledTxHash,
+    commisionTxHash,
     history,
     historyTime,
   };
