@@ -22,6 +22,8 @@ interface MetricCardProps {
   isLoading?: boolean;
   /** When set, shows a clickable affordance + this label (e.g. "View payments"). */
   actionLabel?: string;
+  /** Rotates the dropdown chevron to indicate the panel is open. */
+  expanded?: boolean;
 }
 
 const trendIcon = (change?: number | null) => {
@@ -48,6 +50,7 @@ export function MetricCard({
   icon,
   isLoading = false,
   actionLabel,
+  expanded = false,
 }: MetricCardProps) {
   return (
     <Card
@@ -64,7 +67,10 @@ export function MetricCard({
         {actionLabel ? (
           <ChevronDown
             aria-hidden
-            className="h-4 w-4 text-muted-foreground transition-colors group-hover:text-primary"
+            className={cn(
+              "h-4 w-4 text-muted-foreground transition-all group-hover:text-primary",
+              expanded && "rotate-180 text-primary",
+            )}
           />
         ) : (
           icon && <div className="text-primary">{icon}</div>

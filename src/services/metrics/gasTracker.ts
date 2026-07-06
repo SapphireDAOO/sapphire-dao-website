@@ -15,11 +15,9 @@ export const fetchGasStats = async (
   const result = await client(chainId)
     // network-only: react-query owns caching for this fetcher; cache-first
     // would turn its refetches into stale no-ops.
-    .query<{ gasPaid: GasPaidRow | null }>(
-      GAS_TRACKER_QUERY,
-      {},
-      { requestPolicy: "network-only" },
-    )
+    .query<{ gasPaid: GasPaidRow | null }>(GAS_TRACKER_QUERY, {}, {
+      requestPolicy: "network-only",
+    })
     .toPromise();
 
   if (result.error) throwSubgraphError(result.error);

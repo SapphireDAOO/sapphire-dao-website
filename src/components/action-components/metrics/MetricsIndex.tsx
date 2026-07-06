@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { ArrowUpDown, Wallet, DollarSign, Receipt, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useMetricsData } from "@/hooks/useMetricsData";
@@ -14,10 +15,10 @@ import { RecentTransactions } from "./RecentTransactions";
 import { GasTracker } from "./GasTracker";
 import { SystemHealth } from "./SystemHealth";
 import { AdminActivity } from "./AdminActivity";
-import { PaidTransactionsModal } from "./PaidTransactionsModal";
-import { EscrowTransactionsModal } from "./EscrowTransactionsModal";
-import { InvoicesPaidModal } from "./InvoicesPaidModal";
-import { FeesPaidModal } from "./FeesPaidModal";
+import { PaidTransactionsPanel } from "./PaidTransactionsPanel";
+import { EscrowTransactionsPanel } from "./EscrowTransactionsPanel";
+import { InvoicesPaidPanel } from "./InvoicesPaidPanel";
+import { FeesPaidPanel } from "./FeesPaidPanel";
 import {
   formatUsd,
   formatCount,
@@ -40,9 +41,17 @@ const LiveIndicator = ({ status }: { status: string }) => {
   );
 };
 
+/** Which top-card detail panel is expanded below the metric grid. */
+type ActivePanel = "volume" | "escrow" | "fees" | "invoices";
+
 export default function MetricsIndex() {
   const { snapshot, isLoading, error, socketStatus, refetch } =
     useMetricsData();
+
+  // Only one detail panel is open at a time; clicking an open card closes it.
+  const [activePanel, setActivePanel] = useState<ActivePanel | null>(null);
+  const togglePanel = (panel: ActivePanel) =>
+    setActivePanel((current) => (current === panel ? null : panel));
 
   // Render the formatted value, or a placeholder dash when no snapshot yet.
   const show = (
@@ -84,75 +93,88 @@ export default function MetricsIndex() {
         )}
 
         <section className="grid grid-cols-2 gap-4 md:grid-cols-4">
-          <PaidTransactionsModal>
-            <button
-              type="button"
-              aria-label="View payments in the last 30 days"
-              className="group w-full rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <MetricCard
-                title="Total Volume (30d)"
-                value={show(snapshot?.totalVolume, formatUsd)}
-                change={change(snapshot?.totalVolume)}
-                changeLabel="vs last month"
-                icon={<ArrowUpDown className="h-4 w-4" />}
-                isLoading={isLoading}
-                actionLabel="View payments"
-              />
-            </button>
-          </PaidTransactionsModal>
-          <EscrowTransactionsModal>
-            <button
-              type="button"
-              aria-label="View escrow movements in the last 30 days"
-              className="group w-full rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <MetricCard
-                title="Escrow Balance"
-                value={show(snapshot?.escrowBalance, formatUsd)}
-                change={change(snapshot?.escrowBalance)}
-                changeLabel="vs yesterday"
-                icon={<Wallet className="h-4 w-4" />}
-                isLoading={isLoading}
-                actionLabel="View escrow movements"
-              />
-            </button>
-          </EscrowTransactionsModal>
-          <FeesPaidModal>
-            <button
-              type="button"
-              aria-label="View fees paid in the last 30 days"
-              className="group w-full rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <MetricCard
-                title="Fees Paid (30d)"
-                value={show(snapshot?.feesPaid, formatUsd)}
-                change={change(snapshot?.feesPaid)}
-                changeLabel="vs last month"
-                icon={<DollarSign className="h-4 w-4" />}
-                isLoading={isLoading}
-                actionLabel="View fees paid"
-              />
-            </button>
-          </FeesPaidModal>
-          <InvoicesPaidModal>
-            <button
-              type="button"
-              aria-label="View invoices paid in the last 7 days"
-              className="group w-full rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <MetricCard
-                title="Invoices Paid (7d)"
-                value={show(snapshot?.invoicesPaid, formatCount)}
-                change={change(snapshot?.invoicesPaid)}
-                changeLabel="vs last week"
-                icon={<Receipt className="h-4 w-4" />}
-                isLoading={isLoading}
-                actionLabel="View invoices paid"
-              />
-            </button>
-          </InvoicesPaidModal>
+          <button
+            type="button"
+            aria-label="View payments in the last 30 days"
+            aria-expanded={activePanel === "volume"}
+            onClick={() => togglePanel("volume")}
+            className="group w-full rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <MetricCard
+              title="Total Volume (30d)"
+              value={show(snapshot?.totalVolume, formatUsd)}
+              change={change(snapshot?.totalVolume)}
+              changeLabel="vs last month"
+              icon={<ArrowUpDown className="h-4 w-4" />}
+              isLoading={isLoading}
+              actionLabel="View payments"
+              expanded={activePanel === "volume"}
+            />
+          </button>
+          <button
+            type="button"
+            aria-label="View escrow movements in the last 30 days"
+            aria-expanded={activePanel === "escrow"}
+            onClick={() => togglePanel("escrow")}
+            className="group w-full rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <MetricCard
+              title="Escrow Balance"
+              value={show(snapshot?.escrowBalance, formatUsd)}
+              change={change(snapshot?.escrowBalance)}
+              changeLabel="vs yesterday"
+              icon={<Wallet className="h-4 w-4" />}
+              isLoading={isLoading}
+              actionLabel="View escrow movements"
+              expanded={activePanel === "escrow"}
+            />
+          </button>
+          <button
+            type="button"
+            aria-label="View fees paid in the last 30 days"
+            aria-expanded={activePanel === "fees"}
+            onClick={() => togglePanel("fees")}
+            className="group w-full rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <MetricCard
+              title="Fees Paid (30d)"
+              value={show(snapshot?.feesPaid, formatUsd)}
+              change={change(snapshot?.feesPaid)}
+              changeLabel="vs last month"
+              icon={<DollarSign className="h-4 w-4" />}
+              isLoading={isLoading}
+              actionLabel="View fees paid"
+              expanded={activePanel === "fees"}
+            />
+          </button>
+          <button
+            type="button"
+            aria-label="View invoices paid in the last 7 days"
+            aria-expanded={activePanel === "invoices"}
+            onClick={() => togglePanel("invoices")}
+            className="group w-full rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <MetricCard
+              title="Invoices Paid (7d)"
+              value={show(snapshot?.invoicesPaid, formatCount)}
+              change={change(snapshot?.invoicesPaid)}
+              changeLabel="vs last week"
+              icon={<Receipt className="h-4 w-4" />}
+              isLoading={isLoading}
+              actionLabel="View invoices paid"
+              expanded={activePanel === "invoices"}
+            />
+          </button>
         </section>
+
+        {activePanel && (
+          <section className="mt-4">
+            {activePanel === "volume" && <PaidTransactionsPanel />}
+            {activePanel === "escrow" && <EscrowTransactionsPanel />}
+            {activePanel === "fees" && <FeesPaidPanel />}
+            {activePanel === "invoices" && <InvoicesPaidPanel />}
+          </section>
+        )}
 
         <section className="mt-6">
           <VolumeChart

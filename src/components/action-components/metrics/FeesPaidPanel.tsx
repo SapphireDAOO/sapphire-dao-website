@@ -3,11 +3,6 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAccount } from "wagmi";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -36,12 +31,15 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
-/** `children` is the clickable trigger (e.g. the Fees Paid card). */
-export function FeesPaidModal({ children }: { children: ReactNode }) {
+/**
+ * Inline dropdown panel of paginated fee-payment cards. Rendered in normal
+ * document flow (below the metric cards) so it pushes the page down instead of
+ * overlaying the charts. Mounts only while its card is expanded.
+ */
+export function FeesPaidPanel() {
   const { chain } = useAccount();
   const chainId = chain?.id ?? BASE_SEPOLIA;
 
-  const [open, setOpen] = useState(false);
   const [page, setPage] = useState(0);
   const since = useMemo(
     () => Math.floor(Date.now() / 1000) - WINDOW_DAYS * 86400,
@@ -51,7 +49,6 @@ export function FeesPaidModal({ children }: { children: ReactNode }) {
   const { data, isLoading, error, isFetching } = useQuery({
     queryKey: ["fees-paid", chainId, since, page],
     queryFn: () => fetchFeesPaid(chainId, page, PAGE_SIZE, since),
-    enabled: open,
     staleTime: DEFAULT_QUERY_STALE_TIME_MS,
     gcTime: DEFAULT_QUERY_GC_TIME_MS,
   });
@@ -61,24 +58,12 @@ export function FeesPaidModal({ children }: { children: ReactNode }) {
   const busy = isLoading || isFetching;
 
   return (
-    <Popover
-      open={open}
-      onOpenChange={(next) => {
-        setOpen(next);
-        if (!next) setPage(0);
-      }}
-    >
-      <PopoverTrigger asChild>{children}</PopoverTrigger>
-      <PopoverContent
-        align="start"
-        sideOffset={8}
-        className="w-[min(92vw,680px)] p-0"
-      >
-        <div className="border-b border-border px-4 py-3">
-          <h3 className="text-sm font-semibold">Fees paid — last 30 days</h3>
-        </div>
+    <div className="rounded-lg border border-border bg-card text-card-foreground shadow-sm">
+      <div className="border-b border-border px-4 py-3">
+        <h3 className="text-sm font-semibold">Fees paid — last 30 days</h3>
+      </div>
 
-        {error ? (
+      {error ? (
           <div className="m-4 rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
             {(error as Error).message}
           </div>
@@ -160,7 +145,6 @@ export function FeesPaidModal({ children }: { children: ReactNode }) {
             </div>
           </div>
         )}
-      </PopoverContent>
-    </Popover>
+    </div>
   );
 }

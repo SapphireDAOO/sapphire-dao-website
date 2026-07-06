@@ -4,11 +4,6 @@ import { useMemo, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAccount } from "wagmi";
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import {
   Card,
   CardContent,
   CardHeader,
@@ -55,10 +50,8 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
-export interface TransactionsModalProps {
-  /** Clickable trigger (e.g. a metric card). */
-  children: ReactNode;
-  /** Dropdown panel title. */
+export interface TransactionsPanelProps {
+  /** Panel heading. */
   title: string;
   /** Stable React Query cache-key segment, e.g. "paid" | "escrow". */
   cacheKey: string;
@@ -144,8 +137,12 @@ function TransactionCard({
   );
 }
 
-export function TransactionsModal({
-  children,
+/**
+ * Inline dropdown panel of paginated transaction cards. Rendered in normal
+ * document flow (below the metric cards) so it pushes the page down instead of
+ * overlaying the charts. Mounts only while its card is expanded.
+ */
+export function TransactionsPanel({
   title,
   cacheKey,
   emptyLabel,
@@ -153,13 +150,12 @@ export function TransactionsModal({
   showDirection = false,
   sinceSeconds,
   showType = true,
-}: TransactionsModalProps) {
+}: TransactionsPanelProps) {
   const { chain } = useAccount();
   const chainId = chain?.id ?? BASE_SEPOLIA;
 
-  const [open, setOpen] = useState(false);
   const [page, setPage] = useState(0);
-  // Fix the cutoff for the lifetime of the dropdown so paging is stable.
+  // Fix the cutoff for the lifetime of the panel so paging is stable.
   const defaultSince = useMemo(
     () => Math.floor(Date.now() / 1000) - WINDOW_DAYS * 86400,
     [],
@@ -169,7 +165,6 @@ export function TransactionsModal({
   const { data, isLoading, error, isFetching } = useQuery({
     queryKey: [cacheKey, chainId, since, page],
     queryFn: () => fetchPage(chainId, page, PAGE_SIZE, since),
-    enabled: open,
     staleTime: DEFAULT_QUERY_STALE_TIME_MS,
     gcTime: DEFAULT_QUERY_GC_TIME_MS,
   });
@@ -179,24 +174,12 @@ export function TransactionsModal({
   const busy = isLoading || isFetching;
 
   return (
-    <Popover
-      open={open}
-      onOpenChange={(next) => {
-        setOpen(next);
-        if (!next) setPage(0);
-      }}
-    >
-      <PopoverTrigger asChild>{children}</PopoverTrigger>
-      <PopoverContent
-        align="start"
-        sideOffset={8}
-        className="w-[min(92vw,680px)] p-0"
-      >
-        <div className="border-b border-border px-4 py-3">
-          <h3 className="text-sm font-semibold">{title}</h3>
-        </div>
+    <div className="rounded-lg border border-border bg-card text-card-foreground shadow-sm">
+      <div className="border-b border-border px-4 py-3">
+        <h3 className="text-sm font-semibold">{title}</h3>
+      </div>
 
-        {error ? (
+      {error ? (
           <div className="m-4 rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
             {(error as Error).message}
           </div>
@@ -255,7 +238,6 @@ export function TransactionsModal({
             </div>
           </div>
         )}
-      </PopoverContent>
-    </Popover>
+    </div>
   );
 }
