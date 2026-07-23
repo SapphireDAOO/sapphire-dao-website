@@ -1,9 +1,11 @@
 import type { ErrorMessages, TokenData } from "./model/model";
 import type { Address } from "viem";
-import { baseSepolia } from "viem/chains";
+import { baseSepolia, hardhat } from "viem/chains";
 
 // remove unused chains
 export const BASE_SEPOLIA = baseSepolia.id;
+// Local Hardhat/Anvil node (http://127.0.0.1:8545)
+export const LOCALHOST = hardhat.id;
 export const ONE_SECOND_MS = 1_000;
 export const ONE_DAY_MS = 24 * 60 * 60 * ONE_SECOND_MS;
 export const DEFAULT_QUERY_STALE_TIME_MS = 15 * ONE_SECOND_MS;
@@ -11,31 +13,38 @@ export const DEFAULT_QUERY_GC_TIME_MS = ONE_DAY_MS;
 export const DEFAULT_BLOCK_POLLING_INTERVAL_MS = 12 * ONE_SECOND_MS;
 
 export const PAYMENT_PROCESSOR_STORAGE: Record<number, Address> = {
-  [BASE_SEPOLIA]: "0x13676A686fA96408a70ACBDa6312b330D11Ce390",
+  [BASE_SEPOLIA]: "0x74b1301b8a1DBdF0318bC81dD8c1b1375d0BF9AF",
+  [LOCALHOST]: "0x0165878A594ca255338adfa4d48449f69242Eb8F",
 };
 
 export const SIMPLE_PAYMENT_PROCESSOR: Record<number, Address> = {
-  [BASE_SEPOLIA]: "0xd70c10C73a716F85d97b5619dADfb6B1b6b6a706",
+  [BASE_SEPOLIA]: "0xC785B7f52F591BF0ce80beE45B09e1cf0A972957",
+  [LOCALHOST]: "0x2279B7A0a67DB372996a5FaB50D91eAA73d2eBe6",
 };
 
 export const ADVANCED_PAYMENT_PROCESSOR: Record<number, Address> = {
-  [BASE_SEPOLIA]: "0x792AF6DF4f32Ac3b8C2745dEE42f9e08090C0746",
+  [BASE_SEPOLIA]: "0x0EecA9DE862fDFF9147aa1c55f186BB3881478E7",
+  [LOCALHOST]: "0x610178dA211FEF7D417bC0e6FeD39F05609AD788",
 };
 
 export const MULTISIG_CONTRACT: Record<number, Address> = {
-  [BASE_SEPOLIA]: "0x331798Ef8A2a46b6e6A5864ba7F03016b875F193",
+  [BASE_SEPOLIA]: "0xA42498b1a91cB61B5303Ec0432f27b87B8255B4e",
+  [LOCALHOST]: "0x5FbDB2315678afecb367f032d93F642f64180aa3",
 };
 
 export const NOTES_CONTRACT: Record<number, Address> = {
-  [BASE_SEPOLIA]: "0x8391a68c01834d252C1dFf975A621e8F99020b65",
+  [BASE_SEPOLIA]: "0x38844FD5258943F0Af0db706CeC75a9233140087",
+  [LOCALHOST]: "0xa513E6E4b8f2a923D98304ec87F64353C4D5C853",
 };
 
 export const MOCK_USDC_CONTRACT: Record<number, Address> = {
-  [BASE_SEPOLIA]: "0x41A196b1fF165419A1320F029E689A41F30c70b0",
+  [BASE_SEPOLIA]: "0x9652aF270a39E8F63Fa801F6293DEb944FdEB5B9",
+  [LOCALHOST]: "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
 };
 
 export const MOCK_WBTC_CONTRACT: Record<number, Address> = {
-  [BASE_SEPOLIA]: "0x8Cdaf12598d71cad44e91FB1c05d565a383e3dba",
+  [BASE_SEPOLIA]: "0xc3a9d881A859EC02433eb0b6FaDC79F5678627b9",
+  [LOCALHOST]: "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0",
 };
 
 export const ZERO_ADDRESS: Address =
@@ -56,6 +65,23 @@ export const KNOWN_PAYMENT_TOKENS: Record<number, TokenData[]> = {
     },
     {
       id: MOCK_WBTC_CONTRACT[BASE_SEPOLIA],
+      name: "wBTC",
+      decimals: 8,
+    },
+    {
+      id: ZERO_ADDRESS,
+      name: "ETH",
+      decimals: 18,
+    },
+  ],
+  [LOCALHOST]: [
+    {
+      id: MOCK_USDC_CONTRACT[LOCALHOST],
+      name: "mUSDC",
+      decimals: 6,
+    },
+    {
+      id: MOCK_WBTC_CONTRACT[LOCALHOST],
       name: "wBTC",
       decimals: 8,
     },
@@ -109,7 +135,8 @@ export const NOTES_SIGNER_ADDRESS =
 
 export const THE_GRAPH_API_URL: Record<number, string> = {
   [BASE_SEPOLIA]:
-    "https://api.studio.thegraph.com/query/100227/payment-processor/version/latest",
+    "https://api.studio.thegraph.com/query/100227/payment-processor-indexer/version/latest",
+  [LOCALHOST]: "http://localhost:8000/subgraphs/name/payment-processor",
 };
 
 // review errors and seperate using contract address as key(maybe)

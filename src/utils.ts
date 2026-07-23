@@ -3,10 +3,6 @@
 
 export { timeLeft, unixToGMT } from "@/lib/timeUtils";
 export { formatAddress } from "@/lib/formatUtils";
-export {
-  encryptNote,
-  decryptNote,
-  getNotesSecretKey,
-  decryptNoteBlob,
-  toEncryptedNoteHex,
-} from "@/lib/noteEncryption";
+// Note-encryption helpers are intentionally NOT re-exported here: they are
+// server-only (see src/lib/noteEncryption.ts). API routes import them from
+// "@/lib/noteEncryption" directly; browser code goes through /api/notes.

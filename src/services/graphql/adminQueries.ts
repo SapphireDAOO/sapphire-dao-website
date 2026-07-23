@@ -5,9 +5,6 @@ export const GET_ALL_INVOICES = `
     $skipInvoices: Int! = 0
     $firstInvoices: Int! = 50
     $includeInvoices: Boolean! = true
-    $skipActions: Int! = 0
-    $firstActions: Int! = 50
-    $includeActions: Boolean! = true
     $skipSmartInvoices: Int! = 0
     $firstSmartInvoices: Int! = 50
     $includeSmartInvoices: Boolean! = true
@@ -15,64 +12,43 @@ export const GET_ALL_INVOICES = `
     invoices: simplePaymentProcessors(
       first: $firstInvoices
       skip: $skipInvoices
-      orderBy: createdAt
+      orderBy: lastActionTime
       orderDirection: desc
     ) @include(if: $includeInvoices) {
       contract
-      createdAt
       fee
       id
       invoiceId: invoiceNonce
-      paidAt
-      paymentTxHash
       price
-      releaseHash
-      releasedAt
       state
+      releaseAt
       amountPaid
-      creationTxHash
-      commisionTxHash: commissionTxHash
-      refundTxHash
+      invalidateAt
+      lastActionTime
       seller { id }
       buyer { id }
+      events { eventType txHash timestamp }
     }
-    adminActions(
-      first: $firstActions
-      skip: $skipActions
-      orderBy: time
-      orderDirection: desc
-    ) @include(if: $includeActions) {
-      id
-      invoiceId: invoiceNonce
-      time
-      type: category
-      action
-      balance
-      txHash
-      currency { id }
-    }
+    # adminActions disabled: the AdminAction entity was dropped in the subgraph's
+    # event-log migration. TODO: rebuild the admin actions feed from InvoiceEvent.
     smartInvoices: advancedPaymentProcessors(
       first: $firstSmartInvoices
       skip: $skipSmartInvoices
-      orderBy: createdAt
+      orderBy: lastActionTime
       orderDirection: desc
     ) @include(if: $includeSmartInvoices) {
       contract
-      createdAt
       id
       invoiceId: invoiceNonce
-      paidAt
       price
-      releasedAt
       state
+      releaseAt
       fee
-      paymentTxHash
       amountPaid
-      creationTxHash
-      commisionTxHash: commissionTxHash
-      refundTxHash
+      lastActionTime
       seller { id }
       buyer { id }
+      events { eventType txHash timestamp }
     }
   }
 `;

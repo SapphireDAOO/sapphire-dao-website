@@ -1,0 +1,33 @@
+import type { GasStats } from "./types";
+import { client } from "../graphql/client";
+import { GAS_TRACKER_QUERY } from "../graphql/metricsQueries";
+import { throwSubgraphError } from "./errors";
+
+interface GasPaidRow {
+  amount: string;
+  transactionCount: string;
+  lastTimeStamp: string;
+}
+
+export const fetchGasStats = async (
+  chainId: number,
+): Promise<GasStats | null> => {
+  const result = await client(chainId)
+    // network-only: react-query owns caching for this fetcher; cache-first
+    // would turn its refetches into stale no-ops.
+    .query<{ gasPaid: GasPaidRow | null }>(GAS_TRACKER_QUERY, {}, {
+      requestPolicy: "network-only",
+    })
+    .toPromise();
+
+  if (result.error) throwSubgraphError(result.error);
+
+  const row = result.data?.gasPaid;
+  if (!row) return null;
+
+  return {
+    totalGasWei: BigInt(row.amount),
+    transactionCount: Number(row.transactionCount),
+    lastTimestamp: Number(row.lastTimeStamp),
+  };
+};

@@ -1,5 +1,141 @@
 import { History, Invoice } from "@/model/model";
 
+// Maps the subgraph's event-log `eventType` (new schema) onto the status labels
+// the UI history timeline uses. Event types not listed (oracle/hold-period/escrow
+// bookkeeping, etc.) are intentionally dropped from the user-facing history.
+const EVENT_TYPE_TO_STATUS: Record<string, string> = {
+  INVOICE_CREATED: "CREATED",
+  INVOICE_PAID: "PAID",
+  INVOICE_ACCEPTED: "ACCEPTED",
+  INVOICE_RELEASED: "RELEASED",
+  PAYMENT_RELEASED: "RELEASED",
+  INVOICE_CANCELED: "CANCELED",
+  INVOICE_REJECTED: "REFUNDED",
+  INVOICE_REFUNDED: "REFUNDED",
+  REFUNDED: "REFUNDED",
+  DISPUTE_CREATED: "DISPUTED",
+  DISPUTE_DISMISSED: "DISPUTE_DISMISSED",
+  DISPUTE_RESOLVED: "DISPUTE_RESOLVED",
+  DISPUTE_SETTLED: "DISPUTE_SETTLED",
+};
+
+// Lifecycle ordering used as a tiebreaker when several events share a timestamp
+// (common locally / in batched txs, where the subgraph returns them in id order
+// rather than logical order).
+const EVENT_SEQUENCE: Record<string, number> = {
+  INVOICE_CREATED: 0,
+  META_INVOICE_CREATED: 0,
+  ESCROW_CREATED: 1,
+  INVOICE_PAID: 2,
+  INVOICE_ACCEPTED: 3,
+  DISPUTE_CREATED: 4,
+  DISPUTE_DISMISSED: 5,
+  DISPUTE_RESOLVED: 5,
+  DISPUTE_SETTLED: 6,
+  INVOICE_RELEASED: 7,
+  PAYMENT_RELEASED: 7,
+  INVOICE_REJECTED: 7,
+  INVOICE_REFUNDED: 7,
+  REFUNDED: 7,
+  INVOICE_CANCELED: 7,
+};
+
+type RawInvoiceEvent = {
+  eventType?: string;
+  txHash?: string;
+  timestamp?: string;
+};
+
+/**
+ * The subgraph migrated from flat invoice fields (createdAt, paidAt,
+ * paymentTxHash, history, historyTime, …) to an `events` relation. This rebuilds
+ * the old wire shape from `events` so the existing transformers/consumers — which
+ * read those flat fields — keep working unchanged. Pass a raw subgraph invoice;
+ * returns it augmented with the derived legacy fields.
+ */
+export const flattenInvoiceEvents = <T extends Record<string, unknown>>(
+  inv: T,
+): T => {
+  const events = Array.isArray((inv as { events?: RawInvoiceEvent[] }).events)
+    ? [...((inv as { events?: RawInvoiceEvent[] }).events as RawInvoiceEvent[])]
+    : [];
+
+  // Events arrive in entity-id order, not chronological — sort by timestamp,
+  // falling back to lifecycle order when timestamps tie (same block).
+  events.sort((a, b) => {
+    const ts = Number(a.timestamp ?? 0) - Number(b.timestamp ?? 0);
+    if (ts !== 0) return ts;
+    const seqA = EVENT_SEQUENCE[a.eventType ?? ""] ?? Number.MAX_SAFE_INTEGER;
+    const seqB = EVENT_SEQUENCE[b.eventType ?? ""] ?? Number.MAX_SAFE_INTEGER;
+    return seqA - seqB;
+  });
+
+  const history: string[] = [];
+  const historyTime: string[] = [];
+  let createdAt: string | undefined;
+  let paidAt: string | undefined;
+  let releasedAt: string | undefined;
+  let paymentTxHash: string | undefined;
+  let releaseHash: string | undefined;
+  let refundTxHash: string | undefined;
+  let disputeSettledTxHash: string | undefined;
+  let commisionTxHash: string | undefined;
+
+  for (const ev of events) {
+    const status = ev.eventType
+      ? EVENT_TYPE_TO_STATUS[ev.eventType]
+      : undefined;
+    if (status && history[history.length - 1] !== status) {
+      history.push(status);
+      historyTime.push(ev.timestamp ?? "");
+    }
+
+    switch (ev.eventType) {
+      case "INVOICE_CREATED":
+        createdAt ??= ev.timestamp;
+        break;
+      case "INVOICE_PAID":
+        paidAt ??= ev.timestamp;
+        paymentTxHash ??= ev.txHash;
+        break;
+      case "INVOICE_RELEASED":
+      case "PAYMENT_RELEASED":
+        releasedAt ??= ev.timestamp;
+        releaseHash ??= ev.txHash;
+        // The protocol fee (commission) is transferred inside the release tx.
+        commisionTxHash ??= ev.txHash;
+        break;
+      case "INVOICE_REFUNDED":
+      case "INVOICE_REJECTED":
+      case "REFUNDED":
+        refundTxHash ??= ev.txHash;
+        break;
+      case "DISPUTE_SETTLED":
+        disputeSettledTxHash ??= ev.txHash;
+        // Advanced invoices settled via dispute pay the fee in the settlement
+        // tx instead of a release.
+        commisionTxHash ??= ev.txHash;
+        break;
+    }
+  }
+
+  return {
+    ...inv,
+    createdAt,
+    paidAt,
+    // `releaseAt` is now an authoritative field on the invoice entity; prefer it
+    // over the event-derived timestamp. The release tx hash still comes from events.
+    releasedAt: (inv as { releaseAt?: string }).releaseAt ?? releasedAt,
+    paymentTxHash,
+    releaseHash,
+    refundTxHash,
+    disputeSettledTxHash,
+    commisionTxHash,
+    history,
+    historyTime,
+  };
+};
+
 export const normalizeHistoryStatus = (status?: string): string | undefined => {
   if (!status) return status;
   if (status === "AWAITING PAYMENT" || status === "INITIATED") return "CREATED";

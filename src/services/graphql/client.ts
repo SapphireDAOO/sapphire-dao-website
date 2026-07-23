@@ -1,4 +1,10 @@
-import { createClient, cacheExchange, fetchExchange, type Client } from "urql";
+import {
+  createClient,
+  cacheExchange,
+  dedupExchange,
+  fetchExchange,
+  type Client,
+} from "urql";
 
 const CLIENT_CACHE = new Map<number, Client>();
 
@@ -18,8 +24,12 @@ export const client = (chainId: number) => {
     // hit the network when the cache is empty. Real-time freshness is handled
     // by event-based refresh calls (watchEvent) rather than background refetches.
     // The server-side proxy (/api/graphql) adds a 15-second cache layer on top.
+    // Fetchers wrapped by react-query (metrics) opt into network-only per query
+    // so react-query stays the single caching/freshness layer for them.
     requestPolicy: "cache-first",
-    exchanges: [cacheExchange, fetchExchange],
+    // dedupExchange collapses identical in-flight queries into one request
+    // (not part of the default exchanges in urql v3).
+    exchanges: [dedupExchange, cacheExchange, fetchExchange],
   });
 
   CLIENT_CACHE.set(chainId, created);

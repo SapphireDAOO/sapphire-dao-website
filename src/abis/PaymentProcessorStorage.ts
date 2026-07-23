@@ -1,289 +1,475 @@
 export const PaymentProcessorStorage = [
   {
+    type: "constructor",
     inputs: [
       {
-        components: [
-          { internalType: "address", name: "owner", type: "address" },
-          { internalType: "uint96", name: "feeRate", type: "uint96" },
-          { internalType: "address", name: "feeReceiver", type: "address" },
-          { internalType: "uint96", name: "defaultHoldPeriod", type: "uint96" },
-          { internalType: "address", name: "marketplace", type: "address" },
-          { internalType: "uint96", name: "gasThreshold", type: "uint96" },
-        ],
-        internalType: "struct IPaymentProcessorStorage.Configuration",
         name: "_configuration",
         type: "tuple",
+        internalType: "struct IPaymentProcessorStorage.Configuration",
+        components: [
+          { name: "owner", type: "address", internalType: "address" },
+          { name: "feeRate", type: "uint96", internalType: "uint96" },
+          {
+            name: "feeReceiver",
+            type: "address",
+            internalType: "address",
+          },
+          {
+            name: "defaultHoldPeriod",
+            type: "uint96",
+            internalType: "uint96",
+          },
+          {
+            name: "marketplace",
+            type: "address",
+            internalType: "address",
+          },
+          {
+            name: "gasThreshold",
+            type: "uint96",
+            internalType: "uint96",
+          },
+        ],
       },
     ],
     stateMutability: "nonpayable",
-    type: "constructor",
-  },
-  { inputs: [], name: "AlreadyInitialized", type: "error" },
-  { inputs: [], name: "HoldPeriodCanNotBeZero", type: "error" },
-  { inputs: [], name: "InvalidFeeRate", type: "error" },
-  { inputs: [], name: "NewOwnerIsZeroAddress", type: "error" },
-  { inputs: [], name: "NoHandoverRequest", type: "error" },
-  { inputs: [], name: "NotAuthorized", type: "error" },
-  { inputs: [], name: "Unauthorized", type: "error" },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        internalType: "address",
-        name: "pendingOwner",
-        type: "address",
-      },
-    ],
-    name: "OwnershipHandoverCanceled",
-    type: "event",
   },
   {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        internalType: "address",
-        name: "pendingOwner",
-        type: "address",
-      },
-    ],
-    name: "OwnershipHandoverRequested",
-    type: "event",
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        internalType: "address",
-        name: "oldOwner",
-        type: "address",
-      },
-      {
-        indexed: true,
-        internalType: "address",
-        name: "newOwner",
-        type: "address",
-      },
-    ],
-    name: "OwnershipTransferred",
-    type: "event",
-  },
-  {
-    inputs: [],
+    type: "function",
     name: "BASIS_POINTS",
-    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+    inputs: [],
+    outputs: [{ name: "", type: "uint256", internalType: "uint256" }],
     stateMutability: "view",
-    type: "function",
   },
   {
-    inputs: [],
+    type: "function",
     name: "DEFAULT_PAYMENT_VALIDITY_PERIOD",
-    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+    inputs: [],
+    outputs: [{ name: "", type: "uint256", internalType: "uint256" }],
     stateMutability: "view",
-    type: "function",
   },
   {
-    inputs: [],
+    type: "function",
     name: "cancelOwnershipHandover",
+    inputs: [],
     outputs: [],
     stateMutability: "payable",
-    type: "function",
   },
   {
-    inputs: [
-      { internalType: "address", name: "pendingOwner", type: "address" },
-    ],
+    type: "function",
     name: "completeOwnershipHandover",
+    inputs: [
+      { name: "pendingOwner", type: "address", internalType: "address" },
+    ],
     outputs: [],
     stateMutability: "payable",
-    type: "function",
   },
   {
-    inputs: [],
+    type: "function",
     name: "getDefaultHoldPeriod",
-    outputs: [
-      { internalType: "uint256", name: "defaultHoldPeriod", type: "uint256" },
-    ],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
     inputs: [],
-    name: "getFeeRate",
-    outputs: [{ internalType: "uint256", name: "feeRate", type: "uint256" }],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "getFeeReceiver",
-    outputs: [
-      { internalType: "address", name: "feeReceiver", type: "address" },
-    ],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "getGasThreshold",
-    outputs: [
-      { internalType: "uint256", name: "gasThreshold", type: "uint256" },
-    ],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "getMarketplace",
-    outputs: [
-      { internalType: "address", name: "marketplace", type: "address" },
-    ],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "getNextInvoiceNonce",
     outputs: [
       {
-        internalType: "uint216",
+        name: "defaultHoldPeriod",
+        type: "uint256",
+        internalType: "uint256",
+      },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "getFeeRate",
+    inputs: [],
+    outputs: [{ name: "feeRate", type: "uint256", internalType: "uint256" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "getFeeReceiver",
+    inputs: [],
+    outputs: [
+      { name: "feeReceiver", type: "address", internalType: "address" },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "getGasThreshold",
+    inputs: [],
+    outputs: [
+      { name: "gasThreshold", type: "uint256", internalType: "uint256" },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "getMarketplace",
+    inputs: [],
+    outputs: [
+      { name: "marketplace", type: "address", internalType: "address" },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "getNextInvoiceNonce",
+    inputs: [],
+    outputs: [
+      {
         name: "nextInvoiceNonceValue",
         type: "uint216",
+        internalType: "uint216",
       },
     ],
     stateMutability: "view",
-    type: "function",
   },
   {
-    inputs: [],
+    type: "function",
     name: "getPaymentValidityDuration",
+    inputs: [],
     outputs: [
-      { internalType: "uint256", name: "validDuration", type: "uint256" },
+      {
+        name: "validDuration",
+        type: "uint256",
+        internalType: "uint256",
+      },
     ],
     stateMutability: "view",
-    type: "function",
   },
   {
-    inputs: [],
+    type: "function",
     name: "owner",
-    outputs: [{ internalType: "address", name: "result", type: "address" }],
+    inputs: [],
+    outputs: [{ name: "result", type: "address", internalType: "address" }],
     stateMutability: "view",
-    type: "function",
   },
   {
-    inputs: [
-      { internalType: "address", name: "pendingOwner", type: "address" },
-    ],
+    type: "function",
     name: "ownershipHandoverExpiresAt",
-    outputs: [{ internalType: "uint256", name: "result", type: "uint256" }],
+    inputs: [
+      { name: "pendingOwner", type: "address", internalType: "address" },
+    ],
+    outputs: [{ name: "result", type: "uint256", internalType: "uint256" }],
     stateMutability: "view",
-    type: "function",
   },
   {
-    inputs: [],
+    type: "function",
     name: "renounceOwnership",
-    outputs: [],
-    stateMutability: "payable",
-    type: "function",
-  },
-  {
     inputs: [],
-    name: "requestOwnershipHandover",
     outputs: [],
     stateMutability: "payable",
-    type: "function",
   },
   {
-    inputs: [
-      { internalType: "address", name: "_authorizedAddress", type: "address" },
-      { internalType: "bool", name: "_authorized", type: "bool" },
-    ],
+    type: "function",
+    name: "requestOwnershipHandover",
+    inputs: [],
+    outputs: [],
+    stateMutability: "payable",
+  },
+  {
+    type: "function",
     name: "setAuthorizedAddress",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [
-      { internalType: "uint96", name: "_newDefaultHoldPeriod", type: "uint96" },
-    ],
-    name: "setDefaultHoldPeriod",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [{ internalType: "uint96", name: "_newFeeRate", type: "uint96" }],
-    name: "setFeeRate",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [
-      { internalType: "address", name: "_feeReceiverAddress", type: "address" },
-    ],
-    name: "setFeeReceiver",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [
-      { internalType: "uint96", name: "_newGasThreshold", type: "uint96" },
-    ],
-    name: "setGasThreshold",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [
-      { internalType: "address", name: "_marketplaceAddress", type: "address" },
-    ],
-    name: "setMarketplaceAddress",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
     inputs: [
       {
-        internalType: "uint256",
-        name: "_newValidityDuration",
-        type: "uint256",
+        name: "_authorizedAddress",
+        type: "address",
+        internalType: "address",
+      },
+      { name: "_authorized", type: "bool", internalType: "bool" },
+    ],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    name: "setDefaultHoldPeriod",
+    inputs: [
+      {
+        name: "_newDefaultHoldPeriod",
+        type: "uint96",
+        internalType: "uint96",
       },
     ],
-    name: "setPaymentValidityDuration",
     outputs: [],
     stateMutability: "nonpayable",
-    type: "function",
   },
   {
-    inputs: [],
+    type: "function",
+    name: "setFeeRate",
+    inputs: [{ name: "_newFeeRate", type: "uint96", internalType: "uint96" }],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    name: "setFeeReceiver",
+    inputs: [
+      {
+        name: "_feeReceiverAddress",
+        type: "address",
+        internalType: "address",
+      },
+    ],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    name: "setGasThreshold",
+    inputs: [
+      {
+        name: "_newGasThreshold",
+        type: "uint96",
+        internalType: "uint96",
+      },
+    ],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    name: "setMarketplaceAddress",
+    inputs: [
+      {
+        name: "_marketplaceAddress",
+        type: "address",
+        internalType: "address",
+      },
+    ],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    name: "setPaymentValidityDuration",
+    inputs: [
+      {
+        name: "_newValidityDuration",
+        type: "uint256",
+        internalType: "uint256",
+      },
+    ],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
     name: "totalInvoiceCreated",
+    inputs: [],
     outputs: [
-      { internalType: "uint216", name: "totalInvoices", type: "uint216" },
+      {
+        name: "totalInvoices",
+        type: "uint216",
+        internalType: "uint216",
+      },
     ],
     stateMutability: "view",
-    type: "function",
   },
   {
-    inputs: [{ internalType: "address", name: "newOwner", type: "address" }],
+    type: "function",
     name: "transferOwnership",
+    inputs: [{ name: "newOwner", type: "address", internalType: "address" }],
     outputs: [],
     stateMutability: "payable",
-    type: "function",
   },
   {
-    inputs: [{ internalType: "uint216", name: "_by", type: "uint216" }],
+    type: "function",
     name: "updateInvoiceNonce",
+    inputs: [{ name: "_by", type: "uint216", internalType: "uint216" }],
     outputs: [
-      { internalType: "uint216", name: "totalInvoices", type: "uint216" },
+      {
+        name: "totalInvoices",
+        type: "uint216",
+        internalType: "uint216",
+      },
     ],
     stateMutability: "nonpayable",
-    type: "function",
   },
+  {
+    type: "event",
+    name: "AuthorizationUpdated",
+    inputs: [
+      {
+        name: "account",
+        type: "address",
+        indexed: true,
+        internalType: "address",
+      },
+      {
+        name: "authorized",
+        type: "bool",
+        indexed: false,
+        internalType: "bool",
+      },
+    ],
+    anonymous: false,
+  },
+  {
+    type: "event",
+    name: "ConfigurationInitialized",
+    inputs: [
+      {
+        name: "config",
+        type: "tuple",
+        indexed: false,
+        internalType: "struct IPaymentProcessorStorage.Configuration",
+        components: [
+          { name: "owner", type: "address", internalType: "address" },
+          { name: "feeRate", type: "uint96", internalType: "uint96" },
+          {
+            name: "feeReceiver",
+            type: "address",
+            internalType: "address",
+          },
+          {
+            name: "defaultHoldPeriod",
+            type: "uint96",
+            internalType: "uint96",
+          },
+          {
+            name: "marketplace",
+            type: "address",
+            internalType: "address",
+          },
+          {
+            name: "gasThreshold",
+            type: "uint96",
+            internalType: "uint96",
+          },
+        ],
+      },
+    ],
+    anonymous: false,
+  },
+  {
+    type: "event",
+    name: "DefaultHoldPeriodUpdated",
+    inputs: [
+      {
+        name: "defaultHoldPeriod",
+        type: "uint96",
+        indexed: false,
+        internalType: "uint96",
+      },
+    ],
+    anonymous: false,
+  },
+  {
+    type: "event",
+    name: "FeeRateUpdated",
+    inputs: [
+      {
+        name: "feeRate",
+        type: "uint96",
+        indexed: false,
+        internalType: "uint96",
+      },
+    ],
+    anonymous: false,
+  },
+  {
+    type: "event",
+    name: "FeeReceiverUpdated",
+    inputs: [
+      {
+        name: "feeReceiver",
+        type: "address",
+        indexed: true,
+        internalType: "address",
+      },
+    ],
+    anonymous: false,
+  },
+  {
+    type: "event",
+    name: "GasThresholdUpdated",
+    inputs: [
+      {
+        name: "gasThreshold",
+        type: "uint96",
+        indexed: false,
+        internalType: "uint96",
+      },
+    ],
+    anonymous: false,
+  },
+  {
+    type: "event",
+    name: "MarketplaceUpdated",
+    inputs: [
+      {
+        name: "marketplace",
+        type: "address",
+        indexed: true,
+        internalType: "address",
+      },
+    ],
+    anonymous: false,
+  },
+  {
+    type: "event",
+    name: "OwnershipHandoverCanceled",
+    inputs: [
+      {
+        name: "pendingOwner",
+        type: "address",
+        indexed: true,
+        internalType: "address",
+      },
+    ],
+    anonymous: false,
+  },
+  {
+    type: "event",
+    name: "OwnershipHandoverRequested",
+    inputs: [
+      {
+        name: "pendingOwner",
+        type: "address",
+        indexed: true,
+        internalType: "address",
+      },
+    ],
+    anonymous: false,
+  },
+  {
+    type: "event",
+    name: "OwnershipTransferred",
+    inputs: [
+      {
+        name: "oldOwner",
+        type: "address",
+        indexed: true,
+        internalType: "address",
+      },
+      {
+        name: "newOwner",
+        type: "address",
+        indexed: true,
+        internalType: "address",
+      },
+    ],
+    anonymous: false,
+  },
+  {
+    type: "event",
+    name: "PaymentValidityDurationUpdated",
+    inputs: [
+      {
+        name: "validityDuration",
+        type: "uint256",
+        indexed: false,
+        internalType: "uint256",
+      },
+    ],
+    anonymous: false,
+  },
+  { type: "error", name: "AlreadyInitialized", inputs: [] },
+  { type: "error", name: "HoldPeriodCanNotBeZero", inputs: [] },
+  { type: "error", name: "InvalidFeeRate", inputs: [] },
+  { type: "error", name: "NewOwnerIsZeroAddress", inputs: [] },
+  { type: "error", name: "NoHandoverRequest", inputs: [] },
+  { type: "error", name: "NotAuthorized", inputs: [] },
+  { type: "error", name: "Unauthorized", inputs: [] },
 ] as const;

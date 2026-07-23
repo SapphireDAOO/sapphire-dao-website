@@ -1,12 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { toast } from "sonner";
 import { encodeFunctionData, Address, zeroAddress } from "viem";
-import { baseSepolia } from "viem/chains";
 import {
   ADVANCED_PAYMENT_PROCESSOR,
   PAYMENT_PROCESSOR_STORAGE,
 } from "@/constants";
-import { fetchGasPrice, getError, handleApproval } from "./utils";
+import { fetchGasPrice, getError, handleApproval, getChainById } from "./utils";
 import { client } from "@/services/graphql/client";
 import { advancedPaymentProcessor } from "@/abis/AdvancedPaymentProcessor";
 import { WagmiClient } from "./types";
@@ -79,7 +78,7 @@ export const payAdvancedInvoice = async (
             });
 
     const tx = await walletClient?.sendTransaction({
-      chain: baseSepolia,
+      chain: getChainById(chainId),
       to: contractAddress,
       data: txData,
       value: isNativePayment ? amountIntoken : BigInt(0),
@@ -120,7 +119,7 @@ export const setMarketplaceAddress = async (
     const gasPrice = await fetchGasPrice(publicClient, chainId);
 
     const tx = await walletClient?.sendTransaction({
-      chain: baseSepolia,
+      chain: getChainById(chainId),
       to: PAYMENT_PROCESSOR_STORAGE[chainId],
       data: encodeFunctionData({
         abi: PaymentProcessorStorage,

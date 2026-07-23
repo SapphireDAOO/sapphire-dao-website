@@ -1,7 +1,12 @@
 import { formatEther } from "viem";
 import { Invoice } from "@/model/model";
 import { unixToGMT } from "@/utils";
-import { sortState, sortHistory, synthesizeMarketplaceHistory } from "@/lib/invoiceHistory";
+import {
+  sortState,
+  sortHistory,
+  synthesizeMarketplaceHistory,
+  flattenInvoiceEvents,
+} from "@/lib/invoiceHistory";
 import {
   getContractInvoiceIdBigInt,
   getDisplayInvoiceIdString,
@@ -13,9 +18,13 @@ type RawInvoice = any;
 
 /** Transform a raw simple-payment-processor invoice from the subgraph */
 export const transformSimple = (
-  inv: RawInvoice,
+  raw: RawInvoice,
   type: "Seller" | "Buyer"
-): Invoice => ({
+): Invoice => {
+  // Rebuild legacy flat fields (createdAt, paidAt, paymentTxHash, history, …)
+  // from the subgraph's new `events` relation.
+  const inv = flattenInvoiceEvents(raw);
+  return {
   id: getDisplayInvoiceIdString(inv),
   invoiceId: getContractInvoiceIdBigInt(inv),
   createdAt: inv.createdAt ? unixToGMT(inv.createdAt) : null,
@@ -35,13 +44,15 @@ export const transformSimple = (
   source: "Simple" as const,
   history: sortHistory(inv.history, inv.historyTime),
   refundTxHash: inv.refundTxHash,
-});
+  };
+};
 
 /** Transform a raw advanced-payment-processor (marketplace) invoice from the subgraph */
 export const transformMarketplace = (
-  inv: RawInvoice,
+  raw: RawInvoice,
   type: "IssuedInvoice" | "ReceivedInvoice"
 ): Invoice => {
+  const inv = flattenInvoiceEvents(raw);
   const history = synthesizeMarketplaceHistory(inv);
 
   return {

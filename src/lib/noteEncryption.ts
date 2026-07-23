@@ -1,12 +1,13 @@
 import * as crypto from "crypto";
 import { hexToString, stringToHex } from "viem";
 
+// SERVER-ONLY module: the AES key must never reach the browser bundle, or
+// every "encrypted" note on the public chain becomes decryptable by anyone
+// reading the JS. Clients encrypt/decrypt through /api/notes instead
+// (see src/services/notes.ts), which enforces per-note access.
 const ALGORITHM = "aes-256-cbc";
 const IV_LENGTH = 16;
-const NOTES_SECRET_KEY =
-  process.env.NEXT_PUBLIC_NOTES_SECRET_KEY ||
-  process.env.NOTES_SECRET_KEY ||
-  "";
+const NOTES_SECRET_KEY = process.env.NOTES_SECRET_KEY || "";
 
 export const getNotesSecretKey = (): string => NOTES_SECRET_KEY;
 

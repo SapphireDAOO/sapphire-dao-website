@@ -6,20 +6,37 @@ import {
   type Hex,
   type Log,
 } from "viem";
-import { baseSepolia } from "viem/chains";
 import {
   ADVANCED_PAYMENT_PROCESSOR,
   PAYMENT_PROCESSOR_STORAGE,
   SIMPLE_PAYMENT_PROCESSOR,
 } from "@/constants";
-import { fetchGasPrice, getError } from "./utils";
+import { fetchGasPrice, getError, getChainById } from "./utils";
 import { paymentProcessor } from "@/abis/PaymentProcessor";
 import { client } from "../graphql/client";
 import { PaymentProcessorStorage } from "@/abis/PaymentProcessorStorage";
 import { invoiceOwnerQuery } from "../graphql/queries";
 import { WagmiClient } from "./types";
 import { advancedPaymentProcessor } from "@/abis/AdvancedPaymentProcessor";
-import { toEncryptedNoteHex } from "@/utils";
+import { encryptNoteContent } from "../notes";
+
+// The notes key lives server-side only, so the optional storageRef note is
+// encrypted through /api/notes before it is embedded in the transaction.
+// Returns null when encryption fails — callers must abort rather than fall
+// back to writing the note on-chain in plaintext.
+const resolveStorageRefHex = async (
+  storageRef?: string,
+): Promise<`0x${string}` | null> => {
+  const trimmed = storageRef?.trim();
+  if (!trimmed) return "0x";
+  try {
+    return await encryptNoteContent(trimmed);
+  } catch (error) {
+    console.error("Failed to encrypt invoice note", error);
+    toast.error("Unable to encrypt the attached note. Please try again.");
+    return null;
+  }
+};
 
 export type CreatedSimpleInvoice = {
   invoiceId: bigint;
@@ -40,12 +57,16 @@ export const createInvoice = async (
   share?: boolean,
 ): Promise<CreatedSimpleInvoice | undefined> => {
   setIsLoading("createInvoice");
-  const storageRefHex = toEncryptedNoteHex(storageRef);
+  const storageRefHex = await resolveStorageRefHex(storageRef);
+  if (!storageRefHex) {
+    setIsLoading("");
+    return undefined;
+  }
   const shareFlag = Boolean(share && storageRef?.trim());
   try {
     const gasPrice = await fetchGasPrice(publicClient, chainId);
     const tx = await walletClient?.sendTransaction({
-      chain: baseSepolia,
+      chain: getChainById(chainId),
       to: SIMPLE_PAYMENT_PROCESSOR[chainId],
       data: encodeFunctionData({
         abi: paymentProcessor,
@@ -129,13 +150,17 @@ export const makeInvoicePayment = async (
   setIsLoading("makeInvoicePayment");
 
   let success = false;
-  const storageRefHex = toEncryptedNoteHex(storageRef);
+  const storageRefHex = await resolveStorageRefHex(storageRef);
+  if (!storageRefHex) {
+    setIsLoading("");
+    return false;
+  }
   const shareFlag = Boolean(share && storageRef?.trim());
   try {
     const gasPrice = await fetchGasPrice(publicClient, chainId);
 
     const tx = await walletClient?.sendTransaction({
-      chain: baseSepolia,
+      chain: getChainById(chainId),
       to: SIMPLE_PAYMENT_PROCESSOR[chainId],
       data: encodeFunctionData({
         abi: paymentProcessor,
@@ -184,7 +209,7 @@ export const sellerAction = async (
     const gasPrice = await fetchGasPrice(publicClient, chainId);
 
     const tx = await walletClient?.sendTransaction({
-      chain: baseSepolia,
+      chain: getChainById(chainId),
       to: SIMPLE_PAYMENT_PROCESSOR[chainId],
       data: encodeFunctionData({
         abi: paymentProcessor,
@@ -230,7 +255,7 @@ export const cancelInvoice = async (
     const gasPrice = await fetchGasPrice(publicClient, chainId);
 
     const tx = await walletClient?.sendTransaction({
-      chain: baseSepolia,
+      chain: getChainById(chainId),
       to: SIMPLE_PAYMENT_PROCESSOR[chainId],
       data: encodeFunctionData({
         abi: paymentProcessor,
@@ -276,7 +301,7 @@ export const releaseInvoice = async (
     const gasPrice = await fetchGasPrice(publicClient, chainId);
 
     const tx = await walletClient?.sendTransaction({
-      chain: baseSepolia,
+      chain: getChainById(chainId),
       to: SIMPLE_PAYMENT_PROCESSOR[chainId],
       data: encodeFunctionData({
         abi: paymentProcessor,
@@ -324,7 +349,7 @@ export const refundBuyerAfterWindow = async (
     const gasPrice = await fetchGasPrice(publicClient, chainId);
 
     const tx = await walletClient?.sendTransaction({
-      chain: baseSepolia,
+      chain: getChainById(chainId),
       to: SIMPLE_PAYMENT_PROCESSOR[chainId],
       data: encodeFunctionData({
         abi: paymentProcessor,
@@ -372,7 +397,7 @@ export const transferOwnership = async (
     const gasPrice = await fetchGasPrice(publicClient, chainId);
 
     const tx = await walletClient?.sendTransaction({
-      chain: baseSepolia,
+      chain: getChainById(chainId),
       to: PAYMENT_PROCESSOR_STORAGE[chainId],
       data: encodeFunctionData({
         abi: PaymentProcessorStorage,
@@ -420,7 +445,7 @@ export const setFeeReceiversAddress = async (
     const gasPrice = await fetchGasPrice(publicClient, chainId);
 
     const tx = await walletClient?.sendTransaction({
-      chain: baseSepolia,
+      chain: getChainById(chainId),
       to: PAYMENT_PROCESSOR_STORAGE[chainId],
       data: encodeFunctionData({
         abi: PaymentProcessorStorage,
@@ -487,7 +512,7 @@ export const setInvoiceHoldPeriod = async (
           });
 
     const tx = await walletClient?.sendTransaction({
-      chain: baseSepolia,
+      chain: getChainById(chainId),
       to: target as Address,
       data: calldata,
       gasPrice,
@@ -531,7 +556,7 @@ export const setDefaultHoldPeriod = async (
     const gasPrice = await fetchGasPrice(publicClient, chainId);
 
     const tx = await walletClient?.sendTransaction({
-      chain: baseSepolia,
+      chain: getChainById(chainId),
       to: PAYMENT_PROCESSOR_STORAGE[chainId],
       data: encodeFunctionData({
         abi: PaymentProcessorStorage,
@@ -579,7 +604,7 @@ export const setFee = async (
     const gasPrice = await fetchGasPrice(publicClient, chainId);
 
     const tx = await walletClient?.sendTransaction({
-      chain: baseSepolia,
+      chain: getChainById(chainId),
       to: PAYMENT_PROCESSOR_STORAGE[chainId],
       data: encodeFunctionData({
         abi: PaymentProcessorStorage,
@@ -627,7 +652,7 @@ export const setMinimumInvoiceValue = async (
     const gasPrice = await fetchGasPrice(publicClient, chainId);
 
     const tx = await walletClient?.sendTransaction({
-      chain: baseSepolia,
+      chain: getChainById(chainId),
       to: SIMPLE_PAYMENT_PROCESSOR[chainId],
       data: encodeFunctionData({
         abi: paymentProcessor,
@@ -675,7 +700,7 @@ export const setDecisionWindow = async (
     const gasPrice = await fetchGasPrice(publicClient, chainId);
 
     const tx = await walletClient?.sendTransaction({
-      chain: baseSepolia,
+      chain: getChainById(chainId),
       to: SIMPLE_PAYMENT_PROCESSOR[chainId],
       data: encodeFunctionData({
         abi: paymentProcessor,
@@ -723,7 +748,7 @@ export const setValidPeriod = async (
     const gasPrice = await fetchGasPrice(publicClient, chainId);
 
     const tx = await walletClient?.sendTransaction({
-      chain: baseSepolia,
+      chain: getChainById(chainId),
       to: PAYMENT_PROCESSOR_STORAGE[chainId],
       data: encodeFunctionData({
         abi: PaymentProcessorStorage,

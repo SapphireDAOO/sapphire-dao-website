@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { usePublicClient } from "wagmi";
 import { Address } from "viem";
@@ -33,10 +34,13 @@ export const useViemBalance = ({
     chainId,
     Boolean(publicClient && address && watchBlock),
   );
-  const blockKey = watchBlock ? blockNumber?.toString() : undefined;
 
-  return useQuery({
-    queryKey: ["viem-balance", chainId, address, blockKey],
+  const query = useQuery({
+    // Stable key: keying by block number made every new block a brand-new
+    // query — the UI flashed "Loading..." on each block and a day-retained
+    // cache entry piled up per block. New blocks refresh in the background
+    // below instead.
+    queryKey: ["viem-balance", chainId, address],
     enabled: Boolean(publicClient && address),
     staleTime,
     gcTime,
@@ -48,4 +52,19 @@ export const useViemBalance = ({
       return publicClient.getBalance({ address });
     },
   });
+
+  const refetchRef = useRef(query.refetch);
+  refetchRef.current = query.refetch;
+  const hasDataRef = useRef(false);
+  hasDataRef.current = query.data !== undefined;
+
+  useEffect(() => {
+    if (!watchBlock || blockNumber === undefined) return;
+    // Skip until the initial fetch has resolved; after that each new block
+    // triggers a silent background refetch (isLoading stays false).
+    if (!hasDataRef.current) return;
+    void refetchRef.current();
+  }, [blockNumber, watchBlock]);
+
+  return query;
 };

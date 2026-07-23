@@ -139,11 +139,11 @@ export function usePagedInvoiceQuery({
 
           const raw = data?.user;
           rawSeller = isMarketplace
-            ? (raw?.issuedInvoices ?? [])
-            : (raw?.ownedInvoices ?? []);
+            ? (raw?.issuedAdvancedInvoices ?? [])
+            : (raw?.ownedSimpleInvoices ?? []);
           rawBuyer = isMarketplace
-            ? (raw?.receivedInvoices ?? [])
-            : (raw?.paidInvoices ?? []);
+            ? (raw?.receivedAdvancedInvoices ?? [])
+            : (raw?.paidSimpleInvoices ?? []);
         } else {
           // Different skips or only one category: run in parallel where needed
           const [sellerResult, buyerResult] = await Promise.all([
@@ -190,14 +190,14 @@ export function usePagedInvoiceQuery({
           rawSeller =
             sellerSkip !== null
               ? isMarketplace
-                ? (sellerResult.data?.user?.issuedInvoices ?? [])
-                : (sellerResult.data?.user?.ownedInvoices ?? [])
+                ? (sellerResult.data?.user?.issuedAdvancedInvoices ?? [])
+                : (sellerResult.data?.user?.ownedSimpleInvoices ?? [])
               : [];
           rawBuyer =
             buyerSkip !== null
               ? isMarketplace
-                ? (buyerResult.data?.user?.receivedInvoices ?? [])
-                : (buyerResult.data?.user?.paidInvoices ?? [])
+                ? (buyerResult.data?.user?.receivedAdvancedInvoices ?? [])
+                : (buyerResult.data?.user?.paidSimpleInvoices ?? [])
               : [];
         }
 
