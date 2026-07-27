@@ -1,7 +1,7 @@
 import { encodeFunctionData, Hex, parseEther, parseUnits } from "viem";
 import {
   SIMPLE_PAYMENT_PROCESSOR,
-  ADVANCED_PAYMENT_PROCESSOR,
+  INTERMEDIATED_PAYMENT_PROCESSOR,
   PAYMENT_PROCESSOR_STORAGE,
   MULTISIG_CONTRACT,
 } from "@/constants";
@@ -39,7 +39,7 @@ export interface GovernableFunction {
 
 export interface GovernableContract {
   label: string;
-  key: "simple" | "advanced" | "storage" | "multisig";
+  key: "simple" | "intermediated" | "storage" | "multisig";
   getAddress: (chainId: number) => Address;
   functions: GovernableFunction[];
 }
@@ -71,33 +71,12 @@ export const GOVERNABLE_CONTRACTS: GovernableContract[] = [
         inputTypes: ["address"],
         params: [{ name: "forwarder", label: "Forwarder address", kind: "address", placeholder: "0x..." }],
       },
-      {
-        name: "setInvoiceReleaseTime",
-        label: "Set Invoice Release Time",
-        signature: "setInvoiceReleaseTime(uint216,uint40)",
-        inputTypes: ["uint216", "uint40"],
-        params: [
-          { name: "invoiceId", label: "Invoice ID", kind: "uint216", placeholder: "1" },
-          { name: "releaseTime", label: "Release timestamp (Unix)", kind: "uint40", placeholder: "1700000000" },
-        ],
-      },
-      {
-        name: "releaseLocked",
-        label: "Release Locked Funds",
-        signature: "releaseLocked(uint216,address,uint256)",
-        inputTypes: ["uint216", "address", "uint256"],
-        params: [
-          { name: "invoiceId", label: "Invoice ID", kind: "uint216", placeholder: "1" },
-          { name: "recipient", label: "Recipient address", kind: "address", placeholder: "0x..." },
-          { name: "amount", label: "Amount (ETH)", kind: "uint256_eth", placeholder: "1.0" },
-        ],
-      },
     ],
   },
   {
-    label: "AdvancedPaymentProcessor",
-    key: "advanced",
-    getAddress: (chainId) => ADVANCED_PAYMENT_PROCESSOR[chainId] as Address,
+    label: "IntermediatedPaymentProcessor",
+    key: "intermediated",
+    getAddress: (chainId) => INTERMEDIATED_PAYMENT_PROCESSOR[chainId] as Address,
     functions: [
       {
         name: "setMinimumPrice",
@@ -105,34 +84,6 @@ export const GOVERNABLE_CONTRACTS: GovernableContract[] = [
         signature: "setMinimumPrice(uint256)",
         inputTypes: ["uint256"],
         params: [{ name: "price", label: "Minimum price (USD, 18 decimals)", kind: "uint256_usd", placeholder: "1.00" }],
-      },
-      {
-        name: "setForwarderAddress",
-        label: "Set Forwarder Address",
-        signature: "setForwarderAddress(address)",
-        inputTypes: ["address"],
-        params: [{ name: "forwarder", label: "Forwarder address", kind: "address", placeholder: "0x..." }],
-      },
-      {
-        name: "setInvoiceReleaseTime",
-        label: "Set Invoice Release Time",
-        signature: "setInvoiceReleaseTime(uint216,uint256)",
-        inputTypes: ["uint216", "uint256"],
-        params: [
-          { name: "invoiceId", label: "Invoice ID", kind: "uint216", placeholder: "1" },
-          { name: "releaseTime", label: "Release timestamp (Unix)", kind: "uint256", placeholder: "1700000000" },
-        ],
-      },
-      {
-        name: "releaseLocked",
-        label: "Release Locked Funds",
-        signature: "releaseLocked(uint216,address,uint256)",
-        inputTypes: ["uint216", "address", "uint256"],
-        params: [
-          { name: "invoiceId", label: "Invoice ID", kind: "uint216", placeholder: "1" },
-          { name: "recipient", label: "Recipient address", kind: "address", placeholder: "0x..." },
-          { name: "amount", label: "Amount (ETH)", kind: "uint256_eth", placeholder: "1.0" },
-        ],
       },
     ],
   },

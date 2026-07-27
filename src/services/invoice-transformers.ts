@@ -47,7 +47,7 @@ export const transformSimple = (
   };
 };
 
-/** Transform a raw advanced-payment-processor (marketplace) invoice from the subgraph */
+/** Transform a raw intermediated-payment-processor (marketplace) invoice from the subgraph */
 export const transformMarketplace = (
   raw: RawInvoice,
   type: "IssuedInvoice" | "ReceivedInvoice"

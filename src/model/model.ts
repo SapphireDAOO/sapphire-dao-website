@@ -5,7 +5,7 @@ export type { AdminAction, AllInvoice, AllInvoicesData } from "./admin";
 // turn this into two seperate invoices for third party and in-invoices
 // seperate into different files too
 
-// Shared fields between SimplePaymentProcessor and AdvancedPaymentProcessor
+// Shared fields between SimplePaymentProcessor and IntermediatedPaymentProcessor
 // in the subgraph schema, plus UI-only fields the dashboard uses.
 export type InvoiceType = {
   // Subgraph-shared fields

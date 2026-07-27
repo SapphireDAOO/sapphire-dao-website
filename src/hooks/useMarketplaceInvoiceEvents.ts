@@ -2,8 +2,8 @@
 import { useEffect } from "react";
 import { type AbiEvent } from "viem";
 import type { PublicClient } from "viem";
-import { ADVANCED_PAYMENT_PROCESSOR } from "@/constants";
-import { advancedPaymentProcessor } from "@/abis/AdvancedPaymentProcessor";
+import { INTERMEDIATED_PAYMENT_PROCESSOR } from "@/constants";
+import { intermediatedPaymentProcessor } from "@/abis/IntermediatedPaymentProcessor";
 import { appendHistoryEntry, nowInSeconds } from "@/lib/invoiceHistory";
 import {
   getInvoiceMergeKey,
@@ -43,7 +43,7 @@ const statusFromEvent: Record<string, Invoice["status"]> = {
 };
 
 const marketEvents = (
-  advancedPaymentProcessor as readonly { type: string }[]
+  intermediatedPaymentProcessor as readonly { type: string }[]
 ).filter((item): item is AbiEvent => item.type === "event");
 
 const findMarketplaceInvoice = (
@@ -223,7 +223,7 @@ export function useMarketplaceInvoiceEvents({
 }: Params) {
   useEffect(() => {
     if (!active || !publicClient || !address) return;
-    const contractAddress = ADVANCED_PAYMENT_PROCESSOR[chainId];
+    const contractAddress = INTERMEDIATED_PAYMENT_PROCESSOR[chainId];
     if (!contractAddress) return;
 
     const userAddress = address.toLowerCase();

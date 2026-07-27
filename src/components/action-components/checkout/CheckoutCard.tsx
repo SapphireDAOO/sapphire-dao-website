@@ -38,7 +38,7 @@ import { type Address } from "viem";
 import { InvoiceDetails, TokenData } from "@/model/model";
 import { Textarea } from "@/components/ui/textarea";
 import { createNote as createInvoiceNote } from "@/services/notes";
-import { ADVANCED_PAYMENT_PROCESSOR, BASE_SEPOLIA } from "@/constants";
+import { INTERMEDIATED_PAYMENT_PROCESSOR, BASE_SEPOLIA } from "@/constants";
 import { formatAddress } from "@/utils";
 
 interface CheckoutCardProps {
@@ -51,7 +51,7 @@ const CheckoutCard = ({ data, isMetaInvoice }: CheckoutCardProps) => {
   const { address, chain } = useAccount();
   const { signMessageAsync } = useSignMessage();
   const contractAddress =
-    ADVANCED_PAYMENT_PROCESSOR[chain?.id || BASE_SEPOLIA];
+    INTERMEDIATED_PAYMENT_PROCESSOR[chain?.id || BASE_SEPOLIA];
 
   const [open, setOpen] = useState(false);
   const [selectedToken, setSelectedToken] = useState("");
@@ -67,7 +67,7 @@ const CheckoutCard = ({ data, isMetaInvoice }: CheckoutCardProps) => {
     };
   }, []);
 
-  const { payAdvancedInvoice, isLoading, refetchInvoiceData } =
+  const { payIntermediatedInvoice, isLoading, refetchInvoiceData } =
     useContext(ContractContext);
 
   const normalizedStatus = data?.status?.toUpperCase?.();
@@ -122,7 +122,7 @@ const CheckoutCard = ({ data, isMetaInvoice }: CheckoutCardProps) => {
     const amount = BigInt(data.price);
 
     if (
-      await payAdvancedInvoice(paymentType, amount, data.invoiceId, tokenAddress)
+      await payIntermediatedInvoice(paymentType, amount, data.invoiceId, tokenAddress)
     ) {
       setOpen(true);
       void savePaymentNote();

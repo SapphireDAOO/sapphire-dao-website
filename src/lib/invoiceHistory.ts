@@ -112,7 +112,7 @@ export const flattenInvoiceEvents = <T extends Record<string, unknown>>(
         break;
       case "DISPUTE_SETTLED":
         disputeSettledTxHash ??= ev.txHash;
-        // Advanced invoices settled via dispute pay the fee in the settlement
+        // Intermediated invoices settled via dispute pay the fee in the settlement
         // tx instead of a release.
         commisionTxHash ??= ev.txHash;
         break;

@@ -1,6 +1,6 @@
 // Recent Transactions feed: the latest settlement-type InvoiceEvents across both
 // processors, with the displayed amount read from the linked invoice. The simple
-// processor is native-ETH denominated; the advanced processor carries a
+// processor is native-ETH denominated; the intermediated processor carries a
 // PaymentToken (name + decimals) used to format and label the amount.
 
 import { formatUnits } from "viem";
@@ -27,7 +27,7 @@ interface InvoiceRef {
   seller: UserRef | null;
 }
 
-interface AdvancedInvoiceRef extends InvoiceRef {
+interface IntermediatedInvoiceRef extends InvoiceRef {
   paymentToken: { id: string; name: string | null; decimal: number | null } | null;
 }
 
@@ -37,7 +37,7 @@ interface InvoiceEventRow {
   txHash: string;
   timestamp: string;
   simpleInvoice: InvoiceRef | null;
-  advancedInvoice: AdvancedInvoiceRef | null;
+  advancedInvoice: IntermediatedInvoiceRef | null;
 }
 
 const KIND_BY_EVENT: Record<string, TransactionKind> = {
@@ -87,7 +87,7 @@ const mapInvoiceEventRow = (
   const invoice = row.advancedInvoice ?? row.simpleInvoice;
   if (!kind || !invoice) return null;
 
-  // Advanced invoices carry a PaymentToken; simple invoices are native ETH.
+  // Intermediated invoices carry a PaymentToken; simple invoices are native ETH.
   let decimals = NATIVE_DECIMALS;
   let currency = NATIVE_SYMBOL;
   let tokenId = ZERO_ADDRESS as string;

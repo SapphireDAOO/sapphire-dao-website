@@ -22,7 +22,6 @@ import {
   refundBuyerAfterWindow,
   transferOwnership,
   setFeeReceiversAddress,
-  setInvoiceHoldPeriod,
   setDefaultHoldPeriod,
   setFee,
   setMinimumInvoiceValue,
@@ -30,12 +29,12 @@ import {
   setValidPeriod,
 } from "@/services/blockchain/SimplePaymentProcessor";
 import {
-  payAdvancedInvoice as submitAdvancedInvoicePayment,
+  payIntermediatedInvoice as submitIntermediatedInvoicePayment,
   setMarketplaceAddress,
-} from "@/services/blockchain/AdvancedPaymentProcessor";
+} from "@/services/blockchain/IntermediatedPaymentProcessor";
 import { Address } from "viem";
 import { WagmiClient } from "@/services/blockchain/types";
-import { ADVANCED_PAYMENT_PROCESSOR, BASE_SEPOLIA } from "@/constants";
+import { INTERMEDIATED_PAYMENT_PROCESSOR, BASE_SEPOLIA } from "@/constants";
 
 const INVOICE_REFRESH_DELAY_MS = 5_000;
 
@@ -64,7 +63,7 @@ const WalletProvider = ({ children }: Props) => {
     invoicePage,
     hasNextPage,
     getInvoiceOwner,
-    getAdvancedInvoiceData: fetchAdvancedInvoiceData,
+    getIntermediatedInvoiceData: fetchIntermediatedInvoiceData,
     refetchAllInvoiceData,
     refetchInvoiceData,
     loadNextPage,
@@ -78,8 +77,8 @@ const WalletProvider = ({ children }: Props) => {
 
   const refreshTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const invalidateAdvancedInvoiceQueries = useCallback(() => {
-    const contractAddress = ADVANCED_PAYMENT_PROCESSOR[chainId];
+  const invalidateIntermediatedInvoiceQueries = useCallback(() => {
+    const contractAddress = INTERMEDIATED_PAYMENT_PROCESSOR[chainId];
     queryClient.invalidateQueries({
       queryKey: ["viem-read", chainId, contractAddress],
     });
@@ -104,12 +103,12 @@ const WalletProvider = ({ children }: Props) => {
     };
   }, []);
 
-  const handleAdvancedInvoiceSuccess = useCallback(async () => {
-    invalidateAdvancedInvoiceQueries();
+  const handleIntermediatedInvoiceSuccess = useCallback(async () => {
+    invalidateIntermediatedInvoiceQueries();
     await refetchInvoiceData?.();
     scheduleInvoiceRefresh();
   }, [
-    invalidateAdvancedInvoiceQueries,
+    invalidateIntermediatedInvoiceQueries,
     refetchInvoiceData,
     scheduleInvoiceRefresh,
   ]);
@@ -163,14 +162,14 @@ const WalletProvider = ({ children }: Props) => {
           storageRef,
           share,
         ),
-      payAdvancedInvoice: (
+      payIntermediatedInvoice: (
         paymentType: "paySingleInvoice" | "payMetaInvoice",
         price: bigint,
         invoiceId: bigint,
         paymentToken: Address,
       ) =>
         address
-          ? submitAdvancedInvoicePayment(
+          ? submitIntermediatedInvoicePayment(
               wagmiClients,
               paymentType,
               price,
@@ -181,7 +180,7 @@ const WalletProvider = ({ children }: Props) => {
               setIsLoading,
             ).then(async (success) => {
               if (success) {
-                await handleAdvancedInvoiceSuccess();
+                await handleIntermediatedInvoiceSuccess();
               }
               return success;
             })
@@ -224,18 +223,6 @@ const WalletProvider = ({ children }: Props) => {
           setIsLoading,
           getInvoiceData,
         ),
-      setInvoiceHoldPeriod: (invoiceId: bigint, holdPeriod: bigint) =>
-        setInvoiceHoldPeriod(
-          wagmiClients,
-          invoiceId,
-          holdPeriod,
-          chainId,
-          setIsLoading,
-          getInvoiceData,
-          invoiceData.find(
-            (i) => i.invoiceId.toString() === invoiceId.toString(),
-          )?.contract,
-        ),
       setDefaultHoldPeriod: (newDefaultHoldPeriod: bigint) =>
         setDefaultHoldPeriod(
           wagmiClients,
@@ -271,10 +258,10 @@ const WalletProvider = ({ children }: Props) => {
           getInvoiceData,
         ),
       getInvoiceOwner,
-      getAdvancedInvoiceData: (
+      getIntermediatedInvoiceData: (
         invoiceId: bigint,
         type: "smartInvoice" | "metaInvoice",
-      ) => fetchAdvancedInvoiceData(invoiceId, type),
+      ) => fetchIntermediatedInvoiceData(invoiceId, type),
       refetchAllInvoiceData,
       refetchInvoiceData,
       refreshAdminData,
@@ -296,13 +283,13 @@ const WalletProvider = ({ children }: Props) => {
       addCreatedSimpleInvoice,
       getInvoiceData,
       getInvoiceOwner,
-      fetchAdvancedInvoiceData,
+      fetchIntermediatedInvoiceData,
       refetchAllInvoiceData,
       refetchInvoiceData,
       refreshAdminData,
       upsertLocalInvoice,
       setActiveEventTab,
-      handleAdvancedInvoiceSuccess,
+      handleIntermediatedInvoiceSuccess,
     ],
   );
 

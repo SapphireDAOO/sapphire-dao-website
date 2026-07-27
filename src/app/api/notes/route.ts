@@ -2,10 +2,10 @@ import { NextResponse } from "next/server";
 import { isAddress, parseGwei, verifyMessage } from "viem";
 import { baseSepolia } from "viem/chains";
 import { Notes } from "@/abis/Notes";
-import { advancedPaymentProcessor } from "@/abis/AdvancedPaymentProcessor";
+import { intermediatedPaymentProcessor } from "@/abis/IntermediatedPaymentProcessor";
 import { paymentProcessor } from "@/abis/PaymentProcessor";
 import {
-  ADVANCED_PAYMENT_PROCESSOR,
+  INTERMEDIATED_PAYMENT_PROCESSOR,
   NOTES_CONTRACT,
   SIMPLE_PAYMENT_PROCESSOR,
 } from "@/constants";
@@ -164,13 +164,13 @@ const readSimpleParties = async (invoiceId: bigint) => {
 };
 
 const readMarketplaceParties = async (invoiceId: bigint) => {
-  const contractAddress = ADVANCED_PAYMENT_PROCESSOR[baseSepolia.id];
+  const contractAddress = INTERMEDIATED_PAYMENT_PROCESSOR[baseSepolia.id];
   if (!contractAddress) return null;
 
   const { publicClient } = getNotesClients();
   const data = await publicClient.readContract({
     address: contractAddress,
-    abi: advancedPaymentProcessor,
+    abi: intermediatedPaymentProcessor,
     functionName: "getInvoice",
     args: [invoiceId],
   });

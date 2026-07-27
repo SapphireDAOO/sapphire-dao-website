@@ -7,7 +7,6 @@ import {
   type Log,
 } from "viem";
 import {
-  ADVANCED_PAYMENT_PROCESSOR,
   PAYMENT_PROCESSOR_STORAGE,
   SIMPLE_PAYMENT_PROCESSOR,
 } from "@/constants";
@@ -17,7 +16,6 @@ import { client } from "../graphql/client";
 import { PaymentProcessorStorage } from "@/abis/PaymentProcessorStorage";
 import { invoiceOwnerQuery } from "../graphql/queries";
 import { WagmiClient } from "./types";
-import { advancedPaymentProcessor } from "@/abis/AdvancedPaymentProcessor";
 import { encryptNoteContent } from "../notes";
 
 // The notes key lives server-side only, so the optional storageRef note is
@@ -470,69 +468,6 @@ export const setFeeReceiversAddress = async (
       success = true;
     } else {
       toast.error("Failed to update fee receiver address. Please try again.");
-    }
-  } catch (error) {
-    getError(error);
-  } finally {
-    setIsLoading("");
-  }
-  return success;
-};
-
-export const setInvoiceHoldPeriod = async (
-  { walletClient, publicClient }: WagmiClient,
-  invoiceId: bigint,
-  holdPeriod: bigint,
-  chainId: number,
-  setIsLoading: (value: string) => void,
-  getInvoiceData: () => Promise<void>,
-  target: string | undefined,
-): Promise<boolean> => {
-  setIsLoading("setInvoiceHoldPeriod");
-  let success = false;
-
-  try {
-    const gasPrice = await fetchGasPrice(publicClient, chainId);
-
-    if (!target) return false;
-    const holdPeriodNumber = Number(holdPeriod);
-    if (!Number.isFinite(holdPeriodNumber)) return false;
-
-    const calldata =
-      target === ADVANCED_PAYMENT_PROCESSOR[chainId]
-        ? encodeFunctionData({
-            abi: advancedPaymentProcessor,
-            functionName: "setInvoiceReleaseTime",
-            args: [invoiceId, holdPeriod],
-          })
-        : encodeFunctionData({
-            abi: paymentProcessor,
-            functionName: "setInvoiceReleaseTime",
-            args: [invoiceId, holdPeriodNumber],
-          });
-
-    const tx = await walletClient?.sendTransaction({
-      chain: getChainById(chainId),
-      to: target as Address,
-      data: calldata,
-      gasPrice,
-    });
-
-    if (!tx) {
-      toast.error("Transaction failed to initiate");
-      return false;
-    }
-
-    const receipt = await publicClient?.waitForTransactionReceipt({
-      hash: tx,
-    });
-
-    if (receipt?.status) {
-      toast.success("Invoice hold period successfully set");
-      await getInvoiceData();
-      success = true;
-    } else {
-      toast.error("Failed to set invoice hold period. Please try again");
     }
   } catch (error) {
     getError(error);

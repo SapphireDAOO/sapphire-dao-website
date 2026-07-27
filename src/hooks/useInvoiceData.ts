@@ -12,7 +12,7 @@ import {
 import { useAccount, usePublicClient } from "wagmi";
 import { unixToGMT } from "@/utils";
 import {
-  ADVANCED_PAYMENT_PROCESSOR,
+  INTERMEDIATED_PAYMENT_PROCESSOR,
   BASE_SEPOLIA,
   SIMPLE_PAYMENT_PROCESSOR,
   ZERO_ADDRESS,
@@ -31,7 +31,7 @@ import {
 import { formatEther } from "viem";
 import { client } from "@/services/graphql/client";
 import { paymentProcessor } from "@/abis/PaymentProcessor";
-import { advancedPaymentProcessor } from "@/abis/AdvancedPaymentProcessor";
+import { intermediatedPaymentProcessor } from "@/abis/IntermediatedPaymentProcessor";
 import {
   sortState,
   sortHistory,
@@ -67,7 +67,7 @@ const LIVE_INVOICE_OVERLAY_LIMIT = 100;
 const SIMPLE_INVOICE_READ_TTL_MS = 5_000;
 const MARKETPLACE_INVOICE_READ_TTL_MS = 5_000;
 
-const ADVANCED_STATE_LABELS: Record<number, string> = {
+const INTERMEDIATED_STATE_LABELS: Record<number, string> = {
   1: "CREATED",
   2: "PAID",
   3: "REFUNDED",
@@ -789,7 +789,7 @@ export const useInvoiceData = () => {
     [chainId, handleRateLimit],
   );
 
-  const getAdvancedInvoiceData = useCallback(
+  const getIntermediatedInvoiceData = useCallback(
     async (
       invoiceId: bigint,
       type: "smartInvoice" | "metaInvoice",
@@ -866,7 +866,7 @@ export const useInvoiceData = () => {
   const readMarketplaceInvoiceChainData = useCallback(
     async (invoiceId: bigint) => {
       if (!publicClient) return undefined;
-      const contractAddress = ADVANCED_PAYMENT_PROCESSOR[chainId];
+      const contractAddress = INTERMEDIATED_PAYMENT_PROCESSOR[chainId];
       if (!contractAddress) return undefined;
 
       const key = `${chainId}:${contractAddress}:${invoiceId.toString()}`;
@@ -884,7 +884,7 @@ export const useInvoiceData = () => {
       const request = publicClient
         .readContract({
           address: contractAddress,
-          abi: advancedPaymentProcessor,
+          abi: intermediatedPaymentProcessor,
           functionName: "getInvoice",
           args: [invoiceId],
         })
@@ -1168,7 +1168,7 @@ export const useInvoiceData = () => {
       eventFields?: Partial<Invoice>,
     ) => {
       if (!publicClient || !address) return;
-      const contractAddress = ADVANCED_PAYMENT_PROCESSOR[chainId];
+      const contractAddress = INTERMEDIATED_PAYMENT_PROCESSOR[chainId];
       if (!contractAddress) return;
 
       try {
@@ -1260,7 +1260,7 @@ export const useInvoiceData = () => {
 
         if (!isSeller && !isBuyer) return;
 
-        const rawState = ADVANCED_STATE_LABELS[Number(state)] ?? "";
+        const rawState = INTERMEDIATED_STATE_LABELS[Number(state)] ?? "";
         const status = eventStatus ?? sortState(rawState);
         const paidTimestamp =
           paidAt && paidAt > BigInt(0) ? paidAt.toString() : undefined;
@@ -1473,7 +1473,7 @@ export const useInvoiceData = () => {
       getInvoiceData: getInvoiceDataForPage,
       getAllInvoiceData,
       getInvoiceOwner,
-      getAdvancedInvoiceData,
+      getIntermediatedInvoiceData,
       addCreatedSimpleInvoice,
       upsertLocalInvoice,
       setActiveEventTab,
@@ -1492,7 +1492,7 @@ export const useInvoiceData = () => {
       getInvoiceDataForPage,
       getAllInvoiceData,
       getInvoiceOwner,
-      getAdvancedInvoiceData,
+      getIntermediatedInvoiceData,
       addCreatedSimpleInvoice,
       upsertLocalInvoice,
       forceRefetchAllInvoiceData,

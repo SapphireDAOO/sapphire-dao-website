@@ -20,7 +20,7 @@ export const useGetBalance = () => {
   // Retrieve the current chain ID using the wagmi `useChainId` hook
   const chainId = useChainId() || BASE_SEPOLIA;
 
-  // Fetch the marketplace address from the AdvancedPaymentProcessor contract
+  // Fetch the marketplace address from the IntermediatedPaymentProcessor contract
   const {
     data: marketplaceAddress,
     isLoading: isLoadingAddress,

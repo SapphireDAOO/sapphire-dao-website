@@ -3,6 +3,7 @@
 import { getDefaultConfig } from "@rainbow-me/rainbowkit";
 import {
   metaMaskWallet,
+  phantomWallet,
   rainbowWallet,
   safeWallet,
   walletConnectWallet,
@@ -26,7 +27,7 @@ const wallets = [
     groupName: "Popular",
     wallets: [
       metaMaskWallet,
-      // remove safe wallet
+      phantomWallet,
       safeWallet,
       rainbowWallet,
       walletConnectWallet,

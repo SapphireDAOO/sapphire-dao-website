@@ -1,5 +1,5 @@
-import { advancedPaymentProcessor } from "@/abis/AdvancedPaymentProcessor";
-import { ADVANCED_PAYMENT_PROCESSOR } from "@/constants";
+import { intermediatedPaymentProcessor } from "@/abis/IntermediatedPaymentProcessor";
+import { INTERMEDIATED_PAYMENT_PROCESSOR } from "@/constants";
 
 import { baseSepolia } from "viem/chains";
 import { useAccount, useChainId } from "wagmi";
@@ -7,7 +7,7 @@ import { useViemReadContract } from "./useViemReadContract";
 import { BASE_SEPOLIA } from "@/constants";
 
 /**
- * Custom hook to fetch a meta invoice from the AdvancedPaymentProcessor smart contract.
+ * Custom hook to fetch a meta invoice from the IntermediatedPaymentProcessor smart contract.
  *
  * @param invoiceId - The unique identifier (key) of the invoice.
  *
@@ -24,11 +24,11 @@ export const useGetMetaInvoice = (invoiceId: bigint) => {
   // Get the current chain ID using the wagmi `useChainId` hook
   const chainId = useChainId() || BASE_SEPOLIA;
 
-  // Use the wagmi `useReadContract` hook to interact with the `getMetaInvoice` function of the AdvancedPaymentProcessor contract
+  // Use the wagmi `useReadContract` hook to interact with the `getMetaInvoice` function of the IntermediatedPaymentProcessor contract
   const { data, refetch, isLoading } = useViemReadContract({
-    abi: advancedPaymentProcessor,
+    abi: intermediatedPaymentProcessor,
     chainId: baseSepolia.id,
-    address: ADVANCED_PAYMENT_PROCESSOR[chainId],
+    address: INTERMEDIATED_PAYMENT_PROCESSOR[chainId],
     functionName: "getMetaInvoice",
     args: [invoiceId],
     account: address,

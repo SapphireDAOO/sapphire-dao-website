@@ -7,7 +7,7 @@ import { FilterTabs, CreateInvoiceCard } from "./invoice-cards/index";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Note, Invoice } from "@/model/model";
 import { Button } from "@/components/ui/button";
-import { MarketplaceCard } from "./invoices/AdvancedInvoices";
+import { MarketplaceCard } from "./invoices/IntermediatedInvoices";
 import { InvoiceCard } from "./invoices/SimpleInvoices";
 import { toast } from "sonner";
 import {

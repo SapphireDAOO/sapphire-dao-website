@@ -4,7 +4,7 @@ import { useContext, useEffect, useRef } from "react";
 import { ContractContext } from "@/context/contract-context";
 import { formatAddress } from "@/utils";
 import {
-  ADVANCED_PAYMENT_PROCESSOR,
+  INTERMEDIATED_PAYMENT_PROCESSOR,
   SIMPLE_PAYMENT_PROCESSOR,
 } from "@/constants";
 import { baseSepolia } from "viem/chains";
@@ -114,7 +114,7 @@ const AdminInvoices = () => {
               rightContent={
                 <ContractLink
                   address={
-                    ADVANCED_PAYMENT_PROCESSOR[baseSepolia.id] as Address
+                    INTERMEDIATED_PAYMENT_PROCESSOR[baseSepolia.id] as Address
                   }
                 />
               }
@@ -132,7 +132,7 @@ const AdminInvoices = () => {
               rightContent={
                 <ContractLink
                   address={
-                    ADVANCED_PAYMENT_PROCESSOR[baseSepolia.id] as Address
+                    INTERMEDIATED_PAYMENT_PROCESSOR[baseSepolia.id] as Address
                   }
                 />
               }

@@ -1,5 +1,5 @@
-import { advancedPaymentProcessor } from "@/abis/AdvancedPaymentProcessor";
-import { ADVANCED_PAYMENT_PROCESSOR } from "@/constants";
+import { intermediatedPaymentProcessor } from "@/abis/IntermediatedPaymentProcessor";
+import { INTERMEDIATED_PAYMENT_PROCESSOR } from "@/constants";
 
 import { baseSepolia } from "viem/chains";
 import { useAccount, useChainId } from "wagmi";
@@ -29,9 +29,9 @@ export const useGetMarketplaceInvoiceData = (invoiceId: bigint) => {
 
   // Use the wagmi `useReadContract` hook to interact with the `getInvoiceData` function of the PaymentProcessor contract
   const { data, refetch, isLoading } = useViemReadContract({
-    abi: advancedPaymentProcessor,
+    abi: intermediatedPaymentProcessor,
     chainId: baseSepolia.id,
-    address: ADVANCED_PAYMENT_PROCESSOR[chainId],
+    address: INTERMEDIATED_PAYMENT_PROCESSOR[chainId],
     functionName: "getInvoice",
     args: [invoiceId],
     account: address,

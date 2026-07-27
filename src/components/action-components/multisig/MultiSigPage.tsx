@@ -16,7 +16,7 @@ import SignerList from "./SignerList";
 import {
   MULTISIG_CONTRACT,
   SIMPLE_PAYMENT_PROCESSOR,
-  ADVANCED_PAYMENT_PROCESSOR,
+  INTERMEDIATED_PAYMENT_PROCESSOR,
   PAYMENT_PROCESSOR_STORAGE,
   BASE_SEPOLIA,
 } from "@/constants";
@@ -28,14 +28,14 @@ const CONTRACT_DESCRIPTIONS = [
   {
     label: "SimplePaymentProcessor",
     description:
-      "Handles peer-to-peer invoice creation, payment, and release for standard (non-marketplace) transactions. Governs minimum invoice value, seller decision window, per-invoice release times, and locked-fund recovery.",
+      "Handles peer-to-peer invoice creation, payment, and release for standard (non-marketplace) transactions. Governs minimum invoice value, seller decision window, and forwarder address.",
     getAddress: (chainId: number) => SIMPLE_PAYMENT_PROCESSOR[chainId],
   },
   {
-    label: "AdvancedPaymentProcessor",
+    label: "IntermediatedPaymentProcessor",
     description:
-      "Handles marketplace-style meta-invoices with multi-item support, USD-denominated pricing, and dispute resolution. Governs minimum price, forwarder address, per-invoice release times, and locked-fund recovery.",
-    getAddress: (chainId: number) => ADVANCED_PAYMENT_PROCESSOR[chainId],
+      "Handles marketplace-style meta-invoices with multi-item support, USD-denominated pricing, and dispute resolution. Governs the minimum invoice price.",
+    getAddress: (chainId: number) => INTERMEDIATED_PAYMENT_PROCESSOR[chainId],
   },
   {
     label: "PaymentProcessorStorage",

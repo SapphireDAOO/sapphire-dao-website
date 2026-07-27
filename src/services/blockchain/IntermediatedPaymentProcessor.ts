@@ -2,16 +2,16 @@
 import { toast } from "sonner";
 import { encodeFunctionData, Address, zeroAddress } from "viem";
 import {
-  ADVANCED_PAYMENT_PROCESSOR,
+  INTERMEDIATED_PAYMENT_PROCESSOR,
   PAYMENT_PROCESSOR_STORAGE,
 } from "@/constants";
 import { fetchGasPrice, getError, handleApproval, getChainById } from "./utils";
 import { client } from "@/services/graphql/client";
-import { advancedPaymentProcessor } from "@/abis/AdvancedPaymentProcessor";
+import { intermediatedPaymentProcessor } from "@/abis/IntermediatedPaymentProcessor";
 import { WagmiClient } from "./types";
 import { PaymentProcessorStorage } from "@/abis/PaymentProcessorStorage";
 
-export const payAdvancedInvoice = async (
+export const payIntermediatedInvoice = async (
   { walletClient, publicClient }: WagmiClient,
   paymentType: "paySingleInvoice" | "payMetaInvoice",
   amount: bigint,
@@ -27,11 +27,11 @@ export const payAdvancedInvoice = async (
   try {
     const gasPrice = await fetchGasPrice(publicClient, chainId);
     const isNativePayment = paymentToken.toLowerCase() === zeroAddress;
-    const contractAddress = ADVANCED_PAYMENT_PROCESSOR[chainId];
+    const contractAddress = INTERMEDIATED_PAYMENT_PROCESSOR[chainId];
 
     const amountIntoken = (await publicClient?.readContract({
       address: contractAddress,
-      abi: advancedPaymentProcessor,
+      abi: intermediatedPaymentProcessor,
       functionName: "getTokenValueFromUsd",
       args: [paymentToken, amount],
     })) as bigint | undefined;
@@ -61,18 +61,18 @@ export const payAdvancedInvoice = async (
     const txData =
       paymentType === "paySingleInvoice"
         ? encodeFunctionData({
-            abi: advancedPaymentProcessor,
+            abi: intermediatedPaymentProcessor,
             functionName: "payInvoice",
             args: [invoiceId, paymentToken],
           })
         : isNativePayment
           ? encodeFunctionData({
-              abi: advancedPaymentProcessor,
+              abi: intermediatedPaymentProcessor,
               functionName: "payMetaInvoiceWithValue",
               args: [invoiceId],
             })
           : encodeFunctionData({
-              abi: advancedPaymentProcessor,
+              abi: intermediatedPaymentProcessor,
               functionName: "payMetaInvoice",
               args: [invoiceId, paymentToken],
             });
@@ -153,7 +153,7 @@ export const setMarketplaceAddress = async (
   return success;
 };
 
-export const getAdvancedInvoiceData = async (
+export const getIntermediatedInvoiceData = async (
   invoiceId: bigint,
   query: string,
   type: "smartInvoice" | "metaInvoice",

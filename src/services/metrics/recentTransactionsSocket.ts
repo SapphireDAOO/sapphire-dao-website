@@ -3,13 +3,13 @@ import { getPublicClient } from "wagmi/actions";
 import config from "@/config";
 import {
   SIMPLE_PAYMENT_PROCESSOR,
-  ADVANCED_PAYMENT_PROCESSOR,
+  INTERMEDIATED_PAYMENT_PROCESSOR,
   ZERO_ADDRESS,
   BASE_SEPOLIA,
   LOCALHOST,
 } from "@/constants";
 import { paymentProcessor } from "@/abis/PaymentProcessor";
-import { advancedPaymentProcessor } from "@/abis/AdvancedPaymentProcessor";
+import { intermediatedPaymentProcessor } from "@/abis/IntermediatedPaymentProcessor";
 import { formatTokenDisplay } from "./recentTransactions";
 import type {
   MetricsSocketStatus,
@@ -54,9 +54,9 @@ export const createRecentTransactionsSocket = (
     chainId: chainId as typeof BASE_SEPOLIA | typeof LOCALHOST,
   });
   const simpleAddress = SIMPLE_PAYMENT_PROCESSOR[chainId];
-  const advancedAddress = ADVANCED_PAYMENT_PROCESSOR[chainId];
+  const intermediatedAddress = INTERMEDIATED_PAYMENT_PROCESSOR[chainId];
 
-  if (!publicClient || (!simpleAddress && !advancedAddress)) {
+  if (!publicClient || (!simpleAddress && !intermediatedAddress)) {
     onStatus?.("closed");
     return { close: () => {} };
   }
@@ -105,10 +105,10 @@ export const createRecentTransactionsSocket = (
               functionName: "getInvoiceData",
               args: [invoiceId],
             }))
-          : advancedAddress &&
+          : intermediatedAddress &&
             (await publicClient.readContract({
-              address: advancedAddress,
-              abi: advancedPaymentProcessor,
+              address: intermediatedAddress,
+              abi: intermediatedPaymentProcessor,
               functionName: "getInvoice",
               args: [invoiceId],
             }));
@@ -206,12 +206,12 @@ export const createRecentTransactionsSocket = (
     );
   }
 
-  if (advancedAddress) {
+  if (intermediatedAddress) {
     const tokenByInvoice = new Map<string, Address>();
     unwatchers.push(
       publicClient.watchContractEvent({
-        address: advancedAddress,
-        abi: advancedPaymentProcessor,
+        address: intermediatedAddress,
+        abi: intermediatedPaymentProcessor,
         onError: handleError,
         onLogs: (logs) => {
           for (const log of logs as unknown as EventLog[]) {

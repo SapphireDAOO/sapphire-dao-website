@@ -26,7 +26,7 @@ export interface ContractContextData {
     storageRef?: string,
     share?: boolean
   ) => Promise<boolean>;
-  payAdvancedInvoice: (
+  payIntermediatedInvoice: (
     paymentType: "paySingleInvoice" | "payMetaInvoice",
     amount: bigint,
     invoiceId: bigint,
@@ -40,15 +40,11 @@ export interface ContractContextData {
   setMinimumInvoiceValue: (newValue: bigint) => Promise<boolean>;
   setFeeReceiversAddress: (address: Address) => Promise<boolean>;
   transferOwnership: (address: Address) => Promise<boolean>;
-  setInvoiceHoldPeriod: (
-    invoiceId: bigint,
-    holdPeriod: bigint
-  ) => Promise<boolean>;
   setDecisionWindow: (newWindow: bigint) => Promise<boolean>;
   setValidPeriod: (newValidPeriod: bigint) => Promise<boolean>;
   setDefaultHoldPeriod: (newDefaultHoldPeriod: bigint) => Promise<boolean>;
   setFee: (newFee: bigint) => Promise<boolean>;
-  getAdvancedInvoiceData: (
+  getIntermediatedInvoiceData: (
     invoiceId: bigint,
     type: "smartInvoice" | "metaInvoice"
   ) => Promise<any>;
@@ -78,13 +74,12 @@ export const contractContextDefaults: ContractContextData = {
   transferOwnership: async () => Promise.resolve(false),
   createInvoice: async () => Promise.resolve(BigInt(0)),
   makeInvoicePayment: async () => Promise.resolve(false),
-  payAdvancedInvoice: async () => Promise.resolve(false),
+  payIntermediatedInvoice: async () => Promise.resolve(false),
   sellerAction: async () => Promise.resolve(false),
   cancelInvoice: async () => Promise.resolve(false),
   releaseInvoice: async () => Promise.resolve(false),
   refundBuyerAfterWindow: async () => Promise.resolve(false),
   setFeeReceiversAddress: async () => Promise.resolve(false),
-  setInvoiceHoldPeriod: async () => Promise.resolve(false),
   setDecisionWindow: async () => Promise.resolve(false),
   setValidPeriod: async () => Promise.resolve(false),
   setDefaultHoldPeriod: async () => Promise.resolve(false),
@@ -96,7 +91,7 @@ export const contractContextDefaults: ContractContextData = {
   refreshAdminData: async () => Promise.resolve(),
   upsertLocalInvoice: () => {},
   getInvoiceOwner: async () => Promise.resolve(""),
-  getAdvancedInvoiceData: async () => Promise.resolve(""),
+  getIntermediatedInvoiceData: async () => Promise.resolve(""),
   setActiveEventTab: () => {},
 };
 

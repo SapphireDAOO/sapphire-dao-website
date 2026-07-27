@@ -22,7 +22,7 @@ export const SIMPLE_PAYMENT_PROCESSOR: Record<number, Address> = {
   [LOCALHOST]: "0x2279B7A0a67DB372996a5FaB50D91eAA73d2eBe6",
 };
 
-export const ADVANCED_PAYMENT_PROCESSOR: Record<number, Address> = {
+export const INTERMEDIATED_PAYMENT_PROCESSOR: Record<number, Address> = {
   [BASE_SEPOLIA]: "0x0EecA9DE862fDFF9147aa1c55f186BB3881478E7",
   [LOCALHOST]: "0x610178dA211FEF7D417bC0e6FeD39F05609AD788",
 };
@@ -166,7 +166,7 @@ export const errorMessages: ErrorMessages = {
   "0x020175b1":
     "SellerCannotPayOwnedInvoice: The seller cannot pay their own invoice.",
   "0xc325ae33": "TaskNotFound: No automation task found for this invoice.",
-  // AdvancedPaymentProcessor errors
+  // IntermediatedPaymentProcessor errors
   "0xb12e2421":
     "BuyerCannotBeSeller: The buyer and seller cannot be the same address.",
   "0x815ba404":

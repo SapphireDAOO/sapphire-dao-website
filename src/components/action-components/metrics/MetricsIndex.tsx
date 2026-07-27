@@ -69,7 +69,7 @@ export default function MetricsIndex() {
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">Metrics</h1>
             <p className="text-sm text-muted-foreground">
-              Protocol activity across the simple and advanced payment
+              Protocol activity across the simple and intermediated payment
               processors.
             </p>
           </div>

@@ -72,14 +72,14 @@ export interface EscrowSeriesPoint {
 }
 
 /** One day of invoice-paid activity, split by payment processor. The simple
- *  processor backs the public website; the advanced processor backs the
+ *  processor backs the public website; the intermediated processor backs the
  *  marketplace. */
 export interface InvoiceActivityPoint {
   /** Unix seconds at the start of the day bucket. */
   timestamp: number;
   /** Invoices paid that day via the simple processor (website). */
   website: number;
-  /** Invoices paid that day via the advanced processor (marketplace). */
+  /** Invoices paid that day via the intermediated processor (marketplace). */
   marketplace: number;
 }
 
@@ -145,7 +145,7 @@ export interface MetricsDelta {
   invoicesPaid?: number;
   /** Invoice-activity bumps via the simple processor (website). */
   activityWebsite?: number;
-  /** Invoice-activity bumps via the advanced processor (marketplace). */
+  /** Invoice-activity bumps via the intermediated processor (marketplace). */
   activityMarketplace?: number;
 }
 

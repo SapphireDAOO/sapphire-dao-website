@@ -29,7 +29,7 @@ const CheckoutPage = () => {
   const jwtToken = searchParams.get("data");
   const chainId = useChainId() || BASE_SEPOLIA;
 
-  const { getAdvancedInvoiceData } = useContext(ContractContext);
+  const { getIntermediatedInvoiceData } = useContext(ContractContext);
   const [invoiceId, setinvoiceId] = useState<bigint | null>(null);
   const [invoiceDetails, setInvoiceDetails] = useState<InvoiceDetails | null>(
     null
@@ -86,7 +86,7 @@ const CheckoutPage = () => {
       const type = isMetaInvoice ? "metaInvoice" : "smartInvoice";
 
       try {
-        const response = await getAdvancedInvoiceData(invoiceId, type);
+        const response = await getIntermediatedInvoiceData(invoiceId, type);
 
         const invoice = response?.[type];
         // KNOWN_PAYMENT_TOKENS is the source of truth while the subgraph
@@ -130,7 +130,7 @@ const CheckoutPage = () => {
     invoiceId,
     metaInvoicePrice,
     isMetaInvoice,
-    getAdvancedInvoiceData,
+    getIntermediatedInvoiceData,
     marketplaceInvoice,
   ]);
 

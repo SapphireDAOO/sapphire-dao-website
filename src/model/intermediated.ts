@@ -1,7 +1,7 @@
 import { InvoiceType } from "./model";
 
-// AdvancedPaymentProcessor-specific fields
-export interface AdvancedInvoice extends InvoiceType {
+// IntermediatedPaymentProcessor-specific fields
+export interface IntermediatedInvoice extends InvoiceType {
   escrow?: string;
   balance?: string;
   paymentToken?: string;

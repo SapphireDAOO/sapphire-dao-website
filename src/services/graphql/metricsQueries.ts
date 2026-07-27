@@ -202,7 +202,7 @@ export const PAID_TRANSACTIONS_QUERY = `
 
 // Paginated escrow-moving events since a unix-seconds cutoff, newest first.
 // INVOICE_PAID is an inflow; releases / refunds / dispute settlements are
-// outflows (both simple and advanced processor variants).
+// outflows (both simple and intermediated processor variants).
 export const ESCROW_TRANSACTIONS_QUERY = `
   query EscrowTransactions($since: BigInt!, $first: Int!, $skip: Int!) {
     invoiceEvents(
