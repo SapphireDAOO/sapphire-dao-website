@@ -10,7 +10,7 @@ export const notesClient = (chainId: number) => {
   if (!THE_GRAPH_API_URL[chainId]) return null;
 
   const created = createClient({
-    url: `/api/graphql?chainId=${chainId}`,
+    url: THE_GRAPH_API_URL[chainId],
   });
 
   NOTES_CLIENT_CACHE.set(chainId, created);

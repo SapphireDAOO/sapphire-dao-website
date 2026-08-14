@@ -5,6 +5,7 @@ import {
   fetchExchange,
   type Client,
 } from "urql";
+import { BASE_SEPOLIA, THE_GRAPH_API_URL } from "@/constants";
 
 const CLIENT_CACHE = new Map<number, Client>();
 
@@ -19,11 +20,12 @@ export const client = (chainId: number) => {
   if (cached) return cached;
 
   const created = createClient({
-    url: `/api/graphql?chainId=${chainId}`,
+    // Query the subgraph directly from the browser; unsupported chains fall
+    // back to the Base Sepolia endpoint (mirrors the old proxy's default).
+    url: THE_GRAPH_API_URL[chainId] ?? THE_GRAPH_API_URL[BASE_SEPOLIA],
     // cache-first: serve from urql's in-memory cache when available and only
     // hit the network when the cache is empty. Real-time freshness is handled
     // by event-based refresh calls (watchEvent) rather than background refetches.
-    // The server-side proxy (/api/graphql) adds a 15-second cache layer on top.
     // Fetchers wrapped by react-query (metrics) opt into network-only per query
     // so react-query stays the single caching/freshness layer for them.
     requestPolicy: "cache-first",
