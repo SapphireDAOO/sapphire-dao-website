@@ -6,7 +6,13 @@
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "reproduce": "./scripts/reproduce.sh",
+    "verify:live": "node scripts/verify-live.mjs"
+  },
+  "packageManager": "bun@1.2.18",
+  "engines": {
+    "node": "22.14.0"
   },
   "dependencies": {
     "@metamask/providers": "^22.1.1",

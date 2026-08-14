@@ -46,3 +46,9 @@ note.txt
 
 rev
 .claude
+# reproducible build output
+/dist/
+
+# build-inputs.env is intentionally NOT ignored: it holds only NEXT_PUBLIC_*
+# values, which already ship inside the client bundle, and verifiers need them.
+!build-inputs.env
