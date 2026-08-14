@@ -1,34 +1,13 @@
 # syntax=docker/dockerfile:1.7
-#
-# Reproducible build image for the Sapphire DAO frontend.
-#
-# Everything that can drift between machines is pinned here: both base images by
-# digest (tags move, digests do not), the CPU architecture, the package manager,
-# and the Node runtime that actually executes `next build`. Two people building
-# the same commit with the same public inputs must land on the same root hash.
-#
-# Only NEXT_PUBLIC_* values are accepted as build args. Those are string-inlined
-# into the client bundle by Next, so they change the output hash and have to be
-# published for anyone to reproduce the build. Server secrets (SECRET_KEY,
-# JWT_SECRET, GRAPH_API_KEY, NOTES_SECRET_KEY, NOTES_SIGNER_PRIVATE_KEY) are
-# deliberately absent: they are read at request time, never at build time, so a
-# verifier can reproduce this build without holding any of them.
-#
-# Do not add a non-NEXT_PUBLIC_ ARG here. Build args are recoverable from image
-# history, and anything the build sees can reach the published manifest.
 
 FROM --platform=linux/amd64 oven/bun:1.2.18-slim@sha256:8d4d8d11bc1dee12267157338bc750503ec9785951d112b25c6c806e58f0d61b AS bun
 
 FROM --platform=linux/amd64 node:22.14.0-bookworm-slim@sha256:1c18d9ab3af4585870b92e4dbc5cac5a0dc77dd13df1a5905cea89fc720eb05b AS build
 
-# Bun resolves the lockfile; Node runs the build. Both are pinned, so neither
-# the dependency tree nor the minifier can shift under a verifier.
 COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun
 
 WORKDIR /src
 
-# Dependencies first: --frozen-lockfile makes bun.lock authoritative and fails
-# rather than silently re-resolving a version.
 COPY package.json bun.lock ./
 RUN bun install --frozen-lockfile
 
@@ -40,8 +19,7 @@ ARG NEXT_PUBLIC_INFURA_ID=
 ARG NEXT_PUBLIC_NOTES_SIGNER_ADDRESS=
 ARG NEXT_PUBLIC_BASE_SEPOLIA_RPC_URL=
 
-# SOURCE_COMMIT feeds generateBuildId in next.config.ts, which is what stops the
-# build id from being a fresh nanoid on every run.
+
 ENV SOURCE_COMMIT=$SOURCE_COMMIT \
     NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=$NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID \
     NEXT_PUBLIC_INFURA_ID=$NEXT_PUBLIC_INFURA_ID \
@@ -52,9 +30,6 @@ ENV SOURCE_COMMIT=$SOURCE_COMMIT \
 
 RUN node node_modules/next/dist/bin/next build
 
-# Export only the browser-facing surface. Server chunks and the API routes are
-# out of scope: nothing an outside observer can measure proves which code runs
-# on the server, so hashing it would imply a guarantee this cannot give.
 FROM scratch AS artifacts
 COPY --from=build /src/.next/static /static
 COPY --from=build /src/.next/server/app /pages

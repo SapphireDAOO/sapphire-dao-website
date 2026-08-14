@@ -1,9 +1,3 @@
-# Publishes the root hash for every tag, and re-checks it on every PR.
-#
-# The PR job is the guard that matters day to day: if a dependency bump or a
-# config change reintroduces nondeterminism, this fails on the PR that caused it
-# rather than months later when someone tries to verify a release.
-
 name: reproducible-build
 
 on:
