@@ -32,7 +32,7 @@ import { useInvoiceNotes, ThreadNote } from "@/hooks/useInvoiceNotes";
 import { SIMPLE_PAYMENT_PROCESSOR } from "@/constants";
 import { paymentProcessor } from "@/abis/PaymentProcessor";
 import { BASE_SEPOLIA } from "@/constants";
-import { formatAddress } from "@/utils";
+import { formatAddress, formatDurationSeconds } from "@/utils";
 import { Textarea } from "@/components/ui/textarea";
 
 type InvoiceLike = {
@@ -43,6 +43,7 @@ type InvoiceLike = {
   invoiceNonce?: string | number | bigint;
   status?: string | number;
   seller?: string;
+  holdPeriod?: string | number | bigint | null;
   note?: string;
   notes?: { message?: string }[];
 };
@@ -73,8 +74,8 @@ const getInvoiceSeller = (invoice: unknown) => {
     | undefined;
   if (typeof item?.seller === "string" && item.seller) return item.seller;
 
-  // ISimplePaymentProcessor.Invoice tuple index 8 is seller.
-  const tupleSeller = item?.[8];
+  // ISimplePaymentProcessor.Invoice tuple index 10 is seller.
+  const tupleSeller = item?.[10];
   return typeof tupleSeller === "string" && tupleSeller ? tupleSeller : undefined;
 };
 
@@ -126,39 +127,50 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
     [fetchedInvoice, liveInvoice],
   );
 
-  const displayinvoiceId = useMemo(() => {
+  // The page shows the human-facing invoice nonce, never the uint216 invoice
+  // id the contract keys invoices by.
+  const displayInvoiceNonce = useMemo(() => {
     const fetched = fetchedInvoice as
-      | ({ invoiceNonce?: string | number | bigint; invoiceId?: string | number | bigint } & {
+      | ({ invoiceNonce?: string | number | bigint } & {
           [index: number]: unknown;
         })
       | undefined;
     const live = liveInvoice as InvoiceLike | undefined;
 
-    // Prefer nonce directly from chain response for accuracy.
-    const nonceFromChain = fetched?.invoiceNonce ?? fetched?.invoiceId;
-    if (nonceFromChain !== undefined && nonceFromChain !== null) {
-      return nonceFromChain;
+    // Prefer the nonce directly from the chain response for accuracy.
+    if (fetched?.invoiceNonce !== undefined && fetched?.invoiceNonce !== null) {
+      return fetched.invoiceNonce;
     }
 
-    // Viem tuple fallback: index 0 is invoice nonce in current ABI.
+    // Viem tuple fallback: index 0 is invoiceNonce in the current ABI.
     if (fetched && fetched[0] !== undefined && fetched[0] !== null) {
       return fetched[0] as string | number | bigint;
     }
 
-    // Subgraph/app cache fallback.
+    // Subgraph/app cache fallback: the app's Invoice.id holds the nonce.
     return (
       live?.invoiceNonce ??
-      live?.invoiceId ??
+      live?.id ??
       invoiceLike?.invoiceNonce ??
-      invoiceLike?.invoiceId ??
       invoiceLike?.id ??
-      invoiceLike?.invoiceId ??
       ""
     );
   }, [fetchedInvoice, liveInvoice, invoiceLike]);
 
   const displayPriceEth =
     invoiceLike?.price ?? invoiceLike?.amount ?? null;
+
+  // Hold period in seconds — prefer the on-chain read, fall back to the
+  // subgraph/app cache value.
+  const holdPeriodSeconds = useMemo(() => {
+    const fetched = fetchedInvoice as
+      | { holdPeriod?: number | bigint }
+      | undefined;
+    const raw = fetched?.holdPeriod ?? invoiceLike?.holdPeriod;
+    if (raw === undefined || raw === null) return undefined;
+    const seconds = Number(raw);
+    return Number.isFinite(seconds) ? seconds : undefined;
+  }, [fetchedInvoice, invoiceLike]);
   const statusValue = invoiceLike?.status;
   const normalizedStatus =
     statusValue === undefined || statusValue === null
@@ -372,7 +384,7 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
               <Label htmlFor="id">Invoice ID</Label>
               <Input
                 id="id"
-                value={displayinvoiceId?.toString() ?? "Loading..."}
+                value={displayInvoiceNonce?.toString() || "Loading..."}
                 disabled
               />
             </div>
@@ -431,6 +443,16 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
                 </span>
               </label>
             </div>
+
+            {holdPeriodSeconds !== undefined && holdPeriodSeconds > 0 && (
+              <p className="text-[11px] text-gray-500">
+                Payment is held in escrow for{" "}
+                <span className="font-medium">
+                  {formatDurationSeconds(holdPeriodSeconds)}
+                </span>
+                , counting from when the seller accepts the invoice.
+              </p>
+            )}
           </div>
         </CardContent>
 

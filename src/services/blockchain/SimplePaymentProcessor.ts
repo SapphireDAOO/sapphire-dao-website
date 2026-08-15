@@ -53,8 +53,14 @@ export const createInvoice = async (
   setIsLoading: (value: string) => void,
   storageRef?: string,
   share?: boolean,
+  holdPeriodSeconds: number = 0,
 ): Promise<CreatedSimpleInvoice | undefined> => {
   setIsLoading("createInvoice");
+  // The contract takes the hold period as a uint32 of seconds.
+  const holdPeriod = Math.min(
+    Math.max(Math.floor(holdPeriodSeconds) || 0, 0),
+    2 ** 32 - 1,
+  );
   const storageRefHex = await resolveStorageRefHex(storageRef);
   if (!storageRefHex) {
     setIsLoading("");
@@ -69,7 +75,7 @@ export const createInvoice = async (
       data: encodeFunctionData({
         abi: paymentProcessor,
         functionName: "createInvoice",
-        args: [invoicePrice, storageRefHex, shareFlag],
+        args: [invoicePrice, holdPeriod, storageRefHex, shareFlag],
       }),
       gasPrice,
     });

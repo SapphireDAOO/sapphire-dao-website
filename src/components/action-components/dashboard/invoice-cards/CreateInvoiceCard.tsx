@@ -15,6 +15,13 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useGetFeeRate } from "@/hooks/useGetFeeRate";
 import { ContractContext } from "@/context/contract-context";
@@ -95,10 +102,24 @@ const InvoiceQRLink = React.memo(
 
 InvoiceQRLink.displayName = "InvoiceQRLink";
 
+// The contract takes the hold period as seconds (uint32); the dialog collects
+// it as value + unit so nobody has to convert durations by hand.
+const HOLD_UNIT_SECONDS = {
+  minutes: 60,
+  hours: 60 * 60,
+  days: 24 * 60 * 60,
+} as const;
+
+type HoldUnit = keyof typeof HOLD_UNIT_SECONDS;
+
+const MAX_HOLD_PERIOD_SECONDS = 2 ** 32 - 1;
+
 export default function CreateInvoiceDialog() {
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
   const [shareNote, setShareNote] = useState(false);
+  const [holdValue, setHoldValue] = useState("");
+  const [holdUnit, setHoldUnit] = useState<HoldUnit>("days");
   const { chainId, address } = useAccount();
   const { data: formatedFee } = useGetFeeRate();
 
@@ -115,14 +136,30 @@ export default function CreateInvoiceDialog() {
   const isAmountValid =
     !!amount && !isNaN(Number(amount)) && Number(amount) > 0;
 
+  // Empty input means no hold period (0 seconds).
+  const holdPeriodSeconds =
+    holdValue.trim() === ""
+      ? 0
+      : Math.floor(Number(holdValue) * HOLD_UNIT_SECONDS[holdUnit]);
+
+  const isHoldPeriodValid =
+    Number.isFinite(holdPeriodSeconds) &&
+    holdPeriodSeconds >= 0 &&
+    holdPeriodSeconds <= MAX_HOLD_PERIOD_SECONDS;
+
   const handleClick = useCallback(async () => {
-    if (!isAmountValid) return;
+    if (!isAmountValid || !isHoldPeriodValid) return;
 
     setIsCreating(true);
     try {
       const amountValue = parseUnits(amount, 18);
 
-      const response = await createInvoice(amountValue, note.trim(), shareNote);
+      const response = await createInvoice(
+        amountValue,
+        note.trim(),
+        shareNote,
+        holdPeriodSeconds,
+      );
 
       if (response) {
         setinvoiceId(response);
@@ -145,6 +182,8 @@ export default function CreateInvoiceDialog() {
   }, [
     amount,
     isAmountValid,
+    isHoldPeriodValid,
+    holdPeriodSeconds,
     createInvoice,
     refetchInvoiceData,
     note,
@@ -205,6 +244,44 @@ export default function CreateInvoiceDialog() {
               </div>
             </div>
 
+            <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-3">
+              <Label htmlFor="holdPeriod" className="text-left sm:text-right">
+                Hold Period
+              </Label>
+              <div className="sm:col-span-3 w-full space-y-1">
+                <div className="flex gap-2">
+                  <Input
+                    id="holdPeriod"
+                    type="number"
+                    value={holdValue}
+                    placeholder="e.g. 3"
+                    onChange={(e) => setHoldValue(e.target.value)}
+                    className="w-full"
+                    min="0"
+                    step="any"
+                  />
+                  <Select
+                    value={holdUnit}
+                    onValueChange={(value) => setHoldUnit(value as HoldUnit)}
+                  >
+                    <SelectTrigger className="w-32 shrink-0">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="minutes">Minutes</SelectItem>
+                      <SelectItem value="hours">Hours</SelectItem>
+                      <SelectItem value="days">Days</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <p className="text-[11px] text-gray-500">
+                  {!isHoldPeriodValid
+                    ? "Enter a valid, non-negative duration."
+                    : "Optional. Escrow holds the payment for this long, counting from when you accept the invoice. Leave empty for no hold."}
+                </p>
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-4 items-start gap-3">
               <Label htmlFor="note" className="text-left sm:text-right pt-1">
                 Note
@@ -243,7 +320,10 @@ export default function CreateInvoiceDialog() {
               <Button
                 onClick={handleClick}
                 disabled={
-                  !isAmountValid || isCreating || isLoading === "createInvoice"
+                  !isAmountValid ||
+                  !isHoldPeriodValid ||
+                  isCreating ||
+                  isLoading === "createInvoice"
                 }
                 className="w-full sm:w-auto"
               >

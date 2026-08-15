@@ -18,7 +18,8 @@ export interface ContractContextData {
   createInvoice: (
     invoicePrice: bigint,
     storageRef?: string,
-    share?: boolean
+    share?: boolean,
+    holdPeriodSeconds?: number
   ) => Promise<bigint | undefined>;
   makeInvoicePayment: (
     amount: bigint,
