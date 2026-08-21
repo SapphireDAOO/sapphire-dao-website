@@ -51,9 +51,7 @@ git archive --format=tar "$SOURCE_COMMIT" | docker build \
   ${DOCKER_NO_CACHE:+--no-cache} \
   --build-arg SOURCE_COMMIT="$SOURCE_COMMIT" \
   --build-arg NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID="${NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID:-}" \
-  --build-arg NEXT_PUBLIC_INFURA_ID="${NEXT_PUBLIC_INFURA_ID:-}" \
   --build-arg NEXT_PUBLIC_NOTES_SIGNER_ADDRESS="${NEXT_PUBLIC_NOTES_SIGNER_ADDRESS:-}" \
-  --build-arg NEXT_PUBLIC_BASE_SEPOLIA_RPC_URL="${NEXT_PUBLIC_BASE_SEPOLIA_RPC_URL:-}" \
   --output "type=local,dest=$OUT_DIR" \
   -
 

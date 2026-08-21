@@ -6,9 +6,7 @@ import { join, relative, sep } from "node:path";
 
 const PUBLIC_ENV_KEYS = [
   "NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID",
-  "NEXT_PUBLIC_INFURA_ID",
   "NEXT_PUBLIC_NOTES_SIGNER_ADDRESS",
-  "NEXT_PUBLIC_BASE_SEPOLIA_RPC_URL",
 ];
 
 const unsafe = PUBLIC_ENV_KEYS.filter((k) => !k.startsWith("NEXT_PUBLIC_"));
