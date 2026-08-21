@@ -18,17 +18,17 @@ prompts — lives in that verifiable half.
 Note that `/dashboard`, `/invoices`, `/marketplace-dashboard` and `/metrics` are
 server-rendered on demand, so they emit no prerendered HTML and only `/`,
 `/admin`, `/checkout`, `/multisig` and `/pay` are hash-checked as documents.
-This costs less than it sounds: those four routes still load the *same* verified
+This costs less than it sounds: those four routes still load the _same_ verified
 chunks from `/_next/static/`, so the code that builds and signs transactions is
 covered either way. Only the initial HTML shell is unverifiable for them.
 
-**Out of scope.** The API routes (`/api/notes`,
-`/api/verify-token`, `/api/generate-pay-link`) and the server runtime. Nothing an
+**Out of scope.** The API routes (`/api/notes`, `/api/verify-token`,
+`/api/generate-pay-link`, `/api/health`) and the server runtime. Nothing an
 outside observer can measure proves which code is running on a server, so hashing
 server output would imply a guarantee this cannot give. Those remain a trust
 assumption.
 
-Reproducibility also proves only *consistency with source*, never that the source
+Reproducibility also proves only _consistency with source_, never that the source
 is safe. A backdoor committed to this repo reproduces perfectly.
 
 ## Verifying a deployment
@@ -39,13 +39,19 @@ You need Docker and Node. You do not need any of the project's secrets.
 git clone <repo> && cd sapphire-dao-website
 git checkout <tag>
 
+cp build-inputs.example.env build-inputs.env          # fill in the published NEXT_PUBLIC_* values
 ./scripts/reproduce.sh <tag>                          # prints a root hash
 node scripts/verify-live.mjs https://<the-site>       # compares against live
 ```
 
+Without `build-inputs.env`, `reproduce.sh` falls back to the `NEXT_PUBLIC_*`
+values in `.env`; either way `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` must be set
+or the build aborts (RainbowKit throws during prerendering without it).
+
 Three outcomes:
 
-- **`REPRODUCIBLE` and 0 mismatched** — the served JS was built from that commit.
+- **Root hash matches the published one and 0 mismatched** — the served JS was
+  built from that commit.
 - **Hash mismatch vs. the published hash** — your build inputs differ from the
   publisher's, or the published artifact does not match the source. Check
   `publicEnv` in `dist/build-manifest.json` against the published values first;
@@ -64,33 +70,35 @@ Three outcomes:
 
 This writes `dist/build-manifest.json` — per-file hashes, the source commit, the
 public env values used, and the root hash. Publish the root hash alongside the
-tag, ideally signed. Better still, pin the output to IPFS: a CID *is* a content
+tag, ideally signed. Better still, pin the output to IPFS: a CID _is_ a content
 hash, which makes the comparison step free and removes the need for anyone to
 trust a hash you announced.
 
 ## What is pinned, and why
 
-| Input | Pinned by |
-|---|---|
-| Source | `git archive <commit>` — the committed tree, never your working tree |
-| Dependencies | `bun.lock` + `bun install --frozen-lockfile` |
-| Package manager | `oven/bun:1.2.18-slim`, by SHA256 digest |
-| Node runtime | `node:22.14.0-bookworm-slim`, by SHA256 digest |
-| Architecture | `--platform=linux/amd64` |
-| Public env | `build-inputs.env` (committed) |
-| Build id | `SOURCE_COMMIT` → `generateBuildId` in `next.config.ts` |
+| Input           | Pinned by                                                                              |
+| --------------- | -------------------------------------------------------------------------------------- |
+| Source          | `git archive <commit>` — the committed tree, never your working tree                   |
+| Dependencies    | `bun.lock` + `bun install --frozen-lockfile`                                           |
+| Package manager | `oven/bun:1.2.18-slim`, by SHA256 digest                                               |
+| Node runtime    | `node:22.14.0-bookworm-slim`, by SHA256 digest                                         |
+| Architecture    | `--platform=linux/amd64`                                                               |
+| Public env      | `build-inputs.env`, from the committed `build-inputs.example.env` (`.env` as fallback) |
+| Build id        | `SOURCE_COMMIT` → `generateBuildId` in `next.config.ts`                                |
 
 Base images are pinned by **digest, not tag**, because tags move. Architecture is
 pinned because minifier output can differ across them; on Apple Silicon this runs
 emulated and is noticeably slower.
 
-`build-inputs.env` is committed on purpose. `NEXT_PUBLIC_*` values are
-string-inlined into the bundle by Next, so they are already readable by anyone
-with devtools open, *and* they change the output hash — a verifier who guesses
-different values cannot distinguish a mismatch from an attack. Server secrets
-(`SECRET_KEY`, `JWT_SECRET`, `GRAPH_API_KEY`, `NOTES_SECRET_KEY`,
-`NOTES_SIGNER_PRIVATE_KEY`)
-are read at request time, never at build time, and are never passed to the build.
+Publishing the `NEXT_PUBLIC_*` build inputs is deliberate and safe: Next
+string-inlines them into the bundle, so they are already readable by anyone
+with devtools open, _and_ they change the output hash — a verifier who guesses
+different values cannot distinguish a mismatch from an attack. The manifest
+records them under `publicEnv` (currently `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID`
+and `NEXT_PUBLIC_NOTES_SIGNER_ADDRESS`), and `hash-build.mjs` refuses to record
+any non-public key. Server-only values (`BASE_SEPOLIA_RPC_URL` and the secrets
+`NOTES_SECRET_KEY`, `NOTES_SIGNER_PRIVATE_KEY`) are read at request time, never
+at build time, and are never passed to the build.
 
 ## The two source changes this required
 
@@ -112,6 +120,11 @@ client output.
 
 ## Deliberately excluded from the hash
 
+The Docker `artifacts` stage exports only `.next/static` and the prerendered
+output under `.next/server/app`, and `hash-build.mjs` then hashes just the
+static assets plus the `.html` documents. Everything else never reaches the
+manifest:
+
 - **Next's JSON manifests** (`build-manifest.json`, `app-paths-manifest.json`,
   …). Their key order follows filesystem scan order and varies between identical
   builds. No browser fetches them.
@@ -120,6 +133,9 @@ client output.
   need this reproducible, pin `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY` — though the
   only server action here, `src/app/actions/revalidate.ts`, has no callers.
 - **`.next/trace`.** Build telemetry, full of timestamps.
+- **The `.js`/`.meta`/`.rsc` siblings of the prerendered pages.** Server render
+  artifacts; the `.rsc` payloads Next serves for client-side navigations are
+  derived from the same verified chunks but are not hash-checked as documents.
 
 ## Limits worth stating plainly
 
@@ -127,4 +143,4 @@ Even done fully, a verifier still trusts that the pinned Docker digests are not
 malicious and that `bun.lock` does not pin a backdoored dependency. And this is a
 point-in-time check — it says nothing about what the site serves an hour later,
 which is the argument for IPFS pinning or an ENS content hash, where bytes are
-addressed *by* their hash rather than compared to it after the fact.
+addressed _by_ their hash rather than compared to it after the fact.
