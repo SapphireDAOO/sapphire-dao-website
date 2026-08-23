@@ -14,27 +14,27 @@ export const DEFAULT_BLOCK_POLLING_INTERVAL_MS = 12 * ONE_SECOND_MS;
 
 export const PAYMENT_PROCESSOR_STORAGE: Record<number, Address> = {
   [BASE_SEPOLIA]: "0x74b1301b8a1DBdF0318bC81dD8c1b1375d0BF9AF",
-  [LOCALHOST]: "0x059016E3B15a1DB307188e640A15A59920B254d0",
+  [LOCALHOST]: "0x4f618785D1ad457028502936c8a33ca2F4678Dd8",
 };
 
 export const SIMPLE_PAYMENT_PROCESSOR: Record<number, Address> = {
   [BASE_SEPOLIA]: "0xC785B7f52F591BF0ce80beE45B09e1cf0A972957",
-  [LOCALHOST]: "0x28ee50ea367d1815C9120c55B32536EAEf26a02D",
+  [LOCALHOST]: "0x12860A718c04E7365F9dC4A1cAa9B08dE54Ae156",
 };
 
 export const INTERMEDIATED_PAYMENT_PROCESSOR: Record<number, Address> = {
   [BASE_SEPOLIA]: "0x0EecA9DE862fDFF9147aa1c55f186BB3881478E7",
-  [LOCALHOST]: "0x6bCf665530D7278E0bD8d5081df68dD0e8c4e267",
+  [LOCALHOST]: "0xb5e195C4DF7b4668364E8eC419424e2745A3A730",
 };
 
 export const MULTISIG_CONTRACT: Record<number, Address> = {
   [BASE_SEPOLIA]: "0xA42498b1a91cB61B5303Ec0432f27b87B8255B4e",
-  [LOCALHOST]: "0x9f7c59EF46Fe57255015aA8c355A8214b6dA785E",
+  [LOCALHOST]: "0xD10e96CCAd7ED4f356eecBCd3259fEEddcee08E5",
 };
 
 export const NOTES_CONTRACT: Record<number, Address> = {
   [BASE_SEPOLIA]: "0x38844FD5258943F0Af0db706CeC75a9233140087",
-  [LOCALHOST]: "0xCEEC2578ce9ba4a94C192Af812083b479A44F738",
+  [LOCALHOST]: "0x14bc720a98717DC7a8b7130c4CEb90444904F0be",
 };
 
 export const MOCK_USDC_CONTRACT: Record<number, Address> = {
@@ -136,7 +136,7 @@ export const NOTES_SIGNER_ADDRESS =
 export const THE_GRAPH_API_URL: Record<number, string> = {
   [BASE_SEPOLIA]:
     "https://api.studio.thegraph.com/query/100227/payment-processor-indexer/version/latest",
-  [LOCALHOST]: "http://localhost:8000/subgraphs/name/payment-processor",
+  [LOCALHOST]: "http://localhost:8000/subgraphs/name/payment-processor-indexer",
 };
 
 // review errors and seperate using contract address as key(maybe)
