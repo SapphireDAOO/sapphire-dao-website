@@ -100,13 +100,6 @@ export const GOVERNABLE_CONTRACTS: GovernableContract[] = [
         params: [{ name: "duration", label: "Duration (seconds)", kind: "uint96", placeholder: "86400" }],
       },
       {
-        name: "setDefaultHoldPeriod",
-        label: "Set Default Hold Period",
-        signature: "setDefaultHoldPeriod(uint96)",
-        inputTypes: ["uint96"],
-        params: [{ name: "period", label: "Hold period (seconds)", kind: "uint96", placeholder: "86400" }],
-      },
-      {
         name: "setFeeRate",
         label: "Set Fee Rate",
         signature: "setFeeRate(uint96)",

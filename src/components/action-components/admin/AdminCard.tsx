@@ -19,7 +19,6 @@ import { Multisig } from "@/abis/MultiSig";
 import { useGetOwner } from "@/hooks/useGetOwner";
 import { useGetFeeReceiver } from "@/hooks/useGetFeeReceiver";
 import { useGetFeeRate } from "@/hooks/useGetFeeRate";
-import { useGetDefaultHoldPeriod } from "@/hooks/useGetDefaultHoldPeriod";
 import { useGetMinimumInvoiceValue } from "@/hooks/useGetMinimumInvoiceValue";
 import { useGetMarketplaceWallet } from "@/hooks/useGetMarketplaceWallet";
 import { useGetDecisionWindow } from "@/hooks/useGetDecisionWindow";
@@ -41,7 +40,6 @@ const AdminCard = () => {
 
   const { isLoading: isOwnerLoading } = useGetOwner();
   const { data: fee, refetch: refetchFee } = useGetFeeRate();
-  const { data: defaultHoldPeriod, refetch: refetchDefaultHoldPeriod } = useGetDefaultHoldPeriod();
   const { data: minimumInvoiceValue, refetch: refetchMinimumInvoiceValue } = useGetMinimumInvoiceValue();
   const { data: marketplaceKeeperAddress, refetch: refetchMarketplaceWallet } = useGetMarketplaceWallet();
   const { data: feeReceiver, refetch: refetchFeeReceiver } = useGetFeeReceiver();
@@ -63,7 +61,6 @@ const AdminCard = () => {
       event: executedEvent,
       onLogs: () => {
         void refetchFee();
-        void refetchDefaultHoldPeriod();
         void refetchMinimumInvoiceValue();
         void refetchMarketplaceWallet();
         void refetchFeeReceiver();
@@ -78,7 +75,6 @@ const AdminCard = () => {
     publicClient,
     chainId,
     refetchFee,
-    refetchDefaultHoldPeriod,
     refetchMinimumInvoiceValue,
     refetchMarketplaceWallet,
     refetchFeeReceiver,
@@ -157,12 +153,6 @@ const AdminCard = () => {
                   {truncateAddress(marketplaceKeeperAddress)}
                 </a>
               ) : "Loading..."}
-            </span>
-          </p>
-          <p className="text-sm font-medium">
-            <span className="text-muted-foreground">Default Hold Period: </span>
-            <span className="font-mono text-primary">
-              {defaultHoldPeriod ? (Number(defaultHoldPeriod) / 60).toFixed(2) + " minutes" : "Loading..."}
             </span>
           </p>
           <p className="text-sm font-medium">

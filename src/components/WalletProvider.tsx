@@ -22,7 +22,6 @@ import {
   refundBuyerAfterWindow,
   transferOwnership,
   setFeeReceiversAddress,
-  setDefaultHoldPeriod,
   setFee,
   setMinimumInvoiceValue,
   setDecisionWindow,
@@ -221,14 +220,6 @@ const WalletProvider = ({ children }: Props) => {
         setFeeReceiversAddress(
           wagmiClients,
           address,
-          chainId,
-          setIsLoading,
-          getInvoiceData,
-        ),
-      setDefaultHoldPeriod: (newDefaultHoldPeriod: bigint) =>
-        setDefaultHoldPeriod(
-          wagmiClients,
-          newDefaultHoldPeriod,
           chainId,
           setIsLoading,
           getInvoiceData,
