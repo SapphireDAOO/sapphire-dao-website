@@ -15,12 +15,7 @@ export const PaymentProcessorStorage = [
             internalType: "address",
           },
           {
-            name: "defaultHoldPeriod",
-            type: "uint96",
-            internalType: "uint96",
-          },
-          {
-            name: "marketplace",
+            name: "intermediatedPlatformsOperator",
             type: "address",
             internalType: "address",
           },
@@ -87,19 +82,6 @@ export const PaymentProcessorStorage = [
   },
   {
     type: "function",
-    name: "getDefaultHoldPeriod",
-    inputs: [],
-    outputs: [
-      {
-        name: "defaultHoldPeriod",
-        type: "uint256",
-        internalType: "uint256",
-      },
-    ],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
     name: "getEmergencyPauseExpiry",
     inputs: [],
     outputs: [{ name: "expiry", type: "uint256", internalType: "uint256" }],
@@ -136,6 +118,19 @@ export const PaymentProcessorStorage = [
   },
   {
     type: "function",
+    name: "getFeeSigner",
+    inputs: [],
+    outputs: [
+      {
+        name: "feeSignerAddress",
+        type: "address",
+        internalType: "address",
+      },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
     name: "getGasThreshold",
     inputs: [],
     outputs: [
@@ -145,10 +140,14 @@ export const PaymentProcessorStorage = [
   },
   {
     type: "function",
-    name: "getMarketplace",
+    name: "getIntermediatedPlatformsOperator",
     inputs: [],
     outputs: [
-      { name: "marketplace", type: "address", internalType: "address" },
+      {
+        name: "intermediatedPlatformsOperator",
+        type: "address",
+        internalType: "address",
+      },
     ],
     stateMutability: "view",
   },
@@ -224,19 +223,6 @@ export const PaymentProcessorStorage = [
   },
   {
     type: "function",
-    name: "setDefaultHoldPeriod",
-    inputs: [
-      {
-        name: "_newDefaultHoldPeriod",
-        type: "uint96",
-        internalType: "uint96",
-      },
-    ],
-    outputs: [],
-    stateMutability: "nonpayable",
-  },
-  {
-    type: "function",
     name: "setEmergencyPauser",
     inputs: [
       {
@@ -270,6 +256,13 @@ export const PaymentProcessorStorage = [
   },
   {
     type: "function",
+    name: "setFeeSigner",
+    inputs: [{ name: "_feeSigner", type: "address", internalType: "address" }],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
     name: "setGasThreshold",
     inputs: [
       {
@@ -283,10 +276,10 @@ export const PaymentProcessorStorage = [
   },
   {
     type: "function",
-    name: "setMarketplaceAddress",
+    name: "setIntermediatedPlatformsOperator",
     inputs: [
       {
-        name: "_marketplaceAddress",
+        name: "_intermediatedPlatformsOperatorWallet",
         type: "address",
         internalType: "address",
       },
@@ -384,12 +377,7 @@ export const PaymentProcessorStorage = [
             internalType: "address",
           },
           {
-            name: "defaultHoldPeriod",
-            type: "uint96",
-            internalType: "uint96",
-          },
-          {
-            name: "marketplace",
+            name: "intermediatedPlatformsOperator",
             type: "address",
             internalType: "address",
           },
@@ -399,19 +387,6 @@ export const PaymentProcessorStorage = [
             internalType: "uint96",
           },
         ],
-      },
-    ],
-    anonymous: false,
-  },
-  {
-    type: "event",
-    name: "DefaultHoldPeriodUpdated",
-    inputs: [
-      {
-        name: "defaultHoldPeriod",
-        type: "uint96",
-        indexed: false,
-        internalType: "uint96",
       },
     ],
     anonymous: false,
@@ -489,6 +464,19 @@ export const PaymentProcessorStorage = [
   },
   {
     type: "event",
+    name: "FeeSignerUpdated",
+    inputs: [
+      {
+        name: "feeSigner",
+        type: "address",
+        indexed: true,
+        internalType: "address",
+      },
+    ],
+    anonymous: false,
+  },
+  {
+    type: "event",
     name: "GasThresholdUpdated",
     inputs: [
       {
@@ -502,10 +490,10 @@ export const PaymentProcessorStorage = [
   },
   {
     type: "event",
-    name: "MarketplaceUpdated",
+    name: "IntermediatedPlatformsOperatorUpdated",
     inputs: [
       {
-        name: "marketplace",
+        name: "intermediatedPlatformsOperator",
         type: "address",
         indexed: true,
         internalType: "address",
@@ -599,8 +587,8 @@ export const PaymentProcessorStorage = [
   },
   { type: "error", name: "AlreadyInitialized", inputs: [] },
   { type: "error", name: "AlreadyPaused", inputs: [] },
-  { type: "error", name: "HoldPeriodCanNotBeZero", inputs: [] },
   { type: "error", name: "InvalidFeeRate", inputs: [] },
+  { type: "error", name: "InvalidFeeSigner", inputs: [] },
   { type: "error", name: "NewOwnerIsZeroAddress", inputs: [] },
   { type: "error", name: "NoActiveEmergencyPause", inputs: [] },
   { type: "error", name: "NoHandoverRequest", inputs: [] },

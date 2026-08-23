@@ -17,13 +17,23 @@ export const paymentProcessor = [
         type: "address",
         internalType: "address",
       },
+      { name: "_wethAddress", type: "address", internalType: "address" },
     ],
     stateMutability: "nonpayable",
   },
+  { type: "receive", stateMutability: "payable" },
   {
     type: "function",
     name: "acceptPayment",
-    inputs: [{ name: "_invoiceId", type: "uint216", internalType: "uint216" }],
+    inputs: [
+      { name: "_invoiceId", type: "uint216", internalType: "uint216" },
+      {
+        name: "_feeReceiver",
+        type: "address",
+        internalType: "address",
+      },
+      { name: "_data", type: "bytes", internalType: "bytes" },
+    ],
     outputs: [],
     stateMutability: "nonpayable",
   },
@@ -118,6 +128,11 @@ export const paymentProcessor = [
           { name: "seller", type: "address", internalType: "address" },
           { name: "buyer", type: "address", internalType: "address" },
           { name: "escrow", type: "address", internalType: "address" },
+          {
+            name: "feeReceiver",
+            type: "address",
+            internalType: "address",
+          },
           { name: "price", type: "uint256", internalType: "uint256" },
           { name: "balance", type: "uint256", internalType: "uint256" },
         ],
@@ -259,6 +274,13 @@ export const paymentProcessor = [
     stateMutability: "nonpayable",
   },
   {
+    type: "function",
+    name: "weth",
+    inputs: [],
+    outputs: [{ name: "", type: "address", internalType: "contract IWETH" }],
+    stateMutability: "view",
+  },
+  {
     type: "event",
     name: "AutomationUpdated",
     inputs: [
@@ -280,6 +302,12 @@ export const paymentProcessor = [
         type: "uint216",
         indexed: true,
         internalType: "uint216",
+      },
+      {
+        name: "feeReceiver",
+        type: "address",
+        indexed: true,
+        internalType: "address",
       },
     ],
     anonymous: false,
@@ -342,6 +370,11 @@ export const paymentProcessor = [
           { name: "seller", type: "address", internalType: "address" },
           { name: "buyer", type: "address", internalType: "address" },
           { name: "escrow", type: "address", internalType: "address" },
+          {
+            name: "feeReceiver",
+            type: "address",
+            internalType: "address",
+          },
           { name: "price", type: "uint256", internalType: "uint256" },
           { name: "balance", type: "uint256", internalType: "uint256" },
         ],
@@ -532,6 +565,8 @@ export const paymentProcessor = [
     ],
   },
   { type: "error", name: "InvalidDecisionWindow", inputs: [] },
+  { type: "error", name: "InvalidFeeAuthorization", inputs: [] },
+  { type: "error", name: "InvalidFeeReceiver", inputs: [] },
   { type: "error", name: "InvalidHeapPosition", inputs: [] },
   {
     type: "error",
@@ -551,5 +586,6 @@ export const paymentProcessor = [
   { type: "error", name: "Reentrancy", inputs: [] },
   { type: "error", name: "SellerCannotPayOwnedInvoice", inputs: [] },
   { type: "error", name: "TaskNotFound", inputs: [] },
+  { type: "error", name: "UnexpectedNativeTransfer", inputs: [] },
   { type: "error", name: "ValueIsTooLow", inputs: [] },
 ] as const;

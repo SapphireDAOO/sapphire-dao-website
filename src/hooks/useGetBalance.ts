@@ -29,7 +29,7 @@ export const useGetBalance = () => {
     abi: PaymentProcessorStorage,
     chainId: baseSepolia.id,
     address: PAYMENT_PROCESSOR_STORAGE[chainId],
-    functionName: "getMarketplace",
+    functionName: "getIntermediatedPlatformsOperator",
     account: address,
   });
 

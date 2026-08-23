@@ -17,6 +17,7 @@ import { PaymentProcessorStorage } from "@/abis/PaymentProcessorStorage";
 import { invoiceOwnerQuery } from "../graphql/queries";
 import { WagmiClient } from "./types";
 import { encryptNoteContent } from "../notes";
+import { requestFeeReceiver } from "../feeReceiver";
 
 // The notes key lives server-side only, so the optional storageRef note is
 // encrypted through /api/notes before it is embedded in the transaction.
@@ -210,16 +211,38 @@ export const sellerAction = async (
   let success = false;
 
   try {
+    // Accepting fixes the fee terms: the server hands out a one-time stealth
+    // fee receiver plus the fee signer's authorization over it.
+    let data: Hex;
+    if (state) {
+      const feeAuthorization = await requestFeeReceiver({
+        invoiceId,
+        chainId,
+        processor: "simple",
+      });
+      if (!feeAuthorization) {
+        toast.error("Unable to prepare the fee receiver. Please try again.");
+        return false;
+      }
+      data = encodeFunctionData({
+        abi: paymentProcessor,
+        functionName: "acceptPayment",
+        args: [invoiceId, feeAuthorization.feeReceiver, feeAuthorization.signature],
+      });
+    } else {
+      data = encodeFunctionData({
+        abi: paymentProcessor,
+        functionName: "rejectPayment",
+        args: [invoiceId],
+      });
+    }
+
     const gasPrice = await fetchGasPrice(publicClient, chainId);
 
     const tx = await walletClient?.sendTransaction({
       chain: getChainById(chainId),
       to: SIMPLE_PAYMENT_PROCESSOR[chainId],
-      data: encodeFunctionData({
-        abi: paymentProcessor,
-        functionName: state ? "acceptPayment" : "rejectPayment",
-        args: [invoiceId],
-      }),
+      data,
       gasPrice,
     });
 
@@ -474,54 +497,6 @@ export const setFeeReceiversAddress = async (
       success = true;
     } else {
       toast.error("Failed to update fee receiver address. Please try again.");
-    }
-  } catch (error) {
-    getError(error);
-  } finally {
-    setIsLoading("");
-  }
-  return success;
-};
-
-export const setDefaultHoldPeriod = async (
-  { walletClient, publicClient }: WagmiClient,
-  newDefaultHoldPeriod: bigint,
-  chainId: number,
-  setIsLoading: (value: string) => void,
-  getInvoiceData: () => Promise<void>,
-): Promise<boolean> => {
-  setIsLoading("setDefaultHoldPeriod");
-  let success = false;
-
-  try {
-    const gasPrice = await fetchGasPrice(publicClient, chainId);
-
-    const tx = await walletClient?.sendTransaction({
-      chain: getChainById(chainId),
-      to: PAYMENT_PROCESSOR_STORAGE[chainId],
-      data: encodeFunctionData({
-        abi: PaymentProcessorStorage,
-        functionName: "setDefaultHoldPeriod",
-        args: [newDefaultHoldPeriod],
-      }),
-      gasPrice,
-    });
-
-    if (!tx) {
-      toast.error("Transaction failed to initiate");
-      return false;
-    }
-
-    const receipt = await publicClient?.waitForTransactionReceipt({
-      hash: tx,
-    });
-
-    if (receipt?.status) {
-      toast.success("Successfully set new default hold period");
-      await getInvoiceData();
-      success = true;
-    } else {
-      toast.error("Failed to set new default hold period. Please try again");
     }
   } catch (error) {
     getError(error);

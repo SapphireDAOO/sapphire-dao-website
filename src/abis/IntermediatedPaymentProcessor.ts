@@ -142,6 +142,11 @@ export const intermediatedPaymentProcessor = [
             internalType: "address",
           },
           {
+            name: "feeReceiver",
+            type: "address",
+            internalType: "address",
+          },
+          {
             name: "amountPaid",
             type: "uint256",
             internalType: "uint256",
@@ -283,6 +288,12 @@ export const intermediatedPaymentProcessor = [
         type: "address",
         internalType: "address",
       },
+      {
+        name: "_feeReceiver",
+        type: "address",
+        internalType: "address",
+      },
+      { name: "_data", type: "bytes", internalType: "bytes" },
     ],
     outputs: [],
     stateMutability: "payable",
@@ -554,6 +565,11 @@ export const intermediatedPaymentProcessor = [
             internalType: "address",
           },
           {
+            name: "feeReceiver",
+            type: "address",
+            internalType: "address",
+          },
+          {
             name: "amountPaid",
             type: "uint256",
             internalType: "uint256",
@@ -598,6 +614,12 @@ export const intermediatedPaymentProcessor = [
         type: "uint40",
         indexed: false,
         internalType: "uint40",
+      },
+      {
+        name: "feeReceiver",
+        type: "address",
+        indexed: false,
+        internalType: "address",
       },
     ],
     anonymous: false,
@@ -771,6 +793,7 @@ export const intermediatedPaymentProcessor = [
   { type: "error", name: "EmptyMetaInvoice", inputs: [] },
   { type: "error", name: "EscrowWithdrawFailed", inputs: [] },
   { type: "error", name: "FailedDeployment", inputs: [] },
+  { type: "error", name: "HoldPeriodCanNotBeZero", inputs: [] },
   {
     type: "error",
     name: "InsufficientBalance",
@@ -781,6 +804,8 @@ export const intermediatedPaymentProcessor = [
   },
   { type: "error", name: "InsufficientBalance", inputs: [] },
   { type: "error", name: "InvalidDisputeResolution", inputs: [] },
+  { type: "error", name: "InvalidFeeAuthorization", inputs: [] },
+  { type: "error", name: "InvalidFeeReceiver", inputs: [] },
   { type: "error", name: "InvalidInvoiceState", inputs: [] },
   {
     type: "error",

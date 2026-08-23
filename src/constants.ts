@@ -42,6 +42,22 @@ export const MOCK_USDC_CONTRACT: Record<number, Address> = {
   [LOCALHOST]: "0x30f8a7DDde66968ab043d65B6f82C1CD10C0465F",
 };
 
+// Wrapped native token used for fee approvals on native payments. Must match
+// the WETH the payment processors were constructed with (`weth()`).
+// TODO: replace the Base Sepolia placeholder once the new contracts deploy.
+export const WETH_CONTRACT: Record<number, Address> = {
+  [BASE_SEPOLIA]: "0x4200000000000000000000000000000000000006",
+  [LOCALHOST]: "0x4a1E2ab38B64a82Ef43Fe3FD5921E915bFa4920C",
+};
+
+// Pulls fee tokens out of stealth fee receivers via `transferFrom`; each
+// stealth account grants it a max approval when it is created.
+// TODO: replace the Base Sepolia placeholder once the new contracts deploy.
+export const SWEEPER_CONTRACT: Record<number, Address> = {
+  [BASE_SEPOLIA]: "0xE72290e8628Cf2B6B8c321F6c688EF02332230be",
+  [LOCALHOST]: "0xE72290e8628Cf2B6B8c321F6c688EF02332230be",
+};
+
 export const MOCK_WBTC_CONTRACT: Record<number, Address> = {
   [BASE_SEPOLIA]: "0xc3a9d881A859EC02433eb0b6FaDC79F5678627b9",
   [LOCALHOST]: "0x9Ddb55dd822fD7A2f5E47F7560e93EFFb5ac6289",
@@ -166,6 +182,14 @@ export const errorMessages: ErrorMessages = {
   "0x020175b1":
     "SellerCannotPayOwnedInvoice: The seller cannot pay their own invoice.",
   "0xc325ae33": "TaskNotFound: No automation task found for this invoice.",
+  "0x1735eabe":
+    "InvalidFeeAuthorization: The fee receiver was not authorized by the fee signer.",
+  "0xd200485c": "InvalidFeeReceiver: The fee receiver address is invalid.",
+  "0xecb8b30d":
+    "UnexpectedNativeTransfer: The contract received native currency outside a fee wrap.",
+  "0x705a7153":
+    "HoldPeriodCanNotBeZero: The hold period must be greater than zero.",
+  "0x20d80102": "InvalidFeeSigner: The fee signer address is invalid.",
   // IntermediatedPaymentProcessor errors
   "0xb12e2421":
     "BuyerCannotBeSeller: The buyer and seller cannot be the same address.",
