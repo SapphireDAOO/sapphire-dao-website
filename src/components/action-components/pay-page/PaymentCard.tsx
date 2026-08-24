@@ -14,7 +14,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ContractContext } from "@/context/contract-context";
-import { CircleCheckBig, Loader2 } from "lucide-react";
+import { CircleCheckBig, Loader2, ShieldCheck } from "lucide-react";
 import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { PaymentCardProps } from "@/model/model";
@@ -391,6 +391,21 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
 
         <CardContent>
           <div className="grid w-full items-center gap-4">
+            {holdPeriodSeconds !== undefined && holdPeriodSeconds > 0 && (
+              <div className="flex items-start gap-2.5 rounded-lg border border-amber-300 bg-amber-50 p-3">
+                <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
+                <div className="space-y-1">
+                  <p className="text-sm font-bold leading-tight text-amber-900">
+                    Held in escrow for{" "}
+                    {formatDurationSeconds(holdPeriodSeconds)}
+                  </p>
+                  <p className="text-xs leading-snug text-amber-800">
+                    Your payment is locked and only released to the seller after
+                    this period, counting from when they accept the invoice.
+                  </p>
+                </div>
+              </div>
+            )}
             <div className="flex flex-col space-y-2">
               <Label htmlFor="id">Invoice ID</Label>
               <Input
@@ -454,16 +469,6 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
                 </span>
               </label>
             </div>
-
-            {holdPeriodSeconds !== undefined && holdPeriodSeconds > 0 && (
-              <p className="text-[11px] text-gray-500">
-                Payment is held in escrow for{" "}
-                <span className="font-medium">
-                  {formatDurationSeconds(holdPeriodSeconds)}
-                </span>
-                , counting from when the seller accepts the invoice.
-              </p>
-            )}
           </div>
         </CardContent>
 
