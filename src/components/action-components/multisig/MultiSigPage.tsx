@@ -14,7 +14,6 @@ import { useFeeBalances } from "@/hooks/useFeeBalances";
 import TransactionList from "./TransactionList";
 import ProposeForm from "./ProposeForm";
 import SignerList from "./SignerList";
-import FeeBalances from "./FeeBalances";
 import SweepForm from "./SweepForm";
 import {
   MULTISIG_CONTRACT,
@@ -227,7 +226,7 @@ export default function MultiSigPage() {
             <TabsTrigger value="transactions">Transactions</TabsTrigger>
             <TabsTrigger value="propose">Propose</TabsTrigger>
             <TabsTrigger value="signers">Signers</TabsTrigger>
-            <TabsTrigger value="fees">Fees</TabsTrigger>
+            <TabsTrigger value="fees">Sweep</TabsTrigger>
           </TabsList>
 
           <TabsContent value="transactions" className="mt-4">
@@ -323,29 +322,34 @@ export default function MultiSigPage() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="fees" className="mt-4 space-y-4">
-            <FeeBalances
-              tokens={fees.tokens}
-              sweeps={fees.sweeps}
-              truncated={fees.truncated}
-              isLoading={fees.isLoading}
-              error={fees.error}
-              notIndexed={fees.notIndexed}
-              chainId={chainId}
-              onRefresh={fees.refresh}
-            />
-
+          <TabsContent value="fees" className="mt-4">
             <Card className="max-w-md">
               <CardHeader>
                 <CardTitle className="text-base">Sweep Fees</CardTitle>
+                <p className="text-xs text-muted-foreground">
+                  Collected fee balances are listed on the admin page.
+                </p>
               </CardHeader>
               <CardContent>
-                <SweepForm
-                  tokens={fees.tokens}
-                  chainId={chainId}
-                  isSigner={isSigner}
-                  onProposed={applyLogs}
-                />
+                {fees.isLoading ? (
+                  <p className="text-sm text-muted-foreground flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Loading fee balances…
+                  </p>
+                ) : fees.error ? (
+                  <p className="text-sm text-muted-foreground">
+                    {fees.notIndexed
+                      ? "Fee receivers are not indexed by this subgraph deployment yet, so there is nothing to sweep."
+                      : fees.error}
+                  </p>
+                ) : (
+                  <SweepForm
+                    tokens={fees.tokens}
+                    chainId={chainId}
+                    isSigner={isSigner}
+                    onProposed={applyLogs}
+                  />
+                )}
               </CardContent>
             </Card>
           </TabsContent>

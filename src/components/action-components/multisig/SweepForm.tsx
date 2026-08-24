@@ -16,7 +16,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
-import { MULTISIG_CONTRACT } from "@/constants";
 import type { SweepPlan, TokenFeeSummary } from "@/model/fees";
 import { planSweep } from "@/services/fees/planSweep";
 import { proposeSweep } from "@/services/blockchain/Sweeper";
@@ -42,9 +41,7 @@ export default function SweepForm({
 
   const [tokenId, setTokenId] = useState("");
   const [amount, setAmount] = useState("");
-  const [destination, setDestination] = useState<string>(
-    MULTISIG_CONTRACT[chainId] ?? "",
-  );
+  const [destination, setDestination] = useState("");
   const [isLoading, setIsLoading] = useState("");
 
   const token = tokens.find((t) => t.tokenId === tokenId);
@@ -181,8 +178,7 @@ export default function SweepForm({
             onChange={(e) => setDestination(e.target.value)}
           />
           <p className="text-xs text-muted-foreground">
-            Defaults to the multisig. Every selected receiver sends its share
-            here in one transaction.
+            Every selected receiver sends its share here in one transaction.
           </p>
           {destination.trim() && !destinationValid && (
             <p className="text-xs text-red-600">Not a valid address.</p>

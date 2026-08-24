@@ -1,7 +1,7 @@
 "use client";
 
 import { formatUnits } from "viem";
-import { Badge } from "@/components/ui/badge";
+import { useChainId } from "wagmi";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -13,31 +13,23 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Loader2, RefreshCw } from "lucide-react";
-import { getKnownPaymentToken } from "@/constants";
-import type { FeeSweepRow, TokenFeeSummary } from "@/model/fees";
-import { formatAddress, formatTimestamp } from "./decodeCalldata";
+import { BASE_SEPOLIA, getKnownPaymentToken } from "@/constants";
+import { useFeeBalances } from "@/hooks/useFeeBalances";
+import {
+  formatAddress,
+  formatTimestamp,
+} from "@/components/action-components/multisig/decodeCalldata";
 
-interface Props {
-  tokens: TokenFeeSummary[];
-  sweeps: FeeSweepRow[];
-  truncated: boolean;
-  isLoading: boolean;
-  error: string | null;
-  notIndexed: boolean;
-  chainId: number;
-  onRefresh: () => void;
-}
+/**
+ * Platform fees that have been credited to fee receivers but not yet swept,
+ * totalled per token. Sweeping them is a multisig action and lives on the
+ * multisig page.
+ */
+export default function FeesCollected() {
+  const chainId = useChainId() || BASE_SEPOLIA;
+  const { tokens, sweeps, truncated, isLoading, error, notIndexed, refresh } =
+    useFeeBalances();
 
-export default function FeeBalances({
-  tokens,
-  sweeps,
-  truncated,
-  isLoading,
-  error,
-  notIndexed,
-  chainId,
-  onRefresh,
-}: Props) {
   const totalReceivers = tokens.reduce((sum, t) => sum + t.receiverCount, 0);
 
   return (
@@ -54,7 +46,7 @@ export default function FeeBalances({
           <Button
             variant="outline"
             size="sm"
-            onClick={onRefresh}
+            onClick={refresh}
             disabled={isLoading}
           >
             {isLoading ? (
@@ -153,29 +145,43 @@ export default function FeeBalances({
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>When</TableHead>
-                  <TableHead>From</TableHead>
-                  <TableHead>To</TableHead>
-                  <TableHead className="text-right">Amount</TableHead>
+                  <TableHead className="text-center">When</TableHead>
+                  <TableHead className="text-center">From</TableHead>
+                  <TableHead className="text-center">To</TableHead>
+                  <TableHead className="text-center">Amount</TableHead>
+                  <TableHead className="text-center">Token</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {sweeps.map((sweep) => {
                   const known = getKnownPaymentToken(chainId, sweep.token.id);
-                  const decimals =
-                    known?.decimals ?? sweep.token.decimal ?? 18;
+                  const decimals = known?.decimals ?? sweep.token.decimal ?? 18;
                   const symbol = known?.name ?? sweep.token.name ?? "";
                   return (
                     <TableRow key={sweep.id}>
-                      <TableCell className="text-xs text-muted-foreground">
-                        {formatTimestamp(sweep.timestamp)}
-                      </TableCell>
-                      <TableCell className="font-mono text-xs">
-                        {formatAddress(sweep.feeReceiver.address)}
+                      <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                        <a
+                          href={`https://sepolia.basescan.org/tx/${sweep.txHash}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="hover:text-foreground hover:underline"
+                        >
+                          {formatTimestamp(sweep.timestamp)}
+                        </a>
                       </TableCell>
                       <TableCell className="font-mono text-xs">
                         <a
-                          href={`https://sepolia.basescan.org/tx/${sweep.txHash}`}
+                          href={`https://sepolia.basescan.org/address/${sweep.feeReceiver.address}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-500 underline"
+                        >
+                          {formatAddress(sweep.feeReceiver.address)}
+                        </a>
+                      </TableCell>
+                      <TableCell className="font-mono text-xs">
+                        <a
+                          href={`https://sepolia.basescan.org/address/${sweep.destination}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-blue-500 underline"
@@ -183,11 +189,11 @@ export default function FeeBalances({
                           {formatAddress(sweep.destination)}
                         </a>
                       </TableCell>
-                      <TableCell className="text-right font-mono">
-                        {formatUnits(BigInt(sweep.amount), decimals)}{" "}
-                        <Badge variant="outline" className="ml-1 font-normal">
-                          {symbol}
-                        </Badge>
+                      <TableCell className="font-mono tabular-nums whitespace-nowrap">
+                        {formatUnits(BigInt(sweep.amount), decimals)}
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
+                        {symbol}
                       </TableCell>
                     </TableRow>
                   );

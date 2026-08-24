@@ -117,7 +117,7 @@ const AdminCard = () => {
 
   if (isOwnerLoading) {
     return (
-      <Card className="w-full max-w-md flex items-center justify-center p-6">
+      <Card className="w-full flex items-center justify-center p-6">
         <div className="flex flex-col items-center gap-2">
           <Loader2 className="animate-spin h-8 w-8 text-green-500" />
           <p className="text-sm text-muted-foreground">Loading...</p>
@@ -127,14 +127,14 @@ const AdminCard = () => {
   }
 
   return (
-    <Card className="w-full max-w-md">
+    <Card className="w-full">
       <CardHeader>
         <CardTitle className="text-2xl font-bold">Admin Page</CardTitle>
         <CardDescription className="text-sm text-muted-foreground">
           Only permitted addresses are allowed to access this page
         </CardDescription>
 
-        <div className="mt-4 bg-muted p-4 rounded grid gap-4">
+        <div className="mt-4 bg-muted p-4 rounded grid gap-4 sm:grid-cols-2">
           <p className="text-sm font-medium flex items-center gap-2">
             <span className="text-muted-foreground">Fee Receiver:</span>
             <span className="font-mono text-primary">
