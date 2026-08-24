@@ -27,21 +27,25 @@ export const timeLeft = (
 };
 
 /**
- * Formats a duration in seconds as a compact human string,
- * e.g. 90 → "1m 30s", 259200 → "3d". Returns "None" for zero/invalid input.
+ * Formats a duration in seconds in full words,
+ * e.g. 90 → "1 minute 30 seconds", 7200 → "2 hours", 259200 → "3 days".
+ * Returns "None" for zero/invalid input.
+ *
+ * Spelled out rather than abbreviated: this renders inside sentences such as
+ * "Held in escrow for ...", where "2h" reads as a typo.
  */
 export const formatDurationSeconds = (totalSeconds: number): string => {
   if (!Number.isFinite(totalSeconds) || totalSeconds <= 0) return "None";
-  const days = Math.floor(totalSeconds / 86400);
-  const hours = Math.floor((totalSeconds % 86400) / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = Math.floor(totalSeconds % 60);
-  const parts: string[] = [];
-  if (days) parts.push(`${days}d`);
-  if (hours) parts.push(`${hours}h`);
-  if (minutes) parts.push(`${minutes}m`);
-  if (seconds) parts.push(`${seconds}s`);
-  return parts.join(" ");
+  const units: [number, string][] = [
+    [Math.floor(totalSeconds / 86400), "day"],
+    [Math.floor((totalSeconds % 86400) / 3600), "hour"],
+    [Math.floor((totalSeconds % 3600) / 60), "minute"],
+    [Math.floor(totalSeconds % 60), "second"],
+  ];
+  return units
+    .filter(([value]) => value > 0)
+    .map(([value, unit]) => `${value} ${unit}${value === 1 ? "" : "s"}`)
+    .join(" ");
 };
 
 /** Converts a Unix timestamp to a "DD-Mon-YYYY HH:MM" UTC string. */

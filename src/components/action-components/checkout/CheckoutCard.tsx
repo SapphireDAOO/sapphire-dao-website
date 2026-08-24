@@ -195,7 +195,7 @@ const CheckoutCard = ({ data, isMetaInvoice }: CheckoutCardProps) => {
                     {formatDurationSeconds(holdPeriodSeconds)}
                   </p>
                   <p className="text-xs leading-snug text-amber-800">
-                    Your payment is locked from the moment you pay and is
+                    Your payment will be locked from the moment you pay, and
                     released to the seller once this period ends, provided no
                     dispute has been raised.
                   </p>

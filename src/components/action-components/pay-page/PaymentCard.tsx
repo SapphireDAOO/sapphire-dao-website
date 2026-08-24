@@ -400,8 +400,9 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
                     {formatDurationSeconds(holdPeriodSeconds)}
                   </p>
                   <p className="text-xs leading-snug text-amber-800">
-                    Your payment is locked and only released to the seller after
-                    this period, counting from when they accept the invoice.
+                    Your payment will be locked and only released to the seller
+                    after this period, counting from when they accept the
+                    invoice.
                   </p>
                 </div>
               </div>
