@@ -1,4 +1,6 @@
-import { decodeFunctionData, formatEther, Hex } from "viem";
+import { decodeFunctionData, formatEther, formatUnits, Hex } from "viem";
+import { Sweeper } from "@/abis/Sweeper";
+import { KNOWN_PAYMENT_TOKENS, WETH_CONTRACT } from "@/constants";
 import { GOVERNABLE_CONTRACTS } from "./governableFunctions";
 
 export interface DecodedCall {
@@ -35,9 +37,82 @@ function formatParamValue(value: unknown, kind: string): string {
   return String(value);
 }
 
+const explorerAddress = (address: string) =>
+  `https://sepolia.basescan.org/address/${address}`;
+
+/** Symbol and decimals for a token address on any configured chain, if known. */
+function resolveToken(address: string): { name: string; decimals: number } | null {
+  const lower = address.toLowerCase();
+
+  for (const tokens of Object.values(KNOWN_PAYMENT_TOKENS)) {
+    for (const token of tokens) {
+      if (token.id.toLowerCase() === lower) {
+        return { name: token.name, decimals: token.decimals };
+      }
+    }
+  }
+
+  for (const weth of Object.values(WETH_CONTRACT)) {
+    if (weth.toLowerCase() === lower) return { name: "WETH", decimals: 18 };
+  }
+
+  return null;
+}
+
+/**
+ * `Sweeper.sweep` takes parallel address/amount arrays, which the generic
+ * decoder below cannot render, so it is summarised: how many fee receivers are
+ * drained, for how much, and where the funds go.
+ */
+function decodeSweepCall(hex: Hex): DecodedCall | null {
+  let decoded;
+  try {
+    decoded = decodeFunctionData({ abi: Sweeper, data: hex });
+  } catch {
+    return null;
+  }
+  if (decoded.functionName !== "sweep") return null;
+
+  const [token, from, amounts, destination] = decoded.args as [
+    string,
+    readonly string[],
+    readonly bigint[],
+    string,
+  ];
+  const total = amounts.reduce((sum, amount) => sum + amount, BigInt(0));
+  const known = resolveToken(token);
+
+  return {
+    contractLabel: "Sweeper",
+    functionLabel: "Sweep Fees",
+    params: [
+      {
+        label: "Token",
+        value: known ? known.name : truncateHex(token),
+        href: explorerAddress(token),
+      },
+      { label: "Fee receivers", value: String(from.length) },
+      {
+        label: "Total",
+        value: known
+          ? `${formatUnits(total, known.decimals)} ${known.name}`
+          : `${total.toString()} (base units)`,
+      },
+      {
+        label: "Destination",
+        value: truncateHex(destination),
+        href: explorerAddress(destination),
+      },
+    ],
+  };
+}
+
 export function decodeMultiSigCalldata(data: string): DecodedCall | null {
   if (!data || data === "0x" || data.length < 10) return null;
   const hex = data as Hex;
+
+  const sweep = decodeSweepCall(hex);
+  if (sweep) return sweep;
 
   for (const contract of GOVERNABLE_CONTRACTS) {
     for (const fn of contract.functions) {

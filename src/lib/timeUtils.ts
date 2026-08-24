@@ -26,6 +26,24 @@ export const timeLeft = (
   return `${String(days).padStart(2, "0")}d ${String(hours).padStart(2, "0")}h ${String(minutes).padStart(2, "0")}m ${String(seconds).padStart(2, "0")}s`;
 };
 
+/**
+ * Formats a duration in seconds as a compact human string,
+ * e.g. 90 → "1m 30s", 259200 → "3d". Returns "None" for zero/invalid input.
+ */
+export const formatDurationSeconds = (totalSeconds: number): string => {
+  if (!Number.isFinite(totalSeconds) || totalSeconds <= 0) return "None";
+  const days = Math.floor(totalSeconds / 86400);
+  const hours = Math.floor((totalSeconds % 86400) / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = Math.floor(totalSeconds % 60);
+  const parts: string[] = [];
+  if (days) parts.push(`${days}d`);
+  if (hours) parts.push(`${hours}h`);
+  if (minutes) parts.push(`${minutes}m`);
+  if (seconds) parts.push(`${seconds}s`);
+  return parts.join(" ");
+};
+
 /** Converts a Unix timestamp to a "DD-Mon-YYYY HH:MM" UTC string. */
 export const unixToGMT = (unixTimestamp: any): string => {
   if (!unixTimestamp) return "";

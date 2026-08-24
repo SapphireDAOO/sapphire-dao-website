@@ -196,13 +196,13 @@ export default function IndexRecentPayment({
       if (!value) return "";
       const normalized = value.replace(/_/g, " ").toUpperCase().trim();
 
-      // Dynamically detect expired: awaiting payment past invalidateAt
+      // Dynamically detect expired: awaiting payment past expiresAt
       if (
         (normalized === "AWAITING PAYMENT" ||
           normalized === "CREATED" ||
           normalized === "INITIATED") &&
-        invoice?.invalidateAt &&
-        nowMs > Number(invoice.invalidateAt) * 1000
+        invoice?.expiresAt &&
+        nowMs > Number(invoice.expiresAt) * 1000
       ) {
         return "EXPIRED";
       }

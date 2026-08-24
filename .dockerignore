@@ -1,0 +1,15 @@
+# scripts/reproduce.sh feeds `git archive` as the build context, so this file is
+# only a backstop for someone running `docker build .` against a working tree.
+.git
+node_modules
+.next
+out
+dist
+.env*
+!build-inputs.example.env
+*.tsbuildinfo
+.claude
+.vercel
+rev
+note.txt
+index.html

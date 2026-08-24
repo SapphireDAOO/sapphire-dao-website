@@ -14,8 +14,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ContractContext } from "@/context/contract-context";
-import { CircleCheckBig, Loader2 } from "lucide-react";
-import { useContext, useEffect, useRef, useState } from "react";
+import { CircleCheckBig, Loader2, ShieldCheck } from "lucide-react";
+import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import {
   Select,
@@ -39,7 +39,8 @@ import { InvoiceDetails, TokenData } from "@/model/model";
 import { Textarea } from "@/components/ui/textarea";
 import { createNote as createInvoiceNote } from "@/services/notes";
 import { INTERMEDIATED_PAYMENT_PROCESSOR, BASE_SEPOLIA } from "@/constants";
-import { formatAddress } from "@/utils";
+import { formatAddress, formatDurationSeconds } from "@/utils";
+import { useGetMarketplaceInvoiceData } from "@/hooks/useGetMarketplaceInvoiceData";
 
 interface CheckoutCardProps {
   data: InvoiceDetails;
@@ -52,6 +53,19 @@ const CheckoutCard = ({ data, isMetaInvoice }: CheckoutCardProps) => {
   const { signMessageAsync } = useSignMessage();
   const contractAddress =
     INTERMEDIATED_PAYMENT_PROCESSOR[chain?.id || BASE_SEPOLIA];
+
+  // Escrow hold period, read from the intermediated processor. The struct calls
+  // it escrowHoldPeriod; holdPeriod is kept as a fallback for the pre-rename shape.
+  const { data: onChainInvoice } = useGetMarketplaceInvoiceData(data?.invoiceId);
+  const holdPeriodSeconds = useMemo(() => {
+    const fetched = onChainInvoice as
+      | { escrowHoldPeriod?: number | bigint; holdPeriod?: number | bigint }
+      | undefined;
+    const raw = fetched?.escrowHoldPeriod ?? fetched?.holdPeriod;
+    if (raw === undefined || raw === null) return undefined;
+    const seconds = Number(raw);
+    return Number.isFinite(seconds) ? seconds : undefined;
+  }, [onChainInvoice]);
 
   const [open, setOpen] = useState(false);
   const [selectedToken, setSelectedToken] = useState("");
@@ -172,6 +186,22 @@ const CheckoutCard = ({ data, isMetaInvoice }: CheckoutCardProps) => {
 
         <CardContent>
           <div className="grid gap-4">
+            {holdPeriodSeconds !== undefined && holdPeriodSeconds > 0 && (
+              <div className="flex items-start gap-2.5 rounded-lg border border-amber-300 bg-amber-50 p-3">
+                <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
+                <div className="space-y-1">
+                  <p className="text-sm font-bold leading-tight text-amber-900">
+                    Held in escrow for{" "}
+                    {formatDurationSeconds(holdPeriodSeconds)}
+                  </p>
+                  <p className="text-xs leading-snug text-amber-800">
+                    Your payment is locked from the moment you pay and is
+                    released to the seller once this period ends, provided no
+                    dispute has been raised.
+                  </p>
+                </div>
+              </div>
+            )}
             {/* Request Amount */}
             <div className="flex flex-col space-y-2">
               <Label>Request Amount</Label>

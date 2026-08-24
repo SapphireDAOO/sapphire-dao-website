@@ -211,7 +211,7 @@ export function MarketplaceCard({
     (displayStatus === "PAID" || displayStatus === "DISPUTE DISMISSED") &&
     Boolean(invoice.releaseAt);
   const shouldTrackVoidCountdown =
-    isAwaitingPayment && Boolean(invoice.invalidateAt);
+    isAwaitingPayment && Boolean(invoice.expiresAt);
   const shouldTrackCountdown =
     shouldTrackReleaseCountdown || shouldTrackVoidCountdown;
 
@@ -229,9 +229,9 @@ export function MarketplaceCard({
 
   const voidCountdown = useMemo(() => {
     void tick;
-    if (!shouldTrackVoidCountdown || !invoice.invalidateAt) return "—";
-    return timeLeft(Number(invoice.invalidateAt), 0);
-  }, [tick, shouldTrackVoidCountdown, invoice.invalidateAt]);
+    if (!shouldTrackVoidCountdown || !invoice.expiresAt) return "—";
+    return timeLeft(Number(invoice.expiresAt), 0);
+  }, [tick, shouldTrackVoidCountdown, invoice.expiresAt]);
 
   /* ── History normalization (mirrors SimpleInvoices displayHistory) ─────── */
 
@@ -495,7 +495,7 @@ export function MarketplaceCard({
           )}
 
         {/* Void in countdown (AWAITING PAYMENT / CANCELED) */}
-        {isAwaitingPayment && invoice.invalidateAt && (
+        {isAwaitingPayment && invoice.expiresAt && (
           <InvoiceField
             label="Void in"
             value={voidCountdown}

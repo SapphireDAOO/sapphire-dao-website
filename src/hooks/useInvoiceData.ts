@@ -236,7 +236,7 @@ export const useInvoiceData = () => {
         buyer: "",
         source: "Simple",
         creationTxHash: created.txHash,
-        invalidateAt: created.invalidateAt?.toString(),
+        expiresAt: created.expiresAt?.toString(),
         history: appendHistoryEntry(undefined, "CREATED", createdAt),
       };
 
@@ -431,7 +431,7 @@ export const useInvoiceData = () => {
                   : "Pending",
               fee: list.fee ? formatEther(BigInt(list.fee)) : "0",
               releaseHash: list.releaseHash,
-              status: sortState(list.state, list.invalidateAt),
+              status: sortState(list.state, list.expiresAt),
               creationTxHash: list.creationTxHash,
               commisionTxHash: list.commisionTxHash,
               refundTxHash: list.refundTxHash,
@@ -585,7 +585,7 @@ export const useInvoiceData = () => {
           invoiceId: getContractInvoiceIdBigInt(invoice),
           createdAt: invoice.createdAt ? unixToGMT(invoice.createdAt) : null,
           paidAt: invoice.paidAt || "Not Paid",
-          status: sortState(invoice.state, invoice.invalidateAt),
+          status: sortState(invoice.state, invoice.expiresAt),
           price: invoice.price ? formatEther(BigInt(invoice.price)) : null,
           amountPaid: invoice.amountPaid
             ? formatEther(BigInt(invoice.amountPaid))
@@ -593,8 +593,8 @@ export const useInvoiceData = () => {
           type: "Seller" as const,
           contract: invoice.contract,
           paymentTxHash: invoice.paymentTxHash,
-          invalidateAt: invoice.invalidateAt,
           expiresAt: invoice.expiresAt,
+          sellerActionDeadline: invoice.sellerActionDeadline,
           seller: invoice.seller?.id ?? "",
           buyer: invoice.buyer?.id ?? "",
           releaseHash: invoice.releaseHash,
@@ -609,7 +609,7 @@ export const useInvoiceData = () => {
           invoiceId: getContractInvoiceIdBigInt(invoice),
           createdAt: invoice.createdAt ? unixToGMT(invoice.createdAt) : null,
           paidAt: invoice.paidAt || "Not Paid",
-          status: sortState(invoice.state, invoice.invalidateAt),
+          status: sortState(invoice.state, invoice.expiresAt),
           price: invoice.price ? formatEther(BigInt(invoice.price)) : null,
           amountPaid: invoice.amountPaid
             ? formatEther(BigInt(invoice.amountPaid))
@@ -617,8 +617,8 @@ export const useInvoiceData = () => {
           type: "Buyer" as const,
           seller: invoice.seller?.id ?? "",
           contract: invoice.contract,
-          invalidateAt: invoice.invalidateAt,
           expiresAt: invoice.expiresAt,
+          sellerActionDeadline: invoice.sellerActionDeadline,
           paymentTxHash: invoice.paymentTxHash,
           releaseAt: invoice.releasedAt,
           buyer: invoice.buyer?.id ?? "",
@@ -743,7 +743,7 @@ export const useInvoiceData = () => {
                   : Number(inv.releaseAt) > 0
                     ? inv.releaseAt
                     : undefined,
-              expiresAt: inv.expiresAt || existing.expiresAt,
+              sellerActionDeadline: inv.sellerActionDeadline || existing.sellerActionDeadline,
               buyer: inv.buyer || existing.buyer,
               history: mergeHistory(existing.history, inv.history),
               status: pickNewerStatus(existing.status ?? "", inv.status ?? ""),
@@ -924,8 +924,8 @@ export const useInvoiceData = () => {
             ? (invoiceData as {
                 paidAt?: bigint | number;
                 releaseAt?: bigint | number;
+                sellerActionDeadline?: bigint | number;
                 expiresAt?: bigint | number;
-                invalidateAt?: bigint | number;
               })
             : null;
 
@@ -941,11 +941,11 @@ export const useInvoiceData = () => {
         const releaseAt = invoiceObject
           ? readBigInt(invoiceObject.releaseAt)
           : readBigInt(invoiceArray?.[3] as bigint | number | undefined);
-        const invalidateAt = invoiceObject
-          ? readBigInt(invoiceObject.invalidateAt)
-          : readBigInt(invoiceArray?.[4] as bigint | number | undefined);
         const expiresAt = invoiceObject
           ? readBigInt(invoiceObject.expiresAt)
+          : readBigInt(invoiceArray?.[4] as bigint | number | undefined);
+        const sellerActionDeadline = invoiceObject
+          ? readBigInt(invoiceObject.sellerActionDeadline)
           : readBigInt(invoiceArray?.[5] as bigint | number | undefined);
 
         // Pure per-invoice patch so it can be applied both inside the state
@@ -963,10 +963,10 @@ export const useInvoiceData = () => {
                 ? paidAt.toString()
                 : inv.paidAt,
           releaseAt: releaseAt ? releaseAt.toString() : inv.releaseAt,
-          invalidateAt: invalidateAt
-            ? invalidateAt.toString()
-            : inv.invalidateAt,
-          expiresAt: expiresAt ? expiresAt.toString() : inv.expiresAt,
+          expiresAt: expiresAt
+            ? expiresAt.toString()
+            : inv.expiresAt,
+          sellerActionDeadline: sellerActionDeadline ? sellerActionDeadline.toString() : inv.sellerActionDeadline,
         });
 
         setInvoiceData((prev) =>
@@ -1008,8 +1008,8 @@ export const useInvoiceData = () => {
                 createdAt?: bigint | number;
                 paidAt?: bigint | number;
                 releaseAt?: bigint | number;
-                invalidateAt?: bigint | number;
                 expiresAt?: bigint | number;
+                sellerActionDeadline?: bigint | number;
                 seller?: string;
                 buyer?: string;
                 price?: bigint | number;
@@ -1042,12 +1042,12 @@ export const useInvoiceData = () => {
           invoiceObject?.releaseAt ??
             (invoiceArray?.[3] as bigint | number | undefined),
         );
-        const invalidateAt = readBigInt(
-          invoiceObject?.invalidateAt ??
-            (invoiceArray?.[4] as bigint | number | undefined),
-        );
         const expiresAt = readBigInt(
           invoiceObject?.expiresAt ??
+            (invoiceArray?.[4] as bigint | number | undefined),
+        );
+        const sellerActionDeadline = readBigInt(
+          invoiceObject?.sellerActionDeadline ??
             (invoiceArray?.[5] as bigint | number | undefined),
         );
         const seller = readString(invoiceObject?.seller ?? invoiceArray?.[8]);
@@ -1107,8 +1107,8 @@ export const useInvoiceData = () => {
           refundTxHash: status === "REFUNDED" ? txHash : undefined,
           releaseHash: status === "RELEASED" ? txHash : undefined,
           releaseAt: releaseAt ? releaseAt.toString() : undefined,
-          invalidateAt: invalidateAt ? invalidateAt.toString() : undefined,
           expiresAt: expiresAt ? expiresAt.toString() : undefined,
+          sellerActionDeadline: sellerActionDeadline ? sellerActionDeadline.toString() : undefined,
           history,
         };
 
@@ -1137,8 +1137,8 @@ export const useInvoiceData = () => {
               refundTxHash: nextInvoice.refundTxHash ?? inv.refundTxHash,
               releaseHash: nextInvoice.releaseHash ?? inv.releaseHash,
               releaseAt: nextInvoice.releaseAt || inv.releaseAt,
-              invalidateAt: nextInvoice.invalidateAt || inv.invalidateAt,
               expiresAt: nextInvoice.expiresAt || inv.expiresAt,
+              sellerActionDeadline: nextInvoice.sellerActionDeadline || inv.sellerActionDeadline,
               buyer: nextInvoice.buyer || inv.buyer,
               seller: nextInvoice.seller || inv.seller,
               price: nextInvoice.price ?? inv.price,

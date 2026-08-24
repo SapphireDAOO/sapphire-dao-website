@@ -14,7 +14,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ContractContext } from "@/context/contract-context";
-import { CircleCheckBig, Loader2 } from "lucide-react";
+import { CircleCheckBig, Loader2, ShieldCheck } from "lucide-react";
 import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { PaymentCardProps } from "@/model/model";
@@ -32,7 +32,7 @@ import { useInvoiceNotes, ThreadNote } from "@/hooks/useInvoiceNotes";
 import { SIMPLE_PAYMENT_PROCESSOR } from "@/constants";
 import { paymentProcessor } from "@/abis/PaymentProcessor";
 import { BASE_SEPOLIA } from "@/constants";
-import { formatAddress } from "@/utils";
+import { formatAddress, formatDurationSeconds } from "@/utils";
 import { Textarea } from "@/components/ui/textarea";
 
 type InvoiceLike = {
@@ -43,6 +43,7 @@ type InvoiceLike = {
   invoiceNonce?: string | number | bigint;
   status?: string | number;
   seller?: string;
+  holdPeriod?: string | number | bigint | null;
   note?: string;
   notes?: { message?: string }[];
 };
@@ -73,8 +74,8 @@ const getInvoiceSeller = (invoice: unknown) => {
     | undefined;
   if (typeof item?.seller === "string" && item.seller) return item.seller;
 
-  // ISimplePaymentProcessor.Invoice tuple index 8 is seller.
-  const tupleSeller = item?.[8];
+  // ISimplePaymentProcessor.Invoice tuple index 10 is seller.
+  const tupleSeller = item?.[10];
   return typeof tupleSeller === "string" && tupleSeller ? tupleSeller : undefined;
 };
 
@@ -103,7 +104,15 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
     : undefined;
   const { data: fetchedInvoice } = useGetInvoiceData(invoiceId);
   const { notes: invoiceNotes } = useInvoiceNotes(invoiceId);
-  const contractAddress = SIMPLE_PAYMENT_PROCESSOR[chain?.id || BASE_SEPOLIA];
+  // wagmi reports no chain during SSR, so the server falls back to Base Sepolia
+  // while the browser resolves the connected chain (e.g. localhost). Rendering
+  // that address straight away makes the two HTML trees disagree and React
+  // throws a hydration mismatch, so resolve it only after mount.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  const contractAddress = mounted
+    ? SIMPLE_PAYMENT_PROCESSOR[chain?.id || BASE_SEPOLIA]
+    : undefined;
 
   const {
     invoiceData,
@@ -126,39 +135,53 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
     [fetchedInvoice, liveInvoice],
   );
 
-  const displayinvoiceId = useMemo(() => {
+  // The page shows the human-facing invoice nonce, never the uint216 invoice
+  // id the contract keys invoices by.
+  const displayInvoiceNonce = useMemo(() => {
     const fetched = fetchedInvoice as
-      | ({ invoiceNonce?: string | number | bigint; invoiceId?: string | number | bigint } & {
+      | ({ invoiceNonce?: string | number | bigint } & {
           [index: number]: unknown;
         })
       | undefined;
     const live = liveInvoice as InvoiceLike | undefined;
 
-    // Prefer nonce directly from chain response for accuracy.
-    const nonceFromChain = fetched?.invoiceNonce ?? fetched?.invoiceId;
-    if (nonceFromChain !== undefined && nonceFromChain !== null) {
-      return nonceFromChain;
+    // Prefer the nonce directly from the chain response for accuracy.
+    if (fetched?.invoiceNonce !== undefined && fetched?.invoiceNonce !== null) {
+      return fetched.invoiceNonce;
     }
 
-    // Viem tuple fallback: index 0 is invoice nonce in current ABI.
+    // Viem tuple fallback: index 0 is invoiceNonce in the current ABI.
     if (fetched && fetched[0] !== undefined && fetched[0] !== null) {
       return fetched[0] as string | number | bigint;
     }
 
-    // Subgraph/app cache fallback.
+    // Subgraph/app cache fallback: the app's Invoice.id holds the nonce.
     return (
       live?.invoiceNonce ??
-      live?.invoiceId ??
+      live?.id ??
       invoiceLike?.invoiceNonce ??
-      invoiceLike?.invoiceId ??
       invoiceLike?.id ??
-      invoiceLike?.invoiceId ??
       ""
     );
   }, [fetchedInvoice, liveInvoice, invoiceLike]);
 
   const displayPriceEth =
     invoiceLike?.price ?? invoiceLike?.amount ?? null;
+
+  // Hold period in seconds — prefer the on-chain read, fall back to the
+  // subgraph/app cache value.
+  const holdPeriodSeconds = useMemo(() => {
+    // The contract struct calls this escrowHoldPeriod; holdPeriod is kept as a
+    // fallback for invoices cached from the pre-rename shape.
+    const fetched = fetchedInvoice as
+      | { escrowHoldPeriod?: number | bigint; holdPeriod?: number | bigint }
+      | undefined;
+    const raw =
+      fetched?.escrowHoldPeriod ?? fetched?.holdPeriod ?? invoiceLike?.holdPeriod;
+    if (raw === undefined || raw === null) return undefined;
+    const seconds = Number(raw);
+    return Number.isFinite(seconds) ? seconds : undefined;
+  }, [fetchedInvoice, invoiceLike]);
   const statusValue = invoiceLike?.status;
   const normalizedStatus =
     statusValue === undefined || statusValue === null
@@ -368,11 +391,26 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
 
         <CardContent>
           <div className="grid w-full items-center gap-4">
+            {holdPeriodSeconds !== undefined && holdPeriodSeconds > 0 && (
+              <div className="flex items-start gap-2.5 rounded-lg border border-amber-300 bg-amber-50 p-3">
+                <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
+                <div className="space-y-1">
+                  <p className="text-sm font-bold leading-tight text-amber-900">
+                    Held in escrow for{" "}
+                    {formatDurationSeconds(holdPeriodSeconds)}
+                  </p>
+                  <p className="text-xs leading-snug text-amber-800">
+                    Your payment is locked and only released to the seller after
+                    this period, counting from when they accept the invoice.
+                  </p>
+                </div>
+              </div>
+            )}
             <div className="flex flex-col space-y-2">
               <Label htmlFor="id">Invoice ID</Label>
               <Input
                 id="id"
-                value={displayinvoiceId?.toString() ?? "Loading..."}
+                value={displayInvoiceNonce?.toString() || "Loading..."}
                 disabled
               />
             </div>

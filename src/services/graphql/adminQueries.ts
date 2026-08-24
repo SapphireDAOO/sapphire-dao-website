@@ -23,7 +23,7 @@ export const GET_ALL_INVOICES = `
       state
       releaseAt
       amountPaid
-      invalidateAt
+      expiresAt
       lastActionTime
       seller { id }
       buyer { id }

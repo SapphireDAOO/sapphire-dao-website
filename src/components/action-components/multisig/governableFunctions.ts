@@ -100,13 +100,6 @@ export const GOVERNABLE_CONTRACTS: GovernableContract[] = [
         params: [{ name: "duration", label: "Duration (seconds)", kind: "uint96", placeholder: "86400" }],
       },
       {
-        name: "setDefaultHoldPeriod",
-        label: "Set Default Hold Period",
-        signature: "setDefaultHoldPeriod(uint96)",
-        inputTypes: ["uint96"],
-        params: [{ name: "period", label: "Hold period (seconds)", kind: "uint96", placeholder: "86400" }],
-      },
-      {
         name: "setFeeRate",
         label: "Set Fee Rate",
         signature: "setFeeRate(uint96)",
@@ -121,11 +114,18 @@ export const GOVERNABLE_CONTRACTS: GovernableContract[] = [
         params: [{ name: "receiver", label: "Fee receiver address", kind: "address", placeholder: "0x..." }],
       },
       {
-        name: "setMarketplaceAddress",
-        label: "Set Marketplace Address",
-        signature: "setMarketplaceAddress(address)",
+        name: "setFeeSigner",
+        label: "Set Fee Signer",
+        signature: "setFeeSigner(address)",
         inputTypes: ["address"],
-        params: [{ name: "marketplace", label: "Marketplace address", kind: "address", placeholder: "0x..." }],
+        params: [{ name: "feeSigner", label: "Fee signer address", kind: "address", placeholder: "0x..." }],
+      },
+      {
+        name: "setIntermediatedPlatformsOperator",
+        label: "Set Intermediated Platforms Operator",
+        signature: "setIntermediatedPlatformsOperator(address)",
+        inputTypes: ["address"],
+        params: [{ name: "operator", label: "Operator address", kind: "address", placeholder: "0x..." }],
       },
       {
         name: "transferOwnership",

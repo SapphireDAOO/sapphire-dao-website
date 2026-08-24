@@ -12,8 +12,6 @@ import {
 import { http, webSocket, fallback } from "viem";
 import { baseSepolia, hardhat } from "viem/chains";
 
-// remove NEXT_PUBLIC_*
-const apiKey = process.env.NEXT_PUBLIC_INFURA_ID;
 const walletConnectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID!;
 
 type GlobalWithConfig = typeof globalThis & {
@@ -42,15 +40,11 @@ const baseSepoliaTransport = fallback(
   [
     // Prefer websocket endpoints for live updates, keep HTTP as backup
     webSocket("wss://base-sepolia-rpc.publicnode.com"),
-    ...(apiKey
-      ? [webSocket(`wss://base-sepolia.infura.io/ws/v3/${apiKey}`)]
-      : []),
     http("https://base-sepolia-rpc.publicnode.com"),
     http("https://sepolia.base.org"),
-    ...(apiKey ? [http(`https://base-sepolia.infura.io/v3/${apiKey}`)] : []),
   ],
   {
-    rank: false, // keep order: public first, Infura last to reduce 429s
+    rank: false, // keep order: websocket first, HTTP as backup
     retryCount: 1,
   },
 );

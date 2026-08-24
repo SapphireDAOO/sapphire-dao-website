@@ -22,7 +22,6 @@ import {
   refundBuyerAfterWindow,
   transferOwnership,
   setFeeReceiversAddress,
-  setDefaultHoldPeriod,
   setFee,
   setMinimumInvoiceValue,
   setDecisionWindow,
@@ -131,6 +130,7 @@ const WalletProvider = ({ children }: Props) => {
         invoicePrice: bigint,
         storageRef?: string,
         share?: boolean,
+        holdPeriodSeconds?: number,
       ) => {
         const created = await createSimpleInvoice(
           wagmiClients,
@@ -139,6 +139,7 @@ const WalletProvider = ({ children }: Props) => {
           setIsLoading,
           storageRef,
           share,
+          holdPeriodSeconds,
         );
 
         if (created) {
@@ -219,14 +220,6 @@ const WalletProvider = ({ children }: Props) => {
         setFeeReceiversAddress(
           wagmiClients,
           address,
-          chainId,
-          setIsLoading,
-          getInvoiceData,
-        ),
-      setDefaultHoldPeriod: (newDefaultHoldPeriod: bigint) =>
-        setDefaultHoldPeriod(
-          wagmiClients,
-          newDefaultHoldPeriod,
           chainId,
           setIsLoading,
           getInvoiceData,

@@ -101,6 +101,11 @@ const Navbar = () => {
                       ariaLabel="Return to dashboard"
                       onClick={() => goTo("/dashboard")}
                     />
+                    <NavLink
+                      label="Metrics"
+                      ariaLabel="Go to metrics"
+                      onClick={() => goTo("/metrics")}
+                    />
                     {canAccessAdmin && (
                       <>
                         <NavLink

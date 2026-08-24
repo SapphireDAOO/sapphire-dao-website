@@ -1,0 +1,30 @@
+# syntax=docker/dockerfile:1.7
+
+FROM --platform=linux/amd64 oven/bun:1.2.18-slim@sha256:8d4d8d11bc1dee12267157338bc750503ec9785951d112b25c6c806e58f0d61b AS bun
+
+FROM --platform=linux/amd64 node:22.14.0-bookworm-slim@sha256:1c18d9ab3af4585870b92e4dbc5cac5a0dc77dd13df1a5905cea89fc720eb05b AS build
+
+COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun
+
+WORKDIR /src
+
+COPY package.json bun.lock ./
+RUN bun install --frozen-lockfile
+
+COPY . .
+
+ARG SOURCE_COMMIT=dev
+ARG NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=
+ARG NEXT_PUBLIC_NOTES_SIGNER_ADDRESS=
+
+ENV SOURCE_COMMIT=$SOURCE_COMMIT \
+    NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=$NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID \
+    NEXT_PUBLIC_NOTES_SIGNER_ADDRESS=$NEXT_PUBLIC_NOTES_SIGNER_ADDRESS \
+    NEXT_TELEMETRY_DISABLED=1 \
+    NODE_ENV=production
+
+RUN node node_modules/next/dist/bin/next build
+
+FROM scratch AS artifacts
+COPY --from=build /src/.next/static /static
+COPY --from=build /src/.next/server/app /pages

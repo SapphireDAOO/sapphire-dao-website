@@ -1,0 +1,53 @@
+name: reproducible-build
+
+on:
+  push:
+    tags: ["v*"]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0 # scripts/reproduce.sh needs the commit, not a shallow tree
+
+      - name: Build twice and compare
+        run: |
+          ./scripts/reproduce.sh "$GITHUB_SHA"
+          mv dist/build-manifest.json /tmp/first.json
+          ./scripts/reproduce.sh "$GITHUB_SHA"
+
+          first=$(jq -r .rootHash /tmp/first.json)
+          second=$(jq -r .rootHash dist/build-manifest.json)
+          echo "run 1: $first"
+          echo "run 2: $second"
+          if [ "$first" != "$second" ]; then
+            echo "::error::build is not reproducible - root hashes differ"
+            diff <(jq -S . /tmp/first.json) <(jq -S . dist/build-manifest.json) | head -50
+            exit 1
+          fi
+          echo "ROOT_HASH=$first" >> "$GITHUB_ENV"
+
+      - name: Summary
+        run: |
+          {
+            echo "### Reproducible build"
+            echo
+            echo "- commit: \`$GITHUB_SHA\`"
+            echo "- root hash: \`$ROOT_HASH\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: build-manifest
+          path: dist/build-manifest.json
+
+      - name: Attach manifest to release
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${GITHUB_REF_NAME}" dist/build-manifest.json --clobber

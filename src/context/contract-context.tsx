@@ -18,7 +18,8 @@ export interface ContractContextData {
   createInvoice: (
     invoicePrice: bigint,
     storageRef?: string,
-    share?: boolean
+    share?: boolean,
+    holdPeriodSeconds?: number
   ) => Promise<bigint | undefined>;
   makeInvoicePayment: (
     amount: bigint,
@@ -42,7 +43,6 @@ export interface ContractContextData {
   transferOwnership: (address: Address) => Promise<boolean>;
   setDecisionWindow: (newWindow: bigint) => Promise<boolean>;
   setValidPeriod: (newValidPeriod: bigint) => Promise<boolean>;
-  setDefaultHoldPeriod: (newDefaultHoldPeriod: bigint) => Promise<boolean>;
   setFee: (newFee: bigint) => Promise<boolean>;
   getIntermediatedInvoiceData: (
     invoiceId: bigint,
@@ -82,7 +82,6 @@ export const contractContextDefaults: ContractContextData = {
   setFeeReceiversAddress: async () => Promise.resolve(false),
   setDecisionWindow: async () => Promise.resolve(false),
   setValidPeriod: async () => Promise.resolve(false),
-  setDefaultHoldPeriod: async () => Promise.resolve(false),
   setMarketplaceAddress: async () => Promise.resolve(""),
   setFee: async () => Promise.resolve(false),
   setMinimumInvoiceValue: async () => Promise.resolve(false),

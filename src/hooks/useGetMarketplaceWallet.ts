@@ -10,12 +10,12 @@ export const useGetMarketplaceWallet = () => {
   // Get the current chain ID using the wagmi `useChainId` hook
   const chainId = useChainId() || BASE_SEPOLIA;
 
-  // Use the wagmi `useReadContract` hook to interact with the `getMarketplace` function of the PaymentProcessor contract
+  // Use the wagmi `useReadContract` hook to interact with the `getIntermediatedPlatformsOperator` function of the PaymentProcessor contract
   const { data, refetch, isLoading } = useViemReadContract<string>({
     abi: PaymentProcessorStorage,
     chainId: baseSepolia.id,
     address: PAYMENT_PROCESSOR_STORAGE[chainId],
-    functionName: "getMarketplace",
+    functionName: "getIntermediatedPlatformsOperator",
   });
 
   return { data, refetch, isLoading };

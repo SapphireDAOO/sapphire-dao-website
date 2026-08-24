@@ -63,10 +63,13 @@ export const METRICS_SNAPSHOT_QUERY = `
     }
     # Invoices paid per day, split by processor (SIMPLE = website,
     # ADVANCED = marketplace). totalActivity is a cumulative count, so per-day
-    # activity is the diff between consecutive daily buckets.
+    # activity is the diff between consecutive daily buckets — fetched from
+    # genesis (no lower bound) so the earliest bucket's cumulative is that
+    # day's true count and the diff baseline is never truncated. Buckets only
+    # exist on days with activity, so this stays small.
     invoiceActivityBuckets: invoiceActivityStats_collection(
       interval: "day"
-      where: { timestamp_gte: $sixtyDaysAgo, timestamp_lte: $now }
+      where: { timestamp_lte: $now }
       first: 1000
       current: include
     ) {

@@ -13,38 +13,53 @@ export const DEFAULT_QUERY_GC_TIME_MS = ONE_DAY_MS;
 export const DEFAULT_BLOCK_POLLING_INTERVAL_MS = 12 * ONE_SECOND_MS;
 
 export const PAYMENT_PROCESSOR_STORAGE: Record<number, Address> = {
-  [BASE_SEPOLIA]: "0x74b1301b8a1DBdF0318bC81dD8c1b1375d0BF9AF",
-  [LOCALHOST]: "0x0165878A594ca255338adfa4d48449f69242Eb8F",
+  [BASE_SEPOLIA]: "0xAc7Df32b61Ba0b2F4646ee1505980b256dA8e582",
+  [LOCALHOST]: "0x92D4ABA7F268Fc8E43f22d521c836bd4696a564D",
 };
 
 export const SIMPLE_PAYMENT_PROCESSOR: Record<number, Address> = {
-  [BASE_SEPOLIA]: "0xC785B7f52F591BF0ce80beE45B09e1cf0A972957",
-  [LOCALHOST]: "0x2279B7A0a67DB372996a5FaB50D91eAA73d2eBe6",
+  [BASE_SEPOLIA]: "0xa74083E440532C2E7d3D82Ca5EE1b4d944d5154B",
+  [LOCALHOST]: "0x3eFd0810C07232Bc4B52c1A812AfB8b4747090A1",
 };
 
 export const INTERMEDIATED_PAYMENT_PROCESSOR: Record<number, Address> = {
-  [BASE_SEPOLIA]: "0x0EecA9DE862fDFF9147aa1c55f186BB3881478E7",
-  [LOCALHOST]: "0x610178dA211FEF7D417bC0e6FeD39F05609AD788",
+  [BASE_SEPOLIA]: "0xBD1E22D0E01e941e0e730335C0D025e4a46c888a",
+  [LOCALHOST]: "0x60097C87D117639dE03D8871496A61d530030BA3",
 };
 
 export const MULTISIG_CONTRACT: Record<number, Address> = {
-  [BASE_SEPOLIA]: "0xA42498b1a91cB61B5303Ec0432f27b87B8255B4e",
-  [LOCALHOST]: "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+  [BASE_SEPOLIA]: "0xF859791dde7C3a121506f3f0747A067e3B70c86A",
+  [LOCALHOST]: "0xA4191f3b63b758e54F9dA05f651e54343D6e0651",
 };
 
 export const NOTES_CONTRACT: Record<number, Address> = {
-  [BASE_SEPOLIA]: "0x38844FD5258943F0Af0db706CeC75a9233140087",
-  [LOCALHOST]: "0xa513E6E4b8f2a923D98304ec87F64353C4D5C853",
+  [BASE_SEPOLIA]: "0x092722fF05A2Fe1dFeA4b8C3E6CEE3dc868D7be2",
+  [LOCALHOST]: "0xaaC13d0c17962f488daceD051AEd81F8646436f7",
 };
 
 export const MOCK_USDC_CONTRACT: Record<number, Address> = {
   [BASE_SEPOLIA]: "0x9652aF270a39E8F63Fa801F6293DEb944FdEB5B9",
-  [LOCALHOST]: "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
+  [LOCALHOST]: "0x30f8a7DDde66968ab043d65B6f82C1CD10C0465F",
+};
+
+// Wrapped native token used for fee approvals on native payments. Must match
+// the WETH the payment processors were constructed with (`weth()`); verified
+// against the deployed Base Sepolia processor.
+export const WETH_CONTRACT: Record<number, Address> = {
+  [BASE_SEPOLIA]: "0x4200000000000000000000000000000000000006",
+  [LOCALHOST]: "0x4a1E2AB38b64a82ef43fe3fD5921E915BfA4920c",
+};
+
+// Pulls fee tokens out of stealth fee receivers via `transferFrom`; each
+// stealth account grants it a max approval when it is created.
+export const SWEEPER_CONTRACT: Record<number, Address> = {
+  [BASE_SEPOLIA]: "0x732106c5cEBdD28B752F8e288413237c14f5e378",
+  [LOCALHOST]: "0x42fd5c29E76a40E52bD036dB2362BB6c288C7F8A",
 };
 
 export const MOCK_WBTC_CONTRACT: Record<number, Address> = {
   [BASE_SEPOLIA]: "0xc3a9d881A859EC02433eb0b6FaDC79F5678627b9",
-  [LOCALHOST]: "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0",
+  [LOCALHOST]: "0x9Ddb55dd822fD7A2f5E47F7560e93EFFb5ac6289",
 };
 
 export const ZERO_ADDRESS: Address =
@@ -136,7 +151,7 @@ export const NOTES_SIGNER_ADDRESS =
 export const THE_GRAPH_API_URL: Record<number, string> = {
   [BASE_SEPOLIA]:
     "https://gateway.thegraph.com/api/deployments/id/Qme7ZmesfZii8iSBho8YRwHCifZEdHjpEQiNeVG1UUiFrU",
-  [LOCALHOST]: "http://localhost:8000/subgraphs/name/payment-processor",
+  [LOCALHOST]: "http://localhost:8000/subgraphs/name/payment-processor-indexer",
 };
 
 // review errors and seperate using contract address as key(maybe)
@@ -166,6 +181,14 @@ export const errorMessages: ErrorMessages = {
   "0x020175b1":
     "SellerCannotPayOwnedInvoice: The seller cannot pay their own invoice.",
   "0xc325ae33": "TaskNotFound: No automation task found for this invoice.",
+  "0x1735eabe":
+    "InvalidFeeAuthorization: The fee receiver was not authorized by the fee signer.",
+  "0xd200485c": "InvalidFeeReceiver: The fee receiver address is invalid.",
+  "0xecb8b30d":
+    "UnexpectedNativeTransfer: The contract received native currency outside a fee wrap.",
+  "0x705a7153":
+    "HoldPeriodCanNotBeZero: The hold period must be greater than zero.",
+  "0x20d80102": "InvalidFeeSigner: The fee signer address is invalid.",
   // IntermediatedPaymentProcessor errors
   "0xb12e2421":
     "BuyerCannotBeSeller: The buyer and seller cannot be the same address.",

@@ -6,7 +6,7 @@ import CryptoJS from "crypto-js";
  * Handles bigint safely by converting to string.
  */
 const generateSecureLink = (invoiceId: bigint | number | string | undefined) => {
-  const secretKey = process.env.NEXT_PUBLIC_SECRET_KEY;
+  const secretKey = process.env.SECRET_KEY;
   if (!secretKey || !invoiceId) return "";
 
   try {

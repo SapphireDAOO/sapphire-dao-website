@@ -14,14 +14,15 @@ let cachedClientKey = "";
 const normalizePrivateKey = (value: string) =>
   value.startsWith("0x") ? value : `0x${value}`;
 
+// Server-only: set BASE_SEPOLIA_RPC_URL (no NEXT_PUBLIC_ prefix) so a keyed
+// RPC endpoint never gets inlined into the client bundle.
 const getRpcUrl = () =>
   process.env.BASE_SEPOLIA_RPC_URL ||
-  process.env.NEXT_PUBLIC_BASE_SEPOLIA_RPC_URL ||
   "https://base-sepolia-rpc.publicnode.com";
 
 const createNotesClients = () => {
   const privateKey =
-    process.env.NOTES_SIGNER_PRIVATE_KEY || process.env.NOTES_PRIVATE_KEY;
+    process.env.NOTES_SIGNER_PRIVATE_KEY || process.env.NOTES_SIGNER;
 
   if (!privateKey) {
     throw new Error("Missing NOTES_SIGNER_PRIVATE_KEY");
@@ -42,7 +43,7 @@ const createNotesClients = () => {
 
 export const getNotesClients = () => {
   const privateKey =
-    process.env.NOTES_SIGNER_PRIVATE_KEY || process.env.NOTES_PRIVATE_KEY;
+    process.env.NOTES_SIGNER_PRIVATE_KEY || process.env.NOTES_SIGNER;
   const rpcUrl = getRpcUrl();
   const clientKey = `${rpcUrl}:${privateKey ?? ""}`;
 

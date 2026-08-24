@@ -23,8 +23,8 @@ export const userInvoicesPageQuery = `
         id
         invoiceNonce
         price
-        invalidateAt
         expiresAt
+        sellerActionDeadline
         state
         releaseAt
         lastActionTime
@@ -44,8 +44,8 @@ export const userInvoicesPageQuery = `
         id
         invoiceNonce
         price
-        invalidateAt
         expiresAt
+        sellerActionDeadline
         state
         releaseAt
         lastActionTime
@@ -121,8 +121,8 @@ export const invoiceQuery = `query (
       id
       invoiceId: invoiceNonce
       price
-      invalidateAt
       expiresAt
+      sellerActionDeadline
       state
       releaseAt
       lastActionTime
@@ -142,8 +142,8 @@ export const invoiceQuery = `query (
       id
       invoiceId: invoiceNonce
       price
-      invalidateAt
       expiresAt
+      sellerActionDeadline
       state
       releaseAt
       lastActionTime

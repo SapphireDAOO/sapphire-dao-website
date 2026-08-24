@@ -10,6 +10,7 @@ import { client } from "@/services/graphql/client";
 import { intermediatedPaymentProcessor } from "@/abis/IntermediatedPaymentProcessor";
 import { WagmiClient } from "./types";
 import { PaymentProcessorStorage } from "@/abis/PaymentProcessorStorage";
+import { requestFeeReceiver } from "../feeReceiver";
 
 export const payIntermediatedInvoice = async (
   { walletClient, publicClient }: WagmiClient,
@@ -58,24 +59,43 @@ export const payIntermediatedInvoice = async (
       }
     }
 
-    const txData =
-      paymentType === "paySingleInvoice"
+    let txData: `0x${string}`;
+    if (paymentType === "paySingleInvoice") {
+      // Paying fixes the fee terms: the server hands out a one-time stealth
+      // fee receiver plus the fee signer's authorization over it.
+      const feeAuthorization = await requestFeeReceiver({
+        invoiceId,
+        chainId,
+        processor: "intermediated",
+        paymentToken,
+      });
+      if (!feeAuthorization) {
+        toast.error("Unable to prepare the fee receiver. Please try again.");
+        return false;
+      }
+      txData = encodeFunctionData({
+        abi: intermediatedPaymentProcessor,
+        functionName: "payInvoice",
+        args: [
+          invoiceId,
+          paymentToken,
+          feeAuthorization.feeReceiver,
+          feeAuthorization.signature,
+        ],
+      });
+    } else {
+      txData = isNativePayment
         ? encodeFunctionData({
             abi: intermediatedPaymentProcessor,
-            functionName: "payInvoice",
-            args: [invoiceId, paymentToken],
+            functionName: "payMetaInvoiceWithValue",
+            args: [invoiceId],
           })
-        : isNativePayment
-          ? encodeFunctionData({
-              abi: intermediatedPaymentProcessor,
-              functionName: "payMetaInvoiceWithValue",
-              args: [invoiceId],
-            })
-          : encodeFunctionData({
-              abi: intermediatedPaymentProcessor,
-              functionName: "payMetaInvoice",
-              args: [invoiceId, paymentToken],
-            });
+        : encodeFunctionData({
+            abi: intermediatedPaymentProcessor,
+            functionName: "payMetaInvoice",
+            args: [invoiceId, paymentToken],
+          });
+    }
 
     const tx = await walletClient?.sendTransaction({
       chain: getChainById(chainId),
@@ -123,7 +143,7 @@ export const setMarketplaceAddress = async (
       to: PAYMENT_PROCESSOR_STORAGE[chainId],
       data: encodeFunctionData({
         abi: PaymentProcessorStorage,
-        functionName: "setMarketplaceAddress",
+        functionName: "setIntermediatedPlatformsOperator",
         args: [marketplaceAddress],
       }),
       gasPrice,

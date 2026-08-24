@@ -299,47 +299,62 @@ const buildEscrowSeries = (
     .map(([timestamp, balanceUsd]) => ({ timestamp, balanceUsd }));
 };
 
+// The Invoice Activity card is fixed to a rolling 7-day view; the series is
+// zero-filled so every calendar day in that window is present even when the
+// subgraph has no bucket for it (buckets only exist on days with activity).
+const INVOICE_ACTIVITY_WINDOW_DAYS = 7;
+
 /**
- * Daily invoice-paid activity split by processor (oldest → newest). The
- * subgraph reports `totalActivity` as a cumulative count per processor, so the
- * per-day count is the diff between consecutive daily buckets for that type
- * (the earliest fetched bucket carries the full cumulative — it falls outside
- * the chart's visible window).
+ * Daily invoice-paid activity split by processor over the trailing 7 calendar
+ * days (oldest → newest), zero-filled for days without activity. The subgraph
+ * reports `totalActivity` as a cumulative count per processor, so the per-day
+ * count is the diff between consecutive daily buckets for that type. Buckets
+ * are fetched from genesis (not just the window) so the earliest bucket's
+ * cumulative *is* that day's count; buckets before the window only seed the
+ * diff baseline.
  */
 const buildInvoiceActivitySeries = (
   buckets: InvoiceActivityBucket[],
+  dayMark: number,
 ): InvoiceActivityPoint[] => {
+  const windowStart =
+    dayMark - (INVOICE_ACTIVITY_WINDOW_DAYS - 1) * SECONDS_PER_DAY;
+
+  const perDay = new Map<number, InvoiceActivityPoint>();
+  for (let ts = windowStart; ts <= dayMark; ts += SECONDS_PER_DAY) {
+    perDay.set(ts, { timestamp: ts, website: 0, marketplace: 0 });
+  }
+
   const byType: Record<InvoiceType, { ts: number; cumulative: number }[]> = {
     SIMPLE: [],
     ADVANCED: [],
   };
   for (const b of buckets) {
     if (b.invoiceType !== "SIMPLE" && b.invoiceType !== "ADVANCED") continue;
+    // An empty current bucket comes back with a null timestamp (see the
+    // activeUserStats comment in the query); ts=0 would sort first and poison
+    // the cumulative-diff baseline.
+    if (!b.timestamp) continue;
     byType[b.invoiceType].push({
       ts: tsToSeconds(b.timestamp),
       cumulative: Number(b.totalActivity),
     });
   }
 
-  const perDay = new Map<number, { website: number; marketplace: number }>();
   const accumulate = (type: InvoiceType, key: "website" | "marketplace") => {
     const series = byType[type].sort((a, b) => a.ts - b.ts);
     let prior = 0;
-    for (let i = 0; i < series.length; i++) {
-      const { ts, cumulative } = series[i];
-      const delta = i === 0 ? cumulative : cumulative - prior;
+    for (const { ts, cumulative } of series) {
+      const delta = cumulative - prior;
       prior = cumulative;
-      const entry = perDay.get(ts) ?? { website: 0, marketplace: 0 };
-      entry[key] += delta;
-      perDay.set(ts, entry);
+      const entry = perDay.get(ts);
+      if (entry) entry[key] += delta;
     }
   };
   accumulate("SIMPLE", "website");
   accumulate("ADVANCED", "marketplace");
 
-  return [...perDay.entries()]
-    .sort(([a], [b]) => a - b)
-    .map(([timestamp, counts]) => ({ timestamp, ...counts }));
+  return [...perDay.values()];
 };
 
 /** Σ per-day `newUsers` for a role within [start, end]. */
@@ -549,6 +564,7 @@ export const fetchMetricsSnapshot = async (
     escrowSeries: buildEscrowSeries(data.escrowBuckets, meta),
     invoiceActivitySeries: buildInvoiceActivitySeries(
       data.invoiceActivityBuckets,
+      bounds.dayMark,
     ),
     userMetrics: buildUserMetrics(
       data.newUserBuckets,

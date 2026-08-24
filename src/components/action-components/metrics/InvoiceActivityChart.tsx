@@ -47,6 +47,12 @@ export function InvoiceActivityChart({
     [series],
   );
 
+  // The series is zero-filled to a full window, so "no data" means every
+  // point is zero rather than an empty array.
+  const hasActivity = data.some(
+    (point) => point.website > 0 || point.marketplace > 0,
+  );
+
   return (
     <Card className="bg-card border-border">
       <CardHeader className="pb-2">
@@ -58,7 +64,7 @@ export function InvoiceActivityChart({
         <div className="h-[220px] w-full">
           {isLoading ? (
             <div className="h-full w-full animate-pulse rounded-md bg-muted" />
-          ) : data.length === 0 ? (
+          ) : !hasActivity ? (
             <div className="flex h-full w-full items-center justify-center text-sm text-muted-foreground">
               No invoice activity yet.
             </div>
