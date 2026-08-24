@@ -104,7 +104,15 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
     : undefined;
   const { data: fetchedInvoice } = useGetInvoiceData(invoiceId);
   const { notes: invoiceNotes } = useInvoiceNotes(invoiceId);
-  const contractAddress = SIMPLE_PAYMENT_PROCESSOR[chain?.id || BASE_SEPOLIA];
+  // wagmi reports no chain during SSR, so the server falls back to Base Sepolia
+  // while the browser resolves the connected chain (e.g. localhost). Rendering
+  // that address straight away makes the two HTML trees disagree and React
+  // throws a hydration mismatch, so resolve it only after mount.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  const contractAddress = mounted
+    ? SIMPLE_PAYMENT_PROCESSOR[chain?.id || BASE_SEPOLIA]
+    : undefined;
 
   const {
     invoiceData,
