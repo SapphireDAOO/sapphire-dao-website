@@ -41,7 +41,7 @@ export type CreatedSimpleInvoice = {
   invoiceId: bigint;
   invoiceNonce?: bigint;
   createdAt?: bigint;
-  invalidateAt?: bigint;
+  expiresAt?: bigint;
   price?: bigint;
   seller?: Address;
   txHash: Hex;
@@ -109,7 +109,7 @@ export const createInvoice = async (
           invoice?: {
             invoiceNonce?: bigint;
             createdAt?: bigint | number;
-            invalidateAt?: bigint | number;
+            expiresAt?: bigint | number;
             price?: bigint;
             seller?: Address;
           };
@@ -126,7 +126,7 @@ export const createInvoice = async (
         invoiceId: decoded.args.invoiceId,
         invoiceNonce: decoded.args.invoice?.invoiceNonce,
         createdAt: toBigInt(decoded.args.invoice?.createdAt),
-        invalidateAt: toBigInt(decoded.args.invoice?.invalidateAt),
+        expiresAt: toBigInt(decoded.args.invoice?.expiresAt),
         price: decoded.args.invoice?.price,
         seller: decoded.args.invoice?.seller,
         txHash: tx,

@@ -62,9 +62,9 @@ export function InvoiceCard({
       (invoice.status === "AWAITING PAYMENT" ||
         invoice.status === "CREATED" ||
         invoice.status === "INITIATED") &&
-      Boolean(invoice.invalidateAt)
+      Boolean(invoice.expiresAt)
     );
-  }, [invoice.status, invoice.releaseAt, invoice.paidAt, invoice.invalidateAt]);
+  }, [invoice.status, invoice.releaseAt, invoice.paidAt, invoice.expiresAt]);
 
   const tick = useSharedSecondTicker(shouldTrackCountdown);
 
@@ -80,14 +80,14 @@ export function InvoiceCard({
       );
     }
     if (invoice.status === "PAID" && invoice.paidAt) {
-      return timeLeft(Number(invoice.expiresAt) ?? 0, 0);
+      return timeLeft(Number(invoice.sellerActionDeadline) ?? 0, 0);
     }
     if (
       invoice.status === "AWAITING PAYMENT" ||
       invoice.status === "CREATED" ||
       invoice.status === "INITIATED"
     ) {
-      return timeLeft(Number(invoice.invalidateAt) ?? 0, 0);
+      return timeLeft(Number(invoice.expiresAt) ?? 0, 0);
     }
 
     return undefined;
@@ -97,8 +97,8 @@ export function InvoiceCard({
     invoice.status,
     invoice.paidAt,
     invoice.releaseAt,
+    invoice.sellerActionDeadline,
     invoice.expiresAt,
-    invoice.invalidateAt,
   ]);
 
   const paymentUrl = useSecureLink(
@@ -168,12 +168,12 @@ export function InvoiceCard({
       invoice.status === "INITIATED"
     ) {
       return Boolean(
-        invoice.invalidateAt &&
-        Date.now() > Number(invoice.invalidateAt) * 1000,
+        invoice.expiresAt &&
+        Date.now() > Number(invoice.expiresAt) * 1000,
       );
     }
     return invoice.status === "EXPIRED";
-  }, [invoice.status, invoice.invalidateAt]);
+  }, [invoice.status, invoice.expiresAt]);
 
   const displayStatus = isExpired
     ? "EXPIRED"

@@ -163,10 +163,13 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
   // Hold period in seconds — prefer the on-chain read, fall back to the
   // subgraph/app cache value.
   const holdPeriodSeconds = useMemo(() => {
+    // The contract struct calls this escrowHoldPeriod; holdPeriod is kept as a
+    // fallback for invoices cached from the pre-rename shape.
     const fetched = fetchedInvoice as
-      | { holdPeriod?: number | bigint }
+      | { escrowHoldPeriod?: number | bigint; holdPeriod?: number | bigint }
       | undefined;
-    const raw = fetched?.holdPeriod ?? invoiceLike?.holdPeriod;
+    const raw =
+      fetched?.escrowHoldPeriod ?? fetched?.holdPeriod ?? invoiceLike?.holdPeriod;
     if (raw === undefined || raw === null) return undefined;
     const seconds = Number(raw);
     return Number.isFinite(seconds) ? seconds : undefined;

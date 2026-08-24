@@ -68,7 +68,7 @@ type LogOp =
       amountPaid?: bigint;
       refundedAmountPaid?: bigint;
       buyer?: string;
-      expiresAt?: bigint;
+      sellerActionDeadline?: bigint;
       /** Synthetic buyer-side invoice to insert when the id is unknown. */
       fallback?: Invoice;
     };
@@ -148,8 +148,8 @@ const applyOps = (
         updatedFields.buyer = op.buyer;
       }
 
-      if (op.expiresAt !== undefined) {
-        updatedFields.expiresAt = op.expiresAt.toString();
+      if (op.sellerActionDeadline !== undefined) {
+        updatedFields.sellerActionDeadline = op.sellerActionDeadline.toString();
       }
 
       updatedFields.paymentTxHash = op.txHash ?? existingInvoice.paymentTxHash;
@@ -224,7 +224,7 @@ export function useSimpleInvoiceEvents({
                 invoiceNonce?: bigint;
                 buyer?: string;
                 amountPaid?: bigint;
-                expiresAt?: bigint;
+                sellerActionDeadline?: bigint;
                 invoice?: {
                   invoiceNonce?: bigint;
                   buyer?: string;
@@ -234,8 +234,8 @@ export function useSimpleInvoiceEvents({
                   amountPaid?: bigint;
                   createdAt?: bigint;
                   paidAt?: bigint;
-                  invalidateAt?: bigint;
                   expiresAt?: bigint;
+                  sellerActionDeadline?: bigint;
                 };
               }
             | undefined;
@@ -277,8 +277,8 @@ export function useSimpleInvoiceEvents({
                 buyer: invoice.buyer ?? "",
                 seller: invoice.seller ?? "",
                 source: "Simple",
-                invalidateAt: invoice.invalidateAt?.toString(),
                 expiresAt: invoice.expiresAt?.toString(),
+                sellerActionDeadline: invoice.sellerActionDeadline?.toString(),
                 history: appendHistoryEntry(undefined, "CREATED", historyTime),
               } as Invoice,
             });
@@ -315,7 +315,7 @@ export function useSimpleInvoiceEvents({
                 buyer: args?.buyer ?? "",
                 seller: "",
                 source: "Simple",
-                expiresAt: args?.expiresAt?.toString(),
+                sellerActionDeadline: args?.sellerActionDeadline?.toString(),
                 paymentTxHash: log.transactionHash ?? undefined,
                 history: appendHistoryEntry(undefined, "PAID", batchTime),
               } as Invoice;
@@ -331,7 +331,7 @@ export function useSimpleInvoiceEvents({
             amountPaid: args?.amountPaid,
             refundedAmountPaid: args?.invoice?.amountPaid,
             buyer: args?.buyer,
-            expiresAt: args?.expiresAt,
+            sellerActionDeadline: args?.sellerActionDeadline,
             fallback,
           });
         }
