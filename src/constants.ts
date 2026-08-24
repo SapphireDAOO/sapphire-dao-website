@@ -13,27 +13,27 @@ export const DEFAULT_QUERY_GC_TIME_MS = ONE_DAY_MS;
 export const DEFAULT_BLOCK_POLLING_INTERVAL_MS = 12 * ONE_SECOND_MS;
 
 export const PAYMENT_PROCESSOR_STORAGE: Record<number, Address> = {
-  [BASE_SEPOLIA]: "0x74b1301b8a1DBdF0318bC81dD8c1b1375d0BF9AF",
+  [BASE_SEPOLIA]: "0xAc7Df32b61Ba0b2F4646ee1505980b256dA8e582",
   [LOCALHOST]: "0x92D4ABA7F268Fc8E43f22d521c836bd4696a564D",
 };
 
 export const SIMPLE_PAYMENT_PROCESSOR: Record<number, Address> = {
-  [BASE_SEPOLIA]: "0xC785B7f52F591BF0ce80beE45B09e1cf0A972957",
+  [BASE_SEPOLIA]: "0xa74083E440532C2E7d3D82Ca5EE1b4d944d5154B",
   [LOCALHOST]: "0x3eFd0810C07232Bc4B52c1A812AfB8b4747090A1",
 };
 
 export const INTERMEDIATED_PAYMENT_PROCESSOR: Record<number, Address> = {
-  [BASE_SEPOLIA]: "0x0EecA9DE862fDFF9147aa1c55f186BB3881478E7",
+  [BASE_SEPOLIA]: "0xBD1E22D0E01e941e0e730335C0D025e4a46c888a",
   [LOCALHOST]: "0x60097C87D117639dE03D8871496A61d530030BA3",
 };
 
 export const MULTISIG_CONTRACT: Record<number, Address> = {
-  [BASE_SEPOLIA]: "0xA42498b1a91cB61B5303Ec0432f27b87B8255B4e",
+  [BASE_SEPOLIA]: "0xF859791dde7C3a121506f3f0747A067e3B70c86A",
   [LOCALHOST]: "0xA4191f3b63b758e54F9dA05f651e54343D6e0651",
 };
 
 export const NOTES_CONTRACT: Record<number, Address> = {
-  [BASE_SEPOLIA]: "0x38844FD5258943F0Af0db706CeC75a9233140087",
+  [BASE_SEPOLIA]: "0x092722fF05A2Fe1dFeA4b8C3E6CEE3dc868D7be2",
   [LOCALHOST]: "0xaaC13d0c17962f488daceD051AEd81F8646436f7",
 };
 
@@ -43,8 +43,8 @@ export const MOCK_USDC_CONTRACT: Record<number, Address> = {
 };
 
 // Wrapped native token used for fee approvals on native payments. Must match
-// the WETH the payment processors were constructed with (`weth()`).
-// TODO: replace the Base Sepolia placeholder once the new contracts deploy.
+// the WETH the payment processors were constructed with (`weth()`); verified
+// against the deployed Base Sepolia processor.
 export const WETH_CONTRACT: Record<number, Address> = {
   [BASE_SEPOLIA]: "0x4200000000000000000000000000000000000006",
   [LOCALHOST]: "0x4a1E2AB38b64a82ef43fe3fD5921E915BfA4920c",
@@ -52,9 +52,8 @@ export const WETH_CONTRACT: Record<number, Address> = {
 
 // Pulls fee tokens out of stealth fee receivers via `transferFrom`; each
 // stealth account grants it a max approval when it is created.
-// TODO: replace the Base Sepolia placeholder once the new contracts deploy.
 export const SWEEPER_CONTRACT: Record<number, Address> = {
-  [BASE_SEPOLIA]: "0xE72290e8628Cf2B6B8c321F6c688EF02332230be",
+  [BASE_SEPOLIA]: "0x732106c5cEBdD28B752F8e288413237c14f5e378",
   [LOCALHOST]: "0x42fd5c29E76a40E52bD036dB2362BB6c288C7F8A",
 };
 
