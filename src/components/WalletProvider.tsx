@@ -7,7 +7,7 @@ import {
   useState,
 } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useAccount, usePublicClient, useWalletClient } from "wagmi";
+import { useAccount, usePublicClient } from "wagmi";
 import {
   ContractContext,
   type ContractContextData,
@@ -34,6 +34,7 @@ import {
 import { Address } from "viem";
 import { WagmiClient } from "@/services/blockchain/types";
 import { INTERMEDIATED_PAYMENT_PROCESSOR, BASE_SEPOLIA } from "@/constants";
+import { useHintedWalletClient } from "@/components/wallet-hint/useHintedWalletClient";
 
 const INVOICE_REFRESH_DELAY_MS = 5_000;
 
@@ -44,7 +45,7 @@ type Props = {
 const WalletProvider = ({ children }: Props) => {
   const { chain, address } = useAccount();
   const chainId = chain?.id || BASE_SEPOLIA;
-  const { data: walletClient } = useWalletClient();
+  const { data: walletClient } = useHintedWalletClient();
   const publicClient = usePublicClient();
   const queryClient = useQueryClient();
 

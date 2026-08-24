@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { formatUnits, parseUnits, type Address, type Log } from "viem";
-import { usePublicClient, useWalletClient } from "wagmi";
+import { usePublicClient } from "wagmi";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,7 @@ import type { SweepPlan, TokenFeeSummary } from "@/model/fees";
 import { planSweep } from "@/services/fees/planSweep";
 import { proposeSweep } from "@/services/blockchain/Sweeper";
 import { formatAddress } from "./decodeCalldata";
+import { useHintedWalletClient } from "@/components/wallet-hint/useHintedWalletClient";
 
 const ADDRESS_PATTERN = /^0x[0-9a-fA-F]{40}$/;
 
@@ -36,7 +37,7 @@ export default function SweepForm({
   isSigner,
   onProposed,
 }: Props) {
-  const { data: walletClient } = useWalletClient();
+  const { data: walletClient } = useHintedWalletClient();
   const publicClient = usePublicClient({ chainId });
 
   const [tokenId, setTokenId] = useState("");

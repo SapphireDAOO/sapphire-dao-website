@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
-import { useAccount, useChainId, useWalletClient, usePublicClient } from "wagmi";
+import { useAccount, useChainId, usePublicClient } from "wagmi";
 import {
   Card,
   CardContent,
@@ -25,6 +25,7 @@ import { useGetDecisionWindow } from "@/hooks/useGetDecisionWindow";
 import { useGetValidPeriod } from "@/hooks/useGetValidPeriod";
 import { proposeMultiSigTransaction } from "@/services/blockchain/MultiSig";
 import AdminSettingRow from "./AdminSettingRow";
+import { useHintedWalletClient } from "@/components/wallet-hint/useHintedWalletClient";
 
 const fn1 = (name: string, type: string) =>
   [{ name, type: "function" as const, inputs: [{ name: "v", type, internalType: type }], outputs: [], stateMutability: "nonpayable" as const }] as const;
@@ -35,7 +36,7 @@ const truncateAddress = (address: string | undefined) =>
 const AdminCard = () => {
   useAccount();
   const chainId = useChainId() || BASE_SEPOLIA;
-  const { data: walletClient } = useWalletClient();
+  const { data: walletClient } = useHintedWalletClient();
   const publicClient = usePublicClient({ chainId });
 
   const { isLoading: isOwnerLoading } = useGetOwner();

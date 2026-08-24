@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { type Log } from "viem";
 import { useAccount, useChainId } from "wagmi";
-import { useWalletClient, usePublicClient } from "wagmi";
+import { usePublicClient } from "wagmi";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,6 +13,7 @@ import { BASE_SEPOLIA } from "@/constants";
 import { GOVERNABLE_CONTRACTS, GovernableFunction, encodeGovernableCall } from "./governableFunctions";
 import { proposeMultiSigTransaction } from "@/services/blockchain/MultiSig";
 import { toast } from "sonner";
+import { useHintedWalletClient } from "@/components/wallet-hint/useHintedWalletClient";
 
 interface ProposeFormProps {
   onSuccess?: () => void;
@@ -22,7 +23,7 @@ interface ProposeFormProps {
 export default function ProposeForm({ onSuccess, onApplyLogs }: ProposeFormProps) {
   const { address } = useAccount();
   const chainId = useChainId() || BASE_SEPOLIA;
-  const { data: walletClient } = useWalletClient();
+  const { data: walletClient } = useHintedWalletClient();
   const publicClient = usePublicClient({ chainId });
 
   const [contractKey, setContractKey] = useState("");

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useAccount, useChainId, useWalletClient, usePublicClient } from "wagmi";
+import { useAccount, useChainId, usePublicClient } from "wagmi";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -25,6 +25,7 @@ import {
 import { Address, encodeFunctionData } from "viem";
 import { proposeMultiSigTransaction } from "@/services/blockchain/MultiSig";
 import { formatAddress } from "./decodeCalldata";
+import { useHintedWalletClient } from "@/components/wallet-hint/useHintedWalletClient";
 
 const CONTRACT_DESCRIPTIONS = [
   {
@@ -53,7 +54,7 @@ const fn1 = (name: string, type: string) =>
 export default function MultiSigPage() {
   const { address } = useAccount();
   const chainId = useChainId() || BASE_SEPOLIA;
-  const { data: walletClient } = useWalletClient();
+  const { data: walletClient } = useHintedWalletClient();
   const publicClient = usePublicClient({ chainId });
   const [showContracts, setShowContracts] = useState(false);
   const contractAddress = MULTISIG_CONTRACT[chainId];

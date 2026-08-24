@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useAccount, useChainId, useWalletClient, usePublicClient } from "wagmi";
+import { useAccount, useChainId, usePublicClient } from "wagmi";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -26,6 +26,7 @@ import {
   formatAddress,
   formatTimestamp,
 } from "./decodeCalldata";
+import { useHintedWalletClient } from "@/components/wallet-hint/useHintedWalletClient";
 
 const STATUS_BADGE: Record<string, string> = {
   PROPOSED: "bg-yellow-100 text-yellow-800",
@@ -68,7 +69,7 @@ export default function TransactionDetail({
 }: Props) {
   const { address } = useAccount();
   const chainId = useChainId() || BASE_SEPOLIA;
-  const { data: walletClient } = useWalletClient();
+  const { data: walletClient } = useHintedWalletClient();
   const publicClient = usePublicClient({ chainId });
 
   const [isLoading, setIsLoading] = useState("");
