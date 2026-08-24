@@ -224,10 +224,15 @@ export const sellerAction = async (
         toast.error("Unable to prepare the fee receiver. Please try again.");
         return false;
       }
+
       data = encodeFunctionData({
         abi: paymentProcessor,
         functionName: "acceptPayment",
-        args: [invoiceId, feeAuthorization.feeReceiver, feeAuthorization.signature],
+        args: [
+          invoiceId,
+          feeAuthorization.feeReceiver,
+          feeAuthorization.signature,
+        ],
       });
     } else {
       data = encodeFunctionData({

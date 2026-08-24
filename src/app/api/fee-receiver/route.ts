@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { Address } from "viem";
 import {
   delegateAndApprove,
+  FeeReceiverUnavailableError,
   generateStealthFeeReceiver,
   getProcessorAddress,
   resolveApprovalToken,
@@ -65,7 +66,10 @@ export async function POST(request: Request) {
       );
     }
 
-    if (body.paymentToken !== undefined && !ADDRESS_PATTERN.test(body.paymentToken)) {
+    if (
+      body.paymentToken !== undefined &&
+      !ADDRESS_PATTERN.test(body.paymentToken)
+    ) {
       return NextResponse.json(
         { success: false, error: "Invalid paymentToken" },
         { status: 400 },
@@ -102,6 +106,16 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     console.error("fee-receiver route error", error);
+    if (error instanceof FeeReceiverUnavailableError) {
+      return NextResponse.json(
+        {
+          success: false,
+          code: error.code,
+          error: "Fee relayer is not funded on the selected network",
+        },
+        { status: 503 },
+      );
+    }
     return NextResponse.json(
       { success: false, error: "Failed to prepare fee receiver" },
       { status: 500 },

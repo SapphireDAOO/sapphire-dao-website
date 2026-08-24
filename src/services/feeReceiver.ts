@@ -1,3 +1,4 @@
+import { ZERO_ADDRESS } from "@/constants";
 import type { Address, Hex } from "viem";
 
 export type FeeReceiverAuthorization = {
@@ -18,6 +19,10 @@ export const requestFeeReceiver = async (params: {
   processor: "simple" | "intermediated";
   paymentToken?: Address;
 }): Promise<FeeReceiverAuthorization | null> => {
+  if (!params.paymentToken) {
+    params.paymentToken = ZERO_ADDRESS;
+  }
+
   try {
     const response = await fetch("/api/fee-receiver", {
       method: "POST",
@@ -36,7 +41,12 @@ export const requestFeeReceiver = async (params: {
       signature?: Hex;
     };
 
-    if (!response.ok || !payload.success || !payload.feeReceiver || !payload.signature) {
+    if (
+      !response.ok ||
+      !payload.success ||
+      !payload.feeReceiver ||
+      !payload.signature
+    ) {
       return null;
     }
 

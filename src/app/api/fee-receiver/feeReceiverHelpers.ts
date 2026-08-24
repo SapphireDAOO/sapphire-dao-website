@@ -40,6 +40,15 @@ const PK_LENGTH = 66;
 
 export type ProcessorKind = "simple" | "intermediated";
 
+export class FeeReceiverUnavailableError extends Error {
+  readonly code = "FEE_RELAYER_UNFUNDED";
+
+  constructor(readonly chainId: number) {
+    super(`Fee relayer has no native balance on chain ${chainId}`);
+    this.name = "FeeReceiverUnavailableError";
+  }
+}
+
 const normalizePrivateKey = (value: string): Hex =>
   (value.startsWith("0x") ? value : `0x${value}`) as Hex;
 
@@ -192,6 +201,13 @@ export const delegateAndApprove = async (
   if (!sweeper) throw new Error(`No sweeper contract for chain ${chainId}`);
 
   const { relayerAccount, publicClient, walletClient } = getClients(chainId);
+
+  const relayerBalance = await publicClient.getBalance({
+    address: relayerAccount.address,
+  });
+  if (relayerBalance === BigInt(0)) {
+    throw new FeeReceiverUnavailableError(chainId);
+  }
 
   const nonce = await publicClient.getTransactionCount({
     address: stealthAccount.address,
