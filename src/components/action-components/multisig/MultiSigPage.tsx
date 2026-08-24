@@ -10,9 +10,12 @@ import { Label } from "@/components/ui/label";
 import { ChevronDown, ChevronUp, Loader2, ShieldCheck } from "lucide-react";
 import Container from "@/components/Container";
 import { useMultiSigData } from "@/hooks/useMultiSigData";
+import { useFeeBalances } from "@/hooks/useFeeBalances";
 import TransactionList from "./TransactionList";
 import ProposeForm from "./ProposeForm";
 import SignerList from "./SignerList";
+import FeeBalances from "./FeeBalances";
+import SweepForm from "./SweepForm";
 import {
   MULTISIG_CONTRACT,
   SIMPLE_PAYMENT_PROCESSOR,
@@ -67,6 +70,8 @@ export default function MultiSigPage() {
     prevPage,
     applyLogs,
   } = useMultiSigData();
+
+  const fees = useFeeBalances();
 
   const threshold = wallet ? Number(wallet.threshold) : 0;
   const isSigner =
@@ -222,6 +227,7 @@ export default function MultiSigPage() {
             <TabsTrigger value="transactions">Transactions</TabsTrigger>
             <TabsTrigger value="propose">Propose</TabsTrigger>
             <TabsTrigger value="signers">Signers</TabsTrigger>
+            <TabsTrigger value="fees">Fees</TabsTrigger>
           </TabsList>
 
           <TabsContent value="transactions" className="mt-4">
@@ -313,6 +319,33 @@ export default function MultiSigPage() {
                   </div>
                   <p className="text-xs text-muted-foreground">Proposes changing the number of approvals required to execute a transaction.</p>
                 </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="fees" className="mt-4 space-y-4">
+            <FeeBalances
+              tokens={fees.tokens}
+              sweeps={fees.sweeps}
+              truncated={fees.truncated}
+              isLoading={fees.isLoading}
+              error={fees.error}
+              notIndexed={fees.notIndexed}
+              chainId={chainId}
+              onRefresh={fees.refresh}
+            />
+
+            <Card className="max-w-md">
+              <CardHeader>
+                <CardTitle className="text-base">Sweep Fees</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <SweepForm
+                  tokens={fees.tokens}
+                  chainId={chainId}
+                  isSigner={isSigner}
+                  onProposed={applyLogs}
+                />
               </CardContent>
             </Card>
           </TabsContent>
