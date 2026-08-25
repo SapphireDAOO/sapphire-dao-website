@@ -14,7 +14,12 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ContractContext } from "@/context/contract-context";
-import { CircleCheckBig, Loader2, ShieldCheck } from "lucide-react";
+import {
+  CircleCheckBig,
+  Loader2,
+  ShieldAlert,
+  ShieldCheck,
+} from "lucide-react";
 import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { PaymentCardProps } from "@/model/model";
@@ -76,7 +81,9 @@ const getInvoiceSeller = (invoice: unknown) => {
 
   // ISimplePaymentProcessor.Invoice tuple index 10 is seller.
   const tupleSeller = item?.[10];
-  return typeof tupleSeller === "string" && tupleSeller ? tupleSeller : undefined;
+  return typeof tupleSeller === "string" && tupleSeller
+    ? tupleSeller
+    : undefined;
 };
 
 const PaymentCard = ({ data }: PaymentCardProps) => {
@@ -90,18 +97,20 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
   const [countdown, setCountdown] = useState(3);
   const [paymentNote, setPaymentNote] = useState("");
   const [shareNote, setShareNote] = useState(false);
-  const countdownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const countdownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(
+    null,
+  );
   const paymentSubmittedRef = useRef(false);
 
   useEffect(() => {
     return () => {
-      if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
+      if (countdownIntervalRef.current)
+        clearInterval(countdownIntervalRef.current);
     };
   }, []);
 
-  const invoiceId = data?.invoiceId !== undefined
-    ? BigInt(data.invoiceId)
-    : undefined;
+  const invoiceId =
+    data?.invoiceId !== undefined ? BigInt(data.invoiceId) : undefined;
   const { data: fetchedInvoice } = useGetInvoiceData(invoiceId);
   const { notes: invoiceNotes } = useInvoiceNotes(invoiceId);
   // wagmi reports no chain during SSR, so the server falls back to Base Sepolia
@@ -114,12 +123,8 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
     ? SIMPLE_PAYMENT_PROCESSOR[chain?.id || BASE_SEPOLIA]
     : undefined;
 
-  const {
-    invoiceData,
-    makeInvoicePayment,
-    isLoading,
-    refetchInvoiceData,
-  } = useContext(ContractContext);
+  const { invoiceData, makeInvoicePayment, isLoading, refetchInvoiceData } =
+    useContext(ContractContext);
 
   const liveInvoice = useMemo(() => {
     if (!invoiceId) return undefined;
@@ -165,8 +170,7 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
     );
   }, [fetchedInvoice, liveInvoice, invoiceLike]);
 
-  const displayPriceEth =
-    invoiceLike?.price ?? invoiceLike?.amount ?? null;
+  const displayPriceEth = invoiceLike?.price ?? invoiceLike?.amount ?? null;
 
   // Hold period in seconds — prefer the on-chain read, fall back to the
   // subgraph/app cache value.
@@ -177,7 +181,9 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
       | { escrowHoldPeriod?: number | bigint; holdPeriod?: number | bigint }
       | undefined;
     const raw =
-      fetched?.escrowHoldPeriod ?? fetched?.holdPeriod ?? invoiceLike?.holdPeriod;
+      fetched?.escrowHoldPeriod ??
+      fetched?.holdPeriod ??
+      invoiceLike?.holdPeriod;
     if (raw === undefined || raw === null) return undefined;
     const seconds = Number(raw);
     return Number.isFinite(seconds) ? seconds : undefined;
@@ -391,22 +397,36 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
 
         <CardContent>
           <div className="grid w-full items-center gap-4">
-            {holdPeriodSeconds !== undefined && holdPeriodSeconds > 0 && (
-              <div className="flex items-start gap-2.5 rounded-lg border border-amber-300 bg-amber-50 p-3">
-                <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
-                <div className="space-y-1">
-                  <p className="text-sm font-bold leading-tight text-amber-900">
-                    Held in escrow for{" "}
-                    {formatDurationSeconds(holdPeriodSeconds)}
-                  </p>
-                  <p className="text-xs leading-snug text-amber-800">
-                    Your payment will be locked and only released to the seller
-                    after this period, counting from when they accept the
-                    invoice.
-                  </p>
+            {holdPeriodSeconds !== undefined &&
+              (holdPeriodSeconds > 0 ? (
+                <div className="flex items-start gap-2.5 rounded-lg border border-amber-300 bg-amber-50 p-3">
+                  <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
+                  <div className="space-y-1">
+                    <p className="text-sm font-bold leading-tight text-amber-900">
+                      Held in escrow for{" "}
+                      {formatDurationSeconds(holdPeriodSeconds)}
+                    </p>
+                    <p className="text-xs leading-snug text-amber-800">
+                      Your payment will be locked and only released to the
+                      seller after this period, counting from when they accept
+                      the invoice.
+                    </p>
+                  </div>
                 </div>
-              </div>
-            )}
+              ) : (
+                <div className="flex items-start gap-2.5 rounded-lg border border-amber-300 bg-amber-50 p-3">
+                  <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
+                  <div className="space-y-1">
+                    <p className="text-sm font-bold leading-tight text-amber-900">
+                      No escrow hold
+                    </p>
+                    <p className="text-xs leading-snug text-amber-800">
+                      This invoice has no hold period, so your payment will be
+                      released to the seller immediately once they accept it.
+                    </p>
+                  </div>
+                </div>
+              ))}
             <div className="flex flex-col space-y-2">
               <Label htmlFor="id">Invoice ID</Label>
               <Input

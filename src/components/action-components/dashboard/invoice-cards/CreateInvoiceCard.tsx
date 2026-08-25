@@ -27,7 +27,7 @@ import { useGetFeeRate } from "@/hooks/useGetFeeRate";
 import { ContractContext } from "@/context/contract-context";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { parseUnits } from "viem";
-import { Loader2 } from "lucide-react";
+import { Loader2, ShieldAlert } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { toast } from "sonner";
 import { useSecureLink } from "@/hooks/useSecureLink";
@@ -97,7 +97,7 @@ const InvoiceQRLink = React.memo(
         </DialogContent>
       </Dialog>
     );
-  }
+  },
 );
 
 InvoiceQRLink.displayName = "InvoiceQRLink";
@@ -120,6 +120,9 @@ export default function CreateInvoiceDialog() {
   const [shareNote, setShareNote] = useState(false);
   const [holdValue, setHoldValue] = useState("");
   const [holdUnit, setHoldUnit] = useState<HoldUnit>("days");
+  // Creating with no hold period is consequential enough to confirm, but not
+  // worth crowding the form with a warning nobody has acted on yet.
+  const [confirmNoHold, setConfirmNoHold] = useState(false);
   const { chainId, address } = useAccount();
   const { data: formatedFee } = useGetFeeRate();
 
@@ -149,6 +152,13 @@ export default function CreateInvoiceDialog() {
 
   const handleClick = useCallback(async () => {
     if (!isAmountValid || !isHoldPeriodValid) return;
+
+    // First click with no hold period asks for confirmation instead of
+    // creating; the second click goes through.
+    if (holdPeriodSeconds === 0 && !confirmNoHold) {
+      setConfirmNoHold(true);
+      return;
+    }
 
     setIsCreating(true);
     try {
@@ -184,6 +194,7 @@ export default function CreateInvoiceDialog() {
     isAmountValid,
     isHoldPeriodValid,
     holdPeriodSeconds,
+    confirmNoHold,
     createInvoice,
     refetchInvoiceData,
     note,
@@ -192,7 +203,13 @@ export default function CreateInvoiceDialog() {
 
   return (
     <>
-      <Dialog open={openCreate} onOpenChange={setOpenCreate}>
+      <Dialog
+        open={openCreate}
+        onOpenChange={(open) => {
+          setOpenCreate(open);
+          if (!open) setConfirmNoHold(false);
+        }}
+      >
         <DialogTrigger asChild>
           <div className="bg-black text-white rounded-xl p-5 shadow-md hover:shadow-xl transition cursor-pointer select-none">
             <h3 className="text-lg font-bold">+ Request Payment</h3>
@@ -208,8 +225,8 @@ export default function CreateInvoiceDialog() {
               New Invoice
             </DialogTitle>
             <DialogDescription className="text-xs sm:text-sm text-muted-foreground mt-1">
-              Additional fee of {Number(formatedFee) / 100}% applies (excluding
-              gas)
+              A {Number(formatedFee) / 100}% fee is deducted from the payment
+              when it is released to you (gas not included)
             </DialogDescription>
           </DialogHeader>
 
@@ -238,9 +255,7 @@ export default function CreateInvoiceDialog() {
                   min="0"
                   step="any"
                 />
-                <p className="text-[11px] text-gray-500">
-                  Amounts are in ETH.
-                </p>
+                <p className="text-[11px] text-gray-500">Amounts are in ETH.</p>
               </div>
             </div>
 
@@ -255,7 +270,12 @@ export default function CreateInvoiceDialog() {
                     type="number"
                     value={holdValue}
                     placeholder="e.g. 3"
-                    onChange={(e) => setHoldValue(e.target.value)}
+                    onChange={(e) => {
+                      setHoldValue(e.target.value);
+                      // Editing the field answers the question the
+                      // confirmation was asking.
+                      setConfirmNoHold(false);
+                    }}
                     className="w-full"
                     min="0"
                     step="any"
@@ -309,6 +329,21 @@ export default function CreateInvoiceDialog() {
             </div>
           </div>
 
+          {confirmNoHold && (
+            <div className="flex items-start gap-2.5 rounded-lg border border-amber-300 bg-amber-50 p-3">
+              <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
+              <div className="space-y-1">
+                <p className="text-sm font-bold leading-tight text-amber-900">
+                  Create without a hold period?
+                </p>
+                <p className="text-xs leading-snug text-amber-800">
+                  The payment will be released to you as soon as you accept the
+                  invoice. Set a hold period above, or create anyway.
+                </p>
+              </div>
+            </div>
+          )}
+
           <DialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-between gap-2 sm:gap-3 mt-3">
             <DialogClose asChild>
               <Button variant="secondary" className="w-full sm:w-auto">
@@ -329,6 +364,8 @@ export default function CreateInvoiceDialog() {
               >
                 {isCreating || isLoading === "createInvoice" ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
+                ) : confirmNoHold ? (
+                  "Create anyway"
                 ) : (
                   "Create Invoice"
                 )}
