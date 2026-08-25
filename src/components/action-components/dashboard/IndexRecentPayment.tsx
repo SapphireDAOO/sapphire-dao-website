@@ -61,7 +61,6 @@ export default function IndexRecentPayment({
   const [walletQuery, setWalletQuery] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-  const [noteQuery, setNoteQuery] = useState("");
   const [page, setPage] = useState(1);
   // localNotes MUST be declared before displayInvoices useMemo that references it
   const [localNotes, setLocalNotes] = useState<Record<string, Note[]>>({});
@@ -70,7 +69,6 @@ export default function IndexRecentPayment({
   const router = useRouter();
   const defaultTab = params.get("tab") || "all";
   const [activeTab, setActiveTab] = useState(defaultTab);
-  const debouncedNoteQuery = useDebouncedValue(noteQuery, 250);
   const debouncedWalletQuery = useDebouncedValue(walletQuery, 250)
     .trim()
     .toLowerCase();
@@ -89,7 +87,6 @@ export default function IndexRecentPayment({
     selectedDate,
     isMarketplaceTab,
     activeTab,
-    debouncedNoteQuery,
     debouncedWalletQuery,
   ]);
 
@@ -254,28 +251,13 @@ export default function IndexRecentPayment({
       });
     }
 
-    const noteSearch = debouncedNoteQuery.trim().toLowerCase();
-    if (noteSearch) {
-      invoices = invoices.filter((inv) => {
-        const messages = [
-          ...(inv.notes?.map((n) => n.message) ?? []),
-          ...(localNotes[inv.id]?.map((n) => n.message) ?? []),
-        ];
-        return messages.some(
-          (msg) => msg && msg.toLowerCase().includes(noteSearch),
-        );
-      });
-    }
-
     return invoices;
   }, [
     allForTab,
     statusFilter,
     canonicalStatus,
     selectedDate,
-    debouncedNoteQuery,
     debouncedWalletQuery,
-    localNotes,
   ]);
 
   // ── Client-side pagination over the filtered set ──────────────────────────
@@ -354,7 +336,6 @@ export default function IndexRecentPayment({
       setActiveTab(value);
       setStatusFilter("All");
       setWalletQuery("");
-      setNoteQuery("");
       setPage(1);
       router.replace(value === "all" ? basePath : `${basePath}?tab=${value}`, {
         scroll: false,
@@ -414,8 +395,6 @@ export default function IndexRecentPayment({
                 />
 
                 <InvoiceFilterBar
-                  noteQuery={noteQuery}
-                  onNoteQueryChange={setNoteQuery}
                   walletQuery={walletQuery}
                   onWalletQueryChange={setWalletQuery}
                   selectedDate={selectedDate}

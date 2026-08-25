@@ -14,11 +14,8 @@ import {
 import { Calendar } from "@/components/ui/calendar";
 import { CalendarDays } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 
 interface InvoiceFilterBarProps {
-  noteQuery: string;
-  onNoteQueryChange: (value: string) => void;
   walletQuery: string;
   onWalletQueryChange: (wallet: string) => void;
   selectedDate: Date | null;
@@ -26,8 +23,6 @@ interface InvoiceFilterBarProps {
 }
 
 export function InvoiceFilterBar({
-  noteQuery,
-  onNoteQueryChange,
   walletQuery,
   onWalletQueryChange,
   selectedDate,
@@ -36,12 +31,6 @@ export function InvoiceFilterBar({
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
       <div className="flex items-center justify-end gap-2 w-full">
-        <Input
-          placeholder="Search notes"
-          value={noteQuery}
-          onChange={(e) => onNoteQueryChange(e.target.value)}
-          className="w-48"
-        />
         <Popover>
           <PopoverTrigger asChild>
             <Button
