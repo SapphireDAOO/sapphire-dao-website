@@ -11,17 +11,18 @@ import { Invoice } from "@/model/model";
 import { getLastActionTime } from "@/lib/invoiceHistory";
 
 const NOTES_PAGE_SIZE = 3;
-const NOTE_LOCK_DAYS = 15;
+const NOTE_LOCK_DAYS = 3;
 const MS_PER_DAY = 86_400_000;
 
 /** Statuses that permanently prevent new notes */
-const ALWAYS_LOCKED_STATUSES = new Set([
-  "CANCELED",
-  "EXPIRED",
-]);
+const ALWAYS_LOCKED_STATUSES = new Set(["CANCELED"]);
 
-/** Statuses that lock notes after NOTE_LOCK_DAYS days */
+/**
+ * Terminal statuses that leave a short window for closing remarks, then lock
+ * notes NOTE_LOCK_DAYS after the invoice last moved.
+ */
 const TIMED_LOCK_STATUSES = new Set([
+  "EXPIRED",
   "RELEASED",
   "REFUNDED",
   "REJECTED",
