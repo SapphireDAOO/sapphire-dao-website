@@ -40,11 +40,12 @@ const MOMENTS: Record<HintMoment, WalletHint> = {
   signing: {
     title: "Sign to prove it's you",
     body: "Your wallet is asking you to sign a message. Open it and click Sign.",
-    note: "This is how the app checks that you own this wallet.",
+    note: "Signing is free and never moves funds — it only proves you control this wallet. A signature cannot approve a payment.",
   },
   sendingTransaction: {
     title: "Confirm in your wallet",
     body: "Review the details in your wallet, then click Confirm to continue.",
+    note: "This is a real transaction: it costs a network fee and is recorded on the blockchain once confirmed.",
   },
   switchingChain: {
     title: "Approve the network switch",
