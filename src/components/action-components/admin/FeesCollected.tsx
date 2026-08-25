@@ -82,11 +82,11 @@ export default function FeesCollected() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Token</TableHead>
-                  <TableHead className="text-right">Unswept</TableHead>
-                  <TableHead className="text-right">Accrued</TableHead>
-                  <TableHead className="text-right">Swept</TableHead>
-                  <TableHead className="text-right">Receivers</TableHead>
+                  <TableHead className="text-center">Token</TableHead>
+                  <TableHead className="text-center">Balance</TableHead>
+                  <TableHead className="text-center">Accrued</TableHead>
+                  <TableHead className="text-center">Swept</TableHead>
+                  <TableHead className="text-center">Receivers</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -109,18 +109,16 @@ export default function FeesCollected() {
                         </p>
                       )}
                     </TableCell>
-                    <TableCell className="text-right font-mono font-medium">
+                    <TableCell className="font-mono font-medium">
                       {formatUnits(token.balance, token.decimals)}
                     </TableCell>
-                    <TableCell className="text-right font-mono text-muted-foreground">
+                    <TableCell className="font-mono text-muted-foreground">
                       {formatUnits(token.accrued, token.decimals)}
                     </TableCell>
-                    <TableCell className="text-right font-mono text-muted-foreground">
+                    <TableCell className="font-mono text-muted-foreground">
                       {formatUnits(token.swept, token.decimals)}
                     </TableCell>
-                    <TableCell className="text-right">
-                      {token.receiverCount}
-                    </TableCell>
+                    <TableCell>{token.receiverCount}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
