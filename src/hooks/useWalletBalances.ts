@@ -63,7 +63,7 @@ export const useWalletBalances = () => {
       abi: PaymentProcessorStorage,
       chainId,
       address: storage,
-      functionName: "getMarketplace",
+      functionName: "getIntermediatedPlatformsOperator",
     });
 
   const {

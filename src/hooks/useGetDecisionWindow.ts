@@ -1,5 +1,4 @@
 import { SIMPLE_PAYMENT_PROCESSOR, BASE_SEPOLIA } from "@/constants";
-import { baseSepolia } from "viem/chains";
 import { useChainId } from "wagmi";
 import { paymentProcessor } from "@/abis/PaymentProcessor";
 import { useViemReadContract } from "./useViemReadContract";
@@ -12,9 +11,9 @@ export const useGetDecisionWindow = () => {
 
   const { data, refetch, isLoading } = useViemReadContract({
     abi: paymentProcessor,
-    chainId: baseSepolia.id,
+    chainId,
     address: SIMPLE_PAYMENT_PROCESSOR[chainId],
-    functionName: "decisionWindow",
+    functionName: "getDecisionWindow",
   });
 
   return { data, refetch, isLoading };
