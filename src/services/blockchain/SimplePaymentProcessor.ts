@@ -18,6 +18,7 @@ import { invoiceOwnerQuery } from "../graphql/queries";
 import { WagmiClient } from "./types";
 import { encryptNoteContent } from "../notes";
 import { requestFeeReceiver } from "../feeReceiver";
+import { clearFeeReceiver } from "@/lib/feeReceiverStore";
 
 // The notes key lives server-side only, so the optional storageRef note is
 // encrypted through /api/notes before it is embedded in the transaction.
@@ -212,7 +213,10 @@ export const sellerAction = async (
 
   try {
     // Accepting fixes the fee terms: the server hands out a one-time stealth
-    // fee receiver plus the fee signer's authorization over it.
+    // fee receiver plus the fee signer's authorization over it. Accepting is
+    // the only point in this processor that issues one — rejecting, paying,
+    // releasing and refunding must never derive an address, since nothing
+    // would ever consume it.
     let data: Hex;
     if (state) {
       const feeAuthorization = await requestFeeReceiver({
@@ -263,6 +267,10 @@ export const sellerAction = async (
 
     if (receipt?.status) {
       success = true;
+      // Either outcome ends the invoice's claim on a fee receiver: an accept
+      // consumes the address, a reject leaves any address a prior abandoned
+      // accept issued with nothing left to pay for.
+      clearFeeReceiver({ invoiceId, chainId, processor: "simple" });
     } else {
       toast.error("Something went wrong, please try again.");
     }

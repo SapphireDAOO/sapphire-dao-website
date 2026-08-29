@@ -11,6 +11,7 @@ import { intermediatedPaymentProcessor } from "@/abis/IntermediatedPaymentProces
 import { WagmiClient } from "./types";
 import { PaymentProcessorStorage } from "@/abis/PaymentProcessorStorage";
 import { requestFeeReceiver } from "../feeReceiver";
+import { clearFeeReceiver } from "@/lib/feeReceiverStore";
 
 export const payIntermediatedInvoice = async (
   { walletClient, publicClient }: WagmiClient,
@@ -117,6 +118,11 @@ export const payIntermediatedInvoice = async (
 
     if (receipt?.status === "success") {
       success = true;
+      // The fee receiver is spent once the payment lands, so the invoice
+      // starts clean if it is ever prepared again.
+      if (paymentType === "paySingleInvoice") {
+        clearFeeReceiver({ invoiceId, chainId, processor: "intermediated" });
+      }
     }
   } catch (error) {
     getError(error);

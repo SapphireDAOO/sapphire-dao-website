@@ -38,6 +38,11 @@ import {
 
 const PK_LENGTH = 66;
 
+// Approvals are always granted as max uint256, so anything still above half of
+// it is an intact unlimited approval — whether or not the token decrements the
+// allowance on transferFrom.
+const UNLIMITED_APPROVAL_THRESHOLD = maxUint256 / BigInt(2);
+
 export type ProcessorKind = "simple" | "intermediated";
 
 export class FeeReceiverUnavailableError extends Error {
@@ -91,18 +96,43 @@ export const getProcessorAddress = (
     ? SIMPLE_PAYMENT_PROCESSOR[chainId]
     : INTERMEDIATED_PAYMENT_PROCESSOR[chainId];
 
+export type StealthFeeReceiver = {
+  stealthAccount: PrivateKeyAccount;
+  stealthPrivateKey: Hex;
+  ephemeralPublicKey: Hex;
+};
+
+/**
+ * Recomputes the stealth account an ephemeral public key points at, so an
+ * address issued by an earlier attempt can be reused instead of regenerated.
+ * Re-deriving is also what makes a caller-supplied ephemeral key safe to
+ * accept: it can only ever resolve to an address the platform's spending and
+ * viewing keys control, never to one the caller chose.
+ */
+export const restoreStealthFeeReceiver = (
+  ephemeralPublicKey: Hex,
+): StealthFeeReceiver => {
+  const stealthPrivateKey = computeStealthKey({
+    ephemeralPublicKey,
+    spendingPrivateKey: requirePrivateKey("SPENDING"),
+    viewingPrivateKey: requirePrivateKey("VIEWING"),
+    schemeId: VALID_SCHEME_ID.SCHEME_ID_1,
+  });
+
+  return {
+    stealthAccount: privateKeyToAccount(stealthPrivateKey),
+    stealthPrivateKey,
+    ephemeralPublicKey,
+  };
+};
+
 /**
  * Derives a fresh, one-time EIP-5564 stealth address from the meta stealth
  * address in the environment. The stealth private key is never persisted, so
  * control of the funds relies on the max approval granted in
  * `delegateAndApprove` before the address is handed out.
  */
-export const generateStealthFeeReceiver = (): {
-  stealthAccount: PrivateKeyAccount;
-  stealthPrivateKey: Hex;
-} => {
-  const spendingPrivateKey = requirePrivateKey("SPENDING");
-  const viewingPrivateKey = requirePrivateKey("VIEWING");
+export const generateStealthFeeReceiver = (): StealthFeeReceiver => {
   const stealthMetaAddressURI = process.env.META_STEALTH_ADDRESS;
   if (!stealthMetaAddressURI) throw new Error("Missing META_STEALTH_ADDRESS");
 
@@ -110,22 +140,18 @@ export const generateStealthFeeReceiver = (): {
     stealthMetaAddressURI,
   });
 
-  const stealthPrivateKey = computeStealthKey({
-    ephemeralPublicKey,
-    spendingPrivateKey,
-    viewingPrivateKey,
-    schemeId: VALID_SCHEME_ID.SCHEME_ID_1,
-  });
+  const receiver = restoreStealthFeeReceiver(ephemeralPublicKey);
 
-  const stealthAccount = privateKeyToAccount(stealthPrivateKey);
-
-  if (stealthAccount.address.toLowerCase() !== stealthAddress.toLowerCase()) {
+  if (
+    receiver.stealthAccount.address.toLowerCase() !==
+    stealthAddress.toLowerCase()
+  ) {
     throw new Error(
       "Computed stealth key does not control the derived stealth address",
     );
   }
 
-  return { stealthAccount, stealthPrivateKey };
+  return receiver;
 };
 
 /**
@@ -201,6 +227,18 @@ export const delegateAndApprove = async (
   if (!sweeper) throw new Error(`No sweeper contract for chain ${chainId}`);
 
   const { relayerAccount, publicClient, walletClient } = getClients(chainId);
+
+  // An earlier attempt for this invoice may already have set the address up.
+  // The on-chain allowance — not the caller's word for it — is what decides
+  // whether the address is ready, so a replayed address that never got its
+  // approval is repaired here rather than handed out unapproved.
+  const allowance = await publicClient.readContract({
+    address: approvalToken,
+    abi: erc20Abi,
+    functionName: "allowance",
+    args: [stealthAccount.address, sweeper],
+  });
+  if (allowance >= UNLIMITED_APPROVAL_THRESHOLD) return;
 
   const relayerBalance = await publicClient.getBalance({
     address: relayerAccount.address,
