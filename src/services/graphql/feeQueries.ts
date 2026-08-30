@@ -38,10 +38,6 @@ export const FEE_SWEEPS_QUERY = `
       amount
       timestamp
       txHash
-      feeReceiver {
-        id
-        address
-      }
       token {
         id
         name

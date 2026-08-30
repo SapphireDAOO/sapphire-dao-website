@@ -14,6 +14,7 @@ import {
 import type {
   FeeReceiverTokenBalanceRow,
   FeeSweepRow,
+  SweepTransaction,
   TokenFeeSummary,
 } from "@/model/fees";
 import { compareReceivers } from "./planSweep";
@@ -72,11 +73,59 @@ export const fetchFeeReceiverBalances = async (
   return { rows, truncated: true };
 };
 
-/** The most recent sweeps, newest first. */
+/**
+ * Collapses the per-receiver rows into one entry per sweep. The rows of a
+ * single `sweep` call repeat its tx, token and destination and differ only in
+ * amount, so they are summed into one transaction. Token and destination are
+ * part of the key because one transaction can carry several sweep calls, and
+ * totalling across tokens would be meaningless.
+ *
+ * `capped` says the query hit its row limit, in which case the oldest group may
+ * have been cut in half — it is dropped rather than shown with a short total.
+ */
+export const groupSweepTransactions = (
+  rows: FeeSweepRow[],
+  limit: number,
+  capped: boolean,
+): SweepTransaction[] => {
+  const byTransaction = new Map<string, SweepTransaction>();
+
+  for (const row of rows) {
+    const id = `${row.txHash}:${row.token.id.toLowerCase()}:${row.destination.toLowerCase()}`;
+    const existing = byTransaction.get(id);
+
+    if (existing) {
+      existing.amount += BigInt(row.amount);
+      existing.receiverCount += 1;
+      continue;
+    }
+
+    byTransaction.set(id, {
+      id,
+      txHash: row.txHash,
+      timestamp: row.timestamp,
+      destination: row.destination,
+      token: row.token,
+      amount: BigInt(row.amount),
+      receiverCount: 1,
+    });
+  }
+
+  const transactions = [...byTransaction.values()];
+  if (capped && transactions.length > 1) transactions.pop();
+  return transactions.slice(0, limit);
+};
+
+// A transaction yields one row per receiver it drained, so the row query has to
+// reach well past `limit` to be sure of filling that many transactions.
+const SWEEP_ROWS_PER_TRANSACTION = 10;
+
+/** The most recent sweep transactions, newest first. */
 export const fetchRecentSweeps = async (
   chainId: number,
-  first = 10,
-): Promise<FeeSweepRow[]> => {
+  limit = 10,
+): Promise<SweepTransaction[]> => {
+  const first = limit * SWEEP_ROWS_PER_TRANSACTION;
   const result = await client(chainId)
     .query<{ feeSweeps: FeeSweepRow[] }>(
       FEE_SWEEPS_QUERY,
@@ -86,7 +135,8 @@ export const fetchRecentSweeps = async (
     .toPromise();
 
   if (result.error) throwSubgraphError(result.error);
-  return result.data?.feeSweeps ?? [];
+  const rows = result.data?.feeSweeps ?? [];
+  return groupSweepTransactions(rows, limit, rows.length >= first);
 };
 
 /**
@@ -103,7 +153,7 @@ export const resolveSweepToken = (
 
 /**
  * Collapses per-receiver rows into one summary per token. Receivers are sorted
- * smallest balance first, which is the order `planSweep` draws from.
+ * smallest balance first, the order `planSweep` reads them in.
  */
 export const summarizeFeesByToken = (
   chainId: number,

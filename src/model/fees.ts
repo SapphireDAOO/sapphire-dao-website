@@ -18,8 +18,25 @@ export interface FeeSweepRow {
   amount: string;
   timestamp: string;
   txHash: string;
-  feeReceiver: { id: string; address: string };
   token: { id: string; name: string | null; decimal: number | null };
+}
+
+/**
+ * One sweep transaction, with every receiver it drew from totalled together.
+ * The subgraph records a `FeeSweep` per receiver, but a single `sweep` call
+ * drains many one-time receivers at once.
+ */
+export interface SweepTransaction {
+  /** txHash + token + destination: one tx can carry more than one sweep call. */
+  id: string;
+  txHash: string;
+  timestamp: string;
+  destination: string;
+  token: { id: string; name: string | null; decimal: number | null };
+  /** Sum of the amounts pulled from every receiver in this sweep. */
+  amount: bigint;
+  /** How many fee receivers the sweep drew from. */
+  receiverCount: number;
 }
 
 /** One fee receiver's unswept balance in a single token. */

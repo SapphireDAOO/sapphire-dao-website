@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useChainId } from "wagmi";
 import { BASE_SEPOLIA } from "@/constants";
-import type { FeeSweepRow, TokenFeeSummary } from "@/model/fees";
+import type { SweepTransaction, TokenFeeSummary } from "@/model/fees";
 import {
   FEES_NOT_INDEXED_MESSAGE,
   fetchFeeReceiverBalances,
@@ -14,7 +14,7 @@ import {
 
 interface FeeBalancesState {
   tokens: TokenFeeSummary[];
-  sweeps: FeeSweepRow[];
+  sweeps: SweepTransaction[];
   /** True when the receiver set was larger than the page cap, so totals are a lower bound. */
   truncated: boolean;
   isLoading: boolean;

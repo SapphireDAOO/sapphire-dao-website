@@ -127,7 +127,7 @@ export default function FeesCollected() {
 
           {truncated && (
             <p className="text-xs text-muted-foreground mt-3">
-              Showing the largest balances only — more fee receivers exist than
+              Showing the largest balances only. More fee receivers exist than
               this view loads, so the totals are a lower bound.
             </p>
           )}
@@ -144,7 +144,7 @@ export default function FeesCollected() {
               <TableHeader>
                 <TableRow>
                   <TableHead className="text-center">When</TableHead>
-                  <TableHead className="text-center">From</TableHead>
+                  <TableHead className="text-center">Tx Hash</TableHead>
                   <TableHead className="text-center">To</TableHead>
                   <TableHead className="text-center">Amount</TableHead>
                   <TableHead className="text-center">Token</TableHead>
@@ -158,23 +158,16 @@ export default function FeesCollected() {
                   return (
                     <TableRow key={sweep.id}>
                       <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                        {formatTimestamp(sweep.timestamp)}
+                      </TableCell>
+                      <TableCell className="font-mono text-xs">
                         <a
                           href={`https://sepolia.basescan.org/tx/${sweep.txHash}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="hover:text-foreground hover:underline"
-                        >
-                          {formatTimestamp(sweep.timestamp)}
-                        </a>
-                      </TableCell>
-                      <TableCell className="font-mono text-xs">
-                        <a
-                          href={`https://sepolia.basescan.org/address/${sweep.feeReceiver.address}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
                           className="text-blue-500 underline"
                         >
-                          {formatAddress(sweep.feeReceiver.address)}
+                          {formatAddress(sweep.txHash)}
                         </a>
                       </TableCell>
                       <TableCell className="font-mono text-xs">
@@ -188,7 +181,12 @@ export default function FeesCollected() {
                         </a>
                       </TableCell>
                       <TableCell className="font-mono tabular-nums whitespace-nowrap">
-                        {formatUnits(BigInt(sweep.amount), decimals)}
+                        {formatUnits(sweep.amount, decimals)}
+                        {sweep.receiverCount > 1 && (
+                          <p className="text-xs font-sans text-muted-foreground">
+                            across {sweep.receiverCount} receivers
+                          </p>
+                        )}
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground">
                         {symbol}
