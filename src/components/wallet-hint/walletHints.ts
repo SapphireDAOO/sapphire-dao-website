@@ -10,6 +10,7 @@
 export type HintMoment =
   | "connecting"
   | "signing"
+  | "approvingToken"
   | "sendingTransaction"
   | "switchingChain"
   | "wrongNetwork";
@@ -40,7 +41,12 @@ const MOMENTS: Record<HintMoment, WalletHint> = {
   signing: {
     title: "Sign to prove it's you",
     body: "Your wallet is asking you to sign a message. Open it and click Sign.",
-    note: "Signing is free and never moves funds — it only proves you control this wallet. A signature cannot approve a payment.",
+    note: "Signing is free and never moves funds. It only proves you control this wallet, and a signature cannot approve a payment.",
+  },
+  approvingToken: {
+    title: "Allow the payment amount",
+    body: "Your wallet is asking permission for this app to move your tokens. Open it and click Confirm.",
+    note: "Tokens need this step before a contract can move them. You are approving only the amount for this payment, not unlimited access. The payment itself is a second, separate confirmation.",
   },
   sendingTransaction: {
     title: "Confirm in your wallet",

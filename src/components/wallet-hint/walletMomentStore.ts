@@ -20,8 +20,17 @@ const listeners = new Set<() => void>();
 const active: HintMoment[] = [];
 let snapshot: HintMoment | undefined;
 
+// A token approval opens the same popup as any other transaction, so the
+// wallet client announces `sendingTransaction` on top of it. The specific
+// explanation is the more useful one, so it outranks the generic hint nested
+// inside it rather than losing to the plain most-recent rule.
+const OUTRANKS_NESTED: HintMoment[] = ["approvingToken"];
+
+const currentMoment = () =>
+  active.find((moment) => OUTRANKS_NESTED.includes(moment)) ?? active.at(-1);
+
 const emit = () => {
-  const next = active.at(-1);
+  const next = currentMoment();
   if (next === snapshot) return;
   snapshot = next;
   for (const listener of listeners) listener();

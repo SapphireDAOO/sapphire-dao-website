@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import { errorMessages } from "@/constants";
 import { Address, Chain, encodeFunctionData, erc20Abi } from "viem";
 import { baseSepolia, hardhat } from "viem/chains";
+import { beginWalletMoment } from "@/components/wallet-hint/walletMomentStore";
 
 // Resolve the viem chain for a given chainId so writes target the wallet's
 // connected network (e.g. local Hardhat in development) instead of always
@@ -89,31 +90,50 @@ export const handleApproval = async (
       return false;
     }
 
-    const tx = await walletClient?.sendTransaction({
-      chain: getChainById(chainId),
-      to: tokenAddress,
-      data: encodeFunctionData({
-        abi: erc20Abi,
-        functionName: "approve",
-        args: [spender, amountIntoken],
-      }),
-      gasPrice,
-    });
+    // Explains the approval popup, which is otherwise indistinguishable from
+    // the payment that follows it.
+    const endMoment = beginWalletMoment("approvingToken");
+    let tx: `0x${string}` | undefined;
+    try {
+      tx = await walletClient?.sendTransaction({
+        chain: getChainById(chainId),
+        to: tokenAddress,
+        data: encodeFunctionData({
+          abi: erc20Abi,
+          functionName: "approve",
+          args: [spender, amountIntoken],
+        }),
+        gasPrice,
+      });
+    } finally {
+      endMoment();
+    }
 
     if (!tx) {
       toast.error("Transaction failed to initiate");
       return false;
     }
 
-    const receipt = await publicClient?.waitForTransactionReceipt({
-      hash: tx,
-    });
+    // The wallet popup has closed by now, so the mining wait belongs in a toast
+    // rather than the popup hint: it stays out of the way, and resolves in
+    // place into whichever result lands below.
+    const processingToast = toast.loading(
+      "Approval is processing. Keep this tab open while it confirms.",
+    );
+    let receipt;
+    try {
+      receipt = await publicClient?.waitForTransactionReceipt({ hash: tx });
+    } catch (error) {
+      // Without this the spinner outlives the failure it was waiting on.
+      toast.dismiss(processingToast);
+      throw error;
+    }
 
     if (receipt?.status === "success") {
-      toast.success("Approved");
+      toast.success("Approved", { id: processingToast });
       return true;
     } else {
-      toast.error("Approval failed");
+      toast.error("Approval failed", { id: processingToast });
       return false;
     }
   } catch (error) {
