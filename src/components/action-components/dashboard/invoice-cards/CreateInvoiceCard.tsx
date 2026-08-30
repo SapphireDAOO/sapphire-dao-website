@@ -23,6 +23,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { NoteLength } from "@/components/NoteLength";
+import { MAX_NOTE_LENGTH } from "@/constants";
 import { useGetFeeRate } from "@/hooks/useGetFeeRate";
 import { ContractContext } from "@/context/contract-context";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
@@ -313,7 +315,9 @@ export default function CreateInvoiceDialog() {
                   placeholder="e.g. MacBook Pro, delivery in 3 days"
                   onChange={(e) => setNote(e.target.value)}
                   className="w-full h-24 resize-none"
+                  maxLength={MAX_NOTE_LENGTH}
                 />
+                <NoteLength value={note} />
                 <label className="flex items-center gap-2 text-[11px] text-gray-600">
                   <input
                     type="checkbox"

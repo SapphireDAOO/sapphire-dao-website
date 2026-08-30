@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { NoteLength } from "@/components/NoteLength";
+import { MAX_NOTE_LENGTH } from "@/constants";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader } from "@/components/ui/card";
 import { ChevronLeft, ChevronRight } from "lucide-react";
@@ -294,7 +296,9 @@ export function NotesThread({
             onChange={(e) => setDraft(e.target.value)}
             placeholder="Write a note"
             className="text-sm"
+            maxLength={MAX_NOTE_LENGTH}
           />
+          <NoteLength value={draft} />
           <label className="flex items-center gap-2 text-[11px] text-gray-600">
             <input
               type="checkbox"

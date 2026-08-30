@@ -6,6 +6,7 @@ import { intermediatedPaymentProcessor } from "@/abis/IntermediatedPaymentProces
 import { paymentProcessor } from "@/abis/PaymentProcessor";
 import {
   INTERMEDIATED_PAYMENT_PROCESSOR,
+  MAX_NOTE_LENGTH,
   NOTES_CONTRACT,
   SIMPLE_PAYMENT_PROCESSOR,
 } from "@/constants";
@@ -16,7 +17,6 @@ import { getNotesClients, parseBigInt } from "./notesApiHelpers";
 
 export const runtime = "nodejs";
 
-const MAX_NOTE_CONTENT_LENGTH = 1_000;
 const NOTE_RATE_LIMIT_WINDOW_MS = 5 * 60 * 1000;
 const NOTE_RATE_LIMIT_MAX = 10;
 // Read-path actions (decrypt/encrypt) fire on every thread open / refresh,
@@ -163,7 +163,7 @@ const readSimpleParties = async (invoiceId: bigint) => {
   };
 };
 
-const readMarketplaceParties = async (invoiceId: bigint) => {
+const readIntermediatedParties = async (invoiceId: bigint) => {
   const contractAddress = INTERMEDIATED_PAYMENT_PROCESSOR[baseSepolia.id];
   if (!contractAddress) return null;
 
@@ -185,18 +185,18 @@ const readMarketplaceParties = async (invoiceId: bigint) => {
 };
 
 const isInvoiceParticipant = async (invoiceId: bigint, author: string) => {
-  const [simpleResult, marketplaceResult] = await Promise.allSettled([
+  const [simpleResult, intermediatedResult] = await Promise.allSettled([
     readSimpleParties(invoiceId),
-    readMarketplaceParties(invoiceId),
+    readIntermediatedParties(invoiceId),
   ]);
 
   const simpleParties =
     simpleResult.status === "fulfilled" ? simpleResult.value : null;
-  const marketplaceParties =
-    marketplaceResult.status === "fulfilled" ? marketplaceResult.value : null;
+  const intermediatedParties =
+    intermediatedResult.status === "fulfilled" ? intermediatedResult.value : null;
 
   return (
-    isParty(author, simpleParties) || isParty(author, marketplaceParties)
+    isParty(author, simpleParties) || isParty(author, intermediatedParties)
   );
 };
 
@@ -263,9 +263,9 @@ export async function POST(req: Request) {
         );
       }
 
-      if (content.length > MAX_NOTE_CONTENT_LENGTH) {
+      if (content.length > MAX_NOTE_LENGTH) {
         return NextResponse.json(
-          { success: false, error: "Note content is too long" },
+          { success: false, error: `Notes are limited to ${MAX_NOTE_LENGTH} characters` },
           { status: 413 },
         );
       }
@@ -396,9 +396,9 @@ export async function POST(req: Request) {
         );
       }
 
-      if (content.length > MAX_NOTE_CONTENT_LENGTH) {
+      if (content.length > MAX_NOTE_LENGTH) {
         return NextResponse.json(
-          { success: false, error: "Content is too long" },
+          { success: false, error: `Notes are limited to ${MAX_NOTE_LENGTH} characters` },
           { status: 413 },
         );
       }

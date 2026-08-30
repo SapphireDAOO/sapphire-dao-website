@@ -37,10 +37,12 @@ import { toast } from "sonner";
 import { type Address } from "viem";
 import { InvoiceDetails, TokenData } from "@/model/model";
 import { Textarea } from "@/components/ui/textarea";
+import { NoteLength } from "@/components/NoteLength";
+import { MAX_NOTE_LENGTH } from "@/constants";
 import { createNote as createInvoiceNote } from "@/services/notes";
 import { INTERMEDIATED_PAYMENT_PROCESSOR, BASE_SEPOLIA } from "@/constants";
 import { formatAddress, formatDurationSeconds } from "@/utils";
-import { useGetMarketplaceInvoiceData } from "@/hooks/useGetMarketplaceInvoiceData";
+import { useGetIntermediatedInvoiceData } from "@/hooks/useGetIntermediatedInvoiceData";
 
 interface CheckoutCardProps {
   data: InvoiceDetails;
@@ -56,7 +58,7 @@ const CheckoutCard = ({ data, isMetaInvoice }: CheckoutCardProps) => {
 
   // Escrow hold period, read from the intermediated processor. The struct calls
   // it escrowHoldPeriod; holdPeriod is kept as a fallback for the pre-rename shape.
-  const { data: onChainInvoice } = useGetMarketplaceInvoiceData(data?.invoiceId);
+  const { data: onChainInvoice } = useGetIntermediatedInvoiceData(data?.invoiceId);
   const holdPeriodSeconds = useMemo(() => {
     const fetched = onChainInvoice as
       | { escrowHoldPeriod?: number | bigint; holdPeriod?: number | bigint }
@@ -152,7 +154,7 @@ const CheckoutCard = ({ data, isMetaInvoice }: CheckoutCardProps) => {
 
             (async () => {
               await refetchInvoiceData?.();
-              router.push("/marketplace-dashboard/?tab=buyer");
+              router.push("/intermediated-dashboard/?tab=buyer");
             })();
           }
 
@@ -244,7 +246,9 @@ const CheckoutCard = ({ data, isMetaInvoice }: CheckoutCardProps) => {
                 onChange={(e) => setPaymentNote(e.target.value)}
                 placeholder="Add a note about this payment"
                 className="min-h-24"
+                maxLength={MAX_NOTE_LENGTH}
               />
+              <NoteLength value={paymentNote} />
               <label className="flex items-center gap-2 text-[11px] text-gray-600">
                 <input
                   type="checkbox"

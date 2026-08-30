@@ -10,6 +10,8 @@ export const ONE_SECOND_MS = 1_000;
 export const ONE_DAY_MS = 24 * 60 * 60 * ONE_SECOND_MS;
 export const DEFAULT_QUERY_STALE_TIME_MS = 15 * ONE_SECOND_MS;
 export const DEFAULT_QUERY_GC_TIME_MS = ONE_DAY_MS;
+
+export const MAX_NOTE_LENGTH = 20;
 export const DEFAULT_BLOCK_POLLING_INTERVAL_MS = 12 * ONE_SECOND_MS;
 
 export const PAYMENT_PROCESSOR_STORAGE: Record<number, Address> = {

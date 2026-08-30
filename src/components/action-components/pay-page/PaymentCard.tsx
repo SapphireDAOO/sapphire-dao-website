@@ -39,6 +39,8 @@ import { paymentProcessor } from "@/abis/PaymentProcessor";
 import { BASE_SEPOLIA } from "@/constants";
 import { formatAddress, formatDurationSeconds } from "@/utils";
 import { Textarea } from "@/components/ui/textarea";
+import { NoteLength } from "@/components/NoteLength";
+import { MAX_NOTE_LENGTH } from "@/constants";
 
 type InvoiceLike = {
   id?: string | number | bigint;
@@ -476,7 +478,9 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
                 onChange={(e) => setPaymentNote(e.target.value)}
                 placeholder="Add a note about this payment"
                 className="min-h-24"
+                maxLength={MAX_NOTE_LENGTH}
               />
+              <NoteLength value={paymentNote} />
               <label className="flex items-center gap-2 text-[11px] text-gray-600">
                 <input
                   type="checkbox"
@@ -521,7 +525,7 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
           )}
           {isLoading === "makeInvoicePayment" && (
             <p className="mt-3 w-full text-center text-xs text-gray-500">
-              Payment is processing. Keep this tab open—this may take up to a
+              Payment is processing. Keep this tab open. This may take up to a
               minute.
             </p>
           )}
