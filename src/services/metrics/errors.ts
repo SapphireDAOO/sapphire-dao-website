@@ -9,7 +9,7 @@ const INFRA_ERROR_PATTERNS = [/store error/i, /shard not found/i, /shard_/i];
 
 /** User-facing message shown when the subgraph indexer is misbehaving. */
 export const METRICS_UNAVAILABLE_MESSAGE =
-  "Metrics are temporarily unavailable — the subgraph indexer is having trouble. Please try again shortly.";
+  "Metrics are temporarily unavailable because the subgraph indexer is having trouble. Please try again shortly.";
 
 /** True when `message` looks like a graph-node store/shard infrastructure error. */
 export const isSubgraphInfraError = (message: string): boolean =>

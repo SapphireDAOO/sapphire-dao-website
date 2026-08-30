@@ -64,7 +64,7 @@ export default function ProposeForm({ onSuccess, onApplyLogs }: ProposeFormProps
     try {
       calldata = encodeGovernableCall(selectedFn, paramValues);
     } catch {
-      toast.error("Invalid parameter value — check inputs and try again");
+      toast.error("Invalid parameter value. Check inputs and try again");
       return;
     }
 

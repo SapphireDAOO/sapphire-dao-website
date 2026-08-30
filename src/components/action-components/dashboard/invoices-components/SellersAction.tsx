@@ -69,7 +69,7 @@ const SellersAction = ({ invoiceId, state, text }: SellersActionProps) => {
       </Button>
       {isActionLoading && (
         <p className="text-[11px] text-gray-500">
-          Action pending. Keep this tab open—confirmations can take up to a
+          Action pending. Keep this tab open. Confirmations can take up to a
           minute.
         </p>
       )}
