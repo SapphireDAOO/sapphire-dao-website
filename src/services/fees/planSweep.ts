@@ -17,10 +17,19 @@ export const compareReceivers = (
 };
 
 /**
- * Picks receivers to cover `requested`, taking each one's whole balance until
- * the last, which is drawn from only as far as needed so the sweep totals
- * exactly the requested amount. With balances of 50 and 70 and a request of
- * 100, the 50 is emptied and 50 is taken from the 70, leaving 20 behind.
+ * Picks receivers to cover `requested`.
+ *
+ * A receiver that can cover the whole request on its own is used alone: every
+ * extra source is another `transferFrom` in the sweep, so pulling in a second
+ * address that isn't needed just costs gas. With balances of 0.5 and 50 and a
+ * request of 45, the sweep takes 45 from the 50 and leaves the 0.5 untouched.
+ * Of the receivers that could cover it, the smallest wins — it leaves the least
+ * behind in the account it touches and keeps the larger balances whole.
+ *
+ * Only when no single receiver is enough does the sweep combine several, taking
+ * each one's whole balance until the last, which is drawn from as far as needed
+ * so the total is exact. Those are taken smallest first, which keeps the long
+ * tail of dust accounts from growing without bound.
  *
  * `shortfall` is non-zero when the receivers cannot cover the request; the
  * sources returned then represent everything that is available.
@@ -30,22 +39,37 @@ export const planSweep = (
   requested: bigint,
 ): SweepPlan => {
   const sources: SweepSource[] = [];
-  let remaining = requested;
 
   if (requested > BigInt(0)) {
-    for (const receiver of [...receivers].sort(compareReceivers)) {
-      if (remaining <= BigInt(0)) break;
-      if (receiver.balance <= BigInt(0)) continue;
+    const funded = receivers
+      .filter((receiver) => receiver.balance > BigInt(0))
+      .sort(compareReceivers);
 
-      const amount =
-        receiver.balance < remaining ? receiver.balance : remaining;
+    // Ascending, so the first that fits is the smallest that can.
+    const single = funded.find((receiver) => receiver.balance >= requested);
+
+    if (single) {
       sources.push({
-        address: receiver.address,
-        amount,
-        available: receiver.balance,
-        drained: amount === receiver.balance,
+        address: single.address,
+        amount: requested,
+        available: single.balance,
+        drained: single.balance === requested,
       });
-      remaining -= amount;
+    } else {
+      let remaining = requested;
+      for (const receiver of funded) {
+        if (remaining <= BigInt(0)) break;
+
+        const amount =
+          receiver.balance < remaining ? receiver.balance : remaining;
+        sources.push({
+          address: receiver.address,
+          amount,
+          available: receiver.balance,
+          drained: amount === receiver.balance,
+        });
+        remaining -= amount;
+      }
     }
   }
 
