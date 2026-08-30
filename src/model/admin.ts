@@ -30,5 +30,5 @@ export type AdminAction = {
 export type AllInvoicesData = {
   invoices: AllInvoice[];
   actions: AdminAction[];
-  marketplaceInvoices: AllInvoice[];
+  intermediatedInvoices: AllInvoice[];
 };

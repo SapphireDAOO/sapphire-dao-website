@@ -29,7 +29,7 @@ import {
 } from "@/services/blockchain/SimplePaymentProcessor";
 import {
   payIntermediatedInvoice as submitIntermediatedInvoicePayment,
-  setMarketplaceAddress,
+  setIntermediatedOperator,
 } from "@/services/blockchain/IntermediatedPaymentProcessor";
 import { Address } from "viem";
 import { WagmiClient } from "@/services/blockchain/types";
@@ -187,8 +187,8 @@ const WalletProvider = ({ children }: Props) => {
               return success;
             })
           : Promise.resolve(false),
-      setMarketplaceAddress: (address: Address) =>
-        setMarketplaceAddress(wagmiClients, address, chainId, setIsLoading),
+      setIntermediatedOperator: (address: Address) =>
+        setIntermediatedOperator(wagmiClients, address, chainId, setIsLoading),
       sellerAction: (invoiceId: bigint, state: boolean) =>
         sellerAction(wagmiClients, invoiceId, state, chainId, setIsLoading),
       cancelInvoice: (invoiceId: bigint) =>

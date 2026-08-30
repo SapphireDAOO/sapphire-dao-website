@@ -14,7 +14,7 @@ import DashboardHeader from "../dashboard/Header";
 import Container from "@/components/Container";
 import allInvoicesColumns from "./AllInvoicesColumns";
 import adminActionsColumns from "./AdminActionsColumns";
-import allMarketplaceInvoices from "./AllMarketplaceInvoicesColumns";
+import allIntermediatedInvoices from "./AllIntermediatedInvoicesColumns";
 
 import { useGetBalance } from "@/hooks/useGetBalance";
 import { Address } from "viem";
@@ -29,7 +29,7 @@ interface ContractLinkProps {
 }
 
 /**
- * A component that displays a clickable contract address link and optionally the POL balance of the marketplace wallet.
+ * A component that displays a clickable contract address link and optionally the POL balance of the intermediated platforms operator wallet.
  *
  * @param {ContractLinkProps} props - The component props.
  * @returns {JSX.Element} The rendered contract link and optional balance display.
@@ -86,8 +86,8 @@ const AdminInvoices = () => {
         <div className="flex items-center justify-center mt-10">
           <TabsList>
             <TabsTrigger value="invoices">Website Invoices</TabsTrigger>
-            <TabsTrigger value="marketplace">Marketplace Invoices</TabsTrigger>
-            <TabsTrigger value="actions">Marketplace Actions</TabsTrigger>
+            <TabsTrigger value="intermediated">Intermediated Platform Invoices</TabsTrigger>
+            <TabsTrigger value="actions">Intermediated Platform Actions</TabsTrigger>
           </TabsList>
         </div>
         <TabsContent value="invoices">
@@ -107,10 +107,10 @@ const AdminInvoices = () => {
             />
           </Container>
         </TabsContent>
-        <TabsContent value="marketplace">
+        <TabsContent value="intermediated">
           <Container>
             <DashboardHeader
-              title="MARKETPLACE"
+              title="INTERMEDIATED PLATFORMS"
               rightContent={
                 <ContractLink
                   address={
@@ -120,8 +120,8 @@ const AdminInvoices = () => {
               }
             />
             <DataTable
-              columns={allMarketplaceInvoices}
-              data={allInvoiceData.marketplaceInvoices ?? []}
+              columns={allIntermediatedInvoices}
+              data={allInvoiceData.intermediatedInvoices ?? []}
             />
           </Container>
         </TabsContent>

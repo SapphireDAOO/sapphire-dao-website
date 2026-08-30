@@ -167,8 +167,8 @@ export const sortHistory = (status?: string[], time?: string[]): History[] => {
   return history;
 };
 
-/** Build a minimal history array for marketplace invoices that lack subgraph history data */
-export const synthesizeMarketplaceHistory = (inv: {
+/** Build a minimal history array for intermediated invoices that lack subgraph history data */
+export const synthesizeIntermediatedHistory = (inv: {
   history?: string[];
   historyTime?: string[];
   createdAt?: any; // eslint-disable-line @typescript-eslint/no-explicit-any

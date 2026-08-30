@@ -42,7 +42,7 @@ export function InvoiceActivityChart({
       series.slice(-WINDOW_DAYS).map((point) => ({
         day: dayLabel(point.timestamp),
         website: point.website,
-        marketplace: point.marketplace,
+        intermediated: point.intermediated,
       })),
     [series],
   );
@@ -50,7 +50,7 @@ export function InvoiceActivityChart({
   // The series is zero-filled to a full window, so "no data" means every
   // point is zero rather than an empty array.
   const hasActivity = data.some(
-    (point) => point.website > 0 || point.marketplace > 0,
+    (point) => point.website > 0 || point.intermediated > 0,
   );
 
   return (
@@ -88,7 +88,7 @@ export function InvoiceActivityChart({
                     />
                   </linearGradient>
                   <linearGradient
-                    id="colorMarketplace"
+                    id="colorIntermediated"
                     x1="0"
                     y1="0"
                     x2="0"
@@ -151,12 +151,12 @@ export function InvoiceActivityChart({
                 />
                 <Area
                   type="monotone"
-                  dataKey="marketplace"
-                  name="Marketplace"
+                  dataKey="intermediated"
+                  name="Intermediated Platforms"
                   stroke="hsl(var(--chart-2))"
                   strokeWidth={2}
                   fillOpacity={1}
-                  fill="url(#colorMarketplace)"
+                  fill="url(#colorIntermediated)"
                 />
               </AreaChart>
             </ResponsiveContainer>

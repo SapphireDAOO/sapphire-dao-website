@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
 import CopyableAddress from "@/components/ui/copyable-address";
 
-const allMarketplaceInvoices: ColumnDef<AllInvoice>[] = [
+const allIntermediatedInvoices: ColumnDef<AllInvoice>[] = [
   {
     accessorKey: "id",
     header: ({ column }) => {
@@ -230,4 +230,4 @@ const allMarketplaceInvoices: ColumnDef<AllInvoice>[] = [
   },
 ];
 
-export default allMarketplaceInvoices;
+export default allIntermediatedInvoices;

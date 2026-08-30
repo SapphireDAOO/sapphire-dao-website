@@ -132,13 +132,13 @@ export const payIntermediatedInvoice = async (
   return success;
 };
 
-export const setMarketplaceAddress = async (
+export const setIntermediatedOperator = async (
   { walletClient, publicClient }: WagmiClient,
-  marketplaceAddress: Address,
+  intermediatedOperatorAddress: Address,
   chainId: number,
   setIsLoading: (value: string) => void,
 ): Promise<any> => {
-  setIsLoading("setMarketplaceAddress");
+  setIsLoading("setIntermediatedOperator");
   let success = false;
 
   try {
@@ -150,7 +150,7 @@ export const setMarketplaceAddress = async (
       data: encodeFunctionData({
         abi: PaymentProcessorStorage,
         functionName: "setIntermediatedPlatformsOperator",
-        args: [marketplaceAddress],
+        args: [intermediatedOperatorAddress],
       }),
       gasPrice,
     });

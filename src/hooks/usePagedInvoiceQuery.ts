@@ -8,7 +8,7 @@ import { BASE_SEPOLIA } from "@/constants";
 import { getLastActionTime } from "@/lib/invoiceHistory";
 import {
   transformSimple,
-  transformMarketplace,
+  transformIntermediated,
 } from "@/services/invoice-transformers";
 
 /** How many invoices to pull from the subgraph in each batch */
@@ -19,14 +19,14 @@ export const INVOICE_PAGE_SIZE = 12;
 export type InvoiceTab = "all" | "seller" | "buyer";
 
 interface Params {
-  isMarketplace: boolean;
+  isIntermediated: boolean;
   enabled?: boolean;
 }
 
 interface Result {
-  /** Owned (simple) or Issued (marketplace) invoices */
+  /** Owned (simple) or Issued (intermediated) invoices */
   sellerInvoices: Invoice[];
-  /** Paid (simple) or Received (marketplace) invoices */
+  /** Paid (simple) or Received (intermediated) invoices */
   buyerInvoices: Invoice[];
   hasMoreSeller: boolean;
   hasMoreBuyer: boolean;
@@ -41,7 +41,7 @@ interface Result {
 }
 
 export function usePagedInvoiceQuery({
-  isMarketplace,
+  isIntermediated,
   enabled = true,
 }: Params): Result {
   const { address, chain } = useAccount();
@@ -125,10 +125,10 @@ export function usePagedInvoiceQuery({
                 address: address.toLowerCase(),
                 first,
                 skip: sellerSkip,
-                includeOwned: !isMarketplace,
-                includePaid: !isMarketplace,
-                includeIssued: isMarketplace,
-                includeReceived: isMarketplace,
+                includeOwned: !isIntermediated,
+                includePaid: !isIntermediated,
+                includeIssued: isIntermediated,
+                includeReceived: isIntermediated,
               },
               requestPolicy ? { requestPolicy } : undefined,
             )
@@ -138,10 +138,10 @@ export function usePagedInvoiceQuery({
           if (gqlError) throw gqlError;
 
           const raw = data?.user;
-          rawSeller = isMarketplace
+          rawSeller = isIntermediated
             ? (raw?.issuedAdvancedInvoices ?? [])
             : (raw?.ownedSimpleInvoices ?? []);
-          rawBuyer = isMarketplace
+          rawBuyer = isIntermediated
             ? (raw?.receivedAdvancedInvoices ?? [])
             : (raw?.paidSimpleInvoices ?? []);
         } else {
@@ -155,9 +155,9 @@ export function usePagedInvoiceQuery({
                       address: address.toLowerCase(),
                       first,
                       skip: sellerSkip,
-                      includeOwned: !isMarketplace,
+                      includeOwned: !isIntermediated,
                       includePaid: false,
-                      includeIssued: isMarketplace,
+                      includeIssued: isIntermediated,
                       includeReceived: false,
                     },
                     requestPolicy ? { requestPolicy } : undefined,
@@ -173,9 +173,9 @@ export function usePagedInvoiceQuery({
                       first,
                       skip: buyerSkip,
                       includeOwned: false,
-                      includePaid: !isMarketplace,
+                      includePaid: !isIntermediated,
                       includeIssued: false,
-                      includeReceived: isMarketplace,
+                      includeReceived: isIntermediated,
                     },
                     requestPolicy ? { requestPolicy } : undefined,
                   )
@@ -189,13 +189,13 @@ export function usePagedInvoiceQuery({
 
           rawSeller =
             sellerSkip !== null
-              ? isMarketplace
+              ? isIntermediated
                 ? (sellerResult.data?.user?.issuedAdvancedInvoices ?? [])
                 : (sellerResult.data?.user?.ownedSimpleInvoices ?? [])
               : [];
           rawBuyer =
             buyerSkip !== null
-              ? isMarketplace
+              ? isIntermediated
                 ? (buyerResult.data?.user?.receivedAdvancedInvoices ?? [])
                 : (buyerResult.data?.user?.paidSimpleInvoices ?? [])
               : [];
@@ -209,16 +209,16 @@ export function usePagedInvoiceQuery({
         const newSeller: Invoice[] = rawSeller
           .slice(0, INVOICE_FETCH_SIZE)
           .map((inv) =>
-            isMarketplace
-              ? transformMarketplace(inv, "IssuedInvoice")
+            isIntermediated
+              ? transformIntermediated(inv, "IssuedInvoice")
               : transformSimple(inv, "Seller"),
           );
 
         const newBuyer: Invoice[] = rawBuyer
           .slice(0, INVOICE_FETCH_SIZE)
           .map((inv) =>
-            isMarketplace
-              ? transformMarketplace(inv, "ReceivedInvoice")
+            isIntermediated
+              ? transformIntermediated(inv, "ReceivedInvoice")
               : transformSimple(inv, "Buyer"),
           );
 
@@ -245,7 +245,7 @@ export function usePagedInvoiceQuery({
         if (id === fetchIdRef.current) setIsLoading(false);
       }
     },
-    [address, chainId, isMarketplace, enabled],
+    [address, chainId, isIntermediated, enabled],
   );
 
   // Initial load: fetch both categories at once.

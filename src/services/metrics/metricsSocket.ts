@@ -142,7 +142,7 @@ export const createMetricsSocket = (
                   escrowUsd: usd,
                   escrowPaidUsd: usd,
                   invoicesPaid: 1,
-                  activityMarketplace: 1,
+                  activityIntermediated: 1,
                 });
                 break;
               }
@@ -155,7 +155,7 @@ export const createMetricsSocket = (
                 onDelta({
                   escrowUsd: -toUsd(token, sellerAmount + fee),
                   feesUsd: toUsd(token, fee),
-                  activityMarketplace: 1,
+                  activityIntermediated: 1,
                 });
                 break;
               }
@@ -169,7 +169,7 @@ export const createMetricsSocket = (
                     token && amount !== undefined
                       ? -toUsd(token, amount)
                       : undefined,
-                  activityMarketplace: 1,
+                  activityIntermediated: 1,
                 });
                 break;
               }
@@ -191,7 +191,7 @@ export const createMetricsSocket = (
                       : undefined,
                   feesUsd:
                     token && fee !== undefined ? toUsd(token, fee) : undefined,
-                  activityMarketplace: 1,
+                  activityIntermediated: 1,
                 });
                 break;
               }

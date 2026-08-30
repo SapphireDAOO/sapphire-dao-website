@@ -35,7 +35,7 @@ import { intermediatedPaymentProcessor } from "@/abis/IntermediatedPaymentProces
 import {
   sortState,
   sortHistory,
-  synthesizeMarketplaceHistory,
+  synthesizeIntermediatedHistory,
   pickNewerStatus,
   nowInSeconds,
   appendHistoryEntry,
@@ -54,7 +54,7 @@ import {
   getInvoiceMergeKey,
 } from "@/lib/invoiceIdentifiers";
 import { useSimpleInvoiceEvents } from "./useSimpleInvoiceEvents";
-import { useMarketplaceInvoiceEvents } from "./useMarketplaceInvoiceEvents";
+import { useIntermediatedInvoiceEvents } from "./useIntermediatedInvoiceEvents";
 import { useIsWindowVisible } from "./useIsWindowVisible";
 import type { CreatedSimpleInvoice } from "@/services/blockchain/SimplePaymentProcessor";
 
@@ -65,7 +65,7 @@ const USER_INVOICE_PAGE_CACHE_TTL_MS = 2_000;
 const USER_INVOICE_PAGE_CACHE_MAX = 100;
 const LIVE_INVOICE_OVERLAY_LIMIT = 100;
 const SIMPLE_INVOICE_READ_TTL_MS = 5_000;
-const MARKETPLACE_INVOICE_READ_TTL_MS = 5_000;
+const INTERMEDIATED_INVOICE_READ_TTL_MS = 5_000;
 
 const INTERMEDIATED_STATE_LABELS: Record<number, string> = {
   1: "CREATED",
@@ -139,7 +139,7 @@ export const useInvoiceData = () => {
   const [allInvoiceData, setAllInvoiceData] = useState<AllInvoicesData>({
     invoices: [],
     actions: [],
-    marketplaceInvoices: [],
+    intermediatedInvoices: [],
   });
 
   const cacheWriteTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
@@ -150,7 +150,7 @@ export const useInvoiceData = () => {
   const [invoicePage, setInvoicePage] = useState(0);
   const [hasNextPage, setHasNextPage] = useState(false);
   const [activeEventTab, setActiveEventTab] = useState<
-    "simple" | "marketplace"
+    "simple" | "intermediated"
   >("simple");
   const currentPageRef = useRef(0);
   const invoiceDataLengthRef = useRef(0);
@@ -249,7 +249,7 @@ export const useInvoiceData = () => {
   const allInvoiceDataRef = useRef<AllInvoicesData>({
     invoices: [],
     actions: [],
-    marketplaceInvoices: [],
+    intermediatedInvoices: [],
   });
   const allInvoiceDataCacheRef = useRef<{
     chainId: number;
@@ -265,10 +265,10 @@ export const useInvoiceData = () => {
   const simpleInvoiceReadInflightRef = useRef<Map<string, Promise<unknown>>>(
     new Map(),
   );
-  const marketplaceInvoiceReadCacheRef = useRef<
+  const intermediatedInvoiceReadCacheRef = useRef<
     Map<string, { timestamp: number; data: unknown }>
   >(new Map());
-  const marketplaceInvoiceReadInflightRef = useRef<
+  const intermediatedInvoiceReadInflightRef = useRef<
     Map<string, Promise<unknown>>
   >(new Map());
   useEffect(() => {
@@ -356,7 +356,7 @@ export const useInvoiceData = () => {
       const request = (async (): Promise<AllInvoicesData> => {
         const invoices: AllInvoice[] = [];
         const actions: AdminAction[] = [];
-        const marketplaceInvoices: AllInvoice[] = [];
+        const intermediatedInvoices: AllInvoice[] = [];
 
         try {
           // Page through each list until exhausted; the subgraph caps a single
@@ -406,7 +406,7 @@ export const useInvoiceData = () => {
             return rows;
           };
 
-          const [rawInvoices, rawMarketplaceInvoices] = await Promise.all([
+          const [rawInvoices, rawIntermediatedInvoices] = await Promise.all([
             fetchPagedList("invoices"),
             fetchPagedList("smartInvoices"),
           ]);
@@ -450,9 +450,9 @@ export const useInvoiceData = () => {
             };
           }
 
-          for (const raw of rawMarketplaceInvoices) {
+          for (const raw of rawIntermediatedInvoices) {
             const list = flattenInvoiceEvents(raw);
-            marketplaceInvoices[marketplaceInvoices.length] = {
+            intermediatedInvoices[intermediatedInvoices.length] = {
               id: getDisplayInvoiceIdString(list),
               invoiceId: getContractInvoiceIdBigInt(list),
               contract: list.contract || "",
@@ -475,7 +475,7 @@ export const useInvoiceData = () => {
             };
           }
 
-          const result = { invoices, actions, marketplaceInvoices };
+          const result = { invoices, actions, intermediatedInvoices };
           allInvoiceDataCacheRef.current = {
             chainId,
             timestamp: Date.now(),
@@ -627,7 +627,7 @@ export const useInvoiceData = () => {
           refundTxHash: invoice.refundTxHash,
         }));
 
-        const mapMarketplaceInvoice = (
+        const mapIntermediatedInvoice = (
           invoice: any,
           type: "IssuedInvoice" | "ReceivedInvoice",
         ) => ({
@@ -660,25 +660,25 @@ export const useInvoiceData = () => {
           releaseHash: invoice.releaseHash,
           releaseAt: invoice.releasedAt,
           buyer: invoice.buyer?.id ?? "",
-          source: "Marketplace" as const,
+          source: "Intermediated" as const,
           // Native ETH has no PaymentToken entity in the subgraph — normalize to the
           // zero address so downstream lookups (decimals, symbol) match correctly.
           paymentToken: invoice.paymentToken?.id ?? ZERO_ADDRESS,
           cancelAt: invoice.cancelAt,
           refundTxHash: invoice.refundTxHash,
-          history: synthesizeMarketplaceHistory(invoice),
+          history: synthesizeIntermediatedHistory(invoice),
         });
 
         const issuedInvoicesData = issuedInvoices.map(
           (inv: any) =>
-            mapMarketplaceInvoice(
+            mapIntermediatedInvoice(
               inv,
               "IssuedInvoice",
             ) as UserIssuedInvoiceInvoice,
         );
         const receivedInvoicesData = receivedInvoices.map(
           (inv: any) =>
-            mapMarketplaceInvoice(
+            mapIntermediatedInvoice(
               inv,
               "ReceivedInvoice",
             ) as UserReceivedInvoicesInvoice,
@@ -863,22 +863,22 @@ export const useInvoiceData = () => {
     [chainId, publicClient],
   );
 
-  const readMarketplaceInvoiceChainData = useCallback(
+  const readIntermediatedInvoiceChainData = useCallback(
     async (invoiceId: bigint) => {
       if (!publicClient) return undefined;
       const contractAddress = INTERMEDIATED_PAYMENT_PROCESSOR[chainId];
       if (!contractAddress) return undefined;
 
       const key = `${chainId}:${contractAddress}:${invoiceId.toString()}`;
-      const cached = marketplaceInvoiceReadCacheRef.current.get(key);
+      const cached = intermediatedInvoiceReadCacheRef.current.get(key);
       if (
         cached &&
-        Date.now() - cached.timestamp < MARKETPLACE_INVOICE_READ_TTL_MS
+        Date.now() - cached.timestamp < INTERMEDIATED_INVOICE_READ_TTL_MS
       ) {
         return cached.data;
       }
 
-      const existing = marketplaceInvoiceReadInflightRef.current.get(key);
+      const existing = intermediatedInvoiceReadInflightRef.current.get(key);
       if (existing) return existing;
 
       const request = publicClient
@@ -889,17 +889,17 @@ export const useInvoiceData = () => {
           args: [invoiceId],
         })
         .then((data) => {
-          marketplaceInvoiceReadCacheRef.current.set(key, {
+          intermediatedInvoiceReadCacheRef.current.set(key, {
             timestamp: Date.now(),
             data,
           });
           return data;
         })
         .finally(() => {
-          marketplaceInvoiceReadInflightRef.current.delete(key);
+          intermediatedInvoiceReadInflightRef.current.delete(key);
         });
 
-      marketplaceInvoiceReadInflightRef.current.set(key, request);
+      intermediatedInvoiceReadInflightRef.current.set(key, request);
       return request;
     },
     [chainId, publicClient],
@@ -1160,7 +1160,7 @@ export const useInvoiceData = () => {
     ],
   );
 
-  const hydrateMarketplaceInvoiceFromChain = useCallback(
+  const hydrateIntermediatedInvoiceFromChain = useCallback(
     async (
       invoiceId: bigint,
       eventStatus?: Invoice["status"],
@@ -1172,7 +1172,7 @@ export const useInvoiceData = () => {
       if (!contractAddress) return;
 
       try {
-        const data = await readMarketplaceInvoiceChainData(invoiceId);
+        const data = await readIntermediatedInvoiceChainData(invoiceId);
         if (!data) return;
 
         const invoiceData = data as unknown;
@@ -1288,7 +1288,7 @@ export const useInvoiceData = () => {
           contract: contractAddress,
           buyer: buyer ?? "",
           seller: seller ?? "",
-          source: "Marketplace",
+          source: "Intermediated",
           paymentToken: paymentToken ?? "",
           paymentTxHash: status === "PAID" ? txHash : undefined,
           refundTxHash: status === "REFUNDED" ? txHash : undefined,
@@ -1342,7 +1342,7 @@ export const useInvoiceData = () => {
         });
         publishLiveInvoices([nextInvoice]);
       } catch (error) {
-        console.error("Failed to hydrate marketplace invoice from chain", error);
+        console.error("Failed to hydrate intermediated invoice from chain", error);
       }
     },
     [
@@ -1350,7 +1350,7 @@ export const useInvoiceData = () => {
       chainId,
       publicClient,
       publishLiveInvoices,
-      readMarketplaceInvoiceChainData,
+      readIntermediatedInvoiceChainData,
     ],
   );
 
@@ -1383,7 +1383,7 @@ export const useInvoiceData = () => {
       setAllInvoiceData({
         invoices: [],
         actions: [],
-        marketplaceInvoices: [],
+        intermediatedInvoices: [],
       });
       setLiveInvoiceData([]);
       return;
@@ -1419,15 +1419,15 @@ export const useInvoiceData = () => {
     onLiveInvoices: publishLiveInvoices,
   });
 
-  useMarketplaceInvoiceEvents({
-    active: activeEventTab === "marketplace" && isWindowVisible,
+  useIntermediatedInvoiceEvents({
+    active: activeEventTab === "intermediated" && isWindowVisible,
     address,
     chainId,
     publicClient,
     invoicesRef: invoiceDataStateRef,
     setInvoiceData,
     onLiveInvoices: publishLiveInvoices,
-    hydrateMarketplaceInvoiceFromChain,
+    hydrateIntermediatedInvoiceFromChain,
   });
 
   // Stable wrappers so the returned object (and any context value built from

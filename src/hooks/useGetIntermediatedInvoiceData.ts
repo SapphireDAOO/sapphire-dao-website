@@ -19,7 +19,7 @@ import { BASE_SEPOLIA } from "@/constants";
  *   - `isLoading`: Boolean indicating whether the contract read is currently in progress.
  */
 
-export const useGetMarketplaceInvoiceData = (invoiceId: bigint | undefined) => {
+export const useGetIntermediatedInvoiceData = (invoiceId: bigint | undefined) => {
   // Get the connected user's wallet address using the wagmi `useAccount` hook
   const { address } = useAccount();
 

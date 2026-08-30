@@ -28,7 +28,7 @@ export interface RecentTransaction {
   id: string;
   kind: TransactionKind;
   /** Which processor the invoice belongs to. */
-  source: "Simple" | "Marketplace";
+  source: "Simple" | "Intermediated";
   /** Display invoice number (invoiceNonce). */
   invoiceNonce: string;
   /** Transaction hash, used to build the block-explorer link. */
@@ -73,14 +73,14 @@ export interface EscrowSeriesPoint {
 
 /** One day of invoice-paid activity, split by payment processor. The simple
  *  processor backs the public website; the intermediated processor backs the
- *  marketplace. */
+ *  intermediated. */
 export interface InvoiceActivityPoint {
   /** Unix seconds at the start of the day bucket. */
   timestamp: number;
   /** Invoices paid that day via the simple processor (website). */
   website: number;
-  /** Invoices paid that day via the intermediated processor (marketplace). */
-  marketplace: number;
+  /** Invoices paid that day via the intermediated processor (intermediated). */
+  intermediated: number;
 }
 
 /**
@@ -145,8 +145,8 @@ export interface MetricsDelta {
   invoicesPaid?: number;
   /** Invoice-activity bumps via the simple processor (website). */
   activityWebsite?: number;
-  /** Invoice-activity bumps via the intermediated processor (marketplace). */
-  activityMarketplace?: number;
+  /** Invoice-activity bumps via the intermediated processor (intermediated). */
+  activityIntermediated?: number;
 }
 
 export type MetricsSocketStatus = "connecting" | "open" | "closed" | "error";

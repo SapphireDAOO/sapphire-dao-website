@@ -7,11 +7,11 @@ import { useViemReadContract } from "./useViemReadContract";
 import { useViemBalance } from "./useViemBalance";
 
 /**
- * Custom hook to retrieve the balance of POL in the marketplace wallet.
+ * Custom hook to retrieve the balance of POL in the intermediated platforms operator wallet.
  *
  * @returns {string | undefined} return.data - The POL balance formatted in ether, or undefined if not available.
- * @returns {Function} return.refetch - Function to refetch the balance and marketplace address.
- * @returns {boolean} return.isLoading - Indicates if the balance or marketplace address is being fetched.
+ * @returns {Function} return.refetch - Function to refetch the balance and intermediated address.
+ * @returns {boolean} return.isLoading - Indicates if the balance or intermediated address is being fetched.
  */
 export const useGetBalance = () => {
   // Retrieve the current user's wallet address using the wagmi `useAccount` hook
@@ -20,9 +20,9 @@ export const useGetBalance = () => {
   // Retrieve the current chain ID using the wagmi `useChainId` hook
   const chainId = useChainId() || BASE_SEPOLIA;
 
-  // Fetch the marketplace address from the IntermediatedPaymentProcessor contract
+  // Fetch the intermediated address from the IntermediatedPaymentProcessor contract
   const {
-    data: marketplaceAddress,
+    data: intermediatedOperatorAddress,
     isLoading: isLoadingAddress,
     refetch: refetchAddress,
   } = useViemReadContract({
@@ -33,13 +33,13 @@ export const useGetBalance = () => {
     account: address,
   });
 
-  // Fetch the POL balance of the marketplace address
+  // Fetch the POL balance of the intermediated address
   const {
     data: balanceData,
     isLoading: isLoadingBalance,
     refetch: refetchBalance,
   } = useViemBalance({
-    address: marketplaceAddress as Address | undefined,
+    address: intermediatedOperatorAddress as Address | undefined,
     chainId: baseSepolia.id,
   });
 

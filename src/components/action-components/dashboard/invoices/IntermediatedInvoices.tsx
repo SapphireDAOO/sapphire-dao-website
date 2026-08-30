@@ -93,7 +93,7 @@ const statusColors: Record<string, string> = {
   "PARTIAL REFUND": "bg-gray-100 text-gray-600",
 };
 
-export function MarketplaceCard({
+export function IntermediatedCard({
   invoice,
   isExpanded,
   onToggle,
@@ -112,7 +112,7 @@ export function MarketplaceCard({
   // subgraph fallback is gated by ENABLE_SUBGRAPH_PAYMENT_TOKENS. DEFAULT_TOKEN
   // (decimals=18, name="") is treated as "not yet resolved" via the empty id.
   const { tokenDecimals, paymentCurrency } = useMemo(() => {
-    // Native ETH: the marketplace subgraph stores ETH-paid invoices with no
+    // Native ETH: the intermediated-platform subgraph stores ETH-paid invoices with no
     // PaymentToken entity, so paymentToken arrives as "" (or the zero address).
     // Both cases mean ETH — must be matched before the unknown-token fallback,
     // otherwise an 18-decimal value gets divided by 10^8 (the 10^10 blow-up).
@@ -126,8 +126,8 @@ export function MarketplaceCard({
       };
     }
     // Unknown token (not in the hardcoded list, subgraph disabled or empty result).
-    // Fall back to 8 decimals — the most common marketplace token width — and a
-    // generic label so the amount still renders with a unit.
+    // Fall back to 8 decimals — the most common token width on intermediated
+    // platforms — and a generic label so the amount still renders with a unit.
     return { tokenDecimals: 8, paymentCurrency: "tokens" };
   }, [
     invoice.paymentToken,

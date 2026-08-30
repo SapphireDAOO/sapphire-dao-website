@@ -16,7 +16,7 @@ import { useChainId } from "wagmi";
 
 import CheckoutCard from "./CheckoutCard";
 import Container from "@/components/Container";
-import { useGetMarketplaceInvoiceData } from "@/hooks/useGetMarketplaceInvoiceData";
+import { useGetIntermediatedInvoiceData } from "@/hooks/useGetIntermediatedInvoiceData";
 import {
   getContractInvoiceIdBigInt,
   getDisplayInvoiceIdString,
@@ -64,11 +64,11 @@ const CheckoutPage = () => {
   }, [jwtToken]);
 
   const ZERO: bigint = BigInt(0);
-  const { data: invoiceInfo } = useGetMarketplaceInvoiceData(invoiceId || ZERO);
+  const { data: invoiceInfo } = useGetIntermediatedInvoiceData(invoiceId || ZERO);
   const { data: metaInvoice } = useGetMetaInvoice(invoiceId || ZERO);
   const metaInvoicePrice =
     (metaInvoice as { price?: bigint } | undefined)?.price;
-  const marketplaceInvoice = invoiceInfo as
+  const intermediatedInvoice = invoiceInfo as
     | { invoiceId?: bigint; invoiceNonce?: bigint; price?: bigint; paymentToken?: string }
     | undefined;
 
@@ -108,13 +108,13 @@ const CheckoutPage = () => {
         } else {
           structured = {
             id:
-              marketplaceInvoice?.invoiceId?.toString() ??
-              marketplaceInvoice?.invoiceNonce?.toString() ??
+              intermediatedInvoice?.invoiceId?.toString() ??
+              intermediatedInvoice?.invoiceNonce?.toString() ??
               "",
             invoiceId: invoiceId,
-            price: marketplaceInvoice?.price?.toString() ?? "0",
+            price: intermediatedInvoice?.price?.toString() ?? "0",
             tokenList: paymentTokens,
-            status: (marketplaceInvoice as { state?: string } | undefined)
+            status: (intermediatedInvoice as { state?: string } | undefined)
               ?.state,
           };
         }
@@ -131,7 +131,7 @@ const CheckoutPage = () => {
     metaInvoicePrice,
     isMetaInvoice,
     getIntermediatedInvoiceData,
-    marketplaceInvoice,
+    intermediatedInvoice,
   ]);
 
   // UI

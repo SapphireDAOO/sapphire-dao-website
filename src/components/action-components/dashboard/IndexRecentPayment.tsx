@@ -7,7 +7,7 @@ import { FilterTabs, CreateInvoiceCard } from "./invoice-cards/index";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Note, Invoice } from "@/model/model";
 import { Button } from "@/components/ui/button";
-import { MarketplaceCard } from "./invoices/IntermediatedInvoices";
+import { IntermediatedCard } from "./invoices/IntermediatedInvoices";
 import { InvoiceCard } from "./invoices/SimpleInvoices";
 import { toast } from "sonner";
 import {
@@ -19,7 +19,7 @@ import { InvoiceFilterBar } from "./InvoiceFilterBar";
 import { InvoicePaginationControls } from "./InvoicePaginationControls";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 
-const marketplaceFilters = [
+const intermediatedFilters = [
   "All",
   "AWAITING PAYMENT",
   "PAID",
@@ -44,10 +44,10 @@ const simpleFilters = [
 ];
 
 export default function IndexRecentPayment({
-  isMarketplaceTab,
+  isIntermediatedTab,
   enabled = true,
 }: {
-  isMarketplaceTab: boolean;
+  isIntermediatedTab: boolean;
   enabled?: boolean;
 }) {
   const {
@@ -77,7 +77,7 @@ export default function IndexRecentPayment({
     setActiveTab(defaultTab);
   }, [defaultTab]);
 
-  const basePath = isMarketplaceTab ? "/marketplace-dashboard" : "/dashboard";
+  const basePath = isIntermediatedTab ? "/intermediated-dashboard" : "/dashboard";
 
   // Reset to page 1 on any filter/tab change
   useEffect(() => {
@@ -85,7 +85,7 @@ export default function IndexRecentPayment({
   }, [
     statusFilter,
     selectedDate,
-    isMarketplaceTab,
+    isIntermediatedTab,
     activeTab,
     debouncedWalletQuery,
   ]);
@@ -101,7 +101,7 @@ export default function IndexRecentPayment({
     isLoading: pageIsLoading,
     error: pageError,
     refetch: refetchPage,
-  } = usePagedInvoiceQuery({ isMarketplace: isMarketplaceTab, enabled });
+  } = usePagedInvoiceQuery({ isIntermediated: isIntermediatedTab, enabled });
 
   const invoiceKey = useCallback(
     (invoice: Pick<Invoice, "invoiceId">) => invoice.invoiceId.toString(),
@@ -119,8 +119,8 @@ export default function IndexRecentPayment({
     [buyerInvoices, invoiceKey],
   );
 
-  const sellerType = isMarketplaceTab ? "IssuedInvoice" : "Seller";
-  const buyerType = isMarketplaceTab ? "ReceivedInvoice" : "Buyer";
+  const sellerType = isIntermediatedTab ? "IssuedInvoice" : "Seller";
+  const buyerType = isIntermediatedTab ? "ReceivedInvoice" : "Buyer";
 
   // ── Merge recent live updates from context on top of paged subgraph data ───
   const liveOverlay = useMemo(() => {
@@ -368,10 +368,10 @@ export default function IndexRecentPayment({
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="all">All</TabsTrigger>
           <TabsTrigger value="seller">
-            {isMarketplaceTab ? "Issued" : "Created by me"}
+            {isIntermediatedTab ? "Issued" : "Created by me"}
           </TabsTrigger>
           <TabsTrigger value="buyer">
-            {isMarketplaceTab ? "Received" : "Paid by me"}
+            {isIntermediatedTab ? "Received" : "Paid by me"}
           </TabsTrigger>
         </TabsList>
 
@@ -379,13 +379,13 @@ export default function IndexRecentPayment({
           <TabsContent key={tab} value={tab}>
             {activeTab === tab && (
               <>
-                {!isMarketplaceTab && (tab === "seller" || tab === "all") && (
+                {!isIntermediatedTab && (tab === "seller" || tab === "all") && (
                   <CreateInvoiceCard />
                 )}
 
                 <FilterTabs
                   filters={
-                    isMarketplaceTab ? marketplaceFilters : simpleFilters
+                    isIntermediatedTab ? intermediatedFilters : simpleFilters
                   }
                   activeFilter={statusFilter}
                   onSelect={(value) => {
@@ -430,8 +430,8 @@ export default function IndexRecentPayment({
                           key={`${key}-${invoice.type}`}
                           className="w-full md:w-[48%] lg:w-[31%]"
                         >
-                          {isMarketplaceTab ? (
-                            <MarketplaceCard
+                          {isIntermediatedTab ? (
+                            <IntermediatedCard
                               invoice={invoice}
                               isExpanded={expandedId === key}
                               onToggle={() => handleToggle(key)}

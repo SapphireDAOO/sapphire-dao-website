@@ -4,7 +4,7 @@ import { unixToGMT } from "@/utils";
 import {
   sortState,
   sortHistory,
-  synthesizeMarketplaceHistory,
+  synthesizeIntermediatedHistory,
   flattenInvoiceEvents,
 } from "@/lib/invoiceHistory";
 import {
@@ -47,13 +47,13 @@ export const transformSimple = (
   };
 };
 
-/** Transform a raw intermediated-payment-processor (marketplace) invoice from the subgraph */
-export const transformMarketplace = (
+/** Transform a raw intermediated-payment-processor (intermediated) invoice from the subgraph */
+export const transformIntermediated = (
   raw: RawInvoice,
   type: "IssuedInvoice" | "ReceivedInvoice"
 ): Invoice => {
   const inv = flattenInvoiceEvents(raw);
-  const history = synthesizeMarketplaceHistory(inv);
+  const history = synthesizeIntermediatedHistory(inv);
 
   return {
     id: getDisplayInvoiceIdString(inv),
@@ -77,7 +77,7 @@ export const transformMarketplace = (
     buyer: inv.buyer?.id ?? "",
     releaseAt: inv.releasedAt,
     expiresAt: inv.expiresAt,
-    source: "Marketplace" as const,
+    source: "Intermediated" as const,
     // Native ETH has no PaymentToken entity in the subgraph — normalize to the
     // zero address so downstream code (token lookup, display) has a real sentinel.
     paymentToken: inv.paymentToken?.id ?? ZERO_ADDRESS,

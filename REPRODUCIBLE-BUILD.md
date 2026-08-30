@@ -15,9 +15,10 @@ page in this app is a thin server component wrapping a client component,
 essentially all the security-relevant logic — transaction construction, signing
 prompts — lives in that verifiable half.
 
-Note that `/dashboard`, `/invoices`, `/marketplace-dashboard` and `/metrics` are
+Note that `/dashboard`, `/invoices`, `/intermediated-dashboard` and `/metrics` are
 server-rendered on demand, so they emit no prerendered HTML and only `/`,
-`/admin`, `/checkout`, `/multisig` and `/pay` are hash-checked as documents.
+`/checkout`, `/controls`, `/fee-activities`, `/multisig` and `/pay` are
+hash-checked as documents.
 This costs less than it sounds: those four routes still load the _same_ verified
 chunks from `/_next/static/`, so the code that builds and signs transactions is
 covered either way. Only the initial HTML shell is unverifiable for them.

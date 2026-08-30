@@ -322,7 +322,7 @@ const buildInvoiceActivitySeries = (
 
   const perDay = new Map<number, InvoiceActivityPoint>();
   for (let ts = windowStart; ts <= dayMark; ts += SECONDS_PER_DAY) {
-    perDay.set(ts, { timestamp: ts, website: 0, marketplace: 0 });
+    perDay.set(ts, { timestamp: ts, website: 0, intermediated: 0 });
   }
 
   const byType: Record<InvoiceType, { ts: number; cumulative: number }[]> = {
@@ -341,7 +341,7 @@ const buildInvoiceActivitySeries = (
     });
   }
 
-  const accumulate = (type: InvoiceType, key: "website" | "marketplace") => {
+  const accumulate = (type: InvoiceType, key: "website" | "intermediated") => {
     const series = byType[type].sort((a, b) => a.ts - b.ts);
     let prior = 0;
     for (const { ts, cumulative } of series) {
@@ -352,7 +352,7 @@ const buildInvoiceActivitySeries = (
     }
   };
   accumulate("SIMPLE", "website");
-  accumulate("ADVANCED", "marketplace");
+  accumulate("ADVANCED", "intermediated");
 
   return [...perDay.values()];
 };

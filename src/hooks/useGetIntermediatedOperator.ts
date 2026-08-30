@@ -6,7 +6,7 @@ import { useChainId } from "wagmi";
 import { useViemReadContract } from "./useViemReadContract";
 import { BASE_SEPOLIA } from "@/constants";
 
-export const useGetMarketplaceWallet = () => {
+export const useGetIntermediatedOperator = () => {
   // Get the current chain ID using the wagmi `useChainId` hook
   const chainId = useChainId() || BASE_SEPOLIA;
 

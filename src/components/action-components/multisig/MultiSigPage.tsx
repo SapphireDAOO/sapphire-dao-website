@@ -31,19 +31,19 @@ const CONTRACT_DESCRIPTIONS = [
   {
     label: "SimplePaymentProcessor",
     description:
-      "Handles peer-to-peer invoice creation, payment, and release for standard (non-marketplace) transactions. Governs minimum invoice value, seller decision window, and forwarder address.",
+      "Handles peer-to-peer invoice creation, payment, and release for standard (non-intermediated) transactions. Governs minimum invoice value, seller decision window, and forwarder address.",
     getAddress: (chainId: number) => SIMPLE_PAYMENT_PROCESSOR[chainId],
   },
   {
     label: "IntermediatedPaymentProcessor",
     description:
-      "Handles marketplace-style meta-invoices with multi-item support, USD-denominated pricing, and dispute resolution. Governs the minimum invoice price.",
+      "Handles intermediated-platform meta-invoices with multi-item support, USD-denominated pricing, and dispute resolution. Governs the minimum invoice price.",
     getAddress: (chainId: number) => INTERMEDIATED_PAYMENT_PROCESSOR[chainId],
   },
   {
     label: "PaymentProcessorStorage",
     description:
-      "Central configuration store shared by both processors. Governs the platform fee rate, fee receiver, default hold period, invoice validity duration, and marketplace wallet address.",
+      "Central configuration store shared by both processors. Governs the platform fee rate, fee receiver, default hold period, invoice validity duration, and intermediated platforms operator wallet address.",
     getAddress: (chainId: number) => PAYMENT_PROCESSOR_STORAGE[chainId],
   },
 ];

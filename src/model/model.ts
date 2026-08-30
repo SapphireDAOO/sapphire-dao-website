@@ -117,13 +117,13 @@ export interface UserPaidInvoice extends Invoice {
 //remove
 export interface UserIssuedInvoiceInvoice extends Invoice {
   type?: "IssuedInvoice"; // Specifies that the invoice type is "IssuedInvoice"
-  source?: "Marketplace";
+  source?: "Intermediated";
 }
 
 //remove
 export interface UserReceivedInvoicesInvoice extends Invoice {
   type?: "ReceivedInvoice"; // Specifies that the invoice type is "ReceivedInvoices"
-  source?: "Marketplace";
+  source?: "Intermediated";
 }
 
 // Props for a Payment Card component, containing basic invoice details

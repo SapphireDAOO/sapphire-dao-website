@@ -104,7 +104,7 @@ const mapInvoiceEventRow = (
   return {
     id: row.id,
     kind,
-    source: row.advancedInvoice ? "Marketplace" : "Simple",
+    source: row.advancedInvoice ? "Intermediated" : "Simple",
     invoiceNonce: invoice.invoiceNonce,
     txHash: row.txHash,
     timestamp: Number(row.timestamp),

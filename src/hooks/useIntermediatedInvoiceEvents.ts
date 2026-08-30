@@ -22,7 +22,7 @@ interface Params {
   invoicesRef: React.RefObject<Invoice[]>;
   setInvoiceData: React.Dispatch<React.SetStateAction<Invoice[]>>;
   onLiveInvoices?: (invoices: Invoice[]) => void;
-  hydrateMarketplaceInvoiceFromChain?: (
+  hydrateIntermediatedInvoiceFromChain?: (
     invoiceId: bigint,
     status?: Invoice["status"],
     txHash?: string,
@@ -46,12 +46,12 @@ const marketEvents = (
   intermediatedPaymentProcessor as readonly { type: string }[]
 ).filter((item): item is AbiEvent => item.type === "event");
 
-const findMarketplaceInvoice = (
+const findIntermediatedInvoice = (
   invoices: Iterable<Invoice>,
   invoiceId: string,
 ) => {
   for (const invoice of invoices) {
-    if (matchesInvoiceIdentity(invoice, invoiceId, "Marketplace")) {
+    if (matchesInvoiceIdentity(invoice, invoiceId, "Intermediated")) {
       return invoice;
     }
   }
@@ -131,7 +131,7 @@ const applyOps = (
       continue;
     }
 
-    const existingInvoice = findMarketplaceInvoice(
+    const existingInvoice = findIntermediatedInvoice(
       invoiceMap.values(),
       op.invoiceId,
     );
@@ -211,7 +211,7 @@ const applyOps = (
   return { changedRows, hydrates };
 };
 
-export function useMarketplaceInvoiceEvents({
+export function useIntermediatedInvoiceEvents({
   active,
   address,
   chainId,
@@ -219,7 +219,7 @@ export function useMarketplaceInvoiceEvents({
   invoicesRef,
   setInvoiceData,
   onLiveInvoices,
-  hydrateMarketplaceInvoiceFromChain,
+  hydrateIntermediatedInvoiceFromChain,
 }: Params) {
   useEffect(() => {
     if (!active || !publicClient || !address) return;
@@ -308,7 +308,7 @@ export function useMarketplaceInvoiceEvents({
                   contract: contractAddress,
                   buyer: invoice.buyer ?? "",
                   seller: invoice.seller ?? "",
-                  source: "Marketplace",
+                  source: "Intermediated",
                   paymentToken: invoice.paymentToken ?? "",
                   releaseAt: invoice.releaseAt
                     ? invoice.releaseAt.toString()
@@ -410,10 +410,10 @@ export function useMarketplaceInvoiceEvents({
           onLiveInvoices?.(changedRows);
         }
 
-        if (hydrateMarketplaceInvoiceFromChain) {
+        if (hydrateIntermediatedInvoiceFromChain) {
           hydrates.forEach(({ status, txHash, eventFields }, id) => {
             void Promise.resolve(
-              hydrateMarketplaceInvoiceFromChain(
+              hydrateIntermediatedInvoiceFromChain(
                 BigInt(id),
                 status,
                 txHash,
@@ -424,7 +424,7 @@ export function useMarketplaceInvoiceEvents({
         }
       },
       onError: (err) =>
-        console.error("marketplace invoice status subscription error", err),
+        console.error("intermediated invoice status subscription error", err),
     });
 
     return () => {
@@ -438,6 +438,6 @@ export function useMarketplaceInvoiceEvents({
     invoicesRef,
     setInvoiceData,
     onLiveInvoices,
-    hydrateMarketplaceInvoiceFromChain,
+    hydrateIntermediatedInvoiceFromChain,
   ]);
 }

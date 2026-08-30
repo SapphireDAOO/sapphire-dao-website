@@ -9,28 +9,28 @@ import { useState, useContext, useEffect } from "react";
 import { ContractContext } from "@/context/contract-context";
 
 const DashboardIndex = ({
-  isMarketplaceTab,
+  isIntermediatedTab,
 }: {
-  isMarketplaceTab: boolean;
+  isIntermediatedTab: boolean;
 }) => {
   const router = useRouter();
   const { setActiveEventTab } = useContext(ContractContext);
   const [activeTab, setActiveTab] = useState(
-    isMarketplaceTab ? "marketplace" : "invoices",
+    isIntermediatedTab ? "intermediated" : "invoices",
   );
 
   // Sync the event watcher to the current route on mount and route changes.
-  // Without this, opening /marketplace-dashboard directly leaves the simple
+  // Without this, opening /intermediated-dashboard directly leaves the simple
   // watcher active because setActiveEventTab was only fired in handleTabChange.
   useEffect(() => {
-    setActiveEventTab?.(isMarketplaceTab ? "marketplace" : "simple");
-  }, [isMarketplaceTab, setActiveEventTab]);
+    setActiveEventTab?.(isIntermediatedTab ? "intermediated" : "simple");
+  }, [isIntermediatedTab, setActiveEventTab]);
 
   const handleTabChange = (value: string) => {
     setActiveTab(value);
-    setActiveEventTab?.(value === "marketplace" ? "marketplace" : "simple");
-    if (value === "marketplace") {
-      router.push("/marketplace-dashboard");
+    setActiveEventTab?.(value === "intermediated" ? "intermediated" : "simple");
+    if (value === "intermediated") {
+      router.push("/intermediated-dashboard");
     } else {
       router.push("/dashboard");
     }
@@ -41,8 +41,8 @@ const DashboardIndex = ({
       <Tabs value={activeTab} onValueChange={handleTabChange}>
         <div className="flex items-center justify-center mt-10">
           <TabsList>
-            <TabsTrigger value="invoices">Invoices</TabsTrigger>
-            <TabsTrigger value="marketplace">Marketplace</TabsTrigger>
+            <TabsTrigger value="invoices">Direct Invoices</TabsTrigger>
+            <TabsTrigger value="intermediated">Intermediated Platforms</TabsTrigger>
           </TabsList>
         </div>
 
@@ -50,20 +50,20 @@ const DashboardIndex = ({
           <Container>
             <div className="mt-8 pb-8">
               <RecentPayment
-                isMarketplaceTab={false}
+                isIntermediatedTab={false}
                 enabled={activeTab === "invoices"}
               />
             </div>
           </Container>
         </TabsContent>
 
-        <TabsContent value="marketplace">
+        <TabsContent value="intermediated">
           <Container>
             <div className="mt-8 pb-8">
               <DashboardHeader title="" rightContent="" />
               <RecentPayment
-                isMarketplaceTab={true}
-                enabled={activeTab === "marketplace"}
+                isIntermediatedTab={true}
+                enabled={activeTab === "intermediated"}
               />
             </div>
           </Container>

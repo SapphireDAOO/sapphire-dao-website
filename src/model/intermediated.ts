@@ -23,10 +23,10 @@ export interface MetaInvoice {
 
 export interface UserReceivedInvoicesInvoice extends InvoiceType {
   type?: "ReceivedInvoice"; // Specifies that the invoice type is "ReceivedInvoices"
-  source?: "Marketplace";
+  source?: "Intermediated";
 }
 
 export interface UserIssuedInvoiceInvoice extends InvoiceType {
   type?: "IssuedInvoice"; // Specifies that the invoice type is "IssuedInvoice"
-  source?: "Marketplace";
+  source?: "Intermediated";
 }

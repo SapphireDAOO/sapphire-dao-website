@@ -72,7 +72,7 @@ const applyDelta = (
   invoiceActivitySeries: bumpLast(snapshot.invoiceActivitySeries, (p) => ({
     ...p,
     website: p.website + (delta.activityWebsite ?? 0),
-    marketplace: p.marketplace + (delta.activityMarketplace ?? 0),
+    intermediated: p.intermediated + (delta.activityIntermediated ?? 0),
   })),
 });
 

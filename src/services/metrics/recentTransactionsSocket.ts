@@ -228,7 +228,7 @@ export const createRecentTransactionsSocket = (
                 if (invoiceId) tokenByInvoice.set(invoiceId, token);
                 void emit(log, {
                   kind: "paid",
-                  source: "Marketplace",
+                  source: "Intermediated",
                   token,
                   amount,
                   invoiceId: asBigInt(a.invoiceId),
@@ -241,7 +241,7 @@ export const createRecentTransactionsSocket = (
                 if (!token || sellerAmount === undefined) break;
                 void emit(log, {
                   kind: "released",
-                  source: "Marketplace",
+                  source: "Intermediated",
                   token,
                   amount: sellerAmount,
                   invoiceId: asBigInt(a.invoiceId),
@@ -254,7 +254,7 @@ export const createRecentTransactionsSocket = (
                 if (amount === undefined || !cachedToken) break;
                 void emit(log, {
                   kind: "refunded",
-                  source: "Marketplace",
+                  source: "Intermediated",
                   token: cachedToken,
                   amount,
                   invoiceId: asBigInt(a.invoiceId),
@@ -272,7 +272,7 @@ export const createRecentTransactionsSocket = (
                   break;
                 void emit(log, {
                   kind: "settled",
-                  source: "Marketplace",
+                  source: "Intermediated",
                   token: cachedToken,
                   amount: sellerAmount + buyerAmount,
                   invoiceId: asBigInt(a.invoiceId),

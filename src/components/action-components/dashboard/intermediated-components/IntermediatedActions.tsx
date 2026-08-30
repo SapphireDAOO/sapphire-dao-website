@@ -14,7 +14,7 @@ import {
 import { FileText } from "lucide-react";
 import { timeLeft } from "@/utils";
 
-const marketplaceActions: ColumnDef<Invoice>[] = [
+const intermediatedActions: ColumnDef<Invoice>[] = [
   {
     id: "actions",
     cell: ({ row }) => {
@@ -56,4 +56,4 @@ const marketplaceActions: ColumnDef<Invoice>[] = [
   },
 ];
 
-export default marketplaceActions;
+export default intermediatedActions;

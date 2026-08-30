@@ -13,7 +13,7 @@ export interface ContractContextData {
   allInvoiceData: {
     invoices: AllInvoice[];
     actions: AdminAction[];
-    marketplaceInvoices: AllInvoice[];
+    intermediatedInvoices: AllInvoice[];
   };
   createInvoice: (
     invoicePrice: bigint,
@@ -48,7 +48,7 @@ export interface ContractContextData {
     invoiceId: bigint,
     type: "smartInvoice" | "metaInvoice"
   ) => Promise<any>;
-  setMarketplaceAddress: (marketplaceAddress: Address) => Promise<any>;
+  setIntermediatedOperator: (intermediatedOperatorAddress: Address) => Promise<any>;
   invoicePage: number;
   hasNextPage: boolean;
   loadNextPage?: () => Promise<void>;
@@ -57,7 +57,7 @@ export interface ContractContextData {
   refetchAllInvoiceData?: () => Promise<void>;
   refreshAdminData?: (force?: boolean) => Promise<void>;
   upsertLocalInvoice?: (invoice: Invoice) => void;
-  setActiveEventTab?: (tab: "simple" | "marketplace") => void;
+  setActiveEventTab?: (tab: "simple" | "intermediated") => void;
 }
 
 export const contractContextDefaults: ContractContextData = {
@@ -69,7 +69,7 @@ export const contractContextDefaults: ContractContextData = {
   allInvoiceData: {
     invoices: [],
     actions: [],
-    marketplaceInvoices: [],
+    intermediatedInvoices: [],
   },
   transferOwnership: async () => Promise.resolve(false),
   createInvoice: async () => Promise.resolve(BigInt(0)),
@@ -82,7 +82,7 @@ export const contractContextDefaults: ContractContextData = {
   setFeeReceiversAddress: async () => Promise.resolve(false),
   setDecisionWindow: async () => Promise.resolve(false),
   setValidPeriod: async () => Promise.resolve(false),
-  setMarketplaceAddress: async () => Promise.resolve(""),
+  setIntermediatedOperator: async () => Promise.resolve(""),
   setFee: async () => Promise.resolve(false),
   setMinimumInvoiceValue: async () => Promise.resolve(false),
   refetchInvoiceData: async () => Promise.resolve(),
