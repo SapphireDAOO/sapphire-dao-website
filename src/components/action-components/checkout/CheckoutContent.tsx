@@ -24,9 +24,11 @@ import {
 } from "@/lib/invoiceIdentifiers";
 
 
+import { decodeInvoiceId, PAY_LINK_PARAM } from "@/lib/payLink";
+
 const CheckoutPage = () => {
   const searchParams = useSearchParams();
-  const jwtToken = searchParams.get("data");
+  const encodedId = searchParams.get(PAY_LINK_PARAM);
   const chainId = useChainId() || BASE_SEPOLIA;
 
   const { getIntermediatedInvoiceData } = useContext(ContractContext);
@@ -36,32 +38,23 @@ const CheckoutPage = () => {
   );
   const [error, setError] = useState("");
 
-  // Step 1: Verify JWT token and extract invoice key
+  // Step 1: read the invoice id out of the link. It travels in the URL, so
+  // this resolves without a request.
   useEffect(() => {
-    const verifyToken = async () => {
-      try {
-        const response = await fetch(`/api/verify-token?token=${jwtToken}`, {
-          method: "GET",
-        });
+    const decoded = decodeInvoiceId(encodedId);
+    if (!decoded) {
+      setError(encodedId ? "Invalid payment link." : "");
+      return;
+    }
 
-        const result = await response.json();
-        if (response.ok && result.valid) {
-          const parsedInvoiceId = toInvoiceIdBigInt(result.data.invoiceId);
-          if (parsedInvoiceId) {
-            setinvoiceId(parsedInvoiceId);
-          } else {
-            setError("Invalid invoice ID in payment link.");
-          }
-        } else {
-          setError(result.error || "Token verification failed.");
-        }
-      } catch {
-        setError("An error occurred while verifying the token.");
-      }
-    };
-
-    if (jwtToken) verifyToken();
-  }, [jwtToken]);
+    const parsed = toInvoiceIdBigInt(decoded);
+    if (parsed) {
+      setinvoiceId(parsed);
+      setError("");
+    } else {
+      setError("Invalid invoice ID in payment link.");
+    }
+  }, [encodedId]);
 
   const ZERO: bigint = BigInt(0);
   const { data: invoiceInfo } = useGetIntermediatedInvoiceData(invoiceId || ZERO);

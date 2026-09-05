@@ -32,7 +32,7 @@ import { parseUnits } from "viem";
 import { Loader2, ShieldAlert } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { toast } from "sonner";
-import { useSecureLink } from "@/hooks/useSecureLink";
+import { usePayLink } from "@/hooks/usePayLink";
 import React from "react";
 import { BASE_SEPOLIA, SIMPLE_PAYMENT_PROCESSOR } from "@/constants";
 import {
@@ -49,7 +49,7 @@ interface InvoiceQRLinkProps {
 
 const InvoiceQRLink = React.memo(
   ({ open, setOpen, invoiceId, contractAddress }: InvoiceQRLinkProps) => {
-    const paymentUrl = useSecureLink(invoiceId, "pay");
+    const paymentUrl = usePayLink(invoiceId, "pay");
 
     const handleCopyLink = useCallback(() => {
       navigator.clipboard.writeText(paymentUrl);

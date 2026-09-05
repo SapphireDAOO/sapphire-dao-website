@@ -8,7 +8,7 @@ import { ChevronDown, ChevronUp } from "lucide-react";
 import { Invoice } from "@/model/model";
 import { formatAddress, timeLeft, unixToGMT } from "@/utils";
 import { toast } from "sonner";
-import { useSecureLink } from "@/hooks/useSecureLink";
+import { usePayLink } from "@/hooks/usePayLink";
 import { QRCodeSVG } from "qrcode.react";
 import SellersAction from "../invoices-components/SellersAction";
 import CancelInvoice from "../invoices-components/CancelInvoice";
@@ -101,7 +101,7 @@ export function InvoiceCard({
     invoice.expiresAt,
   ]);
 
-  const paymentUrl = useSecureLink(
+  const paymentUrl = usePayLink(
     isExpanded ? invoice.invoiceId : undefined,
     "pay",
   );

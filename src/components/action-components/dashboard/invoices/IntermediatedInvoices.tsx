@@ -8,7 +8,7 @@ import { ChevronDown, ChevronUp, Copy } from "lucide-react";
 import { Invoice } from "@/model/model";
 import { formatAddress, timeLeft, unixToGMT } from "@/utils";
 import { toast } from "sonner";
-import { useSecureLink } from "@/hooks/useSecureLink";
+import { usePayLink } from "@/hooks/usePayLink";
 import { QRCodeSVG } from "qrcode.react";
 import { formatUnits } from "viem";
 import { useGetPaymentTokenData } from "@/hooks/useGetPaymentTokenData";
@@ -280,7 +280,7 @@ export function IntermediatedCard({
 
   /* ── Payment link ──────────────────────────────────────────────────────── */
 
-  const paymentUrl = useSecureLink(
+  const paymentUrl = usePayLink(
     isExpanded ? invoice.invoiceId : undefined,
     "checkout",
   );
