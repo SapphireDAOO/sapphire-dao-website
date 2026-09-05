@@ -154,29 +154,55 @@ export const generateStealthFeeReceiver = (): StealthFeeReceiver => {
   return receiver;
 };
 
+/** Which FeeAuthorizationLib overload the processor will verify against. */
+export type InvoiceKind = "single" | "meta";
+
 /**
- * Signs the FeeAuthorizationLib digest with the relayer key, which is the
- * fee signer registered on PaymentProcessorStorage. The digest binds the
- * fee receiver to one invoice on one processor on one chain.
+ * Signs the FeeAuthorizationLib digest with the relayer key, which is the fee
+ * signer registered on PaymentProcessorStorage. The digest binds the fee
+ * receiver(s) to one invoice on one processor on one chain.
+ *
+ * A meta-invoice authorizes every sub-invoice receiver with a single signature
+ * over the whole array, index-aligned with the meta-invoice's sub-invoice IDs.
+ * The two digests cannot collide because `address[]` abi-encodes as a dynamic
+ * type, but they are also not interchangeable: a meta-invoice holding one
+ * sub-invoice still needs the array form, so the kind is passed explicitly
+ * rather than inferred from the count.
  */
 export const signFeeAuthorization = async (
   processorAddress: Address,
   chainId: number,
   invoiceId: bigint,
-  feeReceiver: Address,
+  feeReceivers: Address[],
+  kind: InvoiceKind,
 ): Promise<Hex> => {
   const relayerAccount = privateKeyToAccount(requirePrivateKey("SPONSOR"));
-  const digest = keccak256(
-    encodeAbiParameters(
-      [
-        { type: "address" },
-        { type: "uint256" },
-        { type: "uint216" },
-        { type: "address" },
-      ],
-      [processorAddress, BigInt(chainId), invoiceId, feeReceiver],
-    ),
-  );
+
+  const digest =
+    kind === "meta"
+      ? keccak256(
+          encodeAbiParameters(
+            [
+              { type: "address" },
+              { type: "uint256" },
+              { type: "uint216" },
+              { type: "address[]" },
+            ],
+            [processorAddress, BigInt(chainId), invoiceId, feeReceivers],
+          ),
+        )
+      : keccak256(
+          encodeAbiParameters(
+            [
+              { type: "address" },
+              { type: "uint256" },
+              { type: "uint216" },
+              { type: "address" },
+            ],
+            [processorAddress, BigInt(chainId), invoiceId, feeReceivers[0]],
+          ),
+        );
+
   return relayerAccount.signMessage({ message: { raw: digest } });
 };
 

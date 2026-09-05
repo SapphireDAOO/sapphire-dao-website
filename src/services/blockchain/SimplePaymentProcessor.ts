@@ -223,6 +223,7 @@ export const sellerAction = async (
         invoiceId,
         chainId,
         processor: "simple",
+        kind: "single",
       });
       if (!feeAuthorization) {
         toast.error("Unable to prepare the fee receiver. Please try again.");
@@ -234,7 +235,7 @@ export const sellerAction = async (
         functionName: "acceptPayment",
         args: [
           invoiceId,
-          feeAuthorization.feeReceiver,
+          feeAuthorization.feeReceivers[0],
           feeAuthorization.signature,
         ],
       });

@@ -1,40 +1,55 @@
 import type { Address, Hex } from "viem";
 
 // A one-time stealth fee receiver costs a relayer-sponsored delegation tx to
-// set up, so the address issued for an invoice is remembered locally until the
-// payment/accept that consumes it lands on-chain. Retrying after a rejected
-// wallet signature — or after the approval step failed — then resumes on the
-// same address instead of burning a fresh one on every attempt.
+// set up, so the addresses issued for an invoice are remembered locally until
+// the payment/accept that consumes them lands on-chain. Retrying after a
+// rejected wallet signature, or after the approval step failed, then resumes on
+// the same addresses instead of burning fresh ones on every attempt.
+//
+// A meta-invoice needs one receiver per sub-invoice, index-aligned with the
+// meta-invoice's `subInvoiceIds`, so entries hold an array. A single invoice is
+// simply an array of one.
 
-const STORE_VERSION = 1;
+// v1 stored a single receiver per entry rather than an array; the version bump
+// makes those entries unreadable rather than misread.
+const STORE_VERSION = 2;
 const STORE_KEY = `fee-receivers:v${STORE_VERSION}`;
 // One day. An entry only has to outlive a retry of the same accept/payment, so
-// a short window keeps an abandoned address from being replayed long after the
+// a short window keeps abandoned addresses from being replayed long after the
 // invoice moved on.
 const ENTRY_TTL_MS = 1000 * 60 * 60 * 24;
 
 export type ProcessorKind = "simple" | "intermediated";
 
 /**
- * `created` — the stealth address was derived but the Sweeper approval has not
- * landed, so it must not be passed to the contract yet: fees sent there would
- * be unsweepable.
- * `approved` — the approval landed; the address is safe to pass on-chain.
+ * Which FeeAuthorizationLib overload the processor verifies against. A
+ * meta-invoice holding one sub-invoice still needs the array form, so this is
+ * carried explicitly rather than inferred from the receiver count.
+ */
+export type InvoiceKind = "single" | "meta";
+
+/**
+ * `created` — the stealth addresses were derived but the Sweeper approvals have
+ * not landed, so they must not be passed to the contract yet: fees sent there
+ * would be unsweepable.
+ * `approved` — the approvals landed; the addresses are safe to pass on-chain.
  */
 export type FeeReceiverState = "created" | "approved";
 
 export type StoredFeeReceiver = {
-  feeReceiver: Address;
-  // Public by design — EIP-5564 announces it on-chain. It is what lets the
-  // server recompute the stealth key, which is never persisted anywhere.
-  ephemeralPublicKey: Hex;
-  // The token the approval was granted for; a later attempt paying in a
-  // different token needs its own approval on the same address.
+  /** Index-aligned with the invoice's sub-invoices; length 1 for a single. */
+  feeReceivers: Address[];
+  // Public by design — EIP-5564 announces them on-chain. They are what let the
+  // server recompute the stealth keys, which are never persisted anywhere.
+  ephemeralPublicKeys: Hex[];
+  // The token the approvals were granted for; a later attempt paying in a
+  // different token needs its own approvals on the same addresses.
   paymentToken: Address;
+  kind: InvoiceKind;
   state: FeeReceiverState;
   // Set with `approved`: the fee signer's authorization over this
-  // (invoice, receiver) pair. The processor verifies it on-chain, so a
-  // receiver edited into storage by hand cannot be spent without one.
+  // (invoice, receivers) pair. The processor verifies it on-chain, so
+  // receivers edited into storage by hand cannot be spent without one.
   signature?: Hex;
   updatedAt: number;
 };
@@ -54,12 +69,18 @@ const entryKey = ({ chainId, processor, invoiceId }: FeeReceiverRef): string =>
   `${chainId}:${processor}:${invoiceId.toString()}`;
 
 // An `approved` entry missing its signature is kept but treated as unfinished
-// by callers, which re-run the approval rather than discarding the address.
+// by callers, which re-run the approval rather than discarding the addresses.
 const isUsable = (entry: StoredFeeReceiver | undefined): boolean =>
   Boolean(
-    entry?.feeReceiver &&
-      entry?.ephemeralPublicKey &&
-      entry?.paymentToken &&
+    entry &&
+      Array.isArray(entry.feeReceivers) &&
+      Array.isArray(entry.ephemeralPublicKeys) &&
+      entry.feeReceivers.length > 0 &&
+      // A mismatch means an address can no longer be re-derived, which would
+      // desync the array the signature covers.
+      entry.feeReceivers.length === entry.ephemeralPublicKeys.length &&
+      entry.paymentToken &&
+      (entry.kind === "single" || entry.kind === "meta") &&
       (entry.state === "created" || entry.state === "approved") &&
       Date.now() - entry.updatedAt < ENTRY_TTL_MS,
   );
@@ -93,9 +114,10 @@ const writeStore = (store: FeeReceiverStore) => {
   }
 };
 
-/** The fee receiver already issued for this invoice, if one is still usable. */
-export const readFeeReceiver = (ref: FeeReceiverRef): StoredFeeReceiver | null =>
-  readStore()[entryKey(ref)] ?? null;
+/** The fee receivers already issued for this invoice, if still usable. */
+export const readFeeReceiver = (
+  ref: FeeReceiverRef,
+): StoredFeeReceiver | null => readStore()[entryKey(ref)] ?? null;
 
 /** Persists the entry and returns it, so callers can carry it forward. */
 export const saveFeeReceiver = (
@@ -109,7 +131,7 @@ export const saveFeeReceiver = (
   return stored;
 };
 
-/** Called once the payment/accept that consumed the address has settled. */
+/** Called once the payment/accept that consumed the addresses has settled. */
 export const clearFeeReceiver = (ref: FeeReceiverRef) => {
   const store = readStore();
   const key = entryKey(ref);

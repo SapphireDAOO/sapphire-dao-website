@@ -61,6 +61,11 @@ export const intermediatedPaymentProcessor = [
             type: "uint32",
             internalType: "uint32",
           },
+          {
+            name: "paymentTokens",
+            type: "address[]",
+            internalType: "address[]",
+          },
         ],
       },
     ],
@@ -90,6 +95,11 @@ export const intermediatedPaymentProcessor = [
             name: "escrowHoldPeriod",
             type: "uint32",
             internalType: "uint32",
+          },
+          {
+            name: "paymentTokens",
+            type: "address[]",
+            internalType: "address[]",
           },
         ],
       },
@@ -267,6 +277,20 @@ export const intermediatedPaymentProcessor = [
   },
   {
     type: "function",
+    name: "isPaymentTokenAllowed",
+    inputs: [
+      { name: "_invoiceId", type: "uint216", internalType: "uint216" },
+      {
+        name: "_paymentToken",
+        type: "address",
+        internalType: "address",
+      },
+    ],
+    outputs: [{ name: "allowed", type: "bool", internalType: "bool" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
     name: "oracle",
     inputs: [],
     outputs: [
@@ -308,6 +332,12 @@ export const intermediatedPaymentProcessor = [
         type: "address",
         internalType: "address",
       },
+      {
+        name: "_feeReceivers",
+        type: "address[]",
+        internalType: "address[]",
+      },
+      { name: "_data", type: "bytes", internalType: "bytes" },
     ],
     outputs: [],
     stateMutability: "nonpayable",
@@ -315,7 +345,15 @@ export const intermediatedPaymentProcessor = [
   {
     type: "function",
     name: "payMetaInvoiceWithValue",
-    inputs: [{ name: "_invoiceId", type: "uint216", internalType: "uint216" }],
+    inputs: [
+      { name: "_invoiceId", type: "uint216", internalType: "uint216" },
+      {
+        name: "_feeReceivers",
+        type: "address[]",
+        internalType: "address[]",
+      },
+      { name: "_data", type: "bytes", internalType: "bytes" },
+    ],
     outputs: [],
     stateMutability: "payable",
   },
@@ -726,6 +764,25 @@ export const intermediatedPaymentProcessor = [
   },
   {
     type: "event",
+    name: "PaymentTokensRegistered",
+    inputs: [
+      {
+        name: "invoiceId",
+        type: "uint216",
+        indexed: true,
+        internalType: "uint216",
+      },
+      {
+        name: "paymentTokens",
+        type: "address[]",
+        indexed: false,
+        internalType: "address[]",
+      },
+    ],
+    anonymous: false,
+  },
+  {
+    type: "event",
     name: "Refunded",
     inputs: [
       {
@@ -793,6 +850,14 @@ export const intermediatedPaymentProcessor = [
   { type: "error", name: "EmptyMetaInvoice", inputs: [] },
   { type: "error", name: "EscrowWithdrawFailed", inputs: [] },
   { type: "error", name: "FailedDeployment", inputs: [] },
+  {
+    type: "error",
+    name: "FeeReceiverCountMismatch",
+    inputs: [
+      { name: "provided", type: "uint256", internalType: "uint256" },
+      { name: "expected", type: "uint256", internalType: "uint256" },
+    ],
+  },
   { type: "error", name: "HoldPeriodCanNotBeZero", inputs: [] },
   {
     type: "error",
@@ -824,7 +889,16 @@ export const intermediatedPaymentProcessor = [
   { type: "error", name: "InvoiceDoesNotExist", inputs: [] },
   { type: "error", name: "InvoiceExpired", inputs: [] },
   { type: "error", name: "MetaInvoiceAlreadyExists", inputs: [] },
+  { type: "error", name: "NoPaymentTokens", inputs: [] },
   { type: "error", name: "NotAuthorized", inputs: [] },
+  {
+    type: "error",
+    name: "PaymentTokenNotAllowed",
+    inputs: [
+      { name: "invoiceId", type: "uint216", internalType: "uint216" },
+      { name: "paymentToken", type: "address", internalType: "address" },
+    ],
+  },
   { type: "error", name: "PriceCannotBeZero", inputs: [] },
   { type: "error", name: "PriceIsTooLow", inputs: [] },
   { type: "error", name: "Reentrancy", inputs: [] },

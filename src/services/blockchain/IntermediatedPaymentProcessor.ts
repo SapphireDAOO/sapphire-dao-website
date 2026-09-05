@@ -60,15 +60,16 @@ export const payIntermediatedInvoice = async (
       }
     }
 
+    // Paying fixes the fee terms: the server hands out one-time stealth fee
+    // receivers plus the fee signer's authorization over them.
     let txData: `0x${string}`;
     if (paymentType === "paySingleInvoice") {
-      // Paying fixes the fee terms: the server hands out a one-time stealth
-      // fee receiver plus the fee signer's authorization over it.
       const feeAuthorization = await requestFeeReceiver({
         invoiceId,
         chainId,
         processor: "intermediated",
         paymentToken,
+        kind: "single",
       });
       if (!feeAuthorization) {
         toast.error("Unable to prepare the fee receiver. Please try again.");
@@ -80,21 +81,60 @@ export const payIntermediatedInvoice = async (
         args: [
           invoiceId,
           paymentToken,
-          feeAuthorization.feeReceiver,
+          feeAuthorization.feeReceivers[0],
           feeAuthorization.signature,
         ],
       });
     } else {
+      // A meta-invoice needs one receiver per sub-invoice, index-aligned with
+      // `subInvoiceIds` and covering every position — the contract reverts with
+      // FeeReceiverCountMismatch on any other length, and skipped sub-invoices
+      // still occupy their slot.
+      const metaInvoice = (await publicClient?.readContract({
+        address: contractAddress,
+        abi: intermediatedPaymentProcessor,
+        functionName: "getMetaInvoice",
+        args: [invoiceId],
+      })) as { subInvoiceIds?: readonly bigint[] } | undefined;
+
+      const subInvoiceCount = metaInvoice?.subInvoiceIds?.length ?? 0;
+      if (subInvoiceCount === 0) {
+        toast.error("This meta invoice has no sub-invoices to pay");
+        return false;
+      }
+
+      const feeAuthorization = await requestFeeReceiver({
+        invoiceId,
+        chainId,
+        processor: "intermediated",
+        paymentToken,
+        kind: "meta",
+        count: subInvoiceCount,
+      });
+      if (!feeAuthorization) {
+        toast.error("Unable to prepare the fee receivers. Please try again.");
+        return false;
+      }
+
       txData = isNativePayment
         ? encodeFunctionData({
             abi: intermediatedPaymentProcessor,
             functionName: "payMetaInvoiceWithValue",
-            args: [invoiceId],
+            args: [
+              invoiceId,
+              feeAuthorization.feeReceivers,
+              feeAuthorization.signature,
+            ],
           })
         : encodeFunctionData({
             abi: intermediatedPaymentProcessor,
             functionName: "payMetaInvoice",
-            args: [invoiceId, paymentToken],
+            args: [
+              invoiceId,
+              paymentToken,
+              feeAuthorization.feeReceivers,
+              feeAuthorization.signature,
+            ],
           });
     }
 
@@ -118,11 +158,9 @@ export const payIntermediatedInvoice = async (
 
     if (receipt?.status === "success") {
       success = true;
-      // The fee receiver is spent once the payment lands, so the invoice
-      // starts clean if it is ever prepared again.
-      if (paymentType === "paySingleInvoice") {
-        clearFeeReceiver({ invoiceId, chainId, processor: "intermediated" });
-      }
+      // The receivers are spent once the payment lands, so the invoice starts
+      // clean if it is ever prepared again. Both payment types consume them.
+      clearFeeReceiver({ invoiceId, chainId, processor: "intermediated" });
     }
   } catch (error) {
     getError(error);
