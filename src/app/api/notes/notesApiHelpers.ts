@@ -4,7 +4,7 @@ import {
   http,
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { baseSepolia } from "viem/chains";
+import { baseSepolia, hardhat } from "viem/chains";
 
 type NotesClients = ReturnType<typeof createNotesClients>;
 let cachedClients: NotesClients | null = null;
@@ -16,11 +16,16 @@ const normalizePrivateKey = (value: string) =>
 
 // Server-only: set BASE_SEPOLIA_RPC_URL (no NEXT_PUBLIC_ prefix) so a keyed
 // RPC endpoint never gets inlined into the client bundle.
-const getRpcUrl = () =>
-  process.env.BASE_SEPOLIA_RPC_URL ||
-  "https://base-sepolia-rpc.publicnode.com";
+const getRpcUrl = (chainId: number) =>
+  chainId === hardhat.id
+    ? "http://127.0.0.1:8545"
+    : process.env.BASE_SEPOLIA_RPC_URL ||
+      "https://base-sepolia-rpc.publicnode.com";
 
-const createNotesClients = () => {
+const getChain = (chainId: number) =>
+  chainId === hardhat.id ? hardhat : baseSepolia;
+
+const createNotesClients = (chainId: number) => {
   const privateKey =
     process.env.NOTES_SIGNER_PRIVATE_KEY || process.env.NOTES_SIGNER;
 
@@ -32,23 +37,26 @@ const createNotesClients = () => {
     normalizePrivateKey(privateKey) as `0x${string}`
   );
 
-  const transport = http(getRpcUrl());
+  const chain = getChain(chainId);
+  const transport = http(getRpcUrl(chainId));
 
   return {
     account,
-    publicClient: createPublicClient({ chain: baseSepolia, transport }),
-    walletClient: createWalletClient({ account, chain: baseSepolia, transport }),
+    publicClient: createPublicClient({ chain, transport }),
+    walletClient: createWalletClient({ account, chain, transport }),
   };
 };
 
-export const getNotesClients = () => {
+export const getNotesClients = (chainId: number) => {
   const privateKey =
     process.env.NOTES_SIGNER_PRIVATE_KEY || process.env.NOTES_SIGNER;
-  const rpcUrl = getRpcUrl();
-  const clientKey = `${rpcUrl}:${privateKey ?? ""}`;
+  const rpcUrl = getRpcUrl(chainId);
+  // Chain is part of the key: the same RPC string must not hand back clients
+  // pointed at a different chain.
+  const clientKey = `${chainId}:${rpcUrl}:${privateKey ?? ""}`;
 
   if (!cachedClients || cachedClientKey !== clientKey) {
-    cachedClients = createNotesClients();
+    cachedClients = createNotesClients(chainId);
     cachedClientKey = clientKey;
   }
 

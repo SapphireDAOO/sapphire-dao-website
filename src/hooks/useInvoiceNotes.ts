@@ -183,6 +183,7 @@ export const useInvoiceNotes = (
 
       try {
         return await decryptNoteContents({
+          chainId,
           invoiceId: normalizedinvoiceId.toString(),
           noteIds: decryptable.map((request) => request.noteId),
           viewer: address,
@@ -193,7 +194,7 @@ export const useInvoiceNotes = (
         return new Map();
       }
     },
-    [address, ensureReadAuth, normalizedinvoiceId],
+    [address, chainId, ensureReadAuth, normalizedinvoiceId],
   );
 
   useEffect(() => {
@@ -784,6 +785,7 @@ export const useInvoiceNotes = (
         }
 
         const result = await createNoteRequest({
+          chainId,
           invoiceId: normalizedinvoiceId.toString(),
           author: address,
           content: trimmed,
@@ -823,7 +825,7 @@ export const useInvoiceNotes = (
         setIsCreating(false);
       }
     },
-    [address, normalizedinvoiceId, scheduleRefresh, signMessageAsync, isEnabled]
+    [address, chainId, normalizedinvoiceId, scheduleRefresh, signMessageAsync, isEnabled]
   );
 
   const setNoteOpen = useCallback(
@@ -881,6 +883,7 @@ export const useInvoiceNotes = (
         }
 
         await setNoteOpenState({
+          chainId,
           invoiceId: normalizedinvoiceId.toString(),
           noteId,
           open: true,
@@ -902,7 +905,7 @@ export const useInvoiceNotes = (
         });
       }
     },
-    [address, normalizedinvoiceId, signMessageAsync, isEnabled]
+    [address, chainId, normalizedinvoiceId, signMessageAsync, isEnabled]
   );
 
   return {

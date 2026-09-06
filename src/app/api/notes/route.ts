@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { isAddress, parseGwei, verifyMessage } from "viem";
-import { baseSepolia } from "viem/chains";
 import { Notes } from "@/abis/Notes";
 import { intermediatedPaymentProcessor } from "@/abis/IntermediatedPaymentProcessor";
 import { paymentProcessor } from "@/abis/PaymentProcessor";
@@ -83,11 +82,7 @@ const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 const isZeroAddress = (address?: string) =>
   !address || address.toLowerCase() === ZERO_ADDRESS;
 
-const readField = (
-  data: unknown,
-  field: string,
-  fallbackIndexes: number[],
-) => {
+const readField = (data: unknown, field: string, fallbackIndexes: number[]) => {
   if (data && typeof data === "object" && field in data) {
     return (data as Record<string, unknown>)[field];
   }
@@ -142,11 +137,11 @@ const isParty = (
   );
 };
 
-const readSimpleParties = async (invoiceId: bigint) => {
-  const contractAddress = SIMPLE_PAYMENT_PROCESSOR[baseSepolia.id];
+const readSimpleParties = async (invoiceId: bigint, chainId: number) => {
+  const contractAddress = SIMPLE_PAYMENT_PROCESSOR[chainId];
   if (!contractAddress) return null;
 
-  const { publicClient } = getNotesClients();
+  const { publicClient } = getNotesClients(chainId);
   const data = await publicClient.readContract({
     address: contractAddress,
     abi: paymentProcessor,
@@ -163,11 +158,11 @@ const readSimpleParties = async (invoiceId: bigint) => {
   };
 };
 
-const readIntermediatedParties = async (invoiceId: bigint) => {
-  const contractAddress = INTERMEDIATED_PAYMENT_PROCESSOR[baseSepolia.id];
+const readIntermediatedParties = async (invoiceId: bigint, chainId: number) => {
+  const contractAddress = INTERMEDIATED_PAYMENT_PROCESSOR[chainId];
   if (!contractAddress) return null;
 
-  const { publicClient } = getNotesClients();
+  const { publicClient } = getNotesClients(chainId);
   const data = await publicClient.readContract({
     address: contractAddress,
     abi: intermediatedPaymentProcessor,
@@ -184,16 +179,22 @@ const readIntermediatedParties = async (invoiceId: bigint) => {
   };
 };
 
-const isInvoiceParticipant = async (invoiceId: bigint, author: string) => {
+const isInvoiceParticipant = async (
+  invoiceId: bigint,
+  author: string,
+  chainId: number,
+) => {
   const [simpleResult, intermediatedResult] = await Promise.allSettled([
-    readSimpleParties(invoiceId),
-    readIntermediatedParties(invoiceId),
+    readSimpleParties(invoiceId, chainId),
+    readIntermediatedParties(invoiceId, chainId),
   ]);
 
   const simpleParties =
     simpleResult.status === "fulfilled" ? simpleResult.value : null;
   const intermediatedParties =
-    intermediatedResult.status === "fulfilled" ? intermediatedResult.value : null;
+    intermediatedResult.status === "fulfilled"
+      ? intermediatedResult.value
+      : null;
 
   return (
     isParty(author, simpleParties) || isParty(author, intermediatedParties)
@@ -204,6 +205,14 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
     const action = body?.action;
+
+    const chainId = Number(body?.chainId);
+    if (!Number.isInteger(chainId) || !NOTES_CONTRACT[chainId]) {
+      return NextResponse.json(
+        { success: false, error: "Unsupported chain" },
+        { status: 400 },
+      );
+    }
 
     // could be seperated into different helper functions
     if (action === "create") {
@@ -265,12 +274,15 @@ export async function POST(req: Request) {
 
       if (content.length > MAX_NOTE_LENGTH) {
         return NextResponse.json(
-          { success: false, error: `Notes are limited to ${MAX_NOTE_LENGTH} characters` },
+          {
+            success: false,
+            error: `Notes are limited to ${MAX_NOTE_LENGTH} characters`,
+          },
           { status: 413 },
         );
       }
 
-      const contractAddress = NOTES_CONTRACT[baseSepolia.id];
+      const contractAddress = NOTES_CONTRACT[chainId];
       if (!contractAddress) {
         return NextResponse.json(
           { success: false, error: "Notes contract not configured" },
@@ -278,15 +290,18 @@ export async function POST(req: Request) {
         );
       }
 
-      const canWrite = await isInvoiceParticipant(invoiceId, author);
+      const canWrite = await isInvoiceParticipant(invoiceId, author, chainId);
       if (!canWrite) {
         return NextResponse.json(
-          { success: false, error: "Author is not a participant on this invoice" },
+          {
+            success: false,
+            error: "Author is not a participant on this invoice",
+          },
           { status: 403 },
         );
       }
 
-      const { walletClient } = getNotesClients();
+      const { walletClient } = getNotesClients(chainId);
       const txHash = await walletClient.writeContract({
         address: contractAddress,
         abi: Notes,
@@ -354,7 +369,7 @@ export async function POST(req: Request) {
         return NextResponse.json({ success: true });
       }
 
-      const contractAddress = NOTES_CONTRACT[baseSepolia.id];
+      const contractAddress = NOTES_CONTRACT[chainId];
       if (!contractAddress) {
         return NextResponse.json(
           { success: false, error: "Notes contract not configured" },
@@ -362,15 +377,18 @@ export async function POST(req: Request) {
         );
       }
 
-      const canWrite = await isInvoiceParticipant(invoiceId, author);
+      const canWrite = await isInvoiceParticipant(invoiceId, author, chainId);
       if (!canWrite) {
         return NextResponse.json(
-          { success: false, error: "Author is not a participant on this invoice" },
+          {
+            success: false,
+            error: "Author is not a participant on this invoice",
+          },
           { status: 403 },
         );
       }
 
-      const { walletClient } = getNotesClients();
+      const { walletClient } = getNotesClients(chainId);
       const txHash = await walletClient.writeContract({
         address: contractAddress,
         abi: Notes,
@@ -398,7 +416,10 @@ export async function POST(req: Request) {
 
       if (content.length > MAX_NOTE_LENGTH) {
         return NextResponse.json(
-          { success: false, error: `Notes are limited to ${MAX_NOTE_LENGTH} characters` },
+          {
+            success: false,
+            error: `Notes are limited to ${MAX_NOTE_LENGTH} characters`,
+          },
           { status: 413 },
         );
       }
@@ -471,7 +492,7 @@ export async function POST(req: Request) {
         }
       }
 
-      const contractAddress = NOTES_CONTRACT[baseSepolia.id];
+      const contractAddress = NOTES_CONTRACT[chainId];
       if (!contractAddress) {
         return NextResponse.json(
           { success: false, error: "Notes contract not configured" },
@@ -479,7 +500,7 @@ export async function POST(req: Request) {
         );
       }
 
-      const { publicClient } = getNotesClients();
+      const { publicClient } = getNotesClients(chainId);
       const notes = await Promise.all(
         noteIds.map(async (noteId: bigint) => {
           try {
@@ -504,7 +525,7 @@ export async function POST(req: Request) {
 
             return {
               noteId: noteId.toString(),
-              content: canRead ? decryptNoteBlob(content) ?? null : null,
+              content: canRead ? (decryptNoteBlob(content) ?? null) : null,
             };
           } catch {
             return { noteId: noteId.toString(), content: null };

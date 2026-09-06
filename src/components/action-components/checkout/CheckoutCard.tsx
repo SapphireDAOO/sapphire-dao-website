@@ -53,8 +53,8 @@ const CheckoutCard = ({ data, isMetaInvoice }: CheckoutCardProps) => {
   const router = useRouter();
   const { address, chain } = useAccount();
   const { signMessageAsync } = useSignMessage();
-  const contractAddress =
-    INTERMEDIATED_PAYMENT_PROCESSOR[chain?.id || BASE_SEPOLIA];
+  const chainId = chain?.id || BASE_SEPOLIA;
+  const contractAddress = INTERMEDIATED_PAYMENT_PROCESSOR[chainId];
 
   // Escrow hold period, read from the intermediated processor. The struct calls
   // it escrowHoldPeriod; holdPeriod is kept as a fallback for the pre-rename shape.
@@ -116,6 +116,7 @@ const CheckoutCard = ({ data, isMetaInvoice }: CheckoutCardProps) => {
         share: shareNote,
         signature,
         timestamp,
+        chainId,
       });
     } catch (error) {
       console.error("Failed to save payment note:", error);

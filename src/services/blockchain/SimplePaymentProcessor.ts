@@ -25,12 +25,13 @@ import { clearFeeReceiver } from "@/lib/feeReceiverStore";
 // Returns null when encryption fails — callers must abort rather than fall
 // back to writing the note on-chain in plaintext.
 const resolveStorageRefHex = async (
+  chainId: number,
   storageRef?: string,
 ): Promise<`0x${string}` | null> => {
   const trimmed = storageRef?.trim();
   if (!trimmed) return "0x";
   try {
-    return await encryptNoteContent(trimmed);
+    return await encryptNoteContent(trimmed, chainId);
   } catch (error) {
     console.error("Failed to encrypt invoice note", error);
     toast.error("Unable to encrypt the attached note. Please try again.");
@@ -63,7 +64,7 @@ export const createInvoice = async (
     Math.max(Math.floor(holdPeriodSeconds) || 0, 0),
     2 ** 32 - 1,
   );
-  const storageRefHex = await resolveStorageRefHex(storageRef);
+  const storageRefHex = await resolveStorageRefHex(chainId, storageRef);
   if (!storageRefHex) {
     setIsLoading("");
     return undefined;
@@ -156,7 +157,7 @@ export const makeInvoicePayment = async (
   setIsLoading("makeInvoicePayment");
 
   let success = false;
-  const storageRefHex = await resolveStorageRefHex(storageRef);
+  const storageRefHex = await resolveStorageRefHex(chainId, storageRef);
   if (!storageRefHex) {
     setIsLoading("");
     return false;

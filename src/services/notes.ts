@@ -5,6 +5,7 @@ export type CreateNotePayload = {
   share: boolean;
   signature: string;
   timestamp: number;
+  chainId: number;
 };
 
 export type SetNoteStatePayload = {
@@ -14,6 +15,7 @@ export type SetNoteStatePayload = {
   author: string;
   signature: string;
   timestamp: number;
+  chainId: number;
 };
 
 export type NotesApiResponse = {
@@ -151,6 +153,7 @@ export type DecryptNotesPayload = {
   noteIds: string[];
   viewer?: string;
   auth?: NoteReadAuth | null;
+  chainId: number;
 };
 
 // Server-side read-auth signatures stay valid for 24h; refresh a little early
@@ -214,8 +217,9 @@ export const setCachedNoteReadAuth = (
  */
 export const encryptNoteContent = async (
   content: string,
+  chainId: number,
 ): Promise<`0x${string}`> => {
-  const data = await postNotesAction({ action: "encrypt", content });
+  const data = await postNotesAction({ action: "encrypt", content, chainId });
   const payload = (data as { payload?: string }).payload;
   if (typeof payload !== "string" || !payload.startsWith("0x")) {
     throw new Error("Encryption service returned an invalid payload");
@@ -232,6 +236,7 @@ export const decryptNoteContents = async ({
   invoiceId,
   noteIds,
   viewer,
+  chainId,
   auth,
 }: DecryptNotesPayload): Promise<Map<string, string | null>> => {
   const result = new Map<string, string | null>();
@@ -242,6 +247,7 @@ export const decryptNoteContents = async ({
     invoiceId,
     noteIds,
     viewer,
+    chainId,
     signature: auth?.signature,
     timestamp: auth?.timestamp,
   });
