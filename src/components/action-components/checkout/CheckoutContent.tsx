@@ -1,10 +1,9 @@
 "use client";
 
-import { useContext, useEffect, useMemo, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 import { ContractContext } from "@/context/contract-context";
-import { useGetMetaInvoice } from "@/hooks/useGetMetaInvoice";
 import { InvoiceDetails, TokenData } from "@/model/model";
 import {
   BASE_SEPOLIA,
@@ -38,8 +37,10 @@ const CheckoutPage = () => {
   );
   const [error, setError] = useState("");
 
-  // Step 1: read the invoice id out of the link. It travels in the URL, so
-  // this resolves without a request.
+  // Step 1: read the invoice id, and which kind it is, out of the link. Both
+  // travel in the URL, so this resolves without a request.
+  const [isMetaInvoice, setIsMetaInvoice] = useState(false);
+
   useEffect(() => {
     const decoded = decodeInvoiceId(encodedId);
     if (!decoded) {
@@ -47,9 +48,10 @@ const CheckoutPage = () => {
       return;
     }
 
-    const parsed = toInvoiceIdBigInt(decoded);
+    const parsed = toInvoiceIdBigInt(decoded.invoiceId);
     if (parsed) {
       setinvoiceId(parsed);
+      setIsMetaInvoice(decoded.isMeta);
       setError("");
     } else {
       setError("Invalid invoice ID in payment link.");
@@ -58,16 +60,9 @@ const CheckoutPage = () => {
 
   const ZERO: bigint = BigInt(0);
   const { data: invoiceInfo } = useGetIntermediatedInvoiceData(invoiceId || ZERO);
-  const { data: metaInvoice } = useGetMetaInvoice(invoiceId || ZERO);
-  const metaInvoicePrice =
-    (metaInvoice as { price?: bigint } | undefined)?.price;
   const intermediatedInvoice = invoiceInfo as
     | { invoiceId?: bigint; invoiceNonce?: bigint; price?: bigint; paymentToken?: string }
     | undefined;
-
-  const isMetaInvoice = useMemo(() => {
-    return metaInvoicePrice !== undefined && metaInvoicePrice !== BigInt(0);
-  }, [metaInvoicePrice]);
 
   // Step 3: Fetch invoice data dynamically
   useEffect(() => {
@@ -121,7 +116,6 @@ const CheckoutPage = () => {
   }, [
     chainId,
     invoiceId,
-    metaInvoicePrice,
     isMetaInvoice,
     getIntermediatedInvoiceData,
     intermediatedInvoice,
@@ -129,8 +123,9 @@ const CheckoutPage = () => {
 
   // UI
 
-  const isLoading =
-    invoiceId && metaInvoice !== undefined && !invoiceDetails && !error;
+  // Nothing else is awaited: the kind came from the link, so the only
+  // outstanding work is the invoice fetch itself.
+  const isLoading = invoiceId && !invoiceDetails && !error;
 
   if (error) {
     return (
