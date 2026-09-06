@@ -1,11 +1,14 @@
-import { ZERO_ADDRESS } from "@/constants";
+import {
+  CONTRACT_API_URL,
+  MAX_FEE_RECEIVERS,
+  ZERO_ADDRESS,
+  getKnownPaymentToken,
+} from "@/constants";
 import {
   readFeeReceiver,
   saveFeeReceiver,
   type FeeReceiverRef,
-  type FeeReceiverState,
   type InvoiceKind,
-  type StoredFeeReceiver,
 } from "@/lib/feeReceiverStore";
 import type { Address, Hex } from "viem";
 
@@ -15,94 +18,69 @@ export type FeeReceiverAuthorization = {
   signature: Hex;
 };
 
-type FeeReceiverResponse = {
-  success?: boolean;
-  feeReceivers?: Address[];
-  ephemeralPublicKeys?: Hex[];
-  state?: FeeReceiverState;
-  signature?: Hex;
-};
+type CreateResponse = { ephemeralPublicKeys?: Hex[] };
+type AuthorizeResponse = { feeReceivers?: Address[]; signature?: Hex };
+type ApiError = { error?: string; reason?: string };
 
-type FeeReceiverRequest = FeeReceiverRef & {
-  action: "create" | "approve";
-  kind: InvoiceKind;
-  paymentToken: Address;
-  count?: number;
-  ephemeralPublicKeys?: Hex[];
-};
-
-const post = async ({
-  action,
-  invoiceId,
-  chainId,
-  processor,
-  kind,
-  paymentToken,
-  count,
-  ephemeralPublicKeys,
-}: FeeReceiverRequest): Promise<FeeReceiverResponse | null> => {
+const post = async <T>(path: string, body: unknown): Promise<T | null> => {
   try {
-    const response = await fetch("/api/fee-receiver", {
+    const response = await fetch(`${CONTRACT_API_URL}${path}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        action,
-        invoiceId: invoiceId.toString(),
-        chainId,
-        processor,
-        kind,
-        paymentToken,
-        count,
-        ephemeralPublicKeys,
-      }),
+      body: JSON.stringify(body),
     });
 
-    const payload = (await response.json()) as FeeReceiverResponse;
-    if (!response.ok || !payload.success) return null;
+    const payload = (await response.json()) as T & ApiError;
+    if (!response.ok) {
+      // The status separates the causes the sidecar's own wording does not:
+      // 400 is a bad request, 502 an internal sidecar failure (chain error or
+      // an unset key), 503 an unconfigured network or an unfunded relayer,
+      // 504 a timeout. `reason` carries the sidecar's message.
+      console.error(
+        `fee receiver ${path} failed (${response.status})`,
+        payload?.error ?? "",
+        payload?.reason ?? "",
+      );
+      return null;
+    }
     return payload;
   } catch (error) {
-    console.error(`Failed to ${action} fee receiver`, error);
+    console.error(`fee receiver ${path} failed`, error);
     return null;
   }
 };
 
 /**
- * An approved entry is only spendable once it also carries the signature, and
- * only for the shape it was signed for: the digest covers the whole receiver
- * array, so a different count or kind needs a different signature.
+ * The contract API names tokens by symbol and resolves them through its own
+ * table. Native payments are named by omission, which is also what keeps a
+ * local symbol that the table may not carry out of the request.
  */
-const isSpendable = (
-  stored: StoredFeeReceiver | null,
+const feeTokenSymbol = (
+  chainId: number,
   paymentToken: Address,
-  kind: InvoiceKind,
-  count: number,
-): stored is StoredFeeReceiver & { signature: Hex } =>
-  stored?.state === "approved" &&
-  Boolean(stored.signature) &&
-  stored.kind === kind &&
-  stored.feeReceivers.length === count &&
-  stored.paymentToken.toLowerCase() === paymentToken.toLowerCase();
+): string | undefined => {
+  if (paymentToken.toLowerCase() === ZERO_ADDRESS.toLowerCase()) {
+    return undefined;
+  }
+  return getKnownPaymentToken(chainId, paymentToken)?.name ?? undefined;
+};
 
 /**
- * Prepares the one-time stealth fee receivers an invoice is paid/accepted with,
- * driving the server's two steps through local storage so a cut-off at any
- * point is resumable:
+ * Prepares the one-time stealth fee receivers an invoice is paid/accepted
+ * with, in the two steps the contract API splits them into:
  *
- * 1. Create — the addresses are derived and written to storage as `created`
- *    before any on-chain work is attempted.
- * 2. Approve — the stored addresses are handed back for their 7702 delegation
- *    and Sweeper approval, then recorded as `approved` with the fee signer's
- *    authorization.
- * 3. Use — the addresses passed to the contract are read back from storage, and
- *    only ever from an `approved` entry.
+ * 1. `POST /v1/fee-receivers` derives the addresses, upgrades each to a 7702
+ *    delegator and approves the sweeper on it. This spends gas and returns
+ *    only the ephemeral public keys, which are the sole way back to the
+ *    addresses - so they are written to local storage the moment they arrive,
+ *    before anything else is attempted.
+ * 2. `POST /v1/fee-receivers/authorization` turns the stored keys back into
+ *    addresses and signs over them. No gas, so it runs on every attempt rather
+ *    than caching a signature that could go stale against the invoice.
  *
- * So an interrupted run resumes where it stopped: a `created` entry is approved
- * rather than replaced, and an `approved` one is reused as-is rather than
- * paying for a second set. The entry is dropped only once the payment/accept
- * has landed — see `clearFeeReceiver`.
- *
- * A meta-invoice passes `kind: "meta"` and one receiver per sub-invoice, in
- * `subInvoiceIds` order; the contract rejects any other count.
+ * An interrupted run therefore resumes on the receivers it already paid for.
+ * The entry is dropped only once the payment/accept lands - see
+ * `clearFeeReceiver`.
  *
  * Returns null on failure; callers must abort rather than submit without a
  * valid authorization.
@@ -117,80 +95,68 @@ export const requestFeeReceiver = async (
   const paymentToken = params.paymentToken ?? ZERO_ADDRESS;
   const kind = params.kind ?? "single";
   const count = params.count ?? 1;
-  if (!Number.isInteger(count) || count < 1) return null;
 
+  if (!Number.isInteger(count) || count < 1 || count > MAX_FEE_RECEIVERS) {
+    console.error(
+      `cannot issue ${count} fee receivers; the limit is ${MAX_FEE_RECEIVERS}`,
+    );
+    return null;
+  }
+
+  const symbol = feeTokenSymbol(params.chainId, paymentToken);
   let stored = readFeeReceiver(params);
 
-  // An entry issued for a different shape can never be spent for this one, so
-  // it is replaced rather than approved again.
-  if (stored && (stored.kind !== kind || stored.feeReceivers.length !== count)) {
+  // Keys issued for a different shape or a different fee token cannot be
+  // spent here: the count is baked into the signed array, and the sweeper
+  // approval was granted on one token only.
+  if (
+    stored &&
+    (stored.kind !== kind ||
+      stored.ephemeralPublicKeys.length !== count ||
+      stored.paymentToken.toLowerCase() !== paymentToken.toLowerCase())
+  ) {
     stored = null;
   }
 
-  // Nothing on-chain has happened yet at this point, so addresses lost to a
-  // failed response here cost nothing and the next attempt simply derives
-  // others.
   if (!stored) {
-    const created = await post({
-      ...params,
-      action: "create",
-      kind,
-      paymentToken,
-      count,
+    const created = await post<CreateResponse>("/v1/fee-receivers", {
+      processor: params.processor,
+      quantity: count,
+      paymentToken: symbol,
     });
-    if (
-      !created?.feeReceivers?.length ||
-      created.feeReceivers.length !== count ||
-      created.ephemeralPublicKeys?.length !== count
-    ) {
-      return null;
-    }
 
+    const keys = created?.ephemeralPublicKeys;
+    if (!Array.isArray(keys) || keys.length !== count) return null;
+
+    // Persist first: the gas is spent whether or not these are kept.
     stored = saveFeeReceiver(params, {
-      feeReceivers: created.feeReceivers,
-      ephemeralPublicKeys: created.ephemeralPublicKeys,
+      ephemeralPublicKeys: keys,
       paymentToken,
       kind,
-      state: "created",
     });
   }
 
-  // Approve whatever storage holds — fresh addresses, ones whose approval was
-  // cut off last time, or ones approved for a token this attempt is not paying
-  // in. The server settles the on-chain side idempotently.
-  if (!isSpendable(stored, paymentToken, kind, count)) {
-    const approved = await post({
-      ...params,
-      action: "approve",
+  const authorized = await post<AuthorizeResponse>(
+    "/v1/fee-receivers/authorization",
+    {
+      invoiceId: params.invoiceId.toString(),
+      processor: params.processor,
       kind,
-      paymentToken,
+      paymentToken: symbol,
       ephemeralPublicKeys: stored.ephemeralPublicKeys,
-    });
-    if (
-      approved?.state !== "approved" ||
-      approved.feeReceivers?.length !== count ||
-      !approved.signature
-    ) {
-      return null;
-    }
+    },
+  );
 
-    // The addresses the server derived from the ephemeral keys win over the
-    // ones in storage: the keys are the source of truth, and only the derived
-    // addresses are the ones the returned signature covers.
-    stored = saveFeeReceiver(params, {
-      ...stored,
-      feeReceivers: approved.feeReceivers,
-      paymentToken,
-      kind,
-      state: "approved",
-      signature: approved.signature,
-    });
+  if (
+    !authorized?.signature ||
+    !Array.isArray(authorized.feeReceivers) ||
+    authorized.feeReceivers.length !== count
+  ) {
+    return null;
   }
 
-  // Read back rather than trusting the value in hand, so the addresses that
-  // reach the contract are the ones storage actually holds as approved.
-  const ready = readFeeReceiver(params);
-  if (!isSpendable(ready, paymentToken, kind, count)) return null;
-
-  return { feeReceivers: ready.feeReceivers, signature: ready.signature };
+  return {
+    feeReceivers: authorized.feeReceivers,
+    signature: authorized.signature,
+  };
 };
