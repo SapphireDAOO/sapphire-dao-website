@@ -1,6 +1,5 @@
 import { Suspense } from "react";
 import DashboardIndex from "@/components/action-components/dashboard/DashboardIndex";
-export const revalidate = 0;
 
 export default function DashboardPage() {
   return (

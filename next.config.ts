@@ -1,8 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  output: "export",
   images: {
-    unoptimized: false,
+    unoptimized: true,
   },
   assetPrefix: "../",
   reactStrictMode: false,
@@ -22,7 +23,8 @@ const nextConfig: NextConfig = {
         headers: [
           {
             key: "Content-Security-Policy",
-            value: "frame-ancestors 'self' https://app.safe.global https://*.safe.global",
+            value:
+              "frame-ancestors 'self' https://app.safe.global https://*.safe.global",
           },
         ],
       },

@@ -14,14 +14,26 @@ export const DEFAULT_QUERY_GC_TIME_MS = ONE_DAY_MS;
 export const MAX_NOTE_LENGTH = 20;
 export const DEFAULT_BLOCK_POLLING_INTERVAL_MS = 12 * ONE_SECOND_MS;
 
+/**
+ * Whether this build should offer the local chain and the local contract API.
+ *
+ * `next build` sets NODE_ENV=production for every build, including a static
+ * export that is only ever served from a laptop - so keying off NODE_ENV alone
+ * silently drops the local chain from any exported build. Set
+ * NEXT_PUBLIC_LOCAL_CHAIN=true at build time to keep it.
+ */
+export const LOCAL_CHAIN_ENABLED =
+  process.env.NEXT_PUBLIC_LOCAL_CHAIN === "true" ||
+  process.env.NODE_ENV !== "production";
+
 // The contract API derives and approves the stealth fee receivers, and signs
-// the authorization the processors verify. Non-prod runs talk to it on
-// localhost; override either with NEXT_PUBLIC_CONTRACT_API_URL.
+// the authorization the processors verify. Override either with
+// NEXT_PUBLIC_CONTRACT_API_URL.
 export const CONTRACT_API_URL = (
   process.env.NEXT_PUBLIC_CONTRACT_API_URL ||
-  (process.env.NODE_ENV === "production"
-    ? "https://sapphiredaotesting.com"
-    : "http://localhost:8080")
+  (LOCAL_CHAIN_ENABLED
+    ? "http://localhost:8080"
+    : "https://sapphiredaotesting.com")
 ).replace(/\/+$/, "");
 
 // The fee-receiver sidecar derives at most this many receivers per call, so a

@@ -11,6 +11,7 @@ import {
 } from "@rainbow-me/rainbowkit/wallets";
 import { http, webSocket, fallback } from "viem";
 import { baseSepolia, hardhat } from "viem/chains";
+import { LOCAL_CHAIN_ENABLED } from "@/constants";
 
 const walletConnectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID!;
 
@@ -34,7 +35,9 @@ const wallets = [
   },
 ];
 
-const isProduction = process.env.NODE_ENV === "production";
+// See LOCAL_CHAIN_ENABLED: a static export is built as "production"
+// regardless of where it will be served.
+const withLocalChain = LOCAL_CHAIN_ENABLED;
 
 const baseSepoliaTransport = fallback(
   [
@@ -54,15 +57,15 @@ const config =
   getDefaultConfig({
     appName: "Sapphire DAO Invoice",
     projectId: walletConnectId,
-    chains: isProduction ? [baseSepolia] : [baseSepolia, hardhat],
+    chains: withLocalChain ? [baseSepolia, hardhat] : [baseSepolia],
     wallets,
     ssr: false,
-    transports: isProduction
-      ? { [baseSepolia.id]: baseSepoliaTransport }
-      : {
+    transports: withLocalChain
+      ? {
           [baseSepolia.id]: baseSepoliaTransport,
           [hardhat.id]: http("http://127.0.0.1:8545"),
-        },
+        }
+      : { [baseSepolia.id]: baseSepoliaTransport },
   });
 
 if (process.env.NODE_ENV !== "production") {
