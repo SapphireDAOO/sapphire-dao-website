@@ -1,13 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useAccount } from "wagmi";
+import type { Address } from "viem";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { MessagingKey } from "@/components/action-components/notes/MessagingKey";
 import { NoteLength } from "@/components/NoteLength";
 import { MAX_NOTE_LENGTH } from "@/constants";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader } from "@/components/ui/card";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, Lock } from "lucide-react";
+import { toast } from "sonner";
 import { useInvoiceNotes, ThreadNote } from "@/hooks/useInvoiceNotes";
 import { Invoice } from "@/model/model";
 import { getLastActionTime } from "@/lib/invoiceHistory";
@@ -78,6 +82,20 @@ export function NotesThread({
   /** Whether the parent card is expanded (shows thread list when true) */
   expanded: boolean;
 }) {
+  const { address } = useAccount();
+
+  // Whoever on this invoice is not the viewer. A shared note is sealed to them
+  // as well, so without this a note marked shared would be readable only by
+  // its author.
+  const counterparty = useMemo(() => {
+    const viewer = address?.toLowerCase();
+    const seller = invoice.seller?.toLowerCase();
+    const buyer = invoice.buyer?.toLowerCase();
+    if (!viewer) return undefined;
+    if (seller && seller !== viewer) return seller as Address;
+    if (buyer && buyer !== viewer) return buyer as Address;
+    return undefined;
+  }, [address, invoice.seller, invoice.buyer]);
   const noteBlockReason = getNoteBlockReason(invoice);
   // Defer note fetching until the component enters the viewport
   const containerRef = useRef<HTMLDivElement>(null);
@@ -107,14 +125,18 @@ export function NotesThread({
     isLoading,
     isCreating,
     pendingNoteIds,
+    unreadableCount,
+    isUnlocked,
+    unlockNotes,
     createNote,
     setNoteOpen,
-  } = useInvoiceNotes(invoiceId, { enabled: isNotesEnabled });
+  } = useInvoiceNotes(invoiceId, { enabled: isNotesEnabled, counterparty });
 
   const [isComposerOpen, setIsComposerOpen] = useState(false);
   const [draft, setDraft] = useState("");
   const [share, setShare] = useState(false);
   const [notePage, setNotePage] = useState(0);
+  const [isRevealing, setIsRevealing] = useState(false);
 
   // Count notes from others that haven't been opened yet
   const unreadCount = useMemo(
@@ -141,6 +163,10 @@ export function NotesThread({
       setShare(false);
       setIsComposerOpen(false);
       setNotePage(0);
+      // The write endpoint returns once the transaction is broadcast, so the
+      // note is genuinely pending until the subgraph indexes it. Say that,
+      // rather than leaving a silent row sitting at "pending".
+      toast.success("Note submitted. It will appear once confirmed.");
     }
   }, [createNote, draft, share]);
 
@@ -239,7 +265,51 @@ export function NotesThread({
           {isLoading ? (
             <p className="text-[11px] text-gray-400">Loading notes...</p>
           ) : notes.length === 0 ? (
-            <p className="text-[11px] text-gray-400">No notes yet.</p>
+            unreadableCount > 0 ? (
+              // There are notes; this key just cannot open them. Saying "no
+              // notes" here would be a lie the reader has no way to see past.
+              <p className="text-[11px] text-amber-700 dark:text-amber-400">
+                {unreadableCount} {unreadableCount === 1 ? "note" : "notes"} on
+                this invoice could not be opened with your messaging key. They
+                were sealed to a different key — usually one published before
+                the key was re-registered.
+              </p>
+            ) : (
+              <p className="text-[11px] text-gray-400">No notes yet.</p>
+            )
+          ) : !isUnlocked ? (
+            // Sealed until the reader asks: the list stays hidden, and one
+            // signature derives the key that opens both shared and private
+            // notes rather than prompting per note.
+            <div className="flex flex-wrap items-center gap-2 rounded-md border border-dashed p-2">
+              <Lock className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+              <p className="min-w-0 flex-1 text-[11px] text-muted-foreground">
+                {notes.length} {notes.length === 1 ? "note is" : "notes are"}{" "}
+                encrypted. Sign to read them.
+              </p>
+              <Button
+                size="sm"
+                disabled={isRevealing}
+                aria-busy={isRevealing}
+                onClick={async (e) => {
+                  e.stopPropagation();
+                  setIsRevealing(true);
+                  try {
+                    const keys = await unlockNotes();
+                    if (!keys) toast.error("Could not unlock your notes.");
+                  } finally {
+                    setIsRevealing(false);
+                  }
+                }}
+                onMouseDown={(e) => e.stopPropagation()}
+              >
+                {isRevealing ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  "Show notes"
+                )}
+              </Button>
+            </div>
           ) : (
             <>
               <div className="space-y-1.5">{pagedNotes.map(renderNote)}</div>
@@ -291,6 +361,9 @@ export function NotesThread({
           onClick={(e) => e.stopPropagation()}
           onMouseDown={(e) => e.stopPropagation()}
         >
+          {/* Publishing matters when writing, not reading: without a published
+              key nobody can seal a note back to this account. */}
+          <MessagingKey />
           <Textarea
             value={draft}
             onChange={(e) => setDraft(e.target.value)}

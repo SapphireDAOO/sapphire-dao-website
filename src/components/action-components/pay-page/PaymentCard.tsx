@@ -40,6 +40,9 @@ import { BASE_SEPOLIA } from "@/constants";
 import { formatAddress, formatDurationSeconds } from "@/utils";
 import { Textarea } from "@/components/ui/textarea";
 import { NoteLength } from "@/components/NoteLength";
+import { MessagingKey } from "@/components/action-components/notes/MessagingKey";
+import { fetchNotePublicKey, useNoteKeys } from "@/hooks/useNoteKeys";
+import { sealNote } from "@/lib/noteCrypto";
 import { MAX_NOTE_LENGTH } from "@/constants";
 
 type InvoiceLike = {
@@ -115,6 +118,7 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
     data?.invoiceId !== undefined ? BigInt(data.invoiceId) : undefined;
   const { data: fetchedInvoice } = useGetInvoiceData(invoiceId);
   const { notes: invoiceNotes } = useInvoiceNotes(invoiceId);
+  const noteKeys = useNoteKeys();
   // wagmi reports no chain during SSR, so the server falls back to Base Sepolia
   // while the browser resolves the connected chain (e.g. localhost). Rendering
   // that address straight away makes the two HTML trees disagree and React
@@ -339,11 +343,41 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
     }
 
     try {
+      // The note rides inside the payment transaction, so it is sealed here.
+      // A shared note also seals to the seller, which needs them to have
+      // published a key; without one the note can only be private.
+      let storageRef = "0x";
+      const trimmedNote = paymentNote.trim();
+      if (trimmedNote) {
+        const keys = noteKeys.keys ?? (await noteKeys.unlock());
+        if (!keys) {
+          toast.error("Enable messaging to attach a note.");
+          return;
+        }
+
+        const readers = [keys.publicKey];
+        if (shareNote && invoiceSeller) {
+          const sellerKey = await fetchNotePublicKey(
+            publicClient as never,
+            chain?.id || BASE_SEPOLIA,
+            invoiceSeller as `0x${string}`,
+          );
+          if (!sellerKey) {
+            toast.error(
+              "The invoice creator has not published a messaging key, so they could not read this note.",
+            );
+            return;
+          }
+          readers.push(sellerKey);
+        }
+        storageRef = sealNote(trimmedNote, readers);
+      }
+
       paymentSubmittedRef.current = true;
       const paid = await makeInvoicePayment(
         priceWei,
         invoiceId,
-        paymentNote.trim(),
+        storageRef,
         shareNote,
       );
 
@@ -472,6 +506,7 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
 
             <div className="flex flex-col space-y-2 mt-3">
               <Label htmlFor="paymentNote">Payment Note (optional)</Label>
+              <MessagingKey />
               <Textarea
                 id="paymentNote"
                 value={paymentNote}

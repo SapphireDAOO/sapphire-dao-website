@@ -1,20 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useAccount, usePublicClient, useSignMessage } from "wagmi";
+import { useAccount, usePublicClient } from "wagmi";
 import { toast } from "sonner";
 import { notesClient } from "@/services/graphql/notes-client";
 import { NOTES_BY_ORDER_QUERY } from "@/services/graphql/queries";
 import {
   getPendingNotesForOrder,
-  removePendingNote,
   removePendingNotesByIds,
   createNote as createNoteRequest,
   setNoteOpenState,
-  decryptNoteContents,
-  getCachedNoteReadAuth,
-  setCachedNoteReadAuth,
-  noteReadAuthMessage,
-  type NoteReadAuth,
 } from "@/services/notes";
+import { openNote, sealNote } from "@/lib/noteCrypto";
+import { useNoteKeys, fetchNotePublicKey } from "@/hooks/useNoteKeys";
 import { unixToGMT } from "@/utils";
 import {
   BASE_SEPOLIA,
@@ -22,6 +18,7 @@ import {
   NOTES_SIGNER_ADDRESS,
 } from "@/constants";
 import { Notes } from "@/abis/Notes";
+import type { Address, Hex } from "viem";
 
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 const NOTE_REFRESH_DELAY_MS = 5_000;
@@ -45,6 +42,7 @@ type RawNote = {
   share: boolean;
   encryptedContent: string;
   createdAtBlock?: string;
+  createdAtTx?: string;
 };
 
 type RawNoteOpenState = {
@@ -73,23 +71,35 @@ const formatNowLabel = () => {
 
 export const useInvoiceNotes = (
   invoiceId?: bigint | string | number,
-  options?: { enabled?: boolean }
+  options?: {
+    enabled?: boolean;
+    /** The other party on the invoice, so a shared note can be sealed to them. */
+    counterparty?: Address;
+  }
 ) => {
   const isEnabled = options?.enabled ?? true;
+  const counterparty = options?.counterparty;
   const { address, chain } = useAccount();
   const chainId = chain?.id || BASE_SEPOLIA;
   const publicClient = usePublicClient({ chainId });
 
-  const { signMessageAsync } = useSignMessage();
-
   const [notes, setNotes] = useState<ThreadNote[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
+  // Notes that exist on chain but will not open with this key. Hiding them
+  // silently makes a key mismatch look like "there are no notes", which is the
+  // one thing the reader must not conclude.
+  const [unreadableCount, setUnreadableCount] = useState(0);
   const [pendingNoteIds, setPendingNoteIds] = useState<Record<string, boolean>>(
     {}
   );
 
+  const noteKeys = useNoteKeys();
+
   const notesRef = useRef<ThreadNote[]>([]);
+  // Sealed bodies straight from the subgraph, kept so decryption can happen
+  // locally without re-querying.
+  const ciphertextRef = useRef<Map<string, Hex>>(new Map());
   const blockCacheRef = useRef<Map<string, string>>(new Map());
   const configWarnedRef = useRef(false);
   const invalidinvoiceIdRef = useRef(false);
@@ -117,84 +127,33 @@ export const useInvoiceNotes = (
     notesRef.current = notes;
   }, [notes]);
 
-  // Read-auth signature for decrypting the viewer's private notes. Notes are
-  // decrypted server-side (the key never ships to the browser); shared notes
-  // need no auth, private ones require the author to sign once per session.
-  const readAuthRef = useRef<NoteReadAuth | null>(null);
-  const readAuthDeclinedRef = useRef(false);
-
-  useEffect(() => {
-    readAuthRef.current = null;
-    readAuthDeclinedRef.current = false;
-  }, [address, normalizedinvoiceId]);
-
-  const ensureReadAuth = useCallback(
-    async (promptIfMissing: boolean): Promise<NoteReadAuth | null> => {
-      if (!address || normalizedinvoiceId === undefined) return null;
-      const invoiceKey = normalizedinvoiceId.toString();
-
-      const cached =
-        readAuthRef.current ?? getCachedNoteReadAuth(address, invoiceKey);
-      if (cached) {
-        readAuthRef.current = cached;
-        return cached;
-      }
-
-      if (!promptIfMissing || readAuthDeclinedRef.current) return null;
-
-      const timestamp = Math.floor(Date.now() / 1000);
-      try {
-        const signature = await signMessageAsync({
-          message: noteReadAuthMessage(invoiceKey, address, timestamp),
-        });
-        const auth: NoteReadAuth = { signature, timestamp };
-        readAuthRef.current = auth;
-        setCachedNoteReadAuth(address, invoiceKey, auth);
-        return auth;
-      } catch {
-        // Rejected — leave private notes locked and don't nag again this session.
-        readAuthDeclinedRef.current = true;
-        return null;
-      }
-    },
-    [address, normalizedinvoiceId, signMessageAsync],
-  );
-
+  // Decryption is local: the note body is sealed to this account's note key,
+  // so opening it needs no request and no second signature. A note this key
+  // is not a reader of simply stays closed.
   const decryptMessages = useCallback(
     async (
       requests: { noteId: string; share: boolean; isAuthor: boolean }[],
-      options?: { allowPrompt?: boolean },
     ): Promise<Map<string, string | null>> => {
-      const decryptable = requests.filter((request) =>
+      const result = new Map<string, string | null>();
+      const readable = requests.filter((request) =>
         isNumericNoteId(request.noteId),
       );
-      if (normalizedinvoiceId === undefined || decryptable.length === 0) {
-        return new Map();
-      }
+      if (readable.length === 0) return result;
 
-      // Only private notes authored by the viewer need the signature; the
-      // filters upstream never surface other users' private notes.
-      const needsAuth = decryptable.some(
-        (request) => !request.share && request.isAuthor,
-      );
-      const auth = needsAuth
-        ? await ensureReadAuth(options?.allowPrompt ?? true)
-        : null;
+      // Never prompts. Notes stay sealed until the reader asks for them, so
+      // the signature is a deliberate act rather than something that fires
+      // whenever a card scrolls into view.
+      const keys = noteKeys.keys;
+      if (!keys) return result;
 
-      try {
-        return await decryptNoteContents({
-          chainId,
-          invoiceId: normalizedinvoiceId.toString(),
-          noteIds: decryptable.map((request) => request.noteId),
-          viewer: address,
-          auth,
-        });
-      } catch (error) {
-        console.error("Failed to decrypt notes", error);
-        return new Map();
+      for (const request of readable) {
+        const payload = ciphertextRef.current.get(request.noteId);
+        if (!payload) continue;
+        result.set(request.noteId, openNote(payload, keys.privateKey));
       }
+      return result;
     },
-    [address, chainId, ensureReadAuth, normalizedinvoiceId],
+    [noteKeys],
   );
 
   useEffect(() => {
@@ -240,10 +199,13 @@ export const useInvoiceNotes = (
             share: note.share,
             message: note.message,
             createdAtLabel,
-            opened: false,
+            // Its own author wrote it, so it is not something they need to
+            // open; and the plaintext is in hand, so it is a real row rather
+            // than a placeholder waiting on the indexer.
+            opened: isAuthor,
             hasOpenState: isAuthor,
             isAuthor,
-            isPending: true,
+            isPending: false,
             txHash: note.txHash,
           },
           ...next,
@@ -278,228 +240,6 @@ export const useInvoiceNotes = (
     }
   }, [isEnabled]);
 
-  useEffect(() => {
-    if (!isEnabled) return;
-    if (!publicClient || normalizedinvoiceId === undefined) return;
-
-    const contractAddress = NOTES_CONTRACT[chainId];
-    if (!contractAddress) return;
-
-    const viewer = (address || ZERO_ADDRESS).toLowerCase();
-    const openStateUser = (NOTES_SIGNER_ADDRESS || viewer).toLowerCase();
-
-    const unwatchCreated = publicClient.watchContractEvent({
-      address: contractAddress,
-      abi: Notes,
-      eventName: "NoteCreated",
-      onLogs: (logs) => {
-        logs.forEach((log) => {
-          const args = log.args as
-            | {
-                invoiceId?: bigint;
-                invoiceNonce?: bigint;
-                noteId?: bigint;
-                author?: string;
-                share?: boolean;
-                encryptedContent?: string;
-              }
-            | undefined;
-
-          const invoiceId = args?.invoiceId ?? args?.invoiceNonce;
-          if (invoiceId == null || args?.noteId == null) return;
-          if (invoiceId.toString() !== normalizedinvoiceId.toString()) return;
-
-          const share = Boolean(args.share);
-          const author = (args.author || "").toLowerCase();
-          const isAuthor = Boolean(address && author === address.toLowerCase());
-
-          if (!share && !isAuthor) return;
-
-          const noteId = args.noteId.toString();
-          // Decryption happens server-side; insert with a placeholder (or the
-          // pending note's plaintext below) and patch the message once the
-          // decrypt call resolves after this handler.
-          const message = ENCRYPTED_NOTE_PLACEHOLDER;
-          const txHash = log.transactionHash;
-          const authorAddress = args.author || "";
-          removePendingNote({
-            invoiceId: normalizedinvoiceId.toString(),
-            noteId,
-            txHash,
-          });
-
-          setNotes((prev) => {
-            if (prev.some((note) => note.noteId === noteId)) return prev;
-
-            let pendingIndex = -1;
-
-            if (txHash) {
-              pendingIndex = prev.findIndex(
-                (note) =>
-                  note.isPending &&
-                  note.txHash?.toLowerCase() === txHash.toLowerCase()
-              );
-            }
-
-            if (pendingIndex < 0) {
-              pendingIndex = prev.findIndex(
-                (note) =>
-                  note.isPending &&
-                  note.share === share &&
-                  note.author?.toLowerCase() === author &&
-                  note.message === message
-              );
-            }
-
-            if (pendingIndex < 0) {
-              const pendingByAuthor = prev.filter(
-                (note) =>
-                  note.isPending &&
-                  note.share === share &&
-                  note.author?.toLowerCase() === author
-              );
-              if (pendingByAuthor.length === 1) {
-                pendingIndex = prev.indexOf(pendingByAuthor[0]);
-              }
-            }
-
-            if (pendingIndex >= 0) {
-              const pending = prev[pendingIndex];
-              const updated: ThreadNote = {
-                ...pending,
-                id: `${normalizedinvoiceId.toString()}-${noteId}`,
-                noteId,
-                author: authorAddress || pending.author,
-                share,
-                // The optimistic pending note already holds the plaintext the
-                // user typed — keep it instead of the placeholder.
-                message: pending.message || message,
-                createdAtLabel: pending.createdAtLabel || formatNowLabel(),
-                opened: pending.opened,
-                hasOpenState: pending.hasOpenState || isAuthor,
-                isAuthor,
-                isPending: false,
-                txHash: txHash || pending.txHash,
-              };
-
-              const next = [...prev];
-              next[pendingIndex] = updated;
-              return next.sort((a, b) => {
-                try {
-                  const aKey = BigInt(a.noteId);
-                  const bKey = BigInt(b.noteId);
-                  if (aKey === bKey) return 0;
-                  return aKey > bKey ? -1 : 1;
-                } catch {
-                  return 0;
-                }
-              });
-            }
-
-            const nextNote: ThreadNote = {
-              id: `${normalizedinvoiceId.toString()}-${noteId}`,
-              noteId,
-              author: authorAddress,
-              share,
-              message,
-              createdAtLabel: formatNowLabel(),
-              opened: false,
-              hasOpenState: isAuthor,
-              isAuthor,
-              isPending: false,
-              txHash,
-            };
-
-            return [nextNote, ...prev].sort((a, b) => {
-              try {
-                const aKey = BigInt(a.noteId);
-                const bKey = BigInt(b.noteId);
-                if (aKey === bKey) return 0;
-                return aKey > bKey ? -1 : 1;
-              } catch {
-                return 0;
-              }
-            });
-          });
-
-          // Resolve the real content in the background. Never prompts for a
-          // signature from an event — a cached read-auth is used if present,
-          // otherwise the author's private note stays locked until the next
-          // explicit fetch.
-          void decryptMessages([{ noteId, share, isAuthor }], {
-            allowPrompt: false,
-          }).then((decrypted) => {
-            const content = decrypted.get(noteId);
-            if (!content) return;
-            setNotes((prev) =>
-              prev.map((note) =>
-                note.noteId === noteId &&
-                note.message === ENCRYPTED_NOTE_PLACEHOLDER
-                  ? { ...note, message: content }
-                  : note,
-              ),
-            );
-          });
-        });
-      },
-    });
-
-    const unwatchState = publicClient.watchContractEvent({
-      address: contractAddress,
-      abi: Notes,
-      eventName: "NoteStateChanged",
-      onLogs: (logs) => {
-        logs.forEach((log) => {
-          const args = log.args as
-            | {
-                invoiceId?: bigint;
-                invoiceNonce?: bigint;
-                noteId?: bigint;
-                user?: string;
-                opened?: boolean;
-              }
-            | undefined;
-
-          const invoiceId = args?.invoiceId ?? args?.invoiceNonce;
-          if (
-            invoiceId == null ||
-            args?.noteId == null ||
-            args?.user == null
-          )
-            return;
-          if (invoiceId.toString() !== normalizedinvoiceId.toString()) return;
-          if (args.user.toLowerCase() !== openStateUser) return;
-
-          const noteId = args.noteId.toString();
-          const opened = Boolean(args.opened);
-
-          setNotes((prev) =>
-            prev.map((note) =>
-              note.noteId === noteId
-                ? {
-                    ...note,
-                    opened,
-                    hasOpenState: note.hasOpenState || opened,
-                  }
-                : note
-            )
-          );
-        });
-      },
-    });
-
-    return () => {
-      unwatchCreated?.();
-      unwatchState?.();
-    };
-  }, [
-    address,
-    chainId,
-    normalizedinvoiceId,
-    publicClient,
-    isEnabled,
-    decryptMessages,
-  ]);
 
   const hydrateBlockLabels = useCallback(
     async (blockNumbers: string[]) => {
@@ -603,7 +343,21 @@ export const useInvoiceNotes = (
         throw new Error(message);
       }
 
-      const rawNotes = (data?.notes || []) as RawNote[];
+      // `id` is "<invoiceId>-<noteId>", so the note id survives even when the
+      // field itself is not selected or is missing from an older deployment.
+      const rawNotes = ((data?.notes || []) as RawNote[]).map((note) => ({
+        ...note,
+        noteId: note.noteId ?? note.id?.split("-").pop() ?? "",
+      }));
+
+      // Decryption is local, so the sealed bodies have to be kept as they
+      // arrive; without this there is nothing to open and every note renders
+      // empty.
+      for (const note of rawNotes) {
+        if (note.noteId && note.encryptedContent) {
+          ciphertextRef.current.set(note.noteId, note.encryptedContent as Hex);
+        }
+      }
       const rawStates = (data?.noteOpenStates || []) as RawNoteOpenState[];
 
       const stateSet = new Set(rawStates.map((state) => state.noteId));
@@ -618,15 +372,19 @@ export const useInvoiceNotes = (
         rawNotes.map((note) => note.createdAtBlock).filter(Boolean) as string[]
       );
 
+      // A private note never appears outside its author's view. This asks for
+      // positive proof before listing one - shared, or provably authored by
+      // the reader - so a note whose `share`/`author` the subgraph did not
+      // return is withheld rather than shown on the chance that it is public.
+      // It also keeps other people's private notes out of the "could not be
+      // opened" count below, where they would look like a key problem.
+      const reader = address?.toLowerCase();
       const visibleNotes = rawNotes.filter((note) => {
-        if (note.share) return true;
-        if (!address) return false;
-        return note.author?.toLowerCase() === address.toLowerCase();
+        if (!note.noteId) return false;
+        if (note.share === true) return true;
+        return Boolean(reader) && note.author?.toLowerCase() === reader;
       });
 
-      // Server-side decrypt for everything we are about to show: shared notes
-      // need no auth; the viewer's own private notes ride on the (possibly
-      // prompted) read-auth signature.
       const decrypted = await decryptMessages(
         visibleNotes.map((note) => ({
           noteId: note.noteId,
@@ -635,12 +393,21 @@ export const useInvoiceNotes = (
         })),
       );
 
+      let unreadable = 0;
       const mapped = visibleNotes
         .map((note) => {
           const isAuthor =
             address?.toLowerCase() === note.author?.toLowerCase();
-          const message =
-            decrypted.get(note.noteId) || ENCRYPTED_NOTE_PLACEHOLDER;
+          // A note that will not open with this key was not written for this
+          // reader, so it is dropped rather than shown as an unreadable row.
+          // While the key is still locked nothing can be judged, so the
+          // placeholder stands in instead of hiding the whole thread.
+          const openedMessage = decrypted.get(note.noteId);
+          if (openedMessage == null && noteKeys.keys) {
+            unreadable += 1;
+            return null;
+          }
+          const message = openedMessage ?? ENCRYPTED_NOTE_PLACEHOLDER;
           const createdAtLabel = note.createdAtBlock
             ? blockCacheRef.current.get(note.createdAtBlock) ||
               `Block ${note.createdAtBlock}`
@@ -649,7 +416,9 @@ export const useInvoiceNotes = (
           const previousOpened = openStateMap.get(note.noteId);
           // Consider a note "opened" if the user previously set its state (persisted)
           // This prevents previously-read notes from re-appearing as "new" on each page load
-          const opened = previousOpened ?? stateSet.has(note.noteId) ?? false;
+          // An author has, by definition, already read their own note.
+          const opened =
+            isAuthor || (previousOpened ?? stateSet.has(note.noteId) ?? false);
           const hasOpenState =
             stateSet.has(note.noteId) ||
             hasOpenedMap.get(note.noteId) === true ||
@@ -666,8 +435,10 @@ export const useInvoiceNotes = (
             hasOpenState,
             isAuthor: Boolean(isAuthor),
             isPending: false,
+            txHash: note.createdAtTx,
           } as ThreadNote;
         })
+        .filter((note): note is ThreadNote => note !== null)
         .sort((a, b) => {
           try {
             const aKey = BigInt(a.noteId);
@@ -679,16 +450,34 @@ export const useInvoiceNotes = (
           }
         });
 
+      setUnreadableCount(unreadable);
+
       removePendingNotesByIds(
         normalizedinvoiceId.toString(),
-        mapped.map((note) => note.noteId)
+        mapped.map((note) => note.noteId),
+        mapped
+          .map((note) => note.txHash)
+          .filter((hash): hash is string => Boolean(hash)),
       );
       // Preserve any in-memory notes (pending OR confirmed) not yet indexed by
       // the subgraph. This prevents optimistic notes from disappearing on the
       // scheduled refresh when the subgraph hasn't caught up yet.
       setNotes((prev) => {
         const mappedIds = new Set(mapped.map((m) => m.noteId));
-        const notYetIndexed = prev.filter((n) => !mappedIds.has(n.noteId));
+        // An optimistic note keeps its local id, because the write endpoint
+        // answers with a tx hash and no note id. Matching on the id alone
+        // therefore never reconciles it, and the row sits at "pending"
+        // forever beside its indexed twin. The tx hash is what they share.
+        const mappedTx = new Set(
+          mapped
+            .map((m) => m.txHash?.toLowerCase())
+            .filter((hash): hash is string => Boolean(hash)),
+        );
+        const notYetIndexed = prev.filter(
+          (n) =>
+            !mappedIds.has(n.noteId) &&
+            !(n.txHash && mappedTx.has(n.txHash.toLowerCase())),
+        );
         if (notYetIndexed.length === 0) return mapped;
         return [...notYetIndexed, ...mapped].sort((a, b) => {
           try {
@@ -712,6 +501,9 @@ export const useInvoiceNotes = (
     chainId,
     decryptMessages,
     hydrateBlockLabels,
+    // Unlocking mid-session must re-run the fetch, or notes stay hidden until
+    // something else happens to trigger one.
+    noteKeys.keys,
     normalizedinvoiceId,
     invoiceId,
     isEnabled,
@@ -721,6 +513,7 @@ export const useInvoiceNotes = (
     if (!isEnabled) return;
     void fetchNotes();
   }, [fetchNotes, isEnabled]);
+
 
   const refresh = useCallback(async () => {
     if (!isEnabled) return;
@@ -735,6 +528,47 @@ export const useInvoiceNotes = (
       refreshTimeoutRef.current = null;
     }, NOTE_REFRESH_DELAY_MS);
   }, [fetchNotes, isEnabled]);
+
+  // The subgraph is the only source the thread renders from, so these watchers
+  // do not build notes out of event data - they just say "something changed"
+  // and let the fetch supply it. Reading a note from the log and the subgraph
+  // separately is how the two drift apart.
+  useEffect(() => {
+    if (!isEnabled) return;
+    if (!publicClient || normalizedinvoiceId === undefined) return;
+
+    const contractAddress = NOTES_CONTRACT[chainId];
+    if (!contractAddress) return;
+
+    const refreshOnMatch = (
+      logs: { args?: { invoiceId?: bigint; invoiceNonce?: bigint } }[],
+    ) => {
+      const touched = logs.some((log) => {
+        const id = log.args?.invoiceId ?? log.args?.invoiceNonce;
+        return id != null && id.toString() === normalizedinvoiceId.toString();
+      });
+      if (touched) scheduleRefresh();
+    };
+
+    const unwatchCreated = publicClient.watchContractEvent({
+      address: contractAddress,
+      abi: Notes,
+      eventName: "NoteCreated",
+      onLogs: refreshOnMatch,
+    });
+
+    const unwatchState = publicClient.watchContractEvent({
+      address: contractAddress,
+      abi: Notes,
+      eventName: "NoteStateChanged",
+      onLogs: refreshOnMatch,
+    });
+
+    return () => {
+      unwatchCreated?.();
+      unwatchState?.();
+    };
+  }, [chainId, normalizedinvoiceId, publicClient, isEnabled, scheduleRefresh]);
 
   const createNote = useCallback(
     async (content: string, share: boolean) => {
@@ -761,10 +595,10 @@ export const useInvoiceNotes = (
         share,
         message: trimmed,
         createdAtLabel: formatNowLabel(),
-        opened: false,
+        opened: true,
         hasOpenState: true,
         isAuthor: true,
-        isPending: true,
+        isPending: false,
         txHash: undefined,
       };
       setNotes((prev) => [optimistic, ...prev]);
@@ -772,26 +606,38 @@ export const useInvoiceNotes = (
       setIsCreating(true);
 
       try {
-        const timestamp = Math.floor(Date.now() / 1000);
-        const message = `Sapphire DAO: Create note for order ${normalizedinvoiceId.toString()}\nAuthor: ${address}\nContent: ${trimmed}\nShare: ${share}\nTimestamp: ${timestamp}`;
-
-        let signature: string;
-        try {
-          signature = await signMessageAsync({ message });
-        } catch {
-          toast.error("Signature rejected. Note not saved.");
+        // Seal to this account and, when shared, to the counterparty. The API
+        // stores the envelope as opaque bytes, so this is the only point the
+        // plaintext exists outside the two readers' browsers.
+        const keys = noteKeys.keys ?? (await noteKeys.unlock());
+        if (!keys) {
+          toast.error("Enable messaging to write notes.");
           setNotes((prev) => prev.filter((n) => n.noteId !== localId));
           return false;
         }
 
+        const readers: Hex[] = [keys.publicKey];
+        if (share && counterparty) {
+          const peerKey = await fetchNotePublicKey(
+            publicClient as never,
+            chainId,
+            counterparty,
+          );
+          if (!peerKey) {
+            toast.error(
+              "The other party has not enabled messaging yet, so they could not read this note.",
+            );
+            setNotes((prev) => prev.filter((n) => n.noteId !== localId));
+            return false;
+          }
+          readers.push(peerKey);
+        }
+
         const result = await createNoteRequest({
-          chainId,
           invoiceId: normalizedinvoiceId.toString(),
           author: address,
-          content: trimmed,
+          content: sealNote(trimmed, readers),
           share,
-          signature,
-          timestamp,
         });
 
         const noteId = result.noteId?.toString?.() ?? result.noteId;
@@ -807,7 +653,7 @@ export const useInvoiceNotes = (
                 ? `${normalizedinvoiceId.toString()}-${resolvedNoteId}`
                 : localId,
               noteId: resolvedNoteId,
-              isPending: !noteId,
+              isPending: false,
               txHash: result.txHash,
             };
           })
@@ -816,8 +662,15 @@ export const useInvoiceNotes = (
         scheduleRefresh();
         return true;
       } catch (error) {
+        // The API's message names the actual problem - the service being
+        // unreachable, or the author not being a party on this invoice - and
+        // "unable to save" names none of them.
         console.error("Failed to create note", error);
-        toast.error("Unable to save note.");
+        toast.error(
+          error instanceof Error && error.message
+            ? error.message
+            : "Unable to save note.",
+        );
         // Roll back the optimistic note on failure
         setNotes((prev) => prev.filter((n) => n.noteId !== localId));
         return false;
@@ -825,7 +678,7 @@ export const useInvoiceNotes = (
         setIsCreating(false);
       }
     },
-    [address, chainId, normalizedinvoiceId, scheduleRefresh, signMessageAsync, isEnabled]
+    [address, chainId, counterparty, noteKeys, publicClient, normalizedinvoiceId, scheduleRefresh, isEnabled]
   );
 
   const setNoteOpen = useCallback(
@@ -870,26 +723,10 @@ export const useInvoiceNotes = (
       setPendingNoteIds((prev) => ({ ...prev, [noteId]: true }));
 
       try {
-        const timestamp = Math.floor(Date.now() / 1000);
-        const message = `Sapphire DAO: Set note state for order ${normalizedinvoiceId.toString()}\nNoteId: ${noteId}\nOpen: ${open}\nAuthor: ${address}\nTimestamp: ${timestamp}`;
-
-        let signature: string;
-        try {
-          signature = await signMessageAsync({ message });
-        } catch {
-          toast.error("Signature rejected. Note state not updated.");
-          setNotes(previous);
-          return false;
-        }
-
         await setNoteOpenState({
-          chainId,
           invoiceId: normalizedinvoiceId.toString(),
           noteId,
-          open: true,
           author: address,
-          signature,
-          timestamp,
         });
         return true;
       } catch (error) {
@@ -905,7 +742,7 @@ export const useInvoiceNotes = (
         });
       }
     },
-    [address, chainId, normalizedinvoiceId, signMessageAsync, isEnabled]
+    [address, normalizedinvoiceId, isEnabled]
   );
 
   return {
@@ -913,6 +750,10 @@ export const useInvoiceNotes = (
     isLoading,
     isCreating,
     pendingNoteIds,
+    unreadableCount,
+    /** False until the reader unlocks; every note reads as sealed until then. */
+    isUnlocked: Boolean(noteKeys.keys),
+    unlockNotes: noteKeys.unlock,
     createNote,
     setNoteOpen,
     refresh,

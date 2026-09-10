@@ -33,6 +33,8 @@ import { Loader2, ShieldAlert } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { toast } from "sonner";
 import { usePayLink } from "@/hooks/usePayLink";
+import { sealNote } from "@/lib/noteCrypto";
+import { useNoteKeys } from "@/hooks/useNoteKeys";
 import React from "react";
 import { BASE_SEPOLIA, SIMPLE_PAYMENT_PROCESSOR } from "@/constants";
 import {
@@ -119,7 +121,7 @@ const MAX_HOLD_PERIOD_SECONDS = 2 ** 32 - 1;
 export default function CreateInvoiceDialog() {
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
-  const [shareNote, setShareNote] = useState(false);
+  const noteKeys = useNoteKeys();
   const [holdValue, setHoldValue] = useState("");
   const [holdUnit, setHoldUnit] = useState<HoldUnit>("days");
   // Creating with no hold period is consequential enough to confirm, but not
@@ -166,10 +168,27 @@ export default function CreateInvoiceDialog() {
     try {
       const amountValue = parseUnits(amount, 18);
 
+      // The note goes on chain inside the create transaction, so it is sealed
+      // here, to this account alone.
+      let storageRef = "0x";
+      const trimmedNote = note.trim();
+      if (trimmedNote) {
+        const keys = noteKeys.keys ?? (await noteKeys.unlock());
+        if (!keys) {
+          toast.error("Enable messaging to attach a note.");
+          setIsCreating(false);
+          return;
+        }
+        storageRef = sealNote(trimmedNote, [keys.publicKey]);
+      }
+
+      // Always private. The payer is unknown at creation, so there is no key
+      // to seal a shared note to; it would be marked shared and readable by
+      // nobody but the author.
       const response = await createInvoice(
         amountValue,
-        note.trim(),
-        shareNote,
+        storageRef,
+        false,
         holdPeriodSeconds,
       );
 
@@ -193,6 +212,7 @@ export default function CreateInvoiceDialog() {
     }
   }, [
     amount,
+    noteKeys,
     isAmountValid,
     isHoldPeriodValid,
     holdPeriodSeconds,
@@ -200,7 +220,6 @@ export default function CreateInvoiceDialog() {
     createInvoice,
     refetchInvoiceData,
     note,
-    shareNote,
   ]);
 
   return (
@@ -318,17 +337,6 @@ export default function CreateInvoiceDialog() {
                   maxLength={MAX_NOTE_LENGTH}
                 />
                 <NoteLength value={note} />
-                <label className="flex items-center gap-2 text-[11px] text-gray-600">
-                  <input
-                    type="checkbox"
-                    checked={shareNote}
-                    onChange={(e) => setShareNote(e.target.checked)}
-                    className="h-3.5 w-3.5"
-                  />
-                  <span>
-                    Share with the payer (leave unchecked to keep it private)
-                  </span>
-                </label>
               </div>
             </div>
           </div>

@@ -1,21 +1,18 @@
+import { CONTRACT_API_URL } from "@/constants";
+import type { Hex } from "viem";
+
 export type CreateNotePayload = {
   invoiceId: string;
   author: string;
-  content: string;
+  /** The envelope from `sealNote`, hex. Never plaintext. */
+  content: Hex;
   share: boolean;
-  signature: string;
-  timestamp: number;
-  chainId: number;
 };
 
 export type SetNoteStatePayload = {
   invoiceId: string;
   noteId: string;
-  open: boolean;
   author: string;
-  signature: string;
-  timestamp: number;
-  chainId: number;
 };
 
 export type NotesApiResponse = {
@@ -37,18 +34,31 @@ export type PendingNote = {
 
 const PENDING_NOTES_KEY = "sapphire.pendingNotes";
 
+// A just-written note is held locally only until the subgraph catches up. The
+// plaintext is already in hand, so it is shown straight away rather than as a
+// pending row; the window is short because anything longer starts competing
+// with the indexed copy.
+const PENDING_NOTE_TTL_MS = 20_000;
+
 const getStorage = () =>
-  typeof window === "undefined" ? null : window.sessionStorage;
+  typeof window === "undefined" ? null : window.localStorage;
 
 const readPendingNotes = (): PendingNote[] => {
   const storage = getStorage();
   if (!storage) return [];
-  const raw = storage.getItem(PENDING_NOTES_KEY);
-  if (!raw) return [];
 
   try {
+    const raw = storage.getItem(PENDING_NOTES_KEY);
+    if (!raw) return [];
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? (parsed as PendingNote[]) : [];
+    if (!Array.isArray(parsed)) return [];
+
+    // Expired entries are dropped on the way through, so a note the subgraph
+    // never indexed cannot linger as a permanent row.
+    const cutoff = Date.now() - PENDING_NOTE_TTL_MS;
+    return (parsed as PendingNote[]).filter(
+      (note) => typeof note?.createdAt === "number" && note.createdAt * 1000 > cutoff,
+    );
   } catch {
     return [];
   }
@@ -57,7 +67,11 @@ const readPendingNotes = (): PendingNote[] => {
 const writePendingNotes = (notes: PendingNote[]) => {
   const storage = getStorage();
   if (!storage) return;
-  storage.setItem(PENDING_NOTES_KEY, JSON.stringify(notes));
+  try {
+    storage.setItem(PENDING_NOTES_KEY, JSON.stringify(notes));
+  } catch {
+    // ignore storage errors
+  }
 };
 
 const isSamePendingNote = (a: PendingNote, b: PendingNote): boolean => {
@@ -111,159 +125,63 @@ export const removePendingNote = (params: {
   writePendingNotes(filtered);
 };
 
-export const removePendingNotesByIds = (invoiceId: string, noteIds: string[]) => {
+/**
+ * Clears pending notes that the subgraph has now indexed.
+ *
+ * Matched on tx hash as well as note id: the write endpoint answers with a tx
+ * hash and no id, so an entry stored without one would otherwise never be
+ * cleared and would reappear as a stuck "pending" row on every reload.
+ */
+export const removePendingNotesByIds = (
+  invoiceId: string,
+  noteIds: string[],
+  txHashes: string[] = [],
+) => {
   const storage = getStorage();
-  if (!storage || noteIds.length === 0) return;
+  if (!storage || (noteIds.length === 0 && txHashes.length === 0)) return;
 
   const idSet = new Set(noteIds);
+  const txSet = new Set(txHashes.map((hash) => hash.toLowerCase()));
   const existing = readPendingNotes();
-  const filtered = existing.filter(
-    (note) => note.invoiceId !== invoiceId || !note.noteId || !idSet.has(note.noteId)
-  );
+  const filtered = existing.filter((note) => {
+    if (note.invoiceId !== invoiceId) return true;
+    if (note.noteId && idSet.has(note.noteId)) return false;
+    if (note.txHash && txSet.has(note.txHash.toLowerCase())) return false;
+    return true;
+  });
 
   writePendingNotes(filtered);
 };
 
-const postNotesAction = async (payload: Record<string, unknown>) => {
-  const response = await fetch("/api/notes", {
+const postNotes = async (
+  path: "/v1/notes" | "/v1/notes/open",
+  payload: Record<string, unknown>,
+): Promise<NotesApiResponse> => {
+  const response = await fetch(`${CONTRACT_API_URL}${path}`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
     cache: "no-store",
   });
 
   const data = (await response.json()) as NotesApiResponse;
   if (!response.ok || !data.success) {
-    const message = data.error || "Notes request failed";
-    throw new Error(message);
+    throw new Error(data.error || "Notes request failed");
   }
-
   return data;
 };
 
-export type NoteReadAuth = {
-  signature: string;
-  timestamp: number;
-};
-
-export type DecryptNotesPayload = {
-  invoiceId: string;
-  noteIds: string[];
-  viewer?: string;
-  auth?: NoteReadAuth | null;
-  chainId: number;
-};
-
-// Server-side read-auth signatures stay valid for 24h; refresh a little early
-// so an in-flight request never straddles the expiry.
-const READ_AUTH_TTL_SECONDS = 23 * 60 * 60;
-const READ_AUTH_STORAGE_PREFIX = "sapphire.noteReadAuth";
-
-const readAuthStorageKey = (viewer: string, invoiceId: string) =>
-  `${READ_AUTH_STORAGE_PREFIX}:${viewer.toLowerCase()}:${invoiceId}`;
-
-export const noteReadAuthMessage = (
-  invoiceId: string,
-  viewer: string,
-  timestamp: number,
-) =>
-  `Sapphire DAO: Read notes for order ${invoiceId}\nViewer: ${viewer}\nTimestamp: ${timestamp}`;
-
-export const getCachedNoteReadAuth = (
-  viewer: string,
-  invoiceId: string,
-): NoteReadAuth | null => {
-  const storage = getStorage();
-  if (!storage) return null;
-
-  try {
-    const raw = storage.getItem(readAuthStorageKey(viewer, invoiceId));
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as NoteReadAuth;
-    if (
-      typeof parsed?.signature !== "string" ||
-      typeof parsed?.timestamp !== "number"
-    ) {
-      return null;
-    }
-    const ageSeconds = Math.floor(Date.now() / 1000) - parsed.timestamp;
-    if (ageSeconds < 0 || ageSeconds > READ_AUTH_TTL_SECONDS) return null;
-    return parsed;
-  } catch {
-    return null;
-  }
-};
-
-export const setCachedNoteReadAuth = (
-  viewer: string,
-  invoiceId: string,
-  auth: NoteReadAuth,
-) => {
-  const storage = getStorage();
-  if (!storage) return;
-
-  try {
-    storage.setItem(readAuthStorageKey(viewer, invoiceId), JSON.stringify(auth));
-  } catch {
-    // ignore storage errors
-  }
-};
-
 /**
- * Encrypt note content with the server-held key (the key never ships to the
- * browser). Used for the storageRef note embedded in create/pay transactions.
+ * Writes an already-sealed note. `content` is the envelope from `sealNote`;
+ * the API relays the bytes unchanged and never sees the plaintext.
  */
-export const encryptNoteContent = async (
-  content: string,
-  chainId: number,
-): Promise<`0x${string}`> => {
-  const data = await postNotesAction({ action: "encrypt", content, chainId });
-  const payload = (data as { payload?: string }).payload;
-  if (typeof payload !== "string" || !payload.startsWith("0x")) {
-    throw new Error("Encryption service returned an invalid payload");
-  }
-  return payload as `0x${string}`;
-};
-
-/**
- * Decrypt notes server-side by (invoiceId, noteId). Shared notes decrypt for
- * anyone; private notes require the author's read-auth signature. Returns a
- * map of noteId → plaintext (null when not readable by this viewer).
- */
-export const decryptNoteContents = async ({
-  invoiceId,
-  noteIds,
-  viewer,
-  chainId,
-  auth,
-}: DecryptNotesPayload): Promise<Map<string, string | null>> => {
-  const result = new Map<string, string | null>();
-  if (noteIds.length === 0) return result;
-
-  const data = await postNotesAction({
-    action: "decrypt",
-    invoiceId,
-    noteIds,
-    viewer,
-    chainId,
-    signature: auth?.signature,
-    timestamp: auth?.timestamp,
-  });
-
-  const notes = (data as {
-    notes?: { noteId: string; content: string | null }[];
-  }).notes;
-
-  for (const note of notes ?? []) {
-    result.set(note.noteId, note.content);
-  }
-  return result;
-};
-
 export const createNote = async (payload: CreateNotePayload) =>
-  postNotesAction({ action: "create", ...payload }).then((result) => {
+  postNotes("/v1/notes", {
+    invoiceId: payload.invoiceId,
+    author: payload.author,
+    content: payload.content,
+    share: payload.share,
+  }).then((result) => {
     try {
       addPendingNote({
         invoiceId: payload.invoiceId,
@@ -280,5 +198,10 @@ export const createNote = async (payload: CreateNotePayload) =>
     return result;
   });
 
+/** Only opening is recorded on chain; closing stays client-side. */
 export const setNoteOpenState = async (payload: SetNoteStatePayload) =>
-  postNotesAction({ action: "setOpened", ...payload });
+  postNotes("/v1/notes/open", {
+    invoiceId: payload.invoiceId,
+    author: payload.author,
+    noteId: payload.noteId,
+  });

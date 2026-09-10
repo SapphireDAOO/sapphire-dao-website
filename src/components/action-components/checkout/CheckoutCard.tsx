@@ -1,6 +1,6 @@
 "use client";
 
-import { useAccount, useSignMessage } from "wagmi";
+import { useAccount } from "wagmi";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
@@ -36,10 +36,6 @@ import {
 import { toast } from "sonner";
 import { type Address } from "viem";
 import { InvoiceDetails, TokenData } from "@/model/model";
-import { Textarea } from "@/components/ui/textarea";
-import { NoteLength } from "@/components/NoteLength";
-import { MAX_NOTE_LENGTH } from "@/constants";
-import { createNote as createInvoiceNote } from "@/services/notes";
 import { INTERMEDIATED_PAYMENT_PROCESSOR, BASE_SEPOLIA } from "@/constants";
 import { formatAddress, formatDurationSeconds } from "@/utils";
 import { useGetIntermediatedInvoiceData } from "@/hooks/useGetIntermediatedInvoiceData";
@@ -52,7 +48,6 @@ interface CheckoutCardProps {
 const CheckoutCard = ({ data, isMetaInvoice }: CheckoutCardProps) => {
   const router = useRouter();
   const { address, chain } = useAccount();
-  const { signMessageAsync } = useSignMessage();
   const chainId = chain?.id || BASE_SEPOLIA;
   const contractAddress = INTERMEDIATED_PAYMENT_PROCESSOR[chainId];
 
@@ -71,8 +66,6 @@ const CheckoutCard = ({ data, isMetaInvoice }: CheckoutCardProps) => {
 
   const [open, setOpen] = useState(false);
   const [selectedToken, setSelectedToken] = useState("");
-  const [paymentNote, setPaymentNote] = useState("");
-  const [shareNote, setShareNote] = useState(false);
 
   const [countdown, setCountdown] = useState(3);
   const countdownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -99,29 +92,6 @@ const CheckoutCard = ({ data, isMetaInvoice }: CheckoutCardProps) => {
       ? [data.tokenList]
       : [];
 
-  const savePaymentNote = async () => {
-    const trimmed = paymentNote.trim();
-    if (!trimmed || !address) return;
-
-    try {
-      const timestamp = Math.floor(Date.now() / 1000);
-      const invoiceId = data.invoiceId.toString();
-      const message = `Sapphire DAO: Create note for order ${invoiceId}\nAuthor: ${address}\nContent: ${trimmed}\nShare: ${shareNote}\nTimestamp: ${timestamp}`;
-      const signature = await signMessageAsync({ message });
-
-      await createInvoiceNote({
-        invoiceId,
-        author: address,
-        content: trimmed,
-        share: shareNote,
-        signature,
-        timestamp,
-        chainId,
-      });
-    } catch (error) {
-      console.error("Failed to save payment note:", error);
-    }
-  };
 
   const handleClick = async () => {
     if (!isPayableStatus) {
@@ -142,7 +112,6 @@ const CheckoutCard = ({ data, isMetaInvoice }: CheckoutCardProps) => {
       await payIntermediatedInvoice(paymentType, amount, data.invoiceId, tokenAddress)
     ) {
       setOpen(true);
-      void savePaymentNote();
       setCountdown(3);
 
       countdownIntervalRef.current = setInterval(() => {
@@ -239,30 +208,6 @@ const CheckoutCard = ({ data, isMetaInvoice }: CheckoutCardProps) => {
               </Select>
             </div>
 
-            <div className="flex flex-col space-y-2 mt-3">
-              <Label htmlFor="paymentNote">Payment Note (optional)</Label>
-              <Textarea
-                id="paymentNote"
-                value={paymentNote}
-                onChange={(e) => setPaymentNote(e.target.value)}
-                placeholder="Add a note about this payment"
-                className="min-h-24"
-                maxLength={MAX_NOTE_LENGTH}
-              />
-              <NoteLength value={paymentNote} />
-              <label className="flex items-center gap-2 text-[11px] text-gray-600">
-                <input
-                  type="checkbox"
-                  checked={shareNote}
-                  onChange={(e) => setShareNote(e.target.checked)}
-                  className="h-3.5 w-3.5"
-                />
-                <span>
-                  Share with the invoice creator (leave unchecked to keep it
-                  private)
-                </span>
-              </label>
-            </div>
           </div>
         </CardContent>
 

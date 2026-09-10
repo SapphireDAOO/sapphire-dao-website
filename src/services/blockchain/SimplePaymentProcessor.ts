@@ -16,27 +16,16 @@ import { client } from "../graphql/client";
 import { PaymentProcessorStorage } from "@/abis/PaymentProcessorStorage";
 import { invoiceOwnerQuery } from "../graphql/queries";
 import { WagmiClient } from "./types";
-import { encryptNoteContent } from "../notes";
 import { requestFeeReceiver } from "../feeReceiver";
 import { clearFeeReceiver } from "@/lib/feeReceiverStore";
 
-// The notes key lives server-side only, so the optional storageRef note is
-// encrypted through /api/notes before it is embedded in the transaction.
-// Returns null when encryption fails — callers must abort rather than fall
-// back to writing the note on-chain in plaintext.
-const resolveStorageRefHex = async (
-  chainId: number,
-  storageRef?: string,
-): Promise<`0x${string}` | null> => {
+const asStorageRefHex = (storageRef?: string): `0x${string}` => {
   const trimmed = storageRef?.trim();
   if (!trimmed) return "0x";
-  try {
-    return await encryptNoteContent(trimmed, chainId);
-  } catch (error) {
-    console.error("Failed to encrypt invoice note", error);
-    toast.error("Unable to encrypt the attached note. Please try again.");
-    return null;
+  if (!trimmed.startsWith("0x")) {
+    throw new Error("Invoice note must be sealed before it is submitted");
   }
+  return trimmed as `0x${string}`;
 };
 
 export type CreatedSimpleInvoice = {
@@ -64,11 +53,7 @@ export const createInvoice = async (
     Math.max(Math.floor(holdPeriodSeconds) || 0, 0),
     2 ** 32 - 1,
   );
-  const storageRefHex = await resolveStorageRefHex(chainId, storageRef);
-  if (!storageRefHex) {
-    setIsLoading("");
-    return undefined;
-  }
+  const storageRefHex = asStorageRefHex(storageRef);
   const shareFlag = Boolean(share && storageRef?.trim());
   try {
     const gasPrice = await fetchGasPrice(publicClient, chainId);
@@ -157,11 +142,7 @@ export const makeInvoicePayment = async (
   setIsLoading("makeInvoicePayment");
 
   let success = false;
-  const storageRefHex = await resolveStorageRefHex(chainId, storageRef);
-  if (!storageRefHex) {
-    setIsLoading("");
-    return false;
-  }
+  const storageRefHex = asStorageRefHex(storageRef);
   const shareFlag = Boolean(share && storageRef?.trim());
   try {
     const gasPrice = await fetchGasPrice(publicClient, chainId);
