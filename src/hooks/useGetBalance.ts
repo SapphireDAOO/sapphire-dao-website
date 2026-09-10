@@ -1,5 +1,4 @@
 import { BASE_SEPOLIA, PAYMENT_PROCESSOR_STORAGE } from "@/constants";
-import { baseSepolia } from "viem/chains";
 import { useAccount, useChainId } from "wagmi";
 import { Address, formatEther } from "viem";
 import { PaymentProcessorStorage } from "@/abis/PaymentProcessorStorage";
@@ -27,7 +26,7 @@ export const useGetBalance = () => {
     refetch: refetchAddress,
   } = useViemReadContract({
     abi: PaymentProcessorStorage,
-    chainId: baseSepolia.id,
+    chainId,
     address: PAYMENT_PROCESSOR_STORAGE[chainId],
     functionName: "getIntermediatedPlatformsOperator",
     account: address,
@@ -40,7 +39,7 @@ export const useGetBalance = () => {
     refetch: refetchBalance,
   } = useViemBalance({
     address: intermediatedOperatorAddress as Address | undefined,
-    chainId: baseSepolia.id,
+    chainId,
   });
 
   // Format the balance in ether (from wei)

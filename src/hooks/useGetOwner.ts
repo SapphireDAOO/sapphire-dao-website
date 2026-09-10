@@ -1,5 +1,4 @@
 import { PAYMENT_PROCESSOR_STORAGE } from "@/constants";
-import { baseSepolia } from "viem/chains";
 import { useAccount, useChainId } from "wagmi";
 import { PaymentProcessorStorage } from "@/abis/PaymentProcessorStorage";
 import { useViemReadContract } from "./useViemReadContract";
@@ -21,7 +20,7 @@ export const useGetOwner = () => {
   // Use the wagmi `useReadContract` hook to interact with the `owner` function of the PaymentProcessor contract
   const { data, refetch, isLoading } = useViemReadContract<string>({
     abi: PaymentProcessorStorage,
-    chainId: baseSepolia.id,
+    chainId,
     address: PAYMENT_PROCESSOR_STORAGE[chainId],
     functionName: "owner",
     account: address,

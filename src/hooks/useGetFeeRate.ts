@@ -1,6 +1,5 @@
 import { PAYMENT_PROCESSOR_STORAGE } from "@/constants";
 
-import { baseSepolia } from "viem/chains";
 import { useChainId } from "wagmi";
 import { PaymentProcessorStorage } from "@/abis/PaymentProcessorStorage";
 import { useViemReadContract } from "./useViemReadContract";
@@ -22,7 +21,7 @@ export const useGetFeeRate = () => {
 
   const { data, refetch, isLoading } = useViemReadContract({
     abi: PaymentProcessorStorage,
-    chainId: baseSepolia.id,
+    chainId,
     address: PAYMENT_PROCESSOR_STORAGE[chainId],
     functionName: "getFeeRate",
   });

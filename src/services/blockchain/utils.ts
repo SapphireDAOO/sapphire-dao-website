@@ -1,17 +1,20 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { toast } from "sonner";
-import { errorMessages } from "@/constants";
+import { errorMessages, LOCAL_CHAIN_ENABLED } from "@/constants";
 import { Address, Chain, encodeFunctionData, erc20Abi } from "viem";
 import { baseSepolia, hardhat } from "viem/chains";
 import { beginWalletMoment } from "@/components/wallet-hint/walletMomentStore";
 
 // Resolve the viem chain for a given chainId so writes target the wallet's
-// connected network (e.g. local Hardhat in development) instead of always
-// Base Sepolia. Hardhat is excluded from the production map.
-const SUPPORTED_CHAINS: Record<number, Chain> =
-  process.env.NODE_ENV === "production"
-    ? { [baseSepolia.id]: baseSepolia }
-    : { [baseSepolia.id]: baseSepolia, [hardhat.id]: hardhat };
+// connected network (e.g. local Hardhat) instead of always Base Sepolia.
+//
+// Gated on LOCAL_CHAIN_ENABLED rather than NODE_ENV: a static export is built
+// as "production" wherever it will be served, and dropping hardhat here sends
+// a transaction to a local contract while declaring Base Sepolia, which the
+// wallet rejects as a chain mismatch.
+const SUPPORTED_CHAINS: Record<number, Chain> = LOCAL_CHAIN_ENABLED
+  ? { [baseSepolia.id]: baseSepolia, [hardhat.id]: hardhat }
+  : { [baseSepolia.id]: baseSepolia };
 
 export const getChainById = (chainId: number): Chain =>
   SUPPORTED_CHAINS[chainId] ?? baseSepolia;

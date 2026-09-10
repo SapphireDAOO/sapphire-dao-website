@@ -1,5 +1,4 @@
 import { PAYMENT_PROCESSOR_STORAGE, BASE_SEPOLIA } from "@/constants";
-import { baseSepolia } from "viem/chains";
 import { useChainId } from "wagmi";
 import { PaymentProcessorStorage } from "@/abis/PaymentProcessorStorage";
 import { useViemReadContract } from "./useViemReadContract";
@@ -12,7 +11,7 @@ export const useGetValidPeriod = () => {
 
   const { data, refetch, isLoading } = useViemReadContract({
     abi: PaymentProcessorStorage,
-    chainId: baseSepolia.id,
+    chainId,
     address: PAYMENT_PROCESSOR_STORAGE[chainId],
     functionName: "getPaymentValidityDuration",
   });

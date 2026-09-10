@@ -1,6 +1,5 @@
 import { paymentProcessor } from "@/abis/PaymentProcessor";
 import { SIMPLE_PAYMENT_PROCESSOR } from "@/constants";
-import { baseSepolia } from "viem/chains";
 import { useAccount, useChainId } from "wagmi";
 import { useViemReadContract } from "./useViemReadContract";
 import { BASE_SEPOLIA } from "@/constants";
@@ -24,7 +23,7 @@ export const useGetMinimumInvoiceValue = () => {
   // Use the wagmi `useReadContract` hook to interact with the `getMinimumInvoiceValue` function of the PaymentProcessor contract
   const { data, refetch, isLoading } = useViemReadContract<bigint>({
     abi: paymentProcessor,
-    chainId: baseSepolia.id,
+    chainId,
     address: SIMPLE_PAYMENT_PROCESSOR[chainId],
     functionName: "getMinimumInvoiceValue",
     account: address,

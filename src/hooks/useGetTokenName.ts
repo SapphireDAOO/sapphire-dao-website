@@ -1,5 +1,6 @@
-import { baseSepolia } from "viem/chains";
 import { Address, erc20Abi } from "viem";
+import { useChainId } from "wagmi";
+import { BASE_SEPOLIA } from "@/constants";
 import { useViemReadContract } from "./useViemReadContract";
 
 /**
@@ -11,9 +12,13 @@ import { useViemReadContract } from "./useViemReadContract";
  *   - `isLoading`: A boolean indicating whether the contract data is still being fetched.
  */
 export const useGetTokenName = (tokenAddress: Address) => {
+  // The token lives on whatever chain the wallet is on; reading it from Base
+  // Sepolia returns nothing for a local deployment.
+  const chainId = useChainId() || BASE_SEPOLIA;
+
   const { data, refetch, isLoading, error } = useViemReadContract<string>({
     abi: erc20Abi,
-    chainId: baseSepolia.id,
+    chainId,
     address: tokenAddress,
     functionName: "name",
   });

@@ -1,7 +1,6 @@
 import { intermediatedPaymentProcessor } from "@/abis/IntermediatedPaymentProcessor";
 import { INTERMEDIATED_PAYMENT_PROCESSOR } from "@/constants";
 
-import { baseSepolia } from "viem/chains";
 import { useAccount, useChainId } from "wagmi";
 import { useViemReadContract } from "./useViemReadContract";
 import { BASE_SEPOLIA } from "@/constants";
@@ -27,7 +26,7 @@ export const useGetMetaInvoice = (invoiceId: bigint) => {
   // Use the wagmi `useReadContract` hook to interact with the `getMetaInvoice` function of the IntermediatedPaymentProcessor contract
   const { data, refetch, isLoading } = useViemReadContract({
     abi: intermediatedPaymentProcessor,
-    chainId: baseSepolia.id,
+    chainId,
     address: INTERMEDIATED_PAYMENT_PROCESSOR[chainId],
     functionName: "getMetaInvoice",
     args: [invoiceId],
