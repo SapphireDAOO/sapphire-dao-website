@@ -10,15 +10,16 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import CopyableAddress from "@/components/ui/copyable-address";
 import { Loader2, ExternalLink } from "lucide-react";
-import { type AbiEvent, type Log, Address, encodeFunctionData, Hex } from "viem";
+import { type AbiEvent, type Log, Hex } from "viem";
 import { MultiSigTransaction } from "@/model/multisig";
 import { useHasApproved } from "@/hooks/useHasApproved";
 import { BASE_SEPOLIA, MULTISIG_CONTRACT } from "@/constants";
 import {
   approveMultiSigTransaction,
   executeMultiSigTransaction,
-  proposeMultiSigTransaction,
+  proposeCancelMultiSigTransaction,
 } from "@/services/blockchain/MultiSig";
 import { Multisig } from "@/abis/MultiSig";
 import {
@@ -225,15 +226,9 @@ export default function TransactionDetail({
 
   const handleProposeCancel = async () => {
     if (!walletClient || !publicClient) return;
-    const calldata = encodeFunctionData({
-      abi: Multisig,
-      functionName: "cancelTransaction",
-      args: [tx.id as `0x${string}`],
-    });
-    const { ok, receipt } = await proposeMultiSigTransaction(
+    const { ok, receipt } = await proposeCancelMultiSigTransaction(
       { walletClient, publicClient },
-      MULTISIG_CONTRACT[chainId] as Address,
-      calldata,
+      tx.id as `0x${string}`,
       chainId,
       setIsLoading,
     );
@@ -284,15 +279,10 @@ export default function TransactionDetail({
 
         <div className="space-y-4 text-sm">
           <Row label="Tx Hash">
-            <a
-              href={`https://sepolia.basescan.org/tx/${tx.id}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-blue-500 underline flex items-center gap-1 font-mono"
-            >
-              {formatAddress(tx.id)}
-              <ExternalLink className="h-3 w-3" />
-            </a>
+            {/* The multisig's own proposal id, not an Ethereum transaction
+                hash, so an explorer has nothing to show for it. Copyable
+                instead: it is what identifies the proposal on chain. */}
+            <CopyableAddress fullValue={tx.id} />
           </Row>
 
           <Row label="Target">

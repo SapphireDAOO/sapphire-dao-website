@@ -13,6 +13,10 @@ import {
   formatTimestamp,
 } from "./decodeCalldata";
 import TransactionDetail from "./TransactionDetail";
+import { useChainId, usePublicClient } from "wagmi";
+import { BASE_SEPOLIA } from "@/constants";
+import { useHintedWalletClient } from "@/components/wallet-hint/useHintedWalletClient";
+import { proposeCancelMultiSigTransaction } from "@/services/blockchain/MultiSig";
 
 const STATUS_BADGE: Record<string, string> = {
   PROPOSED: "bg-yellow-100 text-yellow-800 border-yellow-200",
@@ -51,6 +55,37 @@ export default function TransactionList({
   onApplyLogs,
 }: Props) {
   const [selectedTx, setSelectedTx] = useState<MultiSigTransaction | null>(null);
+  const [cancelling, setCancelling] = useState<string | null>(null);
+
+  const chainId = useChainId() || BASE_SEPOLIA;
+  const publicClient = usePublicClient({ chainId });
+  const { data: walletClient } = useHintedWalletClient();
+
+  // Cancelling is itself a proposal, so it is offered only while the
+  // transaction can still be acted on and no cancel proposal already exists.
+  const canProposeCancel = (
+    tx: MultiSigTransaction,
+    cancelProposal?: MultiSigTransaction,
+  ) =>
+    isSigner &&
+    !cancelProposal &&
+    (tx.status === "PROPOSED" || tx.status === "APPROVED");
+
+  const handleProposeCancel = async (tx: MultiSigTransaction) => {
+    if (!walletClient || !publicClient) return;
+    setCancelling(tx.id);
+    try {
+      const { ok, receipt } = await proposeCancelMultiSigTransaction(
+        { walletClient, publicClient },
+        tx.id as `0x${string}`,
+        chainId,
+        () => undefined,
+      );
+      if (ok && receipt) onApplyLogs(receipt.logs);
+    } finally {
+      setCancelling(null);
+    }
+  };
 
   // Decode calldata once per transactions array change
   const decodedMap = useMemo(() => {
@@ -112,6 +147,7 @@ export default function TransactionList({
               <th className="px-4 py-3">Approvals</th>
               <th className="px-4 py-3">Status</th>
               <th className="px-4 py-3">Proposed</th>
+              <th className="px-4 py-3 text-right">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -170,6 +206,30 @@ export default function TransactionList({
                   </td>
                   <td className="px-4 py-3 text-muted-foreground text-xs">
                     {formatTimestamp(tx.proposedAt)}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    {canProposeCancel(tx, cancelProposal) && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 px-2 text-xs"
+                        disabled={cancelling === tx.id}
+                        aria-busy={cancelling === tx.id}
+                        // The row opens the detail dialog, so the button must
+                        // not carry the click up with it.
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void handleProposeCancel(tx);
+                        }}
+                        onMouseDown={(e) => e.stopPropagation()}
+                      >
+                        {cancelling === tx.id ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          "Cancel"
+                        )}
+                      </Button>
+                    )}
                   </td>
                 </tr>
               );
