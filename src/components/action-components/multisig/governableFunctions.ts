@@ -1,9 +1,6 @@
 import { encodeFunctionData, Hex, parseEther, parseUnits } from "viem";
 import {
-  SIMPLE_PAYMENT_PROCESSOR,
-  INTERMEDIATED_PAYMENT_PROCESSOR,
   PAYMENT_PROCESSOR_STORAGE,
-  MULTISIG_CONTRACT,
 } from "@/constants";
 import { Address } from "viem";
 
@@ -46,73 +43,10 @@ export interface GovernableContract {
 
 export const GOVERNABLE_CONTRACTS: GovernableContract[] = [
   {
-    label: "SimplePaymentProcessor",
-    key: "simple",
-    getAddress: (chainId) => SIMPLE_PAYMENT_PROCESSOR[chainId] as Address,
-    functions: [
-      {
-        name: "setMinimumInvoiceValue",
-        label: "Set Minimum Invoice Value",
-        signature: "setMinimumInvoiceValue(uint256)",
-        inputTypes: ["uint256"],
-        params: [{ name: "value", label: "Minimum value (ETH)", kind: "uint256_eth", placeholder: "0.01" }],
-      },
-      {
-        name: "setDecisionWindow",
-        label: "Set Decision Window",
-        signature: "setDecisionWindow(uint256)",
-        inputTypes: ["uint256"],
-        params: [{ name: "window", label: "Window (seconds)", kind: "uint256_sec", placeholder: "43200" }],
-      },
-      {
-        name: "setForwarderAddress",
-        label: "Set Forwarder Address",
-        signature: "setForwarderAddress(address)",
-        inputTypes: ["address"],
-        params: [{ name: "forwarder", label: "Forwarder address", kind: "address", placeholder: "0x..." }],
-      },
-    ],
-  },
-  {
-    label: "IntermediatedPaymentProcessor",
-    key: "intermediated",
-    getAddress: (chainId) => INTERMEDIATED_PAYMENT_PROCESSOR[chainId] as Address,
-    functions: [
-      {
-        name: "setMinimumPrice",
-        label: "Set Minimum Price",
-        signature: "setMinimumPrice(uint256)",
-        inputTypes: ["uint256"],
-        params: [{ name: "price", label: "Minimum price (USD, 18 decimals)", kind: "uint256_usd", placeholder: "1.00" }],
-      },
-    ],
-  },
-  {
     label: "PaymentProcessorStorage",
     key: "storage",
     getAddress: (chainId) => PAYMENT_PROCESSOR_STORAGE[chainId] as Address,
     functions: [
-      {
-        name: "setPaymentValidityDuration",
-        label: "Set Payment Validity Duration",
-        signature: "setPaymentValidityDuration(uint96)",
-        inputTypes: ["uint96"],
-        params: [{ name: "duration", label: "Duration (seconds)", kind: "uint96", placeholder: "86400" }],
-      },
-      {
-        name: "setFeeRate",
-        label: "Set Fee Rate",
-        signature: "setFeeRate(uint96)",
-        inputTypes: ["uint96"],
-        params: [{ name: "rate", label: "Fee rate % (e.g. 10 for 10%)", kind: "bps", placeholder: "10" }],
-      },
-      {
-        name: "setFeeReceiver",
-        label: "Set Fee Receiver",
-        signature: "setFeeReceiver(address)",
-        inputTypes: ["address"],
-        params: [{ name: "receiver", label: "Fee receiver address", kind: "address", placeholder: "0x..." }],
-      },
       {
         name: "setFeeSigner",
         label: "Set Fee Signer",
@@ -161,41 +95,6 @@ export const GOVERNABLE_CONTRACTS: GovernableContract[] = [
         signature: "transferOwnership(address)",
         inputTypes: ["address"],
         params: [{ name: "newOwner", label: "New owner address", kind: "address", placeholder: "0x..." }],
-      },
-    ],
-  },
-  {
-    label: "MultiSig",
-    key: "multisig",
-    getAddress: (chainId) => MULTISIG_CONTRACT[chainId] as Address,
-    functions: [
-      {
-        name: "addSigner",
-        label: "Add Signer",
-        signature: "addSigner(address)",
-        inputTypes: ["address"],
-        params: [{ name: "signer", label: "Signer address", kind: "address", placeholder: "0x..." }],
-      },
-      {
-        name: "removeSigner",
-        label: "Remove Signer",
-        signature: "removeSigner(address)",
-        inputTypes: ["address"],
-        params: [{ name: "signer", label: "Signer address", kind: "address", placeholder: "0x..." }],
-      },
-      {
-        name: "updateThreshold",
-        label: "Update Threshold",
-        signature: "updateThreshold(uint256)",
-        inputTypes: ["uint256"],
-        params: [{ name: "threshold", label: "New threshold", kind: "uint256", placeholder: "2" }],
-      },
-      {
-        name: "cancelTransaction",
-        label: "Cancel Transaction",
-        signature: "cancelTransaction(bytes32)",
-        inputTypes: ["bytes32"],
-        params: [{ name: "_txHash", label: "Transaction hash", kind: "bytes32", placeholder: "0x..." }],
       },
     ],
   },
