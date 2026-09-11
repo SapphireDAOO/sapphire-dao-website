@@ -25,4 +25,11 @@ export interface MultiSigTransaction {
   proposedAt: string;
   executedAt?: string;
   executor?: string;
+  /**
+   * Applied from a chain log rather than read back from the subgraph, and so
+   * not yet indexed. Kept across refetches until the subgraph returns it, so a
+   * just-proposed transaction does not vanish while the indexer catches up.
+   * Nothing to do with the local chain: every network indexes behind the head.
+   */
+  unindexed?: boolean;
 }

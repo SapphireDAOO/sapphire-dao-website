@@ -125,6 +125,7 @@ export function useMultiSigEvents({
                 status: "PROPOSED",
                 approvalCount: "1",
                 proposedAt: nowSeconds(),
+                unindexed: true,
               };
               txMap.set(txHash, newTx);
               newTxs.push(newTx);

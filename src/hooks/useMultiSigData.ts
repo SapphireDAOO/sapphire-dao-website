@@ -117,13 +117,35 @@ export const useMultiSigData = () => {
       ]);
 
       const hasNext = txs.length > PAGE_SIZE;
+      const fetched = hasNext ? txs.slice(0, PAGE_SIZE) : txs;
 
-      setData({
-        wallet,
-        transactions: hasNext ? txs.slice(0, PAGE_SIZE) : txs,
-        hasNextPage: hasNext,
-        isLoading: false,
-        error: null,
+      setData((prev) => {
+        // A transaction applied from a receipt log exists on chain but may not
+        // be indexed yet. Replacing the list wholesale drops it, which is why
+        // a freshly proposed transaction appeared, vanished on the refetch,
+        // and came back only once the subgraph caught up. Indexer lag is not
+        // particular to any one network.
+        //
+        // Only on the first page: these sort newest-first, so an unindexed
+        // transaction belongs at the top and nowhere else.
+        const stillUnindexed =
+          skip > 0
+            ? []
+            : prev.transactions.filter(
+                (tx) =>
+                  tx.unindexed &&
+                  !fetched.some(
+                    (indexed) => indexed.id.toLowerCase() === tx.id.toLowerCase(),
+                  ),
+              );
+
+        return {
+          wallet,
+          transactions: [...stillUnindexed, ...fetched],
+          hasNextPage: hasNext,
+          isLoading: false,
+          error: null,
+        };
       });
     } catch (error) {
       const message = normalizeGraphError(
@@ -217,6 +239,7 @@ export const useMultiSigData = () => {
             status: "PROPOSED",
             approvalCount: "1",
             proposedAt: ts,
+            unindexed: true,
           };
           txMap.set(txHash, newTx);
           newTxs.push(newTx);
