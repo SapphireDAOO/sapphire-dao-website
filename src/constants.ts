@@ -11,6 +11,11 @@ export const ONE_DAY_MS = 24 * 60 * 60 * ONE_SECOND_MS;
 export const DEFAULT_QUERY_STALE_TIME_MS = 15 * ONE_SECOND_MS;
 export const DEFAULT_QUERY_GC_TIME_MS = ONE_DAY_MS;
 
+// Every invoice is escrowed for the same fixed window. Sellers do not choose
+// it: a per-invoice hold is a term the payer cannot see until the link is
+// opened, and one a seller could quietly set to zero.
+export const DEFAULT_HOLD_PERIOD_SECONDS = 5 * 60;
+
 export const MAX_NOTE_LENGTH = 20;
 export const DEFAULT_BLOCK_POLLING_INTERVAL_MS = 12 * ONE_SECOND_MS;
 

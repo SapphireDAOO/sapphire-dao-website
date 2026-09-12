@@ -15,21 +15,16 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { NoteLength } from "@/components/NoteLength";
-import { MAX_NOTE_LENGTH } from "@/constants";
+import { DEFAULT_HOLD_PERIOD_SECONDS, MAX_NOTE_LENGTH } from "@/constants";
+import { formatDurationSeconds } from "@/utils";
 import { useGetFeeRate } from "@/hooks/useGetFeeRate";
+import { useGetMinimumInvoiceValue } from "@/hooks/useGetMinimumInvoiceValue";
 import { ContractContext } from "@/context/contract-context";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
-import { parseUnits } from "viem";
-import { Loader2, ShieldAlert } from "lucide-react";
+import { formatEther, parseEther, parseUnits } from "viem";
+import { Loader2, ShieldCheck } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { toast } from "sonner";
 import { usePayLink } from "@/hooks/usePayLink";
@@ -106,27 +101,10 @@ const InvoiceQRLink = React.memo(
 
 InvoiceQRLink.displayName = "InvoiceQRLink";
 
-// The contract takes the hold period as seconds (uint32); the dialog collects
-// it as value + unit so nobody has to convert durations by hand.
-const HOLD_UNIT_SECONDS = {
-  minutes: 60,
-  hours: 60 * 60,
-  days: 24 * 60 * 60,
-} as const;
-
-type HoldUnit = keyof typeof HOLD_UNIT_SECONDS;
-
-const MAX_HOLD_PERIOD_SECONDS = 2 ** 32 - 1;
-
 export default function CreateInvoiceDialog() {
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
   const noteKeys = useNoteKeys();
-  const [holdValue, setHoldValue] = useState("");
-  const [holdUnit, setHoldUnit] = useState<HoldUnit>("days");
-  // Creating with no hold period is consequential enough to confirm, but not
-  // worth crowding the form with a warning nobody has acted on yet.
-  const [confirmNoHold, setConfirmNoHold] = useState(false);
   const { chainId, address } = useAccount();
   const { data: formatedFee } = useGetFeeRate();
 
@@ -140,30 +118,36 @@ export default function CreateInvoiceDialog() {
 
   const contractAddress = SIMPLE_PAYMENT_PROCESSOR[chainId || BASE_SEPOLIA];
 
+  const { data: minimumInvoiceValue } = useGetMinimumInvoiceValue();
+  const minimumEth = minimumInvoiceValue
+    ? formatEther(minimumInvoiceValue)
+    : undefined;
+
+  // The contract rejects anything under its minimum, so check it here rather
+  // than letting the transaction fail after the wallet prompt. parseEther
+  // throws on input Number() still accepts, such as a lone space, so a bad
+  // value is treated as "not yet below the minimum" and left to the normal
+  // amount validation to reject.
+  const isAboveMinimum = (() => {
+    if (minimumInvoiceValue === undefined || !amount) return true;
+    try {
+      return parseEther(amount) >= minimumInvoiceValue;
+    } catch {
+      return true;
+    }
+  })();
+
   const isAmountValid =
-    !!amount && !isNaN(Number(amount)) && Number(amount) > 0;
-
-  // Empty input means no hold period (0 seconds).
-  const holdPeriodSeconds =
-    holdValue.trim() === ""
-      ? 0
-      : Math.floor(Number(holdValue) * HOLD_UNIT_SECONDS[holdUnit]);
-
-  const isHoldPeriodValid =
-    Number.isFinite(holdPeriodSeconds) &&
-    holdPeriodSeconds >= 0 &&
-    holdPeriodSeconds <= MAX_HOLD_PERIOD_SECONDS;
+    !!amount &&
+    !isNaN(Number(amount)) &&
+    Number(amount) > 0 &&
+    isAboveMinimum;
 
   const handleClick = useCallback(async () => {
-    if (!isAmountValid || !isHoldPeriodValid) return;
+    if (!isAmountValid) return;
 
     // First click with no hold period asks for confirmation instead of
     // creating; the second click goes through.
-    if (holdPeriodSeconds === 0 && !confirmNoHold) {
-      setConfirmNoHold(true);
-      return;
-    }
-
     setIsCreating(true);
     try {
       const amountValue = parseUnits(amount, 18);
@@ -189,7 +173,7 @@ export default function CreateInvoiceDialog() {
         amountValue,
         storageRef,
         false,
-        holdPeriodSeconds,
+        DEFAULT_HOLD_PERIOD_SECONDS,
       );
 
       if (response) {
@@ -214,9 +198,6 @@ export default function CreateInvoiceDialog() {
     amount,
     noteKeys,
     isAmountValid,
-    isHoldPeriodValid,
-    holdPeriodSeconds,
-    confirmNoHold,
     createInvoice,
     refetchInvoiceData,
     note,
@@ -228,7 +209,6 @@ export default function CreateInvoiceDialog() {
         open={openCreate}
         onOpenChange={(open) => {
           setOpenCreate(open);
-          if (!open) setConfirmNoHold(false);
         }}
       >
         <DialogTrigger asChild>
@@ -247,9 +227,23 @@ export default function CreateInvoiceDialog() {
             </DialogTitle>
             <DialogDescription className="text-xs sm:text-sm text-muted-foreground mt-1">
               A {Number(formatedFee) / 100}% fee is deducted from the payment
-              when it is released to you (gas not included)
+              when it is released to you
             </DialogDescription>
           </DialogHeader>
+
+          {/* A fixed term of every invoice, not something chosen here, so it
+              is stated once at the top rather than sitting among the inputs. */}
+          <div className="flex items-start gap-2 rounded-md bg-muted/60 px-3 py-2">
+            <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-gray-500" />
+            <p className="text-xs leading-snug text-gray-600">
+              Payments are held in escrow for{" "}
+              <span className="font-medium text-gray-900">
+                {formatDurationSeconds(DEFAULT_HOLD_PERIOD_SECONDS)}
+              </span>{" "}
+              after you accept an invoice, then released to you. The payer sees
+              this before paying.
+            </p>
+          </div>
 
           {contractAddress && (
             <InvoiceField
@@ -261,8 +255,8 @@ export default function CreateInvoiceDialog() {
           )}
 
           <div className="grid gap-5 py-4">
-            <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-3">
-              <Label htmlFor="amount" className="text-left sm:text-right">
+            <div className="grid grid-cols-1 sm:grid-cols-4 items-start gap-3">
+              <Label htmlFor="amount" className="text-left sm:pt-2.5 sm:text-right">
                 Amount
               </Label>
               <div className="sm:col-span-3 w-full space-y-1">
@@ -276,55 +270,20 @@ export default function CreateInvoiceDialog() {
                   min="0"
                   step="any"
                 />
-                <p className="text-[11px] text-gray-500">Amounts are in ETH.</p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-3">
-              <Label htmlFor="holdPeriod" className="text-left sm:text-right">
-                Hold Period
-              </Label>
-              <div className="sm:col-span-3 w-full space-y-1">
-                <div className="flex gap-2">
-                  <Input
-                    id="holdPeriod"
-                    type="number"
-                    value={holdValue}
-                    placeholder="e.g. 3"
-                    onChange={(e) => {
-                      setHoldValue(e.target.value);
-                      // Editing the field answers the question the
-                      // confirmation was asking.
-                      setConfirmNoHold(false);
-                    }}
-                    className="w-full"
-                    min="0"
-                    step="any"
-                  />
-                  <Select
-                    value={holdUnit}
-                    onValueChange={(value) => setHoldUnit(value as HoldUnit)}
-                  >
-                    <SelectTrigger className="w-32 shrink-0">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="minutes">Minutes</SelectItem>
-                      <SelectItem value="hours">Hours</SelectItem>
-                      <SelectItem value="days">Days</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
                 <p className="text-[11px] text-gray-500">
-                  {!isHoldPeriodValid
-                    ? "Enter a valid, non-negative duration."
-                    : "Optional. Escrow holds the payment for this long, counting from when you accept the invoice. Leave empty for no hold."}
+                  Amounts are in ETH.
+                  {minimumEth ? ` Minimum ${minimumEth} ETH.` : ""}
                 </p>
+                {!isAboveMinimum && minimumEth && (
+                  <p className="text-[11px] text-red-600">
+                    Below the {minimumEth} ETH minimum.
+                  </p>
+                )}
               </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-4 items-start gap-3">
-              <Label htmlFor="note" className="text-left sm:text-right pt-1">
+              <Label htmlFor="note" className="text-left sm:pt-2.5 sm:text-right">
                 Note
               </Label>
               <div className="sm:col-span-3 space-y-2">
@@ -341,21 +300,6 @@ export default function CreateInvoiceDialog() {
             </div>
           </div>
 
-          {confirmNoHold && (
-            <div className="flex items-start gap-2.5 rounded-lg border border-amber-300 bg-amber-50 p-3">
-              <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
-              <div className="space-y-1">
-                <p className="text-sm font-bold leading-tight text-amber-900">
-                  Create without a hold period?
-                </p>
-                <p className="text-xs leading-snug text-amber-800">
-                  The payment will be released to you as soon as you accept the
-                  invoice. Set a hold period above, or create anyway.
-                </p>
-              </div>
-            </div>
-          )}
-
           <DialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-between gap-2 sm:gap-3 mt-3">
             <DialogClose asChild>
               <Button variant="secondary" className="w-full sm:w-auto">
@@ -367,17 +311,12 @@ export default function CreateInvoiceDialog() {
               <Button
                 onClick={handleClick}
                 disabled={
-                  !isAmountValid ||
-                  !isHoldPeriodValid ||
-                  isCreating ||
-                  isLoading === "createInvoice"
+                  !isAmountValid || isCreating || isLoading === "createInvoice"
                 }
                 className="w-full sm:w-auto"
               >
                 {isCreating || isLoading === "createInvoice" ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
-                ) : confirmNoHold ? (
-                  "Create anyway"
                 ) : (
                   "Create Invoice"
                 )}
