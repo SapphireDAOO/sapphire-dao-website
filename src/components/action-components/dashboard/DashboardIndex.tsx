@@ -1,6 +1,7 @@
 "use client";
 
 import Container from "@/components/Container";
+import { PausedNotice } from "./PausedNotice";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import DashboardHeader from "./Header";
 import RecentPayment from "./IndexRecentPayment";
@@ -38,6 +39,12 @@ const DashboardIndex = ({
 
   return (
     <div className="container mx-auto">
+      {/* Above the tabs: it applies to both, and it changes what the actions
+          below will do. */}
+      <Container>
+        <PausedNotice />
+      </Container>
+
       <Tabs value={activeTab} onValueChange={handleTabChange}>
         <div className="flex items-center justify-center mt-10">
           <TabsList>
