@@ -5,6 +5,7 @@
 // price (see fetchTokenPricesUsd).
 
 import { ONE_DAY_MS, KNOWN_PAYMENT_TOKENS, ZERO_ADDRESS } from "@/constants";
+import { fetchUsdPrices } from "@/services/exchangeRate";
 import type {
   EscrowSeriesPoint,
   InvoiceActivityPoint,
@@ -28,16 +29,33 @@ const MICROS_PER_SECOND = 1_000_000;
 const tsToSeconds = (timestamp: string): number =>
   Number(timestamp) / MICROS_PER_SECOND;
 
-// Placeholder prices for the testnet mock tokens, keyed by PaymentToken.name.
-// Swap for a real price feed (e.g. CoinGecko, Chainlink) when the dashboard
-// graduates from testnet data.
-const TESTNET_PRICES_BY_NAME: Record<string, number> = {
-  mUSDC: 1,
-  USDC: 1,
-  wBTC: 60_000,
-  WBTC: 60_000,
-  ETH: 3_500,
-  WETH: 3_500,
+// Prices are read on synchronous paths all over the metrics code, so they are
+// fetched once into this cache rather than threaded through as a promise.
+// Keyed by chain, then by PaymentToken.name.
+const livePricesByChain = new Map<number, Record<string, number>>();
+
+/**
+ * Refreshes the cached USD prices for a chain's known tokens. Call before
+ * building a snapshot; the converters below then read what it stored.
+ *
+ * A failed lookup leaves the previous prices in place rather than clearing
+ * them, so a blip shows the last known figures. With no hardcoded fallback
+ * behind it, a lookup that has never succeeded leaves every price at zero and
+ * USD totals read as 0 - which is the honest answer when nothing can be
+ * priced, and visibly wrong rather than quietly invented.
+ */
+export const refreshTokenPrices = async (
+  chainId: number,
+  signal?: AbortSignal,
+): Promise<void> => {
+  const symbols = (KNOWN_PAYMENT_TOKENS[chainId] ?? []).map((t) => t.name);
+  const prices = await fetchUsdPrices(symbols, signal);
+  if (Object.keys(prices).length === 0) return;
+
+  livePricesByChain.set(chainId, {
+    ...(livePricesByChain.get(chainId) ?? {}),
+    ...prices,
+  });
 };
 
 /**
@@ -85,7 +103,10 @@ const tokenMetaByChain = (chainId: number): Map<string, TokenMeta> => {
   for (const token of KNOWN_PAYMENT_TOKENS[chainId] ?? []) {
     out.set(token.id.toLowerCase(), {
       decimals: token.decimals,
-      priceUsd: TESTNET_PRICES_BY_NAME[token.name] ?? 0,
+      // No standing price of its own: an unpriced token contributes nothing
+      // rather than a made-up figure, so a USD total is either real or
+      // visibly zero.
+      priceUsd: livePricesByChain.get(chainId)?.[token.name] ?? 0,
     });
   }
   return out;
@@ -99,6 +120,7 @@ const tokenMetaByChain = (chainId: number): Map<string, TokenMeta> => {
 export const fetchTokenPricesUsd = async (
   chainId: number,
 ): Promise<Record<string, number>> => {
+  await refreshTokenPrices(chainId);
   const meta = tokenMetaByChain(chainId);
   const out: Record<string, number> = {};
   for (const [id, { priceUsd }] of meta) out[id] = priceUsd;
@@ -465,6 +487,7 @@ export const fetchMetricsSnapshot = async (
   chainId: number,
 ): Promise<MetricsSnapshot> => {
   const bounds = getWindowBounds();
+  await refreshTokenPrices(chainId);
   const meta = tokenMetaByChain(chainId);
 
   // graph-node's Timestamp scalar is microseconds since epoch; pass as strings
@@ -588,6 +611,7 @@ interface FeeTotalBucket {
 export const fetchFeeReceiverTotalUsd = async (
   chainId: number,
 ): Promise<number> => {
+  await refreshTokenPrices(chainId);
   const meta = tokenMetaByChain(chainId);
   const data = await queryMetrics<{ feeBuckets: FeeTotalBucket[] }>(
     chainId,
@@ -606,10 +630,10 @@ export const fetchFeeReceiverTotalUsd = async (
 
 /**
  * Current USD price of the chain's native token (ETH, the zero-address entry in
- * KNOWN_PAYMENT_TOKENS), used to value the gas-reserve balance. Async to match
- * the price-feed read path that will replace the testnet placeholder prices.
+ * KNOWN_PAYMENT_TOKENS), used to value the gas-reserve balance.
  */
 export const fetchNativePriceUsd = async (chainId: number): Promise<number> => {
+  await refreshTokenPrices(chainId);
   const meta = tokenMetaByChain(chainId);
   return meta.get(ZERO_ADDRESS.toLowerCase())?.priceUsd ?? 0;
 };
