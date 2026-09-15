@@ -299,26 +299,45 @@ const buildVolumeSeries = (
 };
 
 /**
- * Escrow chart series (oldest → newest): the escrow volume paid in each day
- * (per-token `totalAmountPaid` summed into one USD total per day). Per-day,
- * standalone — not a running balance. Only days with escrow movement produce
- * a point.
+ * Escrow chart series (oldest → newest): the running escrow balance at the end
+ * of each day with movement.
+ *
+ * This has to be the same quantity the card shows, which is the running sum of
+ * the signed `totalBalance` deltas. Plotting `totalAmountPaid` instead — gross
+ * amount paid in per day — draws a line that only ever climbs, so the chart
+ * pointed up while the card correctly read 0.
+ *
+ * Balances are carried per token and converted once per day, matching
+ * `escrowAtUsd`, so the final point equals the card's figure.
  */
 const buildEscrowSeries = (
   buckets: EscrowBucket[],
   meta: Map<string, TokenMeta>,
 ): EscrowSeriesPoint[] => {
-  const byDay = new Map<number, number>();
+  const deltasByDay = new Map<number, Map<string, bigint>>();
   for (const b of buckets) {
-    const m = meta.get(b.token.id.toLowerCase());
-    if (!m) continue;
     const ts = tsToSeconds(b.timestamp);
-    const usd = toUsd(BigInt(b.totalAmountPaid), m.decimals, m.priceUsd);
-    byDay.set(ts, (byDay.get(ts) ?? 0) + usd);
+    const id = b.token.id.toLowerCase();
+    const day = deltasByDay.get(ts) ?? new Map<string, bigint>();
+    day.set(id, (day.get(id) ?? BigInt(0)) + BigInt(b.totalBalance));
+    deltasByDay.set(ts, day);
   }
-  return [...byDay.entries()]
+
+  const running = new Map<string, bigint>();
+  return [...deltasByDay.entries()]
     .sort(([a], [b]) => a - b)
-    .map(([timestamp, balanceUsd]) => ({ timestamp, balanceUsd }));
+    .map(([timestamp, deltas]) => {
+      for (const [id, delta] of deltas) {
+        running.set(id, (running.get(id) ?? BigInt(0)) + delta);
+      }
+
+      let balanceUsd = 0;
+      for (const [id, sum] of running) {
+        const m = meta.get(id);
+        if (m) balanceUsd += toUsd(sum, m.decimals, m.priceUsd);
+      }
+      return { timestamp, balanceUsd };
+    });
 };
 
 // The Invoice Activity card is fixed to a rolling 7-day view; the series is
