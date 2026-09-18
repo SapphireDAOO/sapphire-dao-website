@@ -236,26 +236,6 @@ export const PaymentProcessorStorage = [
   },
   {
     type: "function",
-    name: "setFeeRate",
-    inputs: [{ name: "_newFeeRate", type: "uint96", internalType: "uint96" }],
-    outputs: [],
-    stateMutability: "nonpayable",
-  },
-  {
-    type: "function",
-    name: "setFeeReceiver",
-    inputs: [
-      {
-        name: "_feeReceiverAddress",
-        type: "address",
-        internalType: "address",
-      },
-    ],
-    outputs: [],
-    stateMutability: "nonpayable",
-  },
-  {
-    type: "function",
     name: "setFeeSigner",
     inputs: [{ name: "_feeSigner", type: "address", internalType: "address" }],
     outputs: [],
@@ -282,19 +262,6 @@ export const PaymentProcessorStorage = [
         name: "_intermediatedPlatformsOperatorWallet",
         type: "address",
         internalType: "address",
-      },
-    ],
-    outputs: [],
-    stateMutability: "nonpayable",
-  },
-  {
-    type: "function",
-    name: "setPaymentValidityDuration",
-    inputs: [
-      {
-        name: "_newValidityDuration",
-        type: "uint256",
-        internalType: "uint256",
       },
     ],
     outputs: [],

@@ -38,12 +38,7 @@ export interface ContractContextData {
   cancelInvoice: (invoiceId: bigint) => Promise<boolean>;
   releaseInvoice: (invoiceId: bigint) => Promise<boolean>;
   refundBuyerAfterWindow: (invoiceId: bigint) => Promise<boolean>;
-  setMinimumInvoiceValue: (newValue: bigint) => Promise<boolean>;
-  setFeeReceiversAddress: (address: Address) => Promise<boolean>;
   transferOwnership: (address: Address) => Promise<boolean>;
-  setDecisionWindow: (newWindow: bigint) => Promise<boolean>;
-  setValidPeriod: (newValidPeriod: bigint) => Promise<boolean>;
-  setFee: (newFee: bigint) => Promise<boolean>;
   getIntermediatedInvoiceData: (
     invoiceId: bigint,
     type: "smartInvoice" | "metaInvoice"
@@ -79,12 +74,7 @@ export const contractContextDefaults: ContractContextData = {
   cancelInvoice: async () => Promise.resolve(false),
   releaseInvoice: async () => Promise.resolve(false),
   refundBuyerAfterWindow: async () => Promise.resolve(false),
-  setFeeReceiversAddress: async () => Promise.resolve(false),
-  setDecisionWindow: async () => Promise.resolve(false),
-  setValidPeriod: async () => Promise.resolve(false),
   setIntermediatedOperator: async () => Promise.resolve(""),
-  setFee: async () => Promise.resolve(false),
-  setMinimumInvoiceValue: async () => Promise.resolve(false),
   refetchInvoiceData: async () => Promise.resolve(),
   refetchAllInvoiceData: async () => Promise.resolve(),
   refreshAdminData: async () => Promise.resolve(),

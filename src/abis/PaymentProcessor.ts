@@ -249,32 +249,6 @@ export const paymentProcessor = [
   },
   {
     type: "function",
-    name: "setDecisionWindow",
-    inputs: [
-      {
-        name: "_newDecisionWindow",
-        type: "uint256",
-        internalType: "uint256",
-      },
-    ],
-    outputs: [],
-    stateMutability: "nonpayable",
-  },
-  {
-    type: "function",
-    name: "setMinimumInvoiceValue",
-    inputs: [
-      {
-        name: "_newMinimumInvoiceValue",
-        type: "uint256",
-        internalType: "uint256",
-      },
-    ],
-    outputs: [],
-    stateMutability: "nonpayable",
-  },
-  {
-    type: "function",
     name: "weth",
     inputs: [],
     outputs: [{ name: "", type: "address", internalType: "contract IWETH" }],

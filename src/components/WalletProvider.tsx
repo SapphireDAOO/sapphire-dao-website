@@ -21,11 +21,6 @@ import {
   releaseInvoice,
   refundBuyerAfterWindow,
   transferOwnership,
-  setFeeReceiversAddress,
-  setFee,
-  setMinimumInvoiceValue,
-  setDecisionWindow,
-  setValidPeriod,
 } from "@/services/blockchain/SimplePaymentProcessor";
 import {
   payIntermediatedInvoice as submitIntermediatedInvoicePayment,
@@ -213,40 +208,6 @@ const WalletProvider = ({ children }: Props) => {
         transferOwnership(
           wagmiClients,
           address,
-          chainId,
-          setIsLoading,
-          getInvoiceData,
-        ),
-      setFeeReceiversAddress: (address: Address) =>
-        setFeeReceiversAddress(
-          wagmiClients,
-          address,
-          chainId,
-          setIsLoading,
-          getInvoiceData,
-        ),
-      setDecisionWindow: (newWindow: bigint) =>
-        setDecisionWindow(
-          wagmiClients,
-          newWindow,
-          chainId,
-          setIsLoading,
-          getInvoiceData,
-        ),
-      setValidPeriod: (newValidPeriod: bigint) =>
-        setValidPeriod(
-          wagmiClients,
-          newValidPeriod,
-          chainId,
-          setIsLoading,
-          getInvoiceData,
-        ),
-      setFee: (newFee: bigint) =>
-        setFee(wagmiClients, newFee, chainId, setIsLoading, getInvoiceData),
-      setMinimumInvoiceValue: (newValue: bigint) =>
-        setMinimumInvoiceValue(
-          wagmiClients,
-          newValue,
           chainId,
           setIsLoading,
           getInvoiceData,
