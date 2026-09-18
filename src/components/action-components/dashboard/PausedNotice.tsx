@@ -2,16 +2,25 @@
 
 import { ShieldAlert } from "lucide-react";
 import { useEmergencyPause } from "@/hooks/useEmergencyPause";
+import { usePauseState } from "@/hooks/usePauseState";
 import { formatDurationSeconds, unixToGMT } from "@/utils";
 import { useSharedSecondTicker } from "@/hooks/useSharedSecondTicker";
 
 export const PausedNotice = () => {
-  const { isPaused, pauseExpiry } = useEmergencyPause();
+  // The contract is the authority on whether it is paused; the subgraph adds
+  // who did it and when. Either saying paused is enough to warn: the index can
+  // lag the chain, and a warning shown a little early costs nothing next to
+  // one shown late.
+  const { isPaused: chainPaused, pauseExpiry } = useEmergencyPause();
+  const { isPaused: indexedPaused, state } = usePauseState();
+  const isPaused = chainPaused || indexedPaused;
   useSharedSecondTicker(Boolean(isPaused));
 
   if (!isPaused) return null;
 
-  const expirySeconds = pauseExpiry ? Number(pauseExpiry) : 0;
+  const expirySeconds = pauseExpiry
+    ? Number(pauseExpiry)
+    : Number(state?.emergencyPauseExpiry ?? 0);
   const secondsRemaining = expirySeconds
     ? expirySeconds - Math.floor(Date.now() / 1000)
     : 0;

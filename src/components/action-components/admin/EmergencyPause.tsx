@@ -10,12 +10,21 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2, ShieldAlert, ShieldCheck } from "lucide-react";
+import { ExternalLink, Loader2, ShieldAlert, ShieldCheck } from "lucide-react";
 import { BASE_SEPOLIA } from "@/constants";
 import { useEmergencyPause } from "@/hooks/useEmergencyPause";
+import { usePauseState } from "@/hooks/usePauseState";
+import type { PauseActionType } from "@/services/pauseState";
 import { emergencyPause as sendEmergencyPause } from "@/services/blockchain/PaymentProcessorStorage";
 import { useHintedWalletClient } from "@/components/wallet-hint/useHintedWalletClient";
 import { formatDurationSeconds, unixToGMT } from "@/utils";
+
+const LAST_ACTION_LABEL: Record<PauseActionType, string> = {
+  PAUSED: "Paused by",
+  UNPAUSED: "Unpaused by",
+  EMERGENCY_PAUSED: "Emergency paused by",
+  EMERGENCY_PAUSE_APPROVED: "Emergency pause approved by",
+};
 
 const truncateAddress = (address: string | undefined) =>
   address ? `${address.slice(0, 6)}...${address.slice(-4)}` : "Loading...";
@@ -56,6 +65,9 @@ const EmergencyPause = () => {
     setConfirming(false);
     if (ok) await refetch();
   }, [confirming, walletClient, publicClient, chainId, refetch]);
+
+  const { state: pauseState } = usePauseState();
+  const lastAction = pauseState?.lastAction ?? undefined;
 
   const expirySeconds = pauseExpiry ? Number(pauseExpiry) : 0;
   const secondsRemaining = expirySeconds
@@ -109,23 +121,61 @@ const EmergencyPause = () => {
           </div>
         )}
 
-        <p className="text-sm font-medium">
-          <span className="text-muted-foreground">Emergency Pauser: </span>
-          <span className="font-mono text-primary">
-            {emergencyPauser ? (
+        {/* While paused, who did it and in which transaction is the useful
+            detail, and only the subgraph has it - the contract exposes the
+            current state but no history. Once running again that provenance is
+            noise, so it collapses back to the designated pauser. */}
+        {isPaused && lastAction ? (
+          <p className="flex flex-wrap items-center gap-1.5 text-sm font-medium">
+            <span className="text-muted-foreground">
+              {LAST_ACTION_LABEL[lastAction] ?? "Last action"}:
+            </span>
+            {pauseState?.lastActionBy && (
               <a
-                href={`https://sepolia.basescan.org/address/${emergencyPauser}`}
+                href={`https://sepolia.basescan.org/address/${pauseState.lastActionBy}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-blue-500 underline"
+                className="font-mono text-blue-500 underline"
               >
-                {truncateAddress(emergencyPauser)}
+                {truncateAddress(pauseState.lastActionBy)}
               </a>
-            ) : (
-              "Loading..."
             )}
-          </span>
-        </p>
+            {pauseState?.lastActionAt && (
+              <span className="text-xs text-muted-foreground">
+                {unixToGMT(Number(pauseState.lastActionAt))} UTC
+              </span>
+            )}
+            {pauseState?.lastActionTx && (
+              <a
+                href={`https://sepolia.basescan.org/tx/${pauseState.lastActionTx}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-xs text-blue-500 underline"
+              >
+                tx
+                <ExternalLink className="h-3 w-3" />
+              </a>
+            )}
+          </p>
+        ) : (
+          <p className="text-sm font-medium">
+            <span className="text-muted-foreground">Emergency Pauser: </span>
+            <span className="font-mono text-primary">
+              {emergencyPauser ? (
+                <a
+                  href={`https://sepolia.basescan.org/address/${emergencyPauser}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-500 underline"
+                >
+                  {truncateAddress(emergencyPauser)}
+                </a>
+              ) : (
+                "Loading..."
+              )}
+            </span>
+          </p>
+        )}
 
         {confirming && !isPaused && (
           <div className="flex items-start gap-2.5 rounded-lg border border-red-300 bg-red-50 p-3 dark:border-red-900 dark:bg-red-950/30">
