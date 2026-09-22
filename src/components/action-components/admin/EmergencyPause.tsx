@@ -15,7 +15,10 @@ import { BASE_SEPOLIA } from "@/constants";
 import { useEmergencyPause } from "@/hooks/useEmergencyPause";
 import { usePauseState } from "@/hooks/usePauseState";
 import type { PauseActionType } from "@/services/pauseState";
-import { emergencyPause as sendEmergencyPause } from "@/services/blockchain/PaymentProcessorStorage";
+import {
+  emergencyPause as sendEmergencyPause,
+  emergencyUnpause as sendEmergencyUnpause,
+} from "@/services/blockchain/PaymentProcessorStorage";
 import { useHintedWalletClient } from "@/components/wallet-hint/useHintedWalletClient";
 import { formatDurationSeconds, unixToGMT } from "@/utils";
 
@@ -49,6 +52,7 @@ const EmergencyPause = () => {
   const [confirming, setConfirming] = useState(false);
 
   const isPausing = loadingAction === "emergencyPause";
+  const isUnpausing = loadingAction === "emergencyUnpause";
 
   const handlePause = useCallback(async () => {
     if (!confirming) {
@@ -65,6 +69,17 @@ const EmergencyPause = () => {
     setConfirming(false);
     if (ok) await refetch();
   }, [confirming, walletClient, publicClient, chainId, refetch]);
+
+  const handleUnpause = useCallback(async () => {
+    if (!walletClient || !publicClient) return;
+
+    const ok = await sendEmergencyUnpause(
+      { walletClient, publicClient },
+      chainId,
+      setLoadingAction,
+    );
+    if (ok) await refetch();
+  }, [walletClient, publicClient, chainId, refetch]);
 
   const { state: pauseState } = usePauseState();
   const lastAction = pauseState?.lastAction ?? undefined;
@@ -100,14 +115,13 @@ const EmergencyPause = () => {
               </p>
               {secondsRemaining > 0 ? (
                 <p className="text-xs leading-snug text-red-800 dark:text-red-400">
-                  Lapses in {formatDurationSeconds(secondsRemaining)} (
-                  {unixToGMT(expirySeconds)} UTC) unless governance lifts or
-                  extends it from the multisig page.
+                  Lapses on its own in {formatDurationSeconds(secondsRemaining)}{" "}
+                  ({unixToGMT(expirySeconds)} UTC), or lift it now with the
+                  button below.
                 </p>
               ) : (
                 <p className="text-xs leading-snug text-red-800 dark:text-red-400">
-                  Lifting the pause is a governance action, proposed and
-                  approved on the multisig page.
+                  This pause holds until it is lifted.
                 </p>
               )}
             </div>
@@ -197,22 +211,38 @@ const EmergencyPause = () => {
         )}
 
         <div className="flex items-center gap-3">
-          <Button
-            variant="destructive"
-            onClick={handlePause}
-            disabled={!canPause || isPaused !== false || isPausing}
-            aria-busy={isPausing}
-          >
-            {isPausing ? (
-              <Loader2 className="inline-flex h-4 w-4 animate-spin" />
-            ) : confirming ? (
-              "Confirm pause"
-            ) : (
-              "Pause payments"
-            )}
-          </Button>
+          {isPaused ? (
+            /* Nothing to confirm on the way back up: lifting a pause only
+               restores normal operation. */
+            <Button
+              onClick={handleUnpause}
+              disabled={!canPause || isUnpausing}
+              aria-busy={isUnpausing}
+            >
+              {isUnpausing ? (
+                <Loader2 className="inline-flex h-4 w-4 animate-spin" />
+              ) : (
+                "Lift pause"
+              )}
+            </Button>
+          ) : (
+            <Button
+              variant="destructive"
+              onClick={handlePause}
+              disabled={!canPause || isPaused !== false || isPausing}
+              aria-busy={isPausing}
+            >
+              {isPausing ? (
+                <Loader2 className="inline-flex h-4 w-4 animate-spin" />
+              ) : confirming ? (
+                "Confirm pause"
+              ) : (
+                "Pause payments"
+              )}
+            </Button>
+          )}
 
-          {confirming && !isPausing && (
+          {confirming && !isPaused && !isPausing && (
             <Button variant="ghost" onClick={() => setConfirming(false)}>
               Cancel
             </Button>
@@ -221,8 +251,7 @@ const EmergencyPause = () => {
 
         {!canPause && (
           <p className="text-sm text-muted-foreground">
-            Only the emergency pauser address above can trigger this. Connect
-            that wallet to enable the button.
+            Only the emergency pauser address above can pause or lift the pause.
           </p>
         )}
       </CardContent>

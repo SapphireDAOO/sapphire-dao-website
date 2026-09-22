@@ -53,3 +53,50 @@ export const emergencyPause = async (
     setIsLoading("");
   }
 };
+
+/**
+ * Lifts an active pause on PaymentProcessorStorage.
+ *
+ * Note that on-chain `unpause()` is `onlyOwner`: the emergency pauser can trip
+ * a pause but the owner is the one who clears it, so this reverts unless the
+ * connected wallet owns the storage contract.
+ */
+export const emergencyUnpause = async (
+  { walletClient, publicClient }: WagmiClient,
+  chainId: number,
+  setIsLoading: (value: string) => void,
+): Promise<boolean> => {
+  setIsLoading("emergencyUnpause");
+  try {
+    const gasPrice = await fetchGasPrice(publicClient, chainId);
+    const tx = await walletClient?.sendTransaction({
+      chain: getChainById(chainId),
+      to: PAYMENT_PROCESSOR_STORAGE[chainId],
+      data: encodeFunctionData({
+        abi: PaymentProcessorStorage,
+        functionName: "unpause",
+        args: [],
+      }),
+      gasPrice,
+    });
+
+    if (!tx) {
+      toast.error("Transaction failed to initiate");
+      return false;
+    }
+
+    const receipt = await publicClient?.waitForTransactionReceipt({ hash: tx });
+    if (receipt?.status === "success") {
+      toast.success("Pause lifted");
+      return true;
+    }
+
+    toast.error("Failed to lift the pause");
+    return false;
+  } catch (error) {
+    getError(error);
+    return false;
+  } finally {
+    setIsLoading("");
+  }
+};
