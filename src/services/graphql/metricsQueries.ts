@@ -305,6 +305,8 @@ export const ADMIN_TRANSACTIONS_QUERY = `
       executor
       approvalCount
       nonce
+      target
+      data
       proposedAt
       executedAt
     }

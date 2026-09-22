@@ -19,6 +19,10 @@ export interface AdminTransaction {
   proposer: string;
   approvalCount: number;
   nonce: string;
+  /** Contract the call is aimed at. */
+  target: string;
+  /** Raw calldata, decoded for display so a row names the actual action. */
+  data: string;
   /** Unix seconds — executedAt when executed, else proposedAt. */
   timestamp: number;
 }
@@ -30,6 +34,8 @@ interface AdminTxRow {
   executor: string | null;
   approvalCount: string;
   nonce: string;
+  target: string;
+  data: string;
   proposedAt: string;
   executedAt: string | null;
 }
@@ -57,6 +63,8 @@ export const fetchAdminTransactions = async (
     proposer: t.proposer,
     approvalCount: Number(t.approvalCount),
     nonce: t.nonce,
+    target: t.target,
+    data: t.data,
     timestamp: Number(t.executedAt ?? t.proposedAt),
   }));
 };
