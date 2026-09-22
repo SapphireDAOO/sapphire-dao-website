@@ -1,7 +1,7 @@
 import { decodeFunctionData, formatEther, formatUnits, Hex } from "viem";
 import { Sweeper } from "@/abis/Sweeper";
 import { KNOWN_PAYMENT_TOKENS, WETH_CONTRACT } from "@/constants";
-import { GOVERNABLE_CONTRACTS } from "./governableFunctions";
+import { DECODABLE_CONTRACTS } from "./governableFunctions";
 
 export interface DecodedCall {
   contractLabel: string;
@@ -114,7 +114,7 @@ export function decodeMultiSigCalldata(data: string): DecodedCall | null {
   const sweep = decodeSweepCall(hex);
   if (sweep) return sweep;
 
-  for (const contract of GOVERNABLE_CONTRACTS) {
+  for (const contract of DECODABLE_CONTRACTS) {
     for (const fn of contract.functions) {
       const minimalAbi = [
         {

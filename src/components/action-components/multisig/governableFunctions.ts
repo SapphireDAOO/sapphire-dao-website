@@ -1,7 +1,5 @@
 import { encodeFunctionData, Hex, parseEther, parseUnits } from "viem";
-import {
-  PAYMENT_PROCESSOR_STORAGE,
-} from "@/constants";
+import { MULTISIG_CONTRACT, PAYMENT_PROCESSOR_STORAGE } from "@/constants";
 import { Address } from "viem";
 
 export type ParamKind =
@@ -98,6 +96,55 @@ export const GOVERNABLE_CONTRACTS: GovernableContract[] = [
       },
     ],
   },
+];
+
+/**
+ * The multisig's own administration, which it can only perform on itself and
+ * so only through a proposal. It is deliberately absent from
+ * `GOVERNABLE_CONTRACTS` — the propose form governs the storage contract and
+ * nothing else — but the calldata still has to be readable wherever these
+ * proposals are listed, which is what this entry is for.
+ */
+export const MULTISIG_ADMIN_CONTRACT: GovernableContract = {
+  label: "MultiSig",
+  key: "multisig",
+  getAddress: (chainId) => MULTISIG_CONTRACT[chainId] as Address,
+  functions: [
+    {
+      name: "addSigner",
+      label: "Add Signer",
+      signature: "addSigner(address)",
+      inputTypes: ["address"],
+      params: [{ name: "signer", label: "Signer", kind: "address", placeholder: "0x..." }],
+    },
+    {
+      name: "removeSigner",
+      label: "Remove Signer",
+      signature: "removeSigner(address)",
+      inputTypes: ["address"],
+      params: [{ name: "signer", label: "Signer", kind: "address", placeholder: "0x..." }],
+    },
+    {
+      name: "updateThreshold",
+      label: "Update Threshold",
+      signature: "updateThreshold(uint256)",
+      inputTypes: ["uint256"],
+      params: [{ name: "newThreshold", label: "New threshold", kind: "uint256", placeholder: "2" }],
+    },
+    {
+      name: "cancelTransaction",
+      label: "Cancel Transaction",
+      signature: "cancelTransaction(bytes32)",
+      inputTypes: ["bytes32"],
+      params: [{ name: "txHash", label: "Transaction", kind: "bytes32", placeholder: "0x..." }],
+    },
+  ],
+};
+
+/** Every contract whose calldata we can render, proposable or not. */
+export const DECODABLE_CONTRACTS: GovernableContract[] = [
+  ...GOVERNABLE_CONTRACTS,
+  MULTISIG_ADMIN_CONTRACT,
 ];
 
 function encodeParam(value: string, kind: ParamKind): bigint | string {
