@@ -11,14 +11,58 @@ import {
   MULTISIG_TRANSACTIONS_QUERY,
 } from "@/services/graphql/multiSigQueries";
 import { MultiSigWallet, MultiSigTransaction } from "@/model/multisig";
+import {
+  readPendingTransactions,
+  savePendingTransactions,
+} from "@/lib/multisigPendingStore";
 import { useIsWindowVisible } from "./useIsWindowVisible";
 import { useMultiSigEvents } from "./useMultiSigEvents";
 
 import type { MultiSigData } from "./useMultiSigEvents";
 
 const PAGE_SIZE = 20;
+
+/**
+ * How far along a transaction is. Cancelled and executed are both terminal, so
+ * they rank together: whichever the subgraph reports is the end of the story.
+ */
+const STATUS_RANK: Record<MultiSigTransaction["status"], number> = {
+  PROPOSED: 0,
+  APPROVED: 1,
+  EXECUTED: 2,
+  CANCELED: 2,
+};
+
+/**
+ * Reconciles a locally-applied transaction with the indexed one.
+ *
+ * Applying a receipt log moves a row forward immediately, but the refetch that
+ * follows queries a subgraph that may not have seen the block yet. Taking the
+ * indexed row at face value then walks the approval back to its old count
+ * until the indexer catches up, which is why an approval appeared to need a
+ * page reload. Whichever side is further along wins, field by field.
+ */
+const mergeIndexedTransaction = (
+  local: MultiSigTransaction,
+  indexed: MultiSigTransaction,
+): MultiSigTransaction => {
+  const localCount = Number(local.approvalCount ?? 0);
+  const indexedCount = Number(indexed.approvalCount ?? 0);
+  const localIsFurther = STATUS_RANK[local.status] > STATUS_RANK[indexed.status];
+
+  if (!localIsFurther && indexedCount >= localCount) return indexed;
+
+  return {
+    ...indexed,
+    status: localIsFurther ? local.status : indexed.status,
+    approvalCount: String(Math.max(localCount, indexedCount)),
+    executedAt: indexed.executedAt ?? local.executedAt,
+    executor: indexed.executor ?? local.executor,
+    // Still ahead of the index, so the next refetch merges rather than trusts.
+    unindexed: true,
+  };
+};
 const ERROR_BACKOFF_MS = 15_000;
-const EVENT_DEBOUNCE_MS = 5_000;
 
 export const useMultiSigData = () => {
   const chainId = useChainId() || BASE_SEPOLIA;
@@ -139,9 +183,20 @@ export const useMultiSigData = () => {
                   ),
               );
 
+        // A transaction the index already knows about can still be behind what
+        // this session has seen on chain — an approval lands a block before it
+        // is queryable.
+        const localById = new Map(
+          prev.transactions.map((tx) => [tx.id.toLowerCase(), tx]),
+        );
+        const reconciled = fetched.map((indexed) => {
+          const local = localById.get(indexed.id.toLowerCase());
+          return local ? mergeIndexedTransaction(local, indexed) : indexed;
+        });
+
         return {
           wallet,
-          transactions: [...stillUnindexed, ...fetched],
+          transactions: [...stillUnindexed, ...reconciled],
           hasNextPage: hasNext,
           isLoading: false,
           error: null,
@@ -172,6 +227,27 @@ export const useMultiSigData = () => {
     void refresh();
   }, [page, refresh]);
 
+  // Seeded on mount rather than in the initial state: a static export renders
+  // this page without local storage, so reading it during the first render
+  // would disagree with the prerendered markup.
+  useEffect(() => {
+    const pending = readPendingTransactions(chainId);
+    if (pending.length === 0) return;
+
+    setData((prev) => ({
+      ...prev,
+      transactions: [
+        ...pending.filter(
+          (tx) =>
+            !prev.transactions.some(
+              (known) => known.id.toLowerCase() === tx.id.toLowerCase(),
+            ),
+        ),
+        ...prev.transactions,
+      ],
+    }));
+  }, [chainId]);
+
   // Re-fetch when the tab becomes visible after being hidden.
   const wasVisibleRef = useRef(isWindowVisible);
   useEffect(() => {
@@ -181,25 +257,28 @@ export const useMultiSigData = () => {
     wasVisibleRef.current = isWindowVisible;
   }, [isWindowVisible]);
 
-  // Debounced subgraph refresh triggered after events fire (gives the subgraph
-  // time to index before we query it).
-  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const scheduleRefresh = useCallback(() => {
-    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
-    debounceTimerRef.current = setTimeout(
-      () => void refreshRef.current(),
-      EVENT_DEBOUNCE_MS,
-    );
-  }, []);
-
-  // Direct state updates from on-chain events, plus a debounced subgraph sync.
+  // Contract events are the live channel: they carry the state change itself,
+  // so there is nothing to gain from turning each one into another subgraph
+  // query. The subgraph is read on mount, on page change, and when the tab
+  // comes back - the one case where events were not being watched.
   useMultiSigEvents({
     active: isWindowVisible,
     publicClient,
     contractAddress,
     setData,
-    onEvent: scheduleRefresh,
   });
+
+  // Anything seen on chain but not yet returned by the index is kept in local
+  // storage, so it survives a reload instead of disappearing until the indexer
+  // catches up. Entries drop out of the overlay as soon as `refresh` finds the
+  // index level with them.
+  useEffect(() => {
+    if (!walletId) return;
+    savePendingTransactions(
+      chainId,
+      data.transactions.filter((tx) => tx.unindexed),
+    );
+  }, [chainId, walletId, data.transactions]);
 
   // Parse raw receipt logs and immediately apply state updates — called after
   // every on-chain action so the dashboard reflects changes without waiting
@@ -255,13 +334,14 @@ export const useMultiSigData = () => {
             ...tx,
             approvalCount: newCount.toString(),
             status: threshold > 0 && newCount >= threshold ? "APPROVED" : tx.status,
+            unindexed: true,
           });
         } else if (name === "TransactionApproved") {
           const txHash = (args.txHash as string | undefined)?.toLowerCase();
           if (!txHash) continue;
           const tx = txMap.get(txHash);
           if (!tx) continue;
-          txMap.set(txHash, { ...tx, status: "APPROVED" });
+          txMap.set(txHash, { ...tx, status: "APPROVED", unindexed: true });
         } else if (name === "TransactionExecuted") {
           const txHash = (args.txHash as string | undefined)?.toLowerCase();
           if (!txHash) continue;
@@ -272,13 +352,14 @@ export const useMultiSigData = () => {
             status: "EXECUTED",
             executedAt: ts,
             executor: (args.executor as string | undefined) ?? "",
+            unindexed: true,
           });
         } else if (name === "TransactionCanceled") {
           const txHash = (args.txHash as string | undefined)?.toLowerCase();
           if (!txHash) continue;
           const tx = txMap.get(txHash);
           if (!tx) continue;
-          txMap.set(txHash, { ...tx, status: "CANCELED" });
+          txMap.set(txHash, { ...tx, status: "CANCELED", unindexed: true });
         } else if (name === "SignerAdded") {
           const signer = args.signer as string | undefined;
           if (!signer || !wallet) continue;

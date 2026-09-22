@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { type AbiEvent, type Address } from "viem";
 import type { PublicClient } from "viem";
 import { Multisig } from "@/abis/MultiSig";
@@ -19,7 +19,6 @@ interface Params {
   publicClient: PublicClient | undefined;
   contractAddress: Address | undefined;
   setData: React.Dispatch<React.SetStateAction<MultiSigData>>;
-  onEvent: () => void;
 }
 
 // Pre-define each ABI event once (same pattern as TransactionDetail)
@@ -67,17 +66,9 @@ export function useMultiSigEvents({
   publicClient,
   contractAddress,
   setData,
-  onEvent,
 }: Params) {
-  const onEventRef = useRef(onEvent);
-  useEffect(() => {
-    onEventRef.current = onEvent;
-  }, [onEvent]);
-
   useEffect(() => {
     if (!active || !publicClient || !contractAddress) return;
-
-    const fire = () => onEventRef.current();
 
     const unwatch = publicClient.watchEvent({
       address: contractAddress,
@@ -148,6 +139,7 @@ export function useMultiSigEvents({
                   threshold > 0 && newCount >= threshold
                     ? "APPROVED"
                     : tx.status,
+                unindexed: true,
               });
               changedTransactions = true;
               continue;
@@ -158,7 +150,7 @@ export function useMultiSigEvents({
               if (!txHash) continue;
               const tx = txMap.get(txHash);
               if (!tx) continue;
-              txMap.set(txHash, { ...tx, status: "APPROVED" });
+              txMap.set(txHash, { ...tx, status: "APPROVED", unindexed: true });
               changedTransactions = true;
               continue;
             }
@@ -173,6 +165,7 @@ export function useMultiSigEvents({
                 status: "EXECUTED",
                 executedAt: nowSeconds(),
                 executor: args.executor ?? "",
+                unindexed: true,
               });
               changedTransactions = true;
               continue;
@@ -183,7 +176,7 @@ export function useMultiSigEvents({
               if (!txHash) continue;
               const tx = txMap.get(txHash);
               if (!tx) continue;
-              txMap.set(txHash, { ...tx, status: "CANCELED" });
+              txMap.set(txHash, { ...tx, status: "CANCELED", unindexed: true });
               changedTransactions = true;
               continue;
             }
@@ -254,8 +247,6 @@ export function useMultiSigEvents({
                 ]
               : Array.from(txMap.values())
             : prev.transactions;
-
-          queueMicrotask(fire);
 
           return {
             ...prev,
