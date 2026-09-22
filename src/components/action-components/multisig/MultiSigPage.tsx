@@ -21,6 +21,7 @@ import {
   INTERMEDIATED_PAYMENT_PROCESSOR,
   PAYMENT_PROCESSOR_STORAGE,
   BASE_SEPOLIA,
+  CONTRACT_MINIMUM_THRESHOLD,
 } from "@/constants";
 import { Address, encodeFunctionData } from "viem";
 import { proposeMultiSigTransaction } from "@/services/blockchain/MultiSig";
@@ -74,6 +75,17 @@ export default function MultiSigPage() {
   const fees = useFeeBalances();
 
   const threshold = wallet ? Number(wallet.threshold) : 0;
+  const signerCount = wallet
+    ? wallet.signers.filter((signer) => signer.active).length
+    : 0;
+
+  // A threshold at or below half the signers would let a minority execute, so
+  // the floor is a strict majority. The contract only enforces its own
+  // MINIMUM_THRESHOLD of 2 and an upper bound of the signer count; whichever
+  // of the two is higher applies here.
+  const minimumThreshold = signerCount
+    ? Math.max(CONTRACT_MINIMUM_THRESHOLD, Math.floor(signerCount / 2) + 1)
+    : CONTRACT_MINIMUM_THRESHOLD;
   const isSigner =
     !!address &&
     (wallet?.signers.some(
@@ -87,6 +99,23 @@ export default function MultiSigPage() {
   const [addSignerAddr, setAddSignerAddr] = useState("");
   const [removeSignerAddr, setRemoveSignerAddr] = useState("");
   const [newThreshold, setNewThreshold] = useState("");
+
+  // Checked before proposing as well as shown: a proposal that can never
+  // execute still costs a signature and clutters the queue.
+  const thresholdError = (() => {
+    if (!newThreshold) return null;
+    const n = Number(newThreshold);
+    if (!Number.isInteger(n) || n < 1) return "Enter a whole number.";
+    if (n < minimumThreshold) {
+      return signerCount
+        ? `At least ${minimumThreshold} of ${signerCount} signers must approve.`
+        : `The threshold cannot be below ${minimumThreshold}.`;
+    }
+    if (signerCount && n > signerCount) {
+      return `Cannot exceed the ${signerCount} current signers.`;
+    }
+    return null;
+  })();
 
   const handleAddSigner = async () => {
     if (!addSignerAddr || !walletClient || !publicClient) return;
@@ -120,7 +149,7 @@ export default function MultiSigPage() {
 
   const handleUpdateThreshold = async () => {
     const n = Number(newThreshold);
-    if (!n || n < 1 || !walletClient || !publicClient) return;
+    if (thresholdError || !n || !walletClient || !publicClient) return;
     const { ok, receipt } = await proposeMultiSigTransaction(
       { walletClient, publicClient },
       MULTISIG_CONTRACT[chainId] as Address,
@@ -307,17 +336,33 @@ export default function MultiSigPage() {
                       id="updateThreshold"
                       type="number"
                       placeholder="Enter new threshold"
-                      min={1}
+                      min={minimumThreshold}
+                      max={signerCount || undefined}
                       value={newThreshold}
                       onChange={(e) => setNewThreshold(e.target.value)}
+                      aria-invalid={!!thresholdError}
                     />
-                    <Button onClick={handleUpdateThreshold} disabled={!!thresholdLoading || !newThreshold}>
+                    <Button
+                      onClick={handleUpdateThreshold}
+                      disabled={
+                        !!thresholdLoading || !newThreshold || !!thresholdError
+                      }
+                    >
                       {thresholdLoading ? (
                         <Loader2 className="animate-spin h-4 w-4" />
                       ) : "Propose"}
                     </Button>
                   </div>
-                  <p className="text-xs text-muted-foreground">Proposes changing the number of approvals required to execute a transaction.</p>
+                  {thresholdError ? (
+                    <p className="text-xs text-destructive">{thresholdError}</p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      Proposes changing the number of approvals required to
+                      execute a transaction. Must be a majority
+                      {signerCount ? ` — ${minimumThreshold} of ${signerCount}` : ""}{" "}
+                      or more.
+                    </p>
+                  )}
                 </div>
               </CardContent>
             </Card>

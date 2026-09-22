@@ -65,6 +65,13 @@ export const MULTISIG_CONTRACT: Record<number, Address> = {
   [LOCALHOST]: "0xEE79d9E7EDBEf7c927A6A58EBc2a3b4c927C1384",
 };
 
+/**
+ * MultiSig.sol's own floor (MINIMUM_THRESHOLD). The contract will not accept a
+ * threshold below this even when the signer set is small enough for a majority
+ * to be lower.
+ */
+export const CONTRACT_MINIMUM_THRESHOLD = 2;
+
 export const NOTES_CONTRACT: Record<number, Address> = {
   [BASE_SEPOLIA]: "0xE818dA06Ceed4Ac6c6d4871a5Fc0226B8032834e",
   [LOCALHOST]: "0xce270FA8D222300a2148477f924669d4b3a0523e",
