@@ -3,9 +3,10 @@
 import { useAdminAccess } from "./useAdminAccess";
 
 const useWalletRestriction = () => {
-  const { isAllowed, walletConnected, isLoading } = useAdminAccess();
+  const { isAllowed, canAccessGovernance, walletConnected, isLoading } =
+    useAdminAccess();
 
-  return { isAllowed, walletConnected, isLoading };
+  return { isAllowed, canAccessGovernance, walletConnected, isLoading };
 };
 
 export default useWalletRestriction;

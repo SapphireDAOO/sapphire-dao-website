@@ -6,10 +6,24 @@ import useWalletRestriction from "@/hooks/useWalletRestriction";
 
 interface ProtectedPageProps {
   children: ReactNode;
+  /**
+   * Also admits the emergency pauser, who is not an owner or a signer but
+   * needs the governance page to reach the pause control.
+   */
+  allowEmergencyPauser?: boolean;
 }
 
-export default function ProtectedPage({ children }: ProtectedPageProps) {
-  const { isAllowed, walletConnected, isLoading } = useWalletRestriction();
+export default function ProtectedPage({
+  children,
+  allowEmergencyPauser = false,
+}: ProtectedPageProps) {
+  const {
+    isAllowed: isAdmin,
+    canAccessGovernance,
+    walletConnected,
+    isLoading,
+  } = useWalletRestriction();
+  const isAllowed = allowEmergencyPauser ? canAccessGovernance : isAdmin;
   const [isInitialLoading, setIsInitialLoading] = useState(true);
 
   useEffect(() => {

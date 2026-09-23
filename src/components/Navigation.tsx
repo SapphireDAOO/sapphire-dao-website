@@ -30,7 +30,7 @@ const ADMIN_LINKS = [
   {
     label: "Controls",
     path: "/controls",
-    description: "Protocol settings and emergency pause",
+    description: "Current protocol configuration",
     Icon: SlidersHorizontal,
   },
   {
@@ -40,8 +40,8 @@ const ADMIN_LINKS = [
     Icon: FileText,
   },
   {
-    label: "Multisig",
-    path: "/multisig",
+    label: "Governance",
+    path: "/governance",
     description: "Propose, sign and execute transactions",
     Icon: Users,
   },
@@ -96,11 +96,14 @@ const HOVER_CLOSE_DELAY_MS = 150;
 const AdminMenu = ({
   activePath,
   onSelect,
+  links,
 }: {
   activePath: string;
   onSelect: (path: string) => void;
+  /** Which of the admin pages this wallet may open. */
+  links: typeof ADMIN_LINKS[number][];
 }) => {
-  const active = ADMIN_LINKS.some((link) => link.path === activePath);
+  const active = links.some((link) => link.path === activePath);
   const [open, setOpen] = useState(false);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -189,7 +192,7 @@ const AdminMenu = ({
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
 
-        {ADMIN_LINKS.map(({ label, path, description, Icon }) => {
+        {links.map(({ label, path, description, Icon }) => {
           const isActive = activePath === path;
 
           return (
@@ -235,7 +238,7 @@ const AdminMenu = ({
 };
 
 const Navbar = () => {
-  const { isAllowed: canAccessAdmin } = useAdminAccess();
+  const { isAllowed: canAccessAdmin, canAccessGovernance } = useAdminAccess();
   const pathname = usePathname();
   const navigator = useRouter();
 
@@ -252,6 +255,16 @@ const Navbar = () => {
     () => (pathname ?? "/").replace(/\/+$/, "") || "/",
     [pathname],
   );
+
+  // An emergency pauser is not an admin, but the pause control sits on the
+  // governance page, so that one entry is offered on its own.
+  const adminLinks = useMemo(() => {
+    if (canAccessAdmin) return [...ADMIN_LINKS];
+    if (canAccessGovernance) {
+      return ADMIN_LINKS.filter((link) => link.path === "/governance");
+    }
+    return [];
+  }, [canAccessAdmin, canAccessGovernance]);
 
   const isHome = path === "/";
   const isMetrics = path === "/metrics";
@@ -298,8 +311,12 @@ const Navbar = () => {
                       ariaLabel="Go to metrics"
                       onClick={() => goTo("/metrics")}
                     />
-                    {canAccessAdmin && (
-                      <AdminMenu activePath={path} onSelect={goTo} />
+                    {adminLinks.length > 0 && (
+                      <AdminMenu
+                        activePath={path}
+                        onSelect={goTo}
+                        links={adminLinks}
+                      />
                     )}
                   </>
                 ) : (
@@ -317,8 +334,12 @@ const Navbar = () => {
                         onClick={() => goTo("/metrics")}
                       />
                     )}
-                    {canAccessAdmin && (
-                      <AdminMenu activePath={path} onSelect={goTo} />
+                    {adminLinks.length > 0 && (
+                      <AdminMenu
+                        activePath={path}
+                        onSelect={goTo}
+                        links={adminLinks}
+                      />
                     )}
                   </>
                 )}

@@ -6,6 +6,7 @@ import { useAccount, useChainId } from "wagmi";
 import { BASE_SEPOLIA } from "@/constants";
 import { readAdminAccess, writeAdminAccess } from "@/lib/adminAccessCache";
 import { useGetOwner } from "./useGetOwner";
+import { useGetEmergencyPauser } from "./useGetEmergencyPauser";
 import { useIsSigner } from "./useIsSigner";
 
 export const useAdminAccess = () => {
@@ -15,17 +16,28 @@ export const useAdminAccess = () => {
   const { data: isSigner, isLoading: isSignerLoading } = useIsSigner(
     address as Address | undefined,
   );
+  const { data: emergencyPauser, isLoading: isPauserLoading } =
+    useGetEmergencyPauser();
 
   const isOwner = useMemo(() => {
     if (!address || !ownerAddress) return false;
     return address.toLowerCase() === ownerAddress.toLowerCase();
   }, [address, ownerAddress]);
 
-  const isLoading = isConnected && (isOwnerLoading || isSignerLoading);
+  // The pauser is neither an owner nor a signer. Pausing lives on the
+  // governance page, so they are let into that page alone rather than into
+  // everything behind the Admin menu.
+  const isEmergencyPauser = useMemo(() => {
+    if (!address || !emergencyPauser) return false;
+    return address.toLowerCase() === emergencyPauser.toLowerCase();
+  }, [address, emergencyPauser]);
+
+  const isLoading =
+    isConnected && (isOwnerLoading || isSignerLoading || isPauserLoading);
   const resolved = isConnected && !isLoading;
   const liveAllowed = isOwner || Boolean(isSigner);
 
-  // Both checks are RPC reads, so on a fresh load the honest answer is "not
+  // Each of these checks is an RPC read, so on a fresh load the honest answer is "not
   // known yet". Rendering that as "not an admin" is what makes the Admin entry
   // appear a beat after the rest of the nav, so fall back to whatever this
   // address resolved to last time until the reads land.
@@ -53,6 +65,9 @@ export const useAdminAccess = () => {
     isAllowed,
     isOwner,
     isSigner: Boolean(isSigner),
+    isEmergencyPauser,
+    /** Governance is open to the pauser as well as to owners and signers. */
+    canAccessGovernance: isAllowed || isEmergencyPauser,
     isLoading,
   };
 };
