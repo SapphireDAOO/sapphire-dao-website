@@ -73,7 +73,7 @@ export const InvoiceField = ({
             <Info className="w-3.5 h-3.5 text-gray-500 hover:text-gray-700 transition" />
           </button>
         </TooltipTrigger>
-        <TooltipContent className="w-60 text-xs p-3 bg-white border border-gray-200 rounded-md shadow-md text-gray-700">
+        <TooltipContent className="w-60 p-3 text-xs">
           <p>{description}</p>
           {link && (
             <a
