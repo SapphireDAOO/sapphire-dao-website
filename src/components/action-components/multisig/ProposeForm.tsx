@@ -9,8 +9,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { BASE_SEPOLIA } from "@/constants";
-import { GOVERNABLE_CONTRACTS, GovernableFunction, encodeGovernableCall } from "./governableFunctions";
+import {
+  GOVERNABLE_CONTRACTS,
+  GovernableFunction,
+  encodeGovernableCall,
+} from "./governableFunctions";
+import { FunctionInfo } from "./FunctionInfo";
 import { proposeMultiSigTransaction } from "@/services/blockchain/MultiSig";
 import { toast } from "sonner";
 import { useHintedWalletClient } from "@/components/wallet-hint/useHintedWalletClient";
@@ -87,68 +93,75 @@ export default function ProposeForm({ onSuccess, onApplyLogs }: ProposeFormProps
   };
 
   return (
-    <div className="space-y-5">
-      <div className="space-y-1.5">
-        <Label>Target Contract</Label>
-        <Select value={contractKey} onValueChange={handleContractChange}>
-          <SelectTrigger className="w-full">
-            <SelectValue placeholder="Select contract" />
-          </SelectTrigger>
-          <SelectContent>
-            {GOVERNABLE_CONTRACTS.map((c) => (
-              <SelectItem key={c.key} value={c.key}>
-                {c.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      {selectedContract && (
+    <TooltipProvider delayDuration={150}>
+      <div className="space-y-5">
         <div className="space-y-1.5">
-          <Label>Function</Label>
-          <Select value={fnName} onValueChange={handleFnChange}>
+          <Label>Target Contract</Label>
+          <Select value={contractKey} onValueChange={handleContractChange}>
             <SelectTrigger className="w-full">
-              <SelectValue placeholder="Select function" />
+              <SelectValue placeholder="Select contract" />
             </SelectTrigger>
             <SelectContent>
-              {selectedContract.functions.map((f) => (
-                <SelectItem key={f.name} value={f.name}>
-                  {f.label}
+              {GOVERNABLE_CONTRACTS.map((c) => (
+                <SelectItem key={c.key} value={c.key}>
+                  {c.label}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
         </div>
-      )}
 
-      {selectedFn?.params.map((p) => (
-        <div key={p.name} className="space-y-1.5">
-          <Label htmlFor={p.name}>{p.label}</Label>
-          <Input
-            id={p.name}
-            placeholder={p.placeholder}
-            value={paramValues[p.name] ?? ""}
-            onChange={(e) =>
-              setParamValues((prev) => ({ ...prev, [p.name]: e.target.value }))
-            }
-          />
-        </div>
-      ))}
+        {selectedContract && (
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-1.5">
+              <Label>Function</Label>
+              {selectedFn && (
+                <FunctionInfo contract={selectedContract} fn={selectedFn} />
+              )}
+            </div>
+            <Select value={fnName} onValueChange={handleFnChange}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select function" />
+              </SelectTrigger>
+              <SelectContent>
+                {selectedContract.functions.map((f) => (
+                  <SelectItem key={f.name} value={f.name}>
+                    {f.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
 
-      {selectedFn && (
-        <Button
-          className="w-full"
-          onClick={handleSubmit}
-          disabled={!!isLoading}
-        >
-          {isLoading ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            "Propose Transaction"
-          )}
-        </Button>
-      )}
-    </div>
+        {selectedFn?.params.map((p) => (
+          <div key={p.name} className="space-y-1.5">
+            <Label htmlFor={p.name}>{p.label}</Label>
+            <Input
+              id={p.name}
+              placeholder={p.placeholder}
+              value={paramValues[p.name] ?? ""}
+              onChange={(e) =>
+                setParamValues((prev) => ({ ...prev, [p.name]: e.target.value }))
+              }
+            />
+          </div>
+        ))}
+
+        {selectedFn && (
+          <Button
+            className="w-full"
+            onClick={handleSubmit}
+            disabled={!!isLoading}
+          >
+            {isLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              "Propose Transaction"
+            )}
+          </Button>
+        )}
+      </div>
+    </TooltipProvider>
   );
 }

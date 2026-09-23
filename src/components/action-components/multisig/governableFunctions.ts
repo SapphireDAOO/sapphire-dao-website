@@ -30,20 +30,42 @@ export interface GovernableFunction {
   /** Solidity input types in order, for encodeFunctionData */
   inputTypes: string[];
   params: FunctionParam[];
+  /** One line on what executing this proposal would do. */
+  hint: string;
+  /**
+   * Anchor for this function on the contract's docs page. GitBook derives it
+   * from the heading, so `#### setFeeSigner` becomes `#setfeesigner`. Omitted
+   * where the function is not documented, in which case the page itself is
+   * linked.
+   */
+  docsAnchor?: string;
 }
 
 export interface GovernableContract {
   label: string;
   key: "simple" | "intermediated" | "storage" | "multisig";
   getAddress: (chainId: number) => Address;
+  /** Where this contract is written up, for the per-function docs links. */
+  docsUrl: string;
   functions: GovernableFunction[];
 }
+
+const DOCS_BASE =
+  "https://sapphiredao.gitbook.io/sapphiredao-docs/technical-docs/core-contracts";
+
+/** The docs link for one proposable action. */
+export const functionDocsUrl = (
+  contract: GovernableContract,
+  fn: GovernableFunction,
+): string =>
+  fn.docsAnchor ? `${contract.docsUrl}${fn.docsAnchor}` : contract.docsUrl;
 
 export const GOVERNABLE_CONTRACTS: GovernableContract[] = [
   {
     label: "PaymentProcessorStorage",
     key: "storage",
     getAddress: (chainId) => PAYMENT_PROCESSOR_STORAGE[chainId] as Address,
+    docsUrl: `${DOCS_BASE}/paymentprocessorstorage.sol`,
     functions: [
       {
         name: "setFeeSigner",
@@ -51,6 +73,9 @@ export const GOVERNABLE_CONTRACTS: GovernableContract[] = [
         signature: "setFeeSigner(address)",
         inputTypes: ["address"],
         params: [{ name: "feeSigner", label: "Fee signer address", kind: "address", placeholder: "0x..." }],
+        hint:
+          "Designates the address whose signature authorizes a per-invoice fee receiver. Invoices cannot be paid with an authorization from any other key.",
+        docsAnchor: "#setfeesigner",
       },
       {
         name: "setIntermediatedPlatformsOperator",
@@ -58,6 +83,9 @@ export const GOVERNABLE_CONTRACTS: GovernableContract[] = [
         signature: "setIntermediatedPlatformsOperator(address)",
         inputTypes: ["address"],
         params: [{ name: "operator", label: "Operator address", kind: "address", placeholder: "0x..." }],
+        hint:
+          "Updates the wallet allowed to call the privileged functions on the intermediated processor, on behalf of intermediated platforms.",
+        docsAnchor: "#setintermediatedplatformsoperator",
       },
       {
         name: "setEmergencyPauser",
@@ -65,13 +93,22 @@ export const GOVERNABLE_CONTRACTS: GovernableContract[] = [
         signature: "setEmergencyPauser(address)",
         inputTypes: ["address"],
         params: [{ name: "emergencyPauser", label: "Emergency pauser address", kind: "address", placeholder: "0x..." }],
+        hint:
+          "Assigns or revokes the address permitted to trip an emergency pause without waiting for the multisig.",
+        docsAnchor: "#setemergencypauser",
       },
       {
         name: "pause",
-        label: "Pause",
+        // Named for what it does rather than what the contract calls it: the
+        // distinction that matters to a signer is that this one never lapses,
+        // unlike the emergency pause the designated pauser can trip.
+        label: "Emergency Unlimited Pause",
         signature: "pause()",
         inputTypes: [],
         params: [],
+        hint:
+          "Halts every value-moving entrypoint on both processors indefinitely. It holds until it is unpaused; there is no expiry.",
+        docsAnchor: "#pause",
       },
       {
         name: "unpause",
@@ -79,6 +116,9 @@ export const GOVERNABLE_CONTRACTS: GovernableContract[] = [
         signature: "unpause()",
         inputTypes: [],
         params: [],
+        hint:
+          "Lifts an active pause and clears any unresolved emergency pause, returning both processors to normal operation.",
+        docsAnchor: "#unpause",
       },
       {
         name: "approveEmergencyPause",
@@ -86,6 +126,9 @@ export const GOVERNABLE_CONTRACTS: GovernableContract[] = [
         signature: "approveEmergencyPause()",
         inputTypes: [],
         params: [],
+        hint:
+          "Converts a running emergency pause into an indefinite one, clearing its timer so it no longer lapses on its own.",
+        docsAnchor: "#approveemergencypause",
       },
       {
         name: "transferOwnership",
@@ -93,6 +136,8 @@ export const GOVERNABLE_CONTRACTS: GovernableContract[] = [
         signature: "transferOwnership(address)",
         inputTypes: ["address"],
         params: [{ name: "newOwner", label: "New owner address", kind: "address", placeholder: "0x..." }],
+        hint:
+          "Hands governance of the storage contract to a new owner. Irreversible from here: only the new owner can transfer it onward.",
       },
     ],
   },
@@ -109,6 +154,7 @@ export const MULTISIG_ADMIN_CONTRACT: GovernableContract = {
   label: "MultiSig",
   key: "multisig",
   getAddress: (chainId) => MULTISIG_CONTRACT[chainId] as Address,
+  docsUrl: `${DOCS_BASE}/multisig.sol`,
   functions: [
     {
       name: "addSigner",
@@ -116,6 +162,8 @@ export const MULTISIG_ADMIN_CONTRACT: GovernableContract = {
       signature: "addSigner(address)",
       inputTypes: ["address"],
       params: [{ name: "signer", label: "Signer", kind: "address", placeholder: "0x..." }],
+      hint: "Adds an address to the signer set. Proposed like any other action, since the multisig can only administer itself.",
+      docsAnchor: "#addsigner",
     },
     {
       name: "removeSigner",
@@ -123,6 +171,8 @@ export const MULTISIG_ADMIN_CONTRACT: GovernableContract = {
       signature: "removeSigner(address)",
       inputTypes: ["address"],
       params: [{ name: "signer", label: "Signer", kind: "address", placeholder: "0x..." }],
+      hint: "Removes an address from the signer set. Rejected if it would leave fewer signers than the threshold requires.",
+      docsAnchor: "#removesigner",
     },
     {
       name: "updateThreshold",
@@ -130,6 +180,8 @@ export const MULTISIG_ADMIN_CONTRACT: GovernableContract = {
       signature: "updateThreshold(uint256)",
       inputTypes: ["uint256"],
       params: [{ name: "newThreshold", label: "New threshold", kind: "uint256", placeholder: "2" }],
+      hint: "Changes how many approvals a transaction needs before it can execute.",
+      docsAnchor: "#updatethreshold",
     },
     {
       name: "cancelTransaction",
@@ -137,6 +189,8 @@ export const MULTISIG_ADMIN_CONTRACT: GovernableContract = {
       signature: "cancelTransaction(bytes32)",
       inputTypes: ["bytes32"],
       params: [{ name: "txHash", label: "Transaction", kind: "bytes32", placeholder: "0x..." }],
+      hint: "Cancels a proposed or approved transaction so it can never execute.",
+      docsAnchor: "#canceltransaction",
     },
   ],
 };
