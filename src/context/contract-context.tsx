@@ -38,7 +38,6 @@ export interface ContractContextData {
   cancelInvoice: (invoiceId: bigint) => Promise<boolean>;
   releaseInvoice: (invoiceId: bigint) => Promise<boolean>;
   refundBuyerAfterWindow: (invoiceId: bigint) => Promise<boolean>;
-  transferOwnership: (address: Address) => Promise<boolean>;
   getIntermediatedInvoiceData: (
     invoiceId: bigint,
     type: "smartInvoice" | "metaInvoice"
@@ -66,7 +65,6 @@ export const contractContextDefaults: ContractContextData = {
     actions: [],
     intermediatedInvoices: [],
   },
-  transferOwnership: async () => Promise.resolve(false),
   createInvoice: async () => Promise.resolve(BigInt(0)),
   makeInvoicePayment: async () => Promise.resolve(false),
   payIntermediatedInvoice: async () => Promise.resolve(false),

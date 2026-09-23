@@ -13,7 +13,7 @@ export default function FeeActivities() {
               <p className="text-sm text-muted-foreground mt-1">
                 Platform fees held across the one-time fee receivers, and the
                 sweeps that have moved them out. Sweeping is a multisig
-                action, so propose one from the Multisig page.
+                action, so propose one from the Governance page.
               </p>
             </div>
             <FeesCollected />

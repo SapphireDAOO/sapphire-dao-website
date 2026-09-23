@@ -20,7 +20,6 @@ import {
   cancelInvoice,
   releaseInvoice,
   refundBuyerAfterWindow,
-  transferOwnership,
 } from "@/services/blockchain/SimplePaymentProcessor";
 import {
   payIntermediatedInvoice as submitIntermediatedInvoicePayment,
@@ -200,14 +199,6 @@ const WalletProvider = ({ children }: Props) => {
         refundBuyerAfterWindow(
           wagmiClients,
           invoiceId,
-          chainId,
-          setIsLoading,
-          getInvoiceData,
-        ),
-      transferOwnership: (address: Address) =>
-        transferOwnership(
-          wagmiClients,
-          address,
           chainId,
           setIsLoading,
           getInvoiceData,

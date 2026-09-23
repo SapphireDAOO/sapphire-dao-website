@@ -26,7 +26,11 @@ import {
 import { Address, encodeFunctionData } from "viem";
 import { proposeMultiSigTransaction } from "@/services/blockchain/MultiSig";
 import { formatAddress } from "./decodeCalldata";
+import { FunctionInfo } from "./FunctionInfo";
+import { MULTISIG_ADMIN_CONTRACT } from "./governableFunctions";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { useHintedWalletClient } from "@/components/wallet-hint/useHintedWalletClient";
+import EmergencyPause from "@/components/action-components/admin/EmergencyPause";
 
 const CONTRACT_DESCRIPTIONS = [
   {
@@ -52,7 +56,7 @@ const CONTRACT_DESCRIPTIONS = [
 const fn1 = (name: string, type: string) =>
   [{ name, type: "function" as const, inputs: [{ name: "v", type, internalType: type }], outputs: [], stateMutability: "nonpayable" as const }] as const;
 
-export default function MultiSigPage() {
+export default function GovernancePage() {
   const { address } = useAccount();
   const chainId = useChainId() || BASE_SEPOLIA;
   const { data: walletClient } = useHintedWalletClient();
@@ -171,7 +175,7 @@ export default function MultiSigPage() {
           <div>
             <div className="flex items-center gap-2">
               <ShieldCheck className="h-6 w-6 text-green-600" />
-              <h1 className="text-2xl font-bold">MultiSig Governance</h1>
+              <h1 className="text-2xl font-bold">Governance</h1>
             </div>
             <p className="text-sm text-muted-foreground mt-1">
               Contract:{" "}
@@ -194,6 +198,10 @@ export default function MultiSigPage() {
             </div>
           )}
         </div>
+
+        {/* Halting the protocol is a governance action too, but an urgent one:
+            it stays in the open rather than behind a tab. */}
+        <EmergencyPause />
 
         {/* Signers */}
         {wallet?.signers && wallet.signers.length > 0 && (
@@ -285,87 +293,113 @@ export default function MultiSigPage() {
           </TabsContent>
 
           <TabsContent value="signers" className="mt-4">
-            <Card className="max-w-md">
-              <CardHeader>
-                <CardTitle className="text-base">Signer Management</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                {/* Add Signer */}
-                <div className="space-y-1.5">
-                  <Label htmlFor="addSigner">Add Signer</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      id="addSigner"
-                      placeholder="Enter address (0x...)"
-                      value={addSignerAddr}
-                      onChange={(e) => setAddSignerAddr(e.target.value)}
-                    />
-                    <Button onClick={handleAddSigner} disabled={!!addLoading || !addSignerAddr}>
-                      {addLoading ? (
-                        <Loader2 className="animate-spin h-4 w-4" />
-                      ) : "Propose"}
-                    </Button>
+            <TooltipProvider delayDuration={150}>
+              <Card className="max-w-md">
+                <CardHeader>
+                  <CardTitle className="text-base">Signer Management</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {/* Add Signer */}
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-1.5">
+                      <Label htmlFor="addSigner">Add Signer</Label>
+                      {ADD_SIGNER && (
+                        <FunctionInfo
+                          contract={MULTISIG_ADMIN_CONTRACT}
+                          fn={ADD_SIGNER}
+                        />
+                      )}
+                    </div>
+                    <div className="flex gap-2">
+                      <Input
+                        id="addSigner"
+                        placeholder="Enter address (0x...)"
+                        value={addSignerAddr}
+                        onChange={(e) => setAddSignerAddr(e.target.value)}
+                      />
+                      <Button onClick={handleAddSigner} disabled={!!addLoading || !addSignerAddr}>
+                        {addLoading ? (
+                          <Loader2 className="animate-spin h-4 w-4" />
+                        ) : "Propose"}
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground">Proposes adding a new authorized signer to the multisig.</p>
                   </div>
-                  <p className="text-xs text-muted-foreground">Proposes adding a new authorized signer to the multisig.</p>
-                </div>
 
-                {/* Remove Signer */}
-                <div className="space-y-1.5">
-                  <Label htmlFor="removeSigner">Remove Signer</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      id="removeSigner"
-                      placeholder="Enter address (0x...)"
-                      value={removeSignerAddr}
-                      onChange={(e) => setRemoveSignerAddr(e.target.value)}
-                    />
-                    <Button onClick={handleRemoveSigner} disabled={!!removeLoading || !removeSignerAddr}>
-                      {removeLoading ? (
-                        <Loader2 className="animate-spin h-4 w-4" />
-                      ) : "Propose"}
-                    </Button>
+                  {/* Remove Signer */}
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-1.5">
+                      <Label htmlFor="removeSigner">Remove Signer</Label>
+                      {REMOVE_SIGNER && (
+                        <FunctionInfo
+                          contract={MULTISIG_ADMIN_CONTRACT}
+                          fn={REMOVE_SIGNER}
+                        />
+                      )}
+                    </div>
+                    <div className="flex gap-2">
+                      <Input
+                        id="removeSigner"
+                        placeholder="Enter address (0x...)"
+                        value={removeSignerAddr}
+                        onChange={(e) => setRemoveSignerAddr(e.target.value)}
+                      />
+                      <Button onClick={handleRemoveSigner} disabled={!!removeLoading || !removeSignerAddr}>
+                        {removeLoading ? (
+                          <Loader2 className="animate-spin h-4 w-4" />
+                        ) : "Propose"}
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground">Proposes removing a signer. Cannot drop below the current threshold.</p>
                   </div>
-                  <p className="text-xs text-muted-foreground">Proposes removing a signer. Cannot drop below the current threshold.</p>
-                </div>
 
-                {/* Update Threshold */}
-                <div className="space-y-1.5">
-                  <Label htmlFor="updateThreshold">Update Threshold</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      id="updateThreshold"
-                      type="number"
-                      placeholder="Enter new threshold"
-                      min={minimumThreshold}
-                      max={signerCount || undefined}
-                      value={newThreshold}
-                      onChange={(e) => setNewThreshold(e.target.value)}
-                      aria-invalid={!!thresholdError}
-                    />
-                    <Button
-                      onClick={handleUpdateThreshold}
-                      disabled={
-                        !!thresholdLoading || !newThreshold || !!thresholdError
-                      }
-                    >
-                      {thresholdLoading ? (
-                        <Loader2 className="animate-spin h-4 w-4" />
-                      ) : "Propose"}
-                    </Button>
+                  {/* Update Threshold */}
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-1.5">
+                      <Label htmlFor="updateThreshold">Update Threshold</Label>
+                      {UPDATE_THRESHOLD && (
+                        <FunctionInfo
+                          contract={MULTISIG_ADMIN_CONTRACT}
+                          fn={UPDATE_THRESHOLD}
+                        />
+                      )}
+                    </div>
+                    <div className="flex gap-2">
+                      <Input
+                        id="updateThreshold"
+                        type="number"
+                        placeholder="Enter new threshold"
+                        min={minimumThreshold}
+                        max={signerCount || undefined}
+                        value={newThreshold}
+                        onChange={(e) => setNewThreshold(e.target.value)}
+                        aria-invalid={!!thresholdError}
+                      />
+                      <Button
+                        onClick={handleUpdateThreshold}
+                        disabled={
+                          !!thresholdLoading || !newThreshold || !!thresholdError
+                        }
+                      >
+                        {thresholdLoading ? (
+                          <Loader2 className="animate-spin h-4 w-4" />
+                        ) : "Propose"}
+                      </Button>
+                    </div>
+                    {thresholdError ? (
+                      <p className="text-xs text-destructive">{thresholdError}</p>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">
+                        Proposes changing the number of approvals required to
+                        execute a transaction. Must be a majority
+                        {signerCount ? ` — ${minimumThreshold} of ${signerCount}` : ""}{" "}
+                        or more.
+                      </p>
+                    )}
                   </div>
-                  {thresholdError ? (
-                    <p className="text-xs text-destructive">{thresholdError}</p>
-                  ) : (
-                    <p className="text-xs text-muted-foreground">
-                      Proposes changing the number of approvals required to
-                      execute a transaction. Must be a majority
-                      {signerCount ? ` — ${minimumThreshold} of ${signerCount}` : ""}{" "}
-                      or more.
-                    </p>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            </TooltipProvider>
           </TabsContent>
 
           <TabsContent value="fees" className="mt-4">
@@ -404,6 +438,18 @@ export default function MultiSigPage() {
     </Container>
   );
 }
+
+/**
+ * The signer-management fields propose calls on the multisig itself, so their
+ * explanations and docs links come from the same definitions the decoder uses
+ * to render those proposals.
+ */
+const multisigAction = (name: string) =>
+  MULTISIG_ADMIN_CONTRACT.functions.find((fn) => fn.name === name);
+
+const ADD_SIGNER = multisigAction("addSigner");
+const REMOVE_SIGNER = multisigAction("removeSigner");
+const UPDATE_THRESHOLD = multisigAction("updateThreshold");
 
 function Stat({ label, value }: { label: string; value: string | number }) {
   return (

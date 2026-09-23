@@ -1,19 +1,16 @@
 "use client";
-import { useContext, useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useAccount, useChainId, usePublicClient } from "wagmi";
 import {
   Card,
-  CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { type AbiEvent, Address, formatEther, isAddress } from "viem";
-import { Info, Loader2, TriangleAlert } from "lucide-react";
-import { toast } from "sonner";
+import { type AbiEvent, Address, formatEther } from "viem";
+import { Info, Loader2 } from "lucide-react";
 import { MULTISIG_CONTRACT, BASE_SEPOLIA } from "@/constants";
 import { Multisig } from "@/abis/MultiSig";
-import { ContractContext } from "@/context/contract-context";
 import { useGetOwner } from "@/hooks/useGetOwner";
 import { useGetFeeReceiver } from "@/hooks/useGetFeeReceiver";
 import { useGetFeeRate } from "@/hooks/useGetFeeRate";
@@ -28,7 +25,6 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { formatDurationSeconds } from "@/utils";
-import AdminSettingRow from "./AdminSettingRow";
 
 const truncateAddress = (address: string | undefined) =>
   address ? `${address.slice(0, 6)}...${address.slice(-4)}` : "Loading...";
@@ -82,18 +78,15 @@ const AddressLink = ({ address }: { address?: string }) =>
   );
 
 /**
- * The current protocol configuration, plus the one action an owner can still
- * take from their own wallet. Everything here is sent directly rather than
- * proposed, so it only works while the owner is a plain EOA — once ownership
- * sits with the multisig, the contract rejects these calls and the Multisig
- * page governs the same settings by proposal.
+ * The current protocol configuration, read from the chain.
+ *
+ * Nothing is changed from here: every one of these settings, ownership
+ * included, is altered by proposal on the Governance page.
  */
 const OwnerControls = () => {
   useAccount();
   const chainId = useChainId() || BASE_SEPOLIA;
   const publicClient = usePublicClient({ chainId });
-  const { transferOwnership, isLoading } = useContext(ContractContext);
-
   const { data: owner, isLoading: isOwnerLoading, refetch: refetchOwner } = useGetOwner();
   const { data: fee, refetch: refetchFee } = useGetFeeRate();
   const { data: minimumInvoiceValue, refetch: refetchMinimumInvoiceValue } = useGetMinimumInvoiceValue();
@@ -142,31 +135,6 @@ const OwnerControls = () => {
     refetchValidPeriod,
   ]);
 
-  const [ownerAddr, setOwnerAddr] = useState("");
-
-  // Ownership already sitting with the multisig means this form cannot work —
-  // say so up front rather than letting the transaction revert.
-  const ownedByMultisig = Boolean(
-    owner &&
-      MULTISIG_CONTRACT[chainId] &&
-      owner.toLowerCase() === MULTISIG_CONTRACT[chainId].toLowerCase(),
-  );
-
-  const handleOwnerAddress = async () => {
-    // Ownership is not recoverable by this page once handed over, so reject a
-    // malformed address here rather than letting the wallet send it.
-    if (!isAddress(ownerAddr)) {
-      toast.error("Enter a valid address");
-      return;
-    }
-    if (ownedByMultisig) return;
-
-    if (await transferOwnership(ownerAddr as Address)) {
-      setOwnerAddr("");
-      void refetchOwner();
-    }
-  };
-
   if (isOwnerLoading) {
     return (
       <Card className="w-full flex items-center justify-center p-6">
@@ -181,16 +149,17 @@ const OwnerControls = () => {
   return (
     <Card className="w-full">
       <CardHeader>
-        <CardTitle className="text-2xl font-bold">Owner Controls</CardTitle>
+        <CardTitle className="text-2xl font-bold">Protocol Settings</CardTitle>
         <CardDescription className="text-sm text-muted-foreground">
-          Only permitted addresses are allowed to access this page
+          The live configuration. Changing any of it is a proposal on the
+          Governance page.
         </CardDescription>
 
         <TooltipProvider delayDuration={150}>
           <div className="mt-4 bg-muted p-4 rounded grid gap-4 sm:grid-cols-2">
             <Setting
               label="Owner"
-              hint="The address that governs the protocol. While it is a single EOA it can act from this page; once it is the multisig, changes go through proposals instead."
+              hint="The address that governs the protocol. Transferring it is itself a proposal on the Governance page."
             >
               <AddressLink address={owner} />
             </Setting>
@@ -240,53 +209,6 @@ const OwnerControls = () => {
         </TooltipProvider>
       </CardHeader>
 
-      <CardContent>
-        <div className="flex gap-2 items-start rounded-md border border-amber-200 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 p-3 mb-6 text-sm text-amber-900 dark:text-amber-200">
-          <TriangleAlert className="h-4 w-4 mt-0.5 shrink-0" />
-          <p>
-            This action is sent straight from your wallet and is not proposed
-            to the multisig. It only applies while the protocol owner is a
-            single EOA, since the contract accepts the call from that address
-            alone.{" "}
-            {ownedByMultisig ? (
-              <>
-                Ownership currently sits with the multisig, so transfer it from
-                the{" "}
-                <a href="/multisig" className="underline font-medium">
-                  Multisig page
-                </a>{" "}
-                instead.
-              </>
-            ) : (
-              <>
-                Once ownership is transferred to the multisig, use the{" "}
-                <a href="/multisig" className="underline font-medium">
-                  Multisig page
-                </a>
-                , where this and every other setting is governed by proposal.
-              </>
-            )}
-          </p>
-        </div>
-
-        <div className="grid w-full items-center gap-6">
-          <AdminSettingRow
-            label="Set New Admin"
-            inputId="setAdminAddress"
-            inputProps={{
-              placeholder: "Enter address (0x...)",
-              value: ownerAddr,
-              onChange: (e) => setOwnerAddr(e.target.value),
-              disabled: ownedByMultisig,
-            }}
-            onAction={handleOwnerAddress}
-            loadingKey="transferOwnership"
-            isLoading={isLoading}
-            buttonText="Set Admin"
-            description="Transfers contract ownership to a new address immediately."
-          />
-        </div>
-      </CardContent>
     </Card>
   );
 };

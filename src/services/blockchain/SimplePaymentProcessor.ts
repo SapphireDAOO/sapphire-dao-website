@@ -6,14 +6,10 @@ import {
   type Hex,
   type Log,
 } from "viem";
-import {
-  PAYMENT_PROCESSOR_STORAGE,
-  SIMPLE_PAYMENT_PROCESSOR,
-} from "@/constants";
+import { SIMPLE_PAYMENT_PROCESSOR } from "@/constants";
 import { fetchGasPrice, getError, getChainById } from "./utils";
 import { paymentProcessor } from "@/abis/PaymentProcessor";
 import { client } from "../graphql/client";
-import { PaymentProcessorStorage } from "@/abis/PaymentProcessorStorage";
 import { invoiceOwnerQuery } from "../graphql/queries";
 import { WagmiClient } from "./types";
 import { requestFeeReceiver } from "../feeReceiver";
@@ -405,55 +401,6 @@ export const refundBuyerAfterWindow = async (
   }
   return success;
 };
-
-export const transferOwnership = async (
-  { walletClient, publicClient }: WagmiClient,
-  address: Address,
-  chainId: number,
-  setIsLoading: (value: string) => void,
-  getInvoiceData: () => Promise<void>,
-): Promise<boolean> => {
-  setIsLoading("transferOwnership");
-  let success = false;
-
-  try {
-    const gasPrice = await fetchGasPrice(publicClient, chainId);
-
-    const tx = await walletClient?.sendTransaction({
-      chain: getChainById(chainId),
-      to: PAYMENT_PROCESSOR_STORAGE[chainId],
-      data: encodeFunctionData({
-        abi: PaymentProcessorStorage,
-        functionName: "transferOwnership",
-        args: [address],
-      }),
-      gasPrice,
-    });
-
-    if (!tx) {
-      toast.error("Transaction failed to initiate");
-      return false;
-    }
-
-    const receipt = await publicClient?.waitForTransactionReceipt({
-      hash: tx,
-    });
-
-    if (receipt?.status) {
-      toast.success("New Admin updated successfully");
-      await getInvoiceData();
-      success = true;
-    } else {
-      toast.error("Failed to update Admin. Please try again.");
-    }
-  } catch (error) {
-    getError(error);
-  } finally {
-    setIsLoading("");
-  }
-  return success;
-};
-
 
 
 
