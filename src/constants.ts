@@ -189,9 +189,15 @@ export const NOTES_SIGNER_ADDRESS =
   process.env.NEXT_PUBLIC_NOTES_SIGNER_ADDRESS;
 
 export const THE_GRAPH_API_URL: Record<number, string> = {
+  // Pinned to a published version rather than `/version/latest`: the latest
+  // alias follows whatever was deployed last, so a subgraph publish can change
+  // what this app queries without the app changing at all.
   [BASE_SEPOLIA]:
-    "https://api.studio.thegraph.com/query/100227/payment-processor-indexer/version/latest",
-  [LOCALHOST]: "http://localhost:8000/subgraphs/name/payment-processor-indexer",
+    process.env.NEXT_PUBLIC_THE_GRAPH_API_URL ??
+    "https://api.studio.thegraph.com/query/100227/payment-processor-indexer/v0.0.7",
+  [LOCALHOST]:
+    process.env.NEXT_PUBLIC_LOCAL_SUBGRAPH_URL ??
+    "http://localhost:8000/subgraphs/name/payment-processor-indexer",
 };
 
 // review errors and seperate using contract address as key(maybe)
