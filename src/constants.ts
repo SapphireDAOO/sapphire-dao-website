@@ -194,7 +194,7 @@ export const THE_GRAPH_API_URL: Record<number, string> = {
   // what this app queries without the app changing at all.
   [BASE_SEPOLIA]:
     process.env.NEXT_PUBLIC_THE_GRAPH_API_URL ??
-    "https://api.studio.thegraph.com/query/100227/payment-processor-indexer/v0.0.7",
+    "https://api.studio.thegraph.com/query/100227/payment-processor-indexer/version/latest",
   [LOCALHOST]:
     process.env.NEXT_PUBLIC_LOCAL_SUBGRAPH_URL ??
     "http://localhost:8000/subgraphs/name/payment-processor-indexer",
