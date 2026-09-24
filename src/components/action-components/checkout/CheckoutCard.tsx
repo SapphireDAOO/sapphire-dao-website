@@ -39,6 +39,7 @@ import { InvoiceDetails, TokenData } from "@/model/model";
 import { INTERMEDIATED_PAYMENT_PROCESSOR, BASE_SEPOLIA } from "@/constants";
 import { formatAddress, formatDurationSeconds } from "@/utils";
 import { useGetIntermediatedInvoiceData } from "@/hooks/useGetIntermediatedInvoiceData";
+import { useInvoicePaymentOptions } from "@/hooks/useInvoicePaymentOptions";
 
 interface CheckoutCardProps {
   data: InvoiceDetails;
@@ -80,17 +81,34 @@ const CheckoutCard = ({ data, isMetaInvoice }: CheckoutCardProps) => {
     useContext(ContractContext);
 
   const normalizedStatus = data?.status?.toUpperCase?.();
-  const isPayableStatus =
-    !normalizedStatus ||
-    normalizedStatus === "CREATED" ||
-    normalizedStatus === "INITIATED" ||
-    normalizedStatus === "AWAITING PAYMENT";
 
-  const supportedTokens: TokenData[] = Array.isArray(data?.tokenList)
+  // Everything the chain might accept, before the invoice's own allow-list is
+  // applied. A meta-invoice reports no status of its own, so the payable
+  // decision for both kinds comes from the hook below rather than from here.
+  const candidateTokens: TokenData[] = Array.isArray(data?.tokenList)
     ? data.tokenList.filter(Boolean)
     : data.tokenList
       ? [data.tokenList]
       : [];
+
+  // The seller nominates the tokens when creating the invoice, and the state
+  // has to be CREATED for the contract to take payment at all. Neither is in
+  // the subgraph, so both are read from the processor.
+  const {
+    tokens: supportedTokens,
+    isPayable: isPayableStatus,
+    isLoading: isLoadingOptions,
+  } = useInvoicePaymentOptions(data?.invoiceId, Boolean(isMetaInvoice), candidateTokens);
+
+  // A token chosen before the allow-list landed, or left over from another
+  // invoice, must not survive into the payment call.
+  useEffect(() => {
+    if (!selectedToken) return;
+    if (supportedTokens.some((token) => token.id.toString() === selectedToken)) {
+      return;
+    }
+    setSelectedToken("");
+  }, [selectedToken, supportedTokens]);
 
 
   const handleClick = async () => {
@@ -190,14 +208,26 @@ const CheckoutCard = ({ data, isMetaInvoice }: CheckoutCardProps) => {
             {/* Token Selector */}
             <div className="flex flex-col space-y-2 mt-3">
               <Label>Payment Token</Label>
-              <Select value={selectedToken} onValueChange={setSelectedToken}>
+              <Select
+                value={selectedToken}
+                onValueChange={setSelectedToken}
+                disabled={isLoadingOptions || supportedTokens.length === 0}
+              >
                 <SelectTrigger id="token" className="w-full">
-                  <SelectValue placeholder="Select a token" />
+                  <SelectValue
+                    placeholder={
+                      isLoadingOptions
+                        ? "Loading accepted tokens..."
+                        : supportedTokens.length === 0
+                          ? "No accepted tokens"
+                          : "Select a token"
+                    }
+                  />
                 </SelectTrigger>
 
                 <SelectContent>
                   <SelectGroup>
-                    <SelectLabel>Tokens</SelectLabel>
+                    <SelectLabel>Accepted by this invoice</SelectLabel>
                     {supportedTokens.map((token) => (
                       <SelectItem key={token.id} value={token.id.toString()}>
                         {token.name}
@@ -206,6 +236,12 @@ const CheckoutCard = ({ data, isMetaInvoice }: CheckoutCardProps) => {
                   </SelectGroup>
                 </SelectContent>
               </Select>
+              {!isLoadingOptions && supportedTokens.length === 0 && (
+                <p className="text-xs text-muted-foreground">
+                  The seller did not nominate any token this wallet can pay
+                  with on this network.
+                </p>
+              )}
             </div>
 
           </div>
@@ -219,6 +255,8 @@ const CheckoutCard = ({ data, isMetaInvoice }: CheckoutCardProps) => {
                 className="w-full"
                 disabled={
                   !isPayableStatus ||
+                  isLoadingOptions ||
+                  !selectedToken ||
                   isLoading === "paySingleInvoice" ||
                   isLoading === "payMetaInvoice"
                 }
@@ -233,7 +271,7 @@ const CheckoutCard = ({ data, isMetaInvoice }: CheckoutCardProps) => {
                   "Make Payment"
                 )}
               </Button>
-              {!isPayableStatus && (
+              {!isPayableStatus && !isLoadingOptions && (
                 <p className="text-center text-sm text-red-500">
                   Invoice is not payable in its current status{" "}
                   {normalizedStatus ? `(${normalizedStatus})` : ""}.
