@@ -7,7 +7,6 @@ import {
   ChevronDown,
   Coins,
   FileText,
-  SlidersHorizontal,
   Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -23,16 +22,10 @@ import { useAdminAccess } from "@/hooks/useAdminAccess";
 
 /**
  * The admin-only pages, grouped behind one nav entry. Each carries a line of
- * its own: four terse labels give no clue which page holds what, and these are
+ * its own: terse labels give no clue which page holds what, and these are
  * pages an admin reaches for rarely.
  */
 const ADMIN_LINKS = [
-  {
-    label: "Controls",
-    path: "/controls",
-    description: "Current protocol configuration",
-    Icon: SlidersHorizontal,
-  },
   {
     label: "Invoices",
     path: "/invoices",
@@ -249,7 +242,7 @@ const Navbar = () => {
     [navigator],
   );
 
-  // `trailingSlash: true` makes usePathname return e.g. "/controls/", so strip
+  // `trailingSlash: true` makes usePathname return e.g. "/governance/", so strip
   // the trailing slash before comparing.
   const path = useMemo(
     () => (pathname ?? "/").replace(/\/+$/, "") || "/",
