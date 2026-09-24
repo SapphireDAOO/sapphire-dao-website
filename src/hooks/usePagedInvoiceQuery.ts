@@ -267,24 +267,17 @@ export function usePagedInvoiceQuery({
 
     nextSellerSkipRef.current = 0;
     nextBuyerSkipRef.current = 0;
-    void doFetch({
-      sellerSkip: 0,
-      buyerSkip: 0,
-      append: false,
-      requestPolicy: "network-only",
-    });
+    // No requestPolicy: the client's cache-first default applies. Forcing the
+    // network here meant every tab switch and remount was a fresh request, and
+    // the endpoint rate-limits.
+    void doFetch({ sellerSkip: 0, buyerSkip: 0, append: false });
   }, [doFetch, enabled, isWindowVisible]);
 
   const refetch = useCallback(() => {
     if (!enabled) return;
     nextSellerSkipRef.current = 0;
     nextBuyerSkipRef.current = 0;
-    void doFetch({
-      sellerSkip: 0,
-      buyerSkip: 0,
-      append: false,
-      requestPolicy: "network-only",
-    });
+    void doFetch({ sellerSkip: 0, buyerSkip: 0, append: false });
   }, [doFetch, enabled]);
 
   const loadMoreSeller = useCallback(() => {
