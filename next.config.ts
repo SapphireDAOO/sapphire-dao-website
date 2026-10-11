@@ -45,6 +45,15 @@ const nextConfig: NextConfig = {
   },
   webpack: (config) => {
     config.resolve.fallback = { fs: false, net: false, tls: false };
+    // Optional imports in the wallet SDKs that never run in a browser:
+    // MetaMask's React Native storage and pino's pretty printer. Resolving
+    // them to empty modules keeps webpack quiet without installing either,
+    // and async-storage would otherwise pull in all of React Native.
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      "@react-native-async-storage/async-storage": false,
+      "pino-pretty": false,
+    };
     // Server chunks otherwise get module ids assigned in compilation-finish
     // order, which races: ids swap between builds of identical source.
     config.optimization = {
