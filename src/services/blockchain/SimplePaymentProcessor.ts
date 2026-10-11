@@ -13,7 +13,6 @@ import { client } from "../graphql/client";
 import { invoiceOwnerQuery } from "../graphql/queries";
 import { WagmiClient } from "./types";
 import { requestFeeReceiver } from "../feeReceiver";
-import { clearFeeReceiver } from "@/lib/feeReceiverStore";
 
 const asStorageRefHex = (storageRef?: string): `0x${string}` => {
   const trimmed = storageRef?.trim();
@@ -246,10 +245,6 @@ export const sellerAction = async (
 
     if (receipt?.status) {
       success = true;
-      // Either outcome ends the invoice's claim on a fee receiver: an accept
-      // consumes the address, a reject leaves any address a prior abandoned
-      // accept issued with nothing left to pay for.
-      clearFeeReceiver({ invoiceId, chainId, processor: "simple" });
     } else {
       toast.error("Something went wrong, please try again.");
     }

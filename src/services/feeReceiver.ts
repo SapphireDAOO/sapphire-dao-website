@@ -4,13 +4,16 @@ import {
   ZERO_ADDRESS,
   getKnownPaymentToken,
 } from "@/constants";
-import {
-  readFeeReceiver,
-  saveFeeReceiver,
-  type FeeReceiverRef,
-  type InvoiceKind,
-} from "@/lib/feeReceiverStore";
 import type { Address, Hex } from "viem";
+
+export type ProcessorKind = "simple" | "intermediated";
+
+/**
+ * Which authorization the processor verifies. A meta-invoice holding one
+ * sub-invoice still needs the array form, so this is passed explicitly rather
+ * than inferred from the receiver count.
+ */
+export type InvoiceKind = "single" | "meta";
 
 export type FeeReceiverAuthorization = {
   /** Index-aligned with the invoice's sub-invoices; length 1 for a single. */
@@ -18,37 +21,11 @@ export type FeeReceiverAuthorization = {
   signature: Hex;
 };
 
-type CreateResponse = { ephemeralPublicKeys?: Hex[] };
-type AuthorizeResponse = { feeReceivers?: Address[]; signature?: Hex };
-type ApiError = { error?: string; reason?: string };
-
-const post = async <T>(path: string, body: unknown): Promise<T | null> => {
-  try {
-    const response = await fetch(`${CONTRACT_API_URL}${path}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-
-    const payload = (await response.json()) as T & ApiError;
-    if (!response.ok) {
-      // The status separates the causes the sidecar's own wording does not:
-      // 400 is a bad request, 502 an internal sidecar failure (chain error or
-      // an unset key), 503 an unconfigured network or an unfunded relayer,
-      // 504 a timeout. `reason` carries the sidecar's message.
-      console.error(
-        `fee receiver ${path} failed (${response.status})`,
-        payload?.error ?? "",
-        payload?.reason ?? "",
-      );
-      return null;
-    }
-    return payload;
-  } catch (error) {
-    console.error(`fee receiver ${path} failed`, error);
-    return null;
-  }
+type CreateResponse = {
+  feeReceivers?: Address[];
+  signature?: Hex;
 };
+type ApiError = { error?: string; reason?: string };
 
 /**
  * The contract API names tokens by symbol and resolves them through its own
@@ -66,32 +43,24 @@ const feeTokenSymbol = (
 };
 
 /**
- * Prepares the one-time stealth fee receivers an invoice is paid/accepted
- * with, in the two steps the contract API splits them into:
+ * Gets the one-time stealth fee receivers an invoice is paid/accepted with,
+ * and the fee signer's signature over them, from `POST /v1/fee-receivers`.
  *
- * 1. `POST /v1/fee-receivers` derives the addresses, upgrades each to a 7702
- *    delegator and approves the sweeper on it. This spends gas and returns
- *    only the ephemeral public keys, which are the sole way back to the
- *    addresses - so they are written to local storage the moment they arrive,
- *    before anything else is attempted.
- * 2. `POST /v1/fee-receivers/authorization` turns the stored keys back into
- *    addresses and signs over them. No gas, so it runs on every attempt rather
- *    than caching a signature that could go stale against the invoice.
- *
- * An interrupted run therefore resumes on the receivers it already paid for.
- * The entry is dropped only once the payment/accept lands - see
- * `clearFeeReceiver`.
+ * One request does it all: the API derives the addresses, upgrades each to a
+ * 7702 delegator, approves the sweeper on it, waits for those to be mined and
+ * then signs. Nothing is kept between attempts; a retry derives a fresh set.
  *
  * Returns null on failure; callers must abort rather than submit without a
  * valid authorization.
  */
-export const requestFeeReceiver = async (
-  params: FeeReceiverRef & {
-    paymentToken?: Address;
-    kind?: InvoiceKind;
-    count?: number;
-  },
-): Promise<FeeReceiverAuthorization | null> => {
+export const requestFeeReceiver = async (params: {
+  invoiceId: bigint;
+  chainId: number;
+  processor: ProcessorKind;
+  paymentToken?: Address;
+  kind?: InvoiceKind;
+  count?: number;
+}): Promise<FeeReceiverAuthorization | null> => {
   const paymentToken = params.paymentToken ?? ZERO_ADDRESS;
   const kind = params.kind ?? "single";
   const count = params.count ?? 1;
@@ -103,60 +72,51 @@ export const requestFeeReceiver = async (
     return null;
   }
 
-  const symbol = feeTokenSymbol(params.chainId, paymentToken);
-  let stored = readFeeReceiver(params);
-
-  // Keys issued for a different shape or a different fee token cannot be
-  // spent here: the count is baked into the signed array, and the sweeper
-  // approval was granted on one token only.
-  if (
-    stored &&
-    (stored.kind !== kind ||
-      stored.ephemeralPublicKeys.length !== count ||
-      stored.paymentToken.toLowerCase() !== paymentToken.toLowerCase())
-  ) {
-    stored = null;
-  }
-
-  if (!stored) {
-    const created = await post<CreateResponse>("/v1/fee-receivers", {
-      processor: params.processor,
-      quantity: count,
-      paymentToken: symbol,
+  let payload: CreateResponse & ApiError;
+  try {
+    const response = await fetch(`${CONTRACT_API_URL}/v1/fee-receivers`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        invoiceId: params.invoiceId.toString(),
+        processor: params.processor,
+        kind,
+        quantity: count,
+        paymentToken: feeTokenSymbol(params.chainId, paymentToken),
+      }),
     });
 
-    const keys = created?.ephemeralPublicKeys;
-    if (!Array.isArray(keys) || keys.length !== count) return null;
-
-    // Persist first: the gas is spent whether or not these are kept.
-    stored = saveFeeReceiver(params, {
-      ephemeralPublicKeys: keys,
-      paymentToken,
-      kind,
-    });
+    payload = (await response.json()) as CreateResponse & ApiError;
+    if (!response.ok) {
+      // The status separates the causes the sidecar's own wording does not:
+      // 400 is a bad request, 502 an internal sidecar failure (chain error or
+      // an unset key), 503 an unconfigured network or an unfunded relayer,
+      // 504 a timeout. `reason` carries the sidecar's message.
+      console.error(
+        `fee receiver request failed (${response.status})`,
+        payload?.error ?? "",
+        payload?.reason ?? "",
+      );
+      return null;
+    }
+  } catch (error) {
+    console.error("fee receiver request failed", error);
+    return null;
   }
 
-  const authorized = await post<AuthorizeResponse>(
-    "/v1/fee-receivers/authorization",
-    {
-      invoiceId: params.invoiceId.toString(),
-      processor: params.processor,
-      kind,
-      paymentToken: symbol,
-      ephemeralPublicKeys: stored.ephemeralPublicKeys,
-    },
-  );
-
+  // The processor reverts on a count that does not match the invoice, so a
+  // short or long array is as unusable as none.
   if (
-    !authorized?.signature ||
-    !Array.isArray(authorized.feeReceivers) ||
-    authorized.feeReceivers.length !== count
+    !payload.signature ||
+    !Array.isArray(payload.feeReceivers) ||
+    payload.feeReceivers.length !== count
   ) {
+    console.error("fee receiver response is missing receivers or a signature");
     return null;
   }
 
   return {
-    feeReceivers: authorized.feeReceivers,
-    signature: authorized.signature,
+    feeReceivers: payload.feeReceivers,
+    signature: payload.signature,
   };
 };
