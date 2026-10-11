@@ -1,19 +1,26 @@
-import { useCallback } from "react";
+import { useCallback, useEffect } from "react";
 import { useAccount, useChainId } from "wagmi";
 import type { Address } from "viem";
 import { BASE_SEPOLIA, PAYMENT_PROCESSOR_STORAGE } from "@/constants";
 import { PaymentProcessorStorage } from "@/abis/PaymentProcessorStorage";
 import { useViemReadContract } from "./useViemReadContract";
 
-// An emergency control should not sit on stale data, so the live state is
-// polled rather than only refetched after our own writes — someone else may
-// have paused or unpaused from elsewhere.
-const PAUSE_STATE_POLL_MS = 15_000;
+// An emergency pause ends without an event, so the chain is re-read just after
+// its expiry. Several attempts, because the chain's clock can trail this one
+// and an early read still reports the pause.
+const LAPSE_RECHECK_DELAYS_MS = [2_000, 10_000, 30_000];
+// setTimeout fires immediately for anything longer than this (~24.8 days).
+const MAX_TIMEOUT_MS = 2_147_483_647;
 
 /**
  * Reads the emergency pause state from PaymentProcessorStorage: whether the
  * protocol is paused, who is allowed to trigger an emergency pause, when the
  * current pause lapses, and how long a fresh one lasts.
+ *
+ * Not polled. Everywhere this renders, usePauseState is mounted too, and its
+ * pause-event subscription invalidates these reads when someone pauses or
+ * unpauses. A lapse is caught by the timers below, and anything missed while
+ * the tab was hidden by the refetch on focus.
  */
 export const useEmergencyPause = () => {
   const { address } = useAccount();
@@ -30,14 +37,14 @@ export const useEmergencyPause = () => {
     useViemReadContract<boolean>({
       ...shared,
       functionName: "isPaused",
-      refetchInterval: PAUSE_STATE_POLL_MS,
+      refetchOnWindowFocus: true,
     });
 
   const { data: pauseExpiry, refetch: refetchPauseExpiry } =
     useViemReadContract<bigint>({
       ...shared,
       functionName: "getEmergencyPauseExpiry",
-      refetchInterval: PAUSE_STATE_POLL_MS,
+      refetchOnWindowFocus: true,
     });
 
   const { data: emergencyPauser } = useViemReadContract<Address>({
@@ -59,6 +66,18 @@ export const useEmergencyPause = () => {
   const refetch = useCallback(async () => {
     await Promise.all([refetchIsPaused(), refetchPauseExpiry()]);
   }, [refetchIsPaused, refetchPauseExpiry]);
+
+  useEffect(() => {
+    const expiryMs = Number(pauseExpiry ?? 0) * 1000;
+    if (!isPaused || !expiryMs) return;
+
+    const untilExpiry = expiryMs - Date.now();
+    const timers = LAPSE_RECHECK_DELAYS_MS.map((delay) => untilExpiry + delay)
+      .filter((delay) => delay > 0 && delay <= MAX_TIMEOUT_MS)
+      .map((delay) => setTimeout(() => void refetch(), delay));
+
+    return () => timers.forEach(clearTimeout);
+  }, [isPaused, pauseExpiry, refetch]);
 
   return {
     isPaused,

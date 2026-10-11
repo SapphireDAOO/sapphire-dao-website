@@ -34,6 +34,15 @@ const tsToSeconds = (timestamp: string): number =>
 // Keyed by chain, then by PaymentToken.name.
 const livePricesByChain = new Map<number, Record<string, number>>();
 
+// The metrics page loads the snapshot, the fee-receiver total and the native
+// price together, and each refreshes prices first. They share one lookup, and
+// one this recent is reused rather than repeated.
+const PRICE_REFRESH_TTL_MS = 60_000;
+const priceRefreshByChain = new Map<
+  number,
+  { startedAt: number; request: Promise<void> }
+>();
+
 /**
  * Refreshes the cached USD prices for a chain's known tokens. Call before
  * building a snapshot; the converters below then read what it stored.
@@ -48,14 +57,42 @@ export const refreshTokenPrices = async (
   chainId: number,
   signal?: AbortSignal,
 ): Promise<void> => {
+  // A caller with its own abort signal gets its own request, so aborting it
+  // cannot cancel a lookup other callers are waiting on.
+  if (signal) {
+    await lookUpTokenPrices(chainId, signal);
+    return;
+  }
+
+  const recent = priceRefreshByChain.get(chainId);
+  if (recent && Date.now() - recent.startedAt < PRICE_REFRESH_TTL_MS) {
+    return recent.request;
+  }
+
+  const request = lookUpTokenPrices(chainId).then((ok) => {
+    // A failed lookup is not worth reusing; let the next caller retry.
+    if (!ok && priceRefreshByChain.get(chainId)?.request === request) {
+      priceRefreshByChain.delete(chainId);
+    }
+  });
+  priceRefreshByChain.set(chainId, { startedAt: Date.now(), request });
+  return request;
+};
+
+/** One price lookup into the cache. Resolves false when nothing was priced. */
+const lookUpTokenPrices = async (
+  chainId: number,
+  signal?: AbortSignal,
+): Promise<boolean> => {
   const symbols = (KNOWN_PAYMENT_TOKENS[chainId] ?? []).map((t) => t.name);
   const prices = await fetchUsdPrices(symbols, signal);
-  if (Object.keys(prices).length === 0) return;
+  if (Object.keys(prices).length === 0) return false;
 
   livePricesByChain.set(chainId, {
     ...(livePricesByChain.get(chainId) ?? {}),
     ...prices,
   });
+  return true;
 };
 
 /**
@@ -486,8 +523,8 @@ const queryMetrics = async <T>(
   // network-only: these fetchers sit behind react-query, which is the caching
   // and freshness layer. Serving them cache-first would (a) make every
   // react-query refetch a stale no-op and (b) with time-derived variables,
-  // pile a new entry into urql's never-evicted document cache per fetch —
-  // network-only overwrites the same key instead.
+  // pile a new entry into urql's document cache per fetch until the client
+  // expires — network-only overwrites the same key instead.
   const result = await client(chainId)
     .query<T>(query, variables, { requestPolicy: "network-only" })
     .toPromise();

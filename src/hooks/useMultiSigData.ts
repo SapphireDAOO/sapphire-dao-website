@@ -97,10 +97,14 @@ export const useMultiSigData = () => {
     return message;
   }, []);
 
-  const fetchWallet = useCallback(async () => {
+  const fetchWallet = useCallback(async (force: boolean) => {
     if (!walletId) return null;
     const result = await client(chainId)
-      .query(MULTISIG_WALLET_QUERY, { id: walletId })
+      .query(
+        MULTISIG_WALLET_QUERY,
+        { id: walletId },
+        force ? { requestPolicy: "network-only" } : undefined,
+      )
       .toPromise();
 
     if (result.error) {
@@ -111,14 +115,18 @@ export const useMultiSigData = () => {
   }, [chainId, walletId]);
 
   const fetchTransactions = useCallback(
-    async (skip: number) => {
+    async (skip: number, force: boolean) => {
       if (!walletId) return [];
       const result = await client(chainId)
-        .query(MULTISIG_TRANSACTIONS_QUERY, {
-          walletId,
-          first: PAGE_SIZE + 1,
-          skip,
-        })
+        .query(
+          MULTISIG_TRANSACTIONS_QUERY,
+          {
+            walletId,
+            first: PAGE_SIZE + 1,
+            skip,
+          },
+          force ? { requestPolicy: "network-only" } : undefined,
+        )
         .toPromise();
 
       if (result.error) {
@@ -132,7 +140,12 @@ export const useMultiSigData = () => {
     [chainId, walletId],
   );
 
-  const refresh = useCallback(async () => {
+  /**
+   * `force` goes past the subgraph client's cache-first default, which would
+   * otherwise answer with the result it already holds. Mount and page flips
+   * may use the cache; anything meant to pick up changes must force.
+   */
+  const refresh = useCallback(async (force = false) => {
     if (!walletId) {
       setData({
         wallet: null,
@@ -156,8 +169,8 @@ export const useMultiSigData = () => {
     const skip = page * PAGE_SIZE;
     try {
       const [wallet, txs] = await Promise.all([
-        fetchWallet(),
-        fetchTransactions(skip),
+        fetchWallet(force),
+        fetchTransactions(skip, force),
       ]);
 
       const hasNext = txs.length > PAGE_SIZE;
@@ -248,11 +261,12 @@ export const useMultiSigData = () => {
     }));
   }, [chainId]);
 
-  // Re-fetch when the tab becomes visible after being hidden.
+  // Re-fetch when the tab becomes visible after being hidden: events were not
+  // watched meanwhile, so the cached result is the one thing known stale.
   const wasVisibleRef = useRef(isWindowVisible);
   useEffect(() => {
     if (isWindowVisible && !wasVisibleRef.current) {
-      void refreshRef.current();
+      void refreshRef.current(true);
     }
     wasVisibleRef.current = isWindowVisible;
   }, [isWindowVisible]);

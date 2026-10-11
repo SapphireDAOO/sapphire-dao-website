@@ -54,7 +54,15 @@ export default function TransactionList({
   onPrevPage,
   onApplyLogs,
 }: Props) {
-  const [selectedTx, setSelectedTx] = useState<MultiSigTransaction | null>(null);
+  const [clickedTx, setClickedTx] = useState<MultiSigTransaction | null>(null);
+  // The row as it is now, not as it was when clicked: the detail reads status
+  // and approvals from it, and useMultiSigEvents keeps `transactions` live.
+  // The click-time copy stands in if a refresh drops the row.
+  const selectedTx = useMemo(() => {
+    if (!clickedTx) return null;
+    const id = clickedTx.id.toLowerCase();
+    return transactions.find((tx) => tx.id.toLowerCase() === id) ?? clickedTx;
+  }, [clickedTx, transactions]);
   const [cancelling, setCancelling] = useState<string | null>(null);
 
   const chainId = useChainId() || BASE_SEPOLIA;
@@ -158,7 +166,7 @@ export default function TransactionList({
                 <tr
                   key={tx.id}
                   className="border-b cursor-pointer hover:bg-muted/40 transition-colors"
-                  onClick={() => setSelectedTx(tx)}
+                  onClick={() => setClickedTx(tx)}
                 >
                   <td className="px-4 py-3 font-mono text-muted-foreground">
                     #{tx.nonce}
@@ -270,7 +278,7 @@ export default function TransactionList({
             ? (cancelProposalMap.get(selectedTx.id.toLowerCase()) ?? null)
             : null
         }
-        onClose={() => setSelectedTx(null)}
+        onClose={() => setClickedTx(null)}
         onActionSuccess={() => {}}
         onApplyLogs={onApplyLogs}
       />

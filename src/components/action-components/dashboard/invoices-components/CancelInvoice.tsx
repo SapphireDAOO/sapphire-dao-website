@@ -1,7 +1,10 @@
 "use client";
 
 import { useContext, useState } from "react";
-import { ContractContext } from "@/context/contract-context";
+import {
+  ContractActionsContext,
+  ContractLoadingContext,
+} from "@/context/contract-context";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import type { Invoice } from "@/model/model";
@@ -15,8 +18,10 @@ interface CancelInvoiceProps {
 }
 
 const CancelInvoice = ({ invoiceId, invoice }: CancelInvoiceProps) => {
-  const { cancelInvoice, isLoading, refetchInvoiceData, upsertLocalInvoice } =
-    useContext(ContractContext);
+  const { cancelInvoice, upsertLocalInvoice } = useContext(
+    ContractActionsContext,
+  );
+  const isLoading = useContext(ContractLoadingContext);
   const [localLoading, setLocalLoading] = useState(false);
 
   const handleClick = async (e: React.MouseEvent<HTMLButtonElement>) => {
@@ -34,7 +39,6 @@ const CancelInvoice = ({ invoiceId, invoice }: CancelInvoiceProps) => {
             nowInSeconds(),
           ),
         });
-        void refetchInvoiceData?.();
         toast.success("Invoice successfully canceled");
       }
     } catch (err) {

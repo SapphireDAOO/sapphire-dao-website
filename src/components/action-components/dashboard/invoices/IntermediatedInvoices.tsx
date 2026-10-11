@@ -1,12 +1,12 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
+import { memo, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ChevronDown, ChevronUp, Copy } from "lucide-react";
 import { Invoice } from "@/model/model";
-import { formatAddress, timeLeft, unixToGMT } from "@/utils";
+import { formatAddress, unixToGMT } from "@/utils";
 import { toast } from "sonner";
 import { usePayLink } from "@/hooks/usePayLink";
 import { QRCodeSVG } from "qrcode.react";
@@ -17,8 +17,8 @@ import {
   renderContractLink,
   renderTx,
   InvoiceField,
+  Countdown,
 } from "./InvoiceCardShared";
-import { useSharedSecondTicker } from "@/hooks/useSharedSecondTicker";
 
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 const isZeroAddress = (value?: string) => value?.toLowerCase() === ZERO_ADDRESS;
@@ -93,14 +93,14 @@ const statusColors: Record<string, string> = {
   "PARTIAL REFUND": "bg-gray-100 text-gray-600",
 };
 
-export function IntermediatedCard({
+function IntermediatedCardImpl({
   invoice,
   isExpanded,
   onToggle,
 }: {
   invoice: Invoice;
   isExpanded: boolean;
-  onToggle: () => void;
+  onToggle: (invoiceId: bigint) => void;
   onAddNote: (invoiceId: string, message: string) => void;
 }) {
   const isSellerView = invoice.type === "IssuedInvoice";
@@ -210,28 +210,23 @@ export function IntermediatedCard({
   const shouldTrackReleaseCountdown =
     (displayStatus === "PAID" || displayStatus === "DISPUTE DISMISSED") &&
     Boolean(invoice.releaseAt);
-  const shouldTrackVoidCountdown =
-    isAwaitingPayment && Boolean(invoice.expiresAt);
-  const shouldTrackCountdown =
-    shouldTrackReleaseCountdown || shouldTrackVoidCountdown;
 
-  const tick = useSharedSecondTicker(shouldTrackCountdown);
-
+  // Each <Countdown> ticks on its own, so the card does not re-render every
+  // second.
   const releaseCountdown = useMemo(() => {
-    void tick;
     if (!shouldTrackReleaseCountdown || !invoice.releaseAt) return "—";
-    return timeLeft(
-      invoice.paidAt ? Number(invoice.paidAt) : null,
-      0,
-      Number(invoice.releaseAt) * 1000,
+    return (
+      <Countdown
+        startAt={invoice.paidAt ? Number(invoice.paidAt) : null}
+        endAtMs={Number(invoice.releaseAt) * 1000}
+      />
     );
-  }, [tick, shouldTrackReleaseCountdown, invoice.releaseAt, invoice.paidAt]);
+  }, [shouldTrackReleaseCountdown, invoice.releaseAt, invoice.paidAt]);
 
   const voidCountdown = useMemo(() => {
-    void tick;
-    if (!shouldTrackVoidCountdown || !invoice.expiresAt) return "—";
-    return timeLeft(Number(invoice.expiresAt), 0);
-  }, [tick, shouldTrackVoidCountdown, invoice.expiresAt]);
+    if (!isAwaitingPayment || !invoice.expiresAt) return "—";
+    return <Countdown startAt={Number(invoice.expiresAt)} />;
+  }, [isAwaitingPayment, invoice.expiresAt]);
 
   /* ── History normalization (mirrors SimpleInvoices displayHistory) ─────── */
 
@@ -263,9 +258,14 @@ export function IntermediatedCard({
 
   /* ── Share helpers ─────────────────────────────────────────────────────── */
 
+  const toggle = useCallback(
+    () => onToggle(invoice.invoiceId),
+    [onToggle, invoice.invoiceId],
+  );
+
   const ensureExpanded = useCallback(() => {
-    if (!isExpanded) onToggle();
-  }, [isExpanded, onToggle]);
+    if (!isExpanded) toggle();
+  }, [isExpanded, toggle]);
 
   const shareLabel = useMemo(() => {
     if (isSellerView) {
@@ -339,7 +339,7 @@ export function IntermediatedCard({
 
   return (
     <Card className="transition-shadow hover:shadow-md">
-      <CardHeader className="cursor-pointer select-none" onClick={onToggle}>
+      <CardHeader className="cursor-pointer select-none" onClick={toggle}>
         {/* ID row */}
         <div className="flex items-start justify-between">
           <div className="flex flex-col">
@@ -669,6 +669,10 @@ export function IntermediatedCard({
     </Card>
   );
 }
+
+// Memoized: the dashboard re-renders on every live invoice event, and most
+// cards on the page are unaffected by any one of them.
+export const IntermediatedCard = memo(IntermediatedCardImpl);
 
 // renderContractLink, renderTx, InvoiceField live in InvoiceCardShared.tsx
 export {

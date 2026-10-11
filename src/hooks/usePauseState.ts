@@ -168,6 +168,14 @@ export const usePauseState = () => {
         // index holds. Invalidating rather than refetching means the several
         // components mounting this hook still cause a single request.
         void queryClient.invalidateQueries({ queryKey });
+
+        // useEmergencyPause's chain reads are not polled; this is what tells
+        // them the pause state moved. Prefix of useViemReadContract's key.
+        for (const functionName of ["isPaused", "getEmergencyPauseExpiry"]) {
+          void queryClient.invalidateQueries({
+            queryKey: ["viem-read", chainId, contractAddress, functionName],
+          });
+        }
       },
       onError: (err) => console.error("pause state watch error", err),
     });
@@ -175,7 +183,14 @@ export const usePauseState = () => {
     return () => {
       unwatch();
     };
-  }, [publicClient, contractAddress, isWindowVisible, queryClient, queryKey]);
+  }, [
+    publicClient,
+    contractAddress,
+    isWindowVisible,
+    queryClient,
+    queryKey,
+    chainId,
+  ]);
 
   // An emergency pause ends silently, so schedule a single re-render for the
   // moment it does rather than checking over and over.

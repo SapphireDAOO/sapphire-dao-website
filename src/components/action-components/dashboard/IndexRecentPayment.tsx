@@ -2,14 +2,17 @@
 
 import { useContext, useState, useMemo, useCallback, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ContractContext } from "@/context/contract-context";
+import {
+  ContractActionsContext,
+  InvoiceStateContext,
+} from "@/context/contract-context";
 import { FilterTabs, CreateInvoiceCard } from "./invoice-cards/index";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Note, Invoice } from "@/model/model";
 import { Button } from "@/components/ui/button";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { IntermediatedCard } from "./invoices/IntermediatedInvoices";
 import { InvoiceCard } from "./invoices/SimpleInvoices";
-import { toast } from "sonner";
 import {
   usePagedInvoiceQuery,
   INVOICE_PAGE_SIZE,
@@ -50,11 +53,8 @@ export default function IndexRecentPayment({
   isIntermediatedTab: boolean;
   enabled?: boolean;
 }) {
-  const {
-    liveInvoiceData,
-    refetchInvoiceData,
-    loadNextPage: loadContextNextPage,
-  } = useContext(ContractContext);
+  const { liveInvoiceData } = useContext(InvoiceStateContext);
+  const { trackInvoices } = useContext(ContractActionsContext);
 
   // ── All state declarations BEFORE any derived state ──────────────────────
   const [statusFilter, setStatusFilter] = useState("All");
@@ -107,6 +107,14 @@ export default function IndexRecentPayment({
     (invoice: Pick<Invoice, "invoiceId">) => invoice.invoiceId.toString(),
     [],
   );
+
+  // These pages are this wallet's invoices but live outside invoiceData. The
+  // live event feed drops events for ids it cannot tie to the wallet, so it
+  // has to be told about them to keep the cards current.
+  useEffect(() => {
+    if (!enabled) return;
+    return trackInvoices?.([...sellerInvoices, ...buyerInvoices]);
+  }, [enabled, sellerInvoices, buyerInvoices, trackInvoices]);
 
   // Dedup by contract invoice id. `id` is the display nonce and does not match
   // status events, which emit the hashed uint216 invoice id.
@@ -304,8 +312,6 @@ export default function IndexRecentPayment({
         if (hasMoreSeller) loadMoreSeller();
         if (hasMoreBuyer) loadMoreBuyer();
       }
-      // Also advance the context-level page so invoiceData stays in sync
-      loadContextNextPage?.();
     }
     setPage(nextPage);
   }, [
@@ -317,19 +323,7 @@ export default function IndexRecentPayment({
     loadMoreBuyer,
     hasMoreSeller,
     hasMoreBuyer,
-    loadContextNextPage,
   ]);
-
-  // refreshInvoicesData might not be needed, refresh should only happen after reload
-  // websocket should use the current data
-  const refreshInvoices = useCallback(async () => {
-    try {
-      await Promise.all([refetchInvoiceData?.(), refetchPage()]);
-    } catch (err) {
-      console.error("Failed to refresh invoices", err);
-      toast.error("Unable to load invoices. Please try again.");
-    }
-  }, [refetchInvoiceData, refetchPage]);
 
   const handleTabChange = useCallback(
     (value: string) => {
@@ -344,11 +338,17 @@ export default function IndexRecentPayment({
     [router, basePath],
   );
 
-  const handleToggle = (id: string) => {
-    setExpandedId((prev) => (prev === id ? null : id));
-  };
+  // Stable, so the memoized cards skip re-rendering when only another
+  // card's state changed.
+  const handleToggle = useCallback(
+    (invoiceId: bigint) => {
+      const id = invoiceKey({ invoiceId });
+      setExpandedId((prev) => (prev === id ? null : id));
+    },
+    [invoiceKey],
+  );
 
-  const handleAddNote = (invoiceId: string, message: string) => {
+  const handleAddNote = useCallback((invoiceId: string, message: string) => {
     if (!message.trim()) return;
     const note: Note = {
       id: crypto.randomUUID(),
@@ -360,116 +360,116 @@ export default function IndexRecentPayment({
       ...prev,
       [invoiceId]: [...(prev[invoiceId] || []), note],
     }));
-  };
+  }, []);
 
+  // One tooltip provider for every InvoiceField on the page. Each card renders
+  // 5-10 of them, and a provider per field multiplied that across the grid.
   return (
-    <div className="container mx-auto mt-8">
-      <Tabs value={activeTab} onValueChange={handleTabChange}>
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="all">All</TabsTrigger>
-          <TabsTrigger value="seller">
-            {isIntermediatedTab ? "Issued" : "Created by me"}
-          </TabsTrigger>
-          <TabsTrigger value="buyer">
-            {isIntermediatedTab ? "Received" : "Paid by me"}
-          </TabsTrigger>
-        </TabsList>
+    <TooltipProvider delayDuration={150}>
+      <div className="container mx-auto mt-8">
+        <Tabs value={activeTab} onValueChange={handleTabChange}>
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="all">All</TabsTrigger>
+            <TabsTrigger value="seller">
+              {isIntermediatedTab ? "Issued" : "Created by me"}
+            </TabsTrigger>
+            <TabsTrigger value="buyer">
+              {isIntermediatedTab ? "Received" : "Paid by me"}
+            </TabsTrigger>
+          </TabsList>
 
-        {["all", "seller", "buyer"].map((tab) => (
-          <TabsContent key={tab} value={tab}>
-            {activeTab === tab && (
-              <>
-                {!isIntermediatedTab && (tab === "seller" || tab === "all") && (
-                  <CreateInvoiceCard />
-                )}
-
-                <FilterTabs
-                  filters={
-                    isIntermediatedTab ? intermediatedFilters : simpleFilters
-                  }
-                  activeFilter={statusFilter}
-                  onSelect={(value) => {
-                    setStatusFilter(value);
-                    setPage(1);
-                  }}
-                />
-
-                <InvoiceFilterBar
-                  walletQuery={walletQuery}
-                  onWalletQueryChange={setWalletQuery}
-                  selectedDate={selectedDate}
-                  onDateChange={setSelectedDate}
-                />
-
-                <div className="flex flex-wrap gap-5">
-                  {pageIsLoading && displayInvoices.length === 0 ? (
-                    <div className="w-full text-center py-10 text-gray-500 border rounded-lg">
-                      <span className="animate-pulse">Loading...</span>
-                    </div>
-                  ) : pageError && displayInvoices.length === 0 ? (
-                    <div className="w-full text-center py-10 text-gray-500 border rounded-lg">
-                      <div className="flex flex-col items-center gap-3">
-                        <span className="text-sm text-gray-600">
-                          {pageError}
-                        </span>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={refreshInvoices}
-                        >
-                          Retry
-                        </Button>
-                      </div>
-                    </div>
-                  ) : displayInvoices.length > 0 ? (
-                    displayInvoices.map((invoice) => {
-                      const key = invoiceKey(invoice);
-
-                      return (
-                        <div
-                          key={`${key}-${invoice.type}`}
-                          className="w-full md:w-[48%] lg:w-[31%]"
-                        >
-                          {isIntermediatedTab ? (
-                            <IntermediatedCard
-                              invoice={invoice}
-                              isExpanded={expandedId === key}
-                              onToggle={() => handleToggle(key)}
-                              onAddNote={handleAddNote}
-                            />
-                          ) : (
-                            <InvoiceCard
-                              invoice={invoice}
-                              isExpanded={expandedId === key}
-                              onToggle={() => handleToggle(key)}
-                            />
-                          )}
-                        </div>
-                      );
-                    })
-                  ) : (
-                    <div className="w-full text-center py-10 text-gray-500 border rounded-lg">
-                      <span>
-                        {selectedDate
-                          ? `No invoices found on ${selectedDate.toDateString()}`
-                          : "No invoices found"}
-                      </span>
-                    </div>
+          {["all", "seller", "buyer"].map((tab) => (
+            <TabsContent key={tab} value={tab}>
+              {activeTab === tab && (
+                <>
+                  {!isIntermediatedTab && (tab === "seller" || tab === "all") && (
+                    <CreateInvoiceCard />
                   )}
-                </div>
 
-                <InvoicePaginationControls
-                  page={page}
-                  hasNextPage={hasNextPage}
-                  isLoading={pageIsLoading}
-                  onPrev={() => setPage((p) => Math.max(1, p - 1))}
-                  onNext={handleNext}
-                />
-              </>
-            )}
-          </TabsContent>
-        ))}
-      </Tabs>
-    </div>
+                  <FilterTabs
+                    filters={
+                      isIntermediatedTab ? intermediatedFilters : simpleFilters
+                    }
+                    activeFilter={statusFilter}
+                    onSelect={(value) => {
+                      setStatusFilter(value);
+                      setPage(1);
+                    }}
+                  />
+
+                  <InvoiceFilterBar
+                    walletQuery={walletQuery}
+                    onWalletQueryChange={setWalletQuery}
+                    selectedDate={selectedDate}
+                    onDateChange={setSelectedDate}
+                  />
+
+                  <div className="flex flex-wrap gap-5">
+                    {pageIsLoading && displayInvoices.length === 0 ? (
+                      <div className="w-full text-center py-10 text-gray-500 border rounded-lg">
+                        <span className="animate-pulse">Loading...</span>
+                      </div>
+                    ) : pageError && displayInvoices.length === 0 ? (
+                      <div className="w-full text-center py-10 text-gray-500 border rounded-lg">
+                        <div className="flex flex-col items-center gap-3">
+                          <span className="text-sm text-gray-600">
+                            {pageError}
+                          </span>
+                          <Button variant="outline" size="sm" onClick={refetchPage}>
+                            Retry
+                          </Button>
+                        </div>
+                      </div>
+                    ) : displayInvoices.length > 0 ? (
+                      displayInvoices.map((invoice) => {
+                        const key = invoiceKey(invoice);
+
+                        return (
+                          <div
+                            key={`${key}-${invoice.type}`}
+                            className="w-full md:w-[48%] lg:w-[31%]"
+                          >
+                            {isIntermediatedTab ? (
+                              <IntermediatedCard
+                                invoice={invoice}
+                                isExpanded={expandedId === key}
+                                onToggle={handleToggle}
+                                onAddNote={handleAddNote}
+                              />
+                            ) : (
+                              <InvoiceCard
+                                invoice={invoice}
+                                isExpanded={expandedId === key}
+                                onToggle={handleToggle}
+                              />
+                            )}
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <div className="w-full text-center py-10 text-gray-500 border rounded-lg">
+                        <span>
+                          {selectedDate
+                            ? `No invoices found on ${selectedDate.toDateString()}`
+                            : "No invoices found"}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  <InvoicePaginationControls
+                    page={page}
+                    hasNextPage={hasNextPage}
+                    isLoading={pageIsLoading}
+                    onPrev={() => setPage((p) => Math.max(1, p - 1))}
+                    onNext={handleNext}
+                  />
+                </>
+              )}
+            </TabsContent>
+          ))}
+        </Tabs>
+      </div>
+    </TooltipProvider>
   );
 }

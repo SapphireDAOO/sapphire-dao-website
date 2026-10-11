@@ -11,6 +11,7 @@ import {
 import { paymentProcessor } from "@/abis/PaymentProcessor";
 import { intermediatedPaymentProcessor } from "@/abis/IntermediatedPaymentProcessor";
 import { formatTokenDisplay } from "./recentTransactions";
+import { subscribeProcessorLogs, type ProcessorLog } from "./processorLogs";
 import type {
   MetricsSocketStatus,
   RecentTransaction,
@@ -26,14 +27,6 @@ export interface RecentTransactionsSocketHandlers {
 
 export interface RecentTransactionsSocketHandle {
   close: () => void;
-}
-
-/** Minimal decoded-log shape we read from the processor ABIs. */
-interface EventLog {
-  eventName?: string;
-  args?: Record<string, unknown>;
-  transactionHash?: string;
-  logIndex?: number;
 }
 
 const asBigInt = (v: unknown): bigint | undefined =>
@@ -123,7 +116,7 @@ export const createRecentTransactionsSocket = (
   };
 
   const emit = async (
-    log: EventLog,
+    log: ProcessorLog,
     fields: {
       kind: TransactionKind;
       source: RecentTransaction["source"];
@@ -152,138 +145,132 @@ export const createRecentTransactionsSocket = (
   };
 
   if (simpleAddress) {
-    unwatchers.push(
-      publicClient.watchContractEvent({
-        address: simpleAddress,
-        abi: paymentProcessor,
-        onError: handleError,
-        onLogs: (logs) => {
-          for (const log of logs as unknown as EventLog[]) {
-            const a = log.args ?? {};
-            switch (log.eventName) {
-              case "InvoicePaid": {
-                const amount = asBigInt(a.amountPaid);
-                if (amount === undefined) break;
-                void emit(log, {
-                  kind: "paid",
-                  source: "Simple",
-                  token: ZERO_ADDRESS,
-                  amount,
-                  invoiceId: asBigInt(a.invoiceId),
-                  counterparty: a.buyer as string | undefined,
-                });
-                break;
-              }
-              case "InvoiceRefunded": {
-                const amount = asBigInt(a.amount);
-                if (amount === undefined) break;
-                void emit(log, {
-                  kind: "refunded",
-                  source: "Simple",
-                  token: ZERO_ADDRESS,
-                  amount,
-                  invoiceId: asBigInt(a.invoiceId),
-                });
-                break;
-              }
-              case "InvoiceReleased": {
-                const sellerAmount = asBigInt(a.sellerAmount);
-                const fee = asBigInt(a.fee);
-                if (sellerAmount === undefined || fee === undefined) break;
-                void emit(log, {
-                  kind: "released",
-                  source: "Simple",
-                  token: ZERO_ADDRESS,
-                  amount: sellerAmount + fee,
-                  invoiceId: asBigInt(a.invoiceId),
-                });
-                break;
-              }
+    const unsubscribe = subscribeProcessorLogs(chainId, "Simple", {
+      onError: handleError,
+      onLogs: (logs) => {
+        for (const log of logs) {
+          const a = log.args ?? {};
+          switch (log.eventName) {
+            case "InvoicePaid": {
+              const amount = asBigInt(a.amountPaid);
+              if (amount === undefined) break;
+              void emit(log, {
+                kind: "paid",
+                source: "Simple",
+                token: ZERO_ADDRESS,
+                amount,
+                invoiceId: asBigInt(a.invoiceId),
+                counterparty: a.buyer as string | undefined,
+              });
+              break;
+            }
+            case "InvoiceRefunded": {
+              const amount = asBigInt(a.amount);
+              if (amount === undefined) break;
+              void emit(log, {
+                kind: "refunded",
+                source: "Simple",
+                token: ZERO_ADDRESS,
+                amount,
+                invoiceId: asBigInt(a.invoiceId),
+              });
+              break;
+            }
+            case "InvoiceReleased": {
+              const sellerAmount = asBigInt(a.sellerAmount);
+              const fee = asBigInt(a.fee);
+              if (sellerAmount === undefined || fee === undefined) break;
+              void emit(log, {
+                kind: "released",
+                source: "Simple",
+                token: ZERO_ADDRESS,
+                amount: sellerAmount + fee,
+                invoiceId: asBigInt(a.invoiceId),
+              });
+              break;
             }
           }
-        },
-      }),
-    );
+        }
+      },
+    });
+    if (unsubscribe) unwatchers.push(unsubscribe);
   }
 
   if (intermediatedAddress) {
     const tokenByInvoice = new Map<string, Address>();
-    unwatchers.push(
-      publicClient.watchContractEvent({
-        address: intermediatedAddress,
-        abi: intermediatedPaymentProcessor,
-        onError: handleError,
-        onLogs: (logs) => {
-          for (const log of logs as unknown as EventLog[]) {
-            const a = log.args ?? {};
-            const invoiceId = asBigInt(a.invoiceId)?.toString();
-            const cachedToken = invoiceId
-              ? tokenByInvoice.get(invoiceId)
-              : undefined;
-            switch (log.eventName) {
-              case "InvoicePaid": {
-                const token = a.paymentToken as Address | undefined;
-                const amount = asBigInt(a.amount);
-                if (!token || amount === undefined) break;
-                if (invoiceId) tokenByInvoice.set(invoiceId, token);
-                void emit(log, {
-                  kind: "paid",
-                  source: "Intermediated",
-                  token,
-                  amount,
-                  invoiceId: asBigInt(a.invoiceId),
-                });
+    const unsubscribe = subscribeProcessorLogs(chainId, "Intermediated", {
+      onError: handleError,
+      onLogs: (logs) => {
+        for (const log of logs) {
+          const a = log.args ?? {};
+          const invoiceId = asBigInt(a.invoiceId)?.toString();
+          const cachedToken = invoiceId
+            ? tokenByInvoice.get(invoiceId)
+            : undefined;
+          switch (log.eventName) {
+            case "InvoicePaid": {
+              const token = a.paymentToken as Address | undefined;
+              const amount = asBigInt(a.amount);
+              if (!token || amount === undefined) break;
+              if (invoiceId) tokenByInvoice.set(invoiceId, token);
+              void emit(log, {
+                kind: "paid",
+                source: "Intermediated",
+                token,
+                amount,
+                invoiceId: asBigInt(a.invoiceId),
+              });
+              break;
+            }
+            case "PaymentReleased": {
+              const token = a.currency as Address | undefined;
+              const sellerAmount = asBigInt(a.sellerAmount);
+              if (!token || sellerAmount === undefined) break;
+              void emit(log, {
+                kind: "released",
+                source: "Intermediated",
+                token,
+                amount: sellerAmount,
+                invoiceId: asBigInt(a.invoiceId),
+                counterparty: a.receiver as string | undefined,
+              });
+              break;
+            }
+            case "Refunded": {
+              const amount = asBigInt(a.amount);
+              if (amount === undefined || !cachedToken) break;
+              void emit(log, {
+                kind: "refunded",
+                source: "Intermediated",
+                token: cachedToken,
+                amount,
+                invoiceId: asBigInt(a.invoiceId),
+              });
+              break;
+            }
+            case "DisputeSettled": {
+              const sellerAmount = asBigInt(a.sellerAmount);
+              const buyerAmount = asBigInt(a.buyerAmount);
+              if (
+                sellerAmount === undefined ||
+                buyerAmount === undefined ||
+                !cachedToken
+              )
                 break;
-              }
-              case "PaymentReleased": {
-                const token = a.currency as Address | undefined;
-                const sellerAmount = asBigInt(a.sellerAmount);
-                if (!token || sellerAmount === undefined) break;
-                void emit(log, {
-                  kind: "released",
-                  source: "Intermediated",
-                  token,
-                  amount: sellerAmount,
-                  invoiceId: asBigInt(a.invoiceId),
-                  counterparty: a.receiver as string | undefined,
-                });
-                break;
-              }
-              case "Refunded": {
-                const amount = asBigInt(a.amount);
-                if (amount === undefined || !cachedToken) break;
-                void emit(log, {
-                  kind: "refunded",
-                  source: "Intermediated",
-                  token: cachedToken,
-                  amount,
-                  invoiceId: asBigInt(a.invoiceId),
-                });
-                break;
-              }
-              case "DisputeSettled": {
-                const sellerAmount = asBigInt(a.sellerAmount);
-                const buyerAmount = asBigInt(a.buyerAmount);
-                if (
-                  sellerAmount === undefined ||
-                  buyerAmount === undefined ||
-                  !cachedToken
-                )
-                  break;
-                void emit(log, {
-                  kind: "settled",
-                  source: "Intermediated",
-                  token: cachedToken,
-                  amount: sellerAmount + buyerAmount,
-                  invoiceId: asBigInt(a.invoiceId),
-                });
-                break;
-              }
+              void emit(log, {
+                kind: "settled",
+                source: "Intermediated",
+                token: cachedToken,
+                amount: sellerAmount + buyerAmount,
+                invoiceId: asBigInt(a.invoiceId),
+              });
+              break;
             }
           }
-        },
-      }),
-    );
+        }
+      },
+    });
+    if (unsubscribe) unwatchers.push(unsubscribe);
   }
 
   onStatus?.("open");

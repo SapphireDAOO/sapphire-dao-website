@@ -21,7 +21,10 @@ import { DEFAULT_HOLD_PERIOD_SECONDS, MAX_NOTE_LENGTH } from "@/constants";
 import { formatDurationSeconds } from "@/utils";
 import { useGetFeeRate } from "@/hooks/useGetFeeRate";
 import { useGetMinimumInvoiceValue } from "@/hooks/useGetMinimumInvoiceValue";
-import { ContractContext } from "@/context/contract-context";
+import {
+  ContractActionsContext,
+  ContractLoadingContext,
+} from "@/context/contract-context";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { formatEther, parseEther, parseUnits } from "viem";
 import { Loader2, ShieldCheck } from "lucide-react";
@@ -113,8 +116,8 @@ export default function CreateInvoiceDialog() {
   const [invoiceId, setinvoiceId] = useState<bigint>(BigInt(0));
   const [isCreating, setIsCreating] = useState(false);
 
-  const { createInvoice, refetchInvoiceData, isLoading } =
-    useContext(ContractContext);
+  const { createInvoice } = useContext(ContractActionsContext);
+  const isLoading = useContext(ContractLoadingContext);
 
   const contractAddress = SIMPLE_PAYMENT_PROCESSOR[chainId || BASE_SEPOLIA];
 
@@ -181,8 +184,8 @@ export default function CreateInvoiceDialog() {
 
         setOpenCreate(false);
         setOpenQR(true);
-        // Refresh dashboard data after showing the QR to keep timing in sync
-        void refetchInvoiceData?.();
+        // createInvoice already put the new invoice in the live overlay, and
+        // its InvoiceCreated event lands there too.
         toast.success("Invoice created successfully!");
       } else {
         toast.error("Failed to create invoice");
@@ -199,7 +202,6 @@ export default function CreateInvoiceDialog() {
     noteKeys,
     isAmountValid,
     createInvoice,
-    refetchInvoiceData,
     note,
   ]);
 

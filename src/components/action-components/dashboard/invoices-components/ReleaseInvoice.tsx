@@ -1,11 +1,15 @@
 "use client";
 import { useContext } from "react";
-import { ContractContext } from "@/context/contract-context";
+import {
+  ContractActionsContext,
+  ContractLoadingContext,
+} from "@/context/contract-context";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 
 const ReleaseInvoice = ({ invoiceId }: { invoiceId: bigint }) => {
-  const { releaseInvoice, isLoading } = useContext(ContractContext);
+  const { releaseInvoice } = useContext(ContractActionsContext);
+  const isLoading = useContext(ContractLoadingContext);
 
   const handleClick = async (e: React.MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();

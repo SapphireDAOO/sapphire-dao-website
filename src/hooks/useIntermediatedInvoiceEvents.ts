@@ -21,6 +21,11 @@ interface Params {
    *  live publishes) outside the state updater. */
   invoicesRef: React.RefObject<Invoice[]>;
   setInvoiceData: React.Dispatch<React.SetStateAction<Invoice[]>>;
+  /** An on-screen invoice outside invoiceData with this id, if any. */
+  findTrackedInvoice: (
+    invoiceId: string,
+    source: "Intermediated",
+  ) => Invoice | undefined;
   onLiveInvoices?: (invoices: Invoice[]) => void;
   hydrateIntermediatedInvoiceFromChain?: (
     invoiceId: bigint,
@@ -92,6 +97,8 @@ type LogOp =
       buyerAmount?: bigint;
       releaseAt?: bigint;
       releaseUpdate?: string;
+      /** The event names the user (e.g. as the release receiver). */
+      namesUser: boolean;
       /** Fields to hand to the chain hydration when the id is unknown. */
       eventFields: Partial<Invoice>;
     };
@@ -118,6 +125,7 @@ const applyOps = (
   invoiceMap: Map<string, Invoice>,
   ops: LogOp[],
   batchTime: string,
+  findTracked: (invoiceId: string) => Invoice | undefined,
 ): ApplyResult => {
   const changedRows: Invoice[] = [];
   const hydrates: ApplyResult["hydrates"] = new Map();
@@ -131,12 +139,16 @@ const applyOps = (
       continue;
     }
 
-    const existingInvoice = findIntermediatedInvoice(
-      invoiceMap.values(),
-      op.invoiceId,
-    );
+    const existingInvoice =
+      findIntermediatedInvoice(invoiceMap.values(), op.invoiceId) ??
+      findTracked(op.invoiceId);
 
     if (!existingInvoice) {
+      // Every invoice's events reach every subscriber. Only one that names the
+      // user can be about an invoice of theirs that is not on screen; reading
+      // the rest from the chain would only fail the seller/buyer check.
+      if (!op.namesUser) continue;
+
       hydrates.set(op.invoiceId, {
         status: op.status,
         txHash: op.txHash,
@@ -218,6 +230,7 @@ export function useIntermediatedInvoiceEvents({
   publicClient,
   invoicesRef,
   setInvoiceData,
+  findTrackedInvoice,
   onLiveInvoices,
   hydrateIntermediatedInvoiceFromChain,
 }: Params) {
@@ -227,6 +240,8 @@ export function useIntermediatedInvoiceEvents({
     if (!contractAddress) return;
 
     const userAddress = address.toLowerCase();
+    const findTracked = (invoiceId: string) =>
+      findTrackedInvoice(invoiceId, "Intermediated");
 
     const unwatch = publicClient.watchEvent({
       address: contractAddress,
@@ -248,6 +263,7 @@ export function useIntermediatedInvoiceEvents({
                 buyerAmount?: bigint;
                 newHoldPeriod?: bigint;
                 releaseAt?: bigint;
+                receiver?: string;
               }
             | undefined;
           const invoiceId = (
@@ -382,6 +398,7 @@ export function useIntermediatedInvoiceEvents({
             buyerAmount: logArgs?.buyerAmount,
             releaseAt: logArgs?.releaseAt,
             releaseUpdate,
+            namesUser: logArgs?.receiver?.toLowerCase?.() === userAddress,
             eventFields,
           });
         }
@@ -392,7 +409,12 @@ export function useIntermediatedInvoiceEvents({
           const invoiceMap = new Map<string, Invoice>(
             prev.map((inv) => [getInvoiceMergeKey(inv), inv]),
           );
-          const { changedRows } = applyOps(invoiceMap, ops, batchTime);
+          const { changedRows } = applyOps(
+            invoiceMap,
+            ops,
+            batchTime,
+            findTracked,
+          );
           return changedRows.length > 0
             ? Array.from(invoiceMap.values())
             : prev;
@@ -404,7 +426,12 @@ export function useIntermediatedInvoiceEvents({
         const overlay = new Map<string, Invoice>(
           invoicesRef.current.map((inv) => [getInvoiceMergeKey(inv), inv]),
         );
-        const { changedRows, hydrates } = applyOps(overlay, ops, batchTime);
+        const { changedRows, hydrates } = applyOps(
+          overlay,
+          ops,
+          batchTime,
+          findTracked,
+        );
 
         if (changedRows.length > 0) {
           onLiveInvoices?.(changedRows);
@@ -437,6 +464,7 @@ export function useIntermediatedInvoiceEvents({
     chainId,
     invoicesRef,
     setInvoiceData,
+    findTrackedInvoice,
     onLiveInvoices,
     hydrateIntermediatedInvoiceFromChain,
   ]);

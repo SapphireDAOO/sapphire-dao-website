@@ -36,7 +36,7 @@ interface Result {
   loadMoreBuyer: () => void;
   isLoading: boolean;
   error: string | null;
-  /** Re-fetch from scratch (resets all cached pages) */
+  /** Re-fetch from scratch, bypassing the subgraph client's cache */
   refetch: () => void;
 }
 
@@ -267,17 +267,25 @@ export function usePagedInvoiceQuery({
 
     nextSellerSkipRef.current = 0;
     nextBuyerSkipRef.current = 0;
-    // No requestPolicy: the client's cache-first default applies. Forcing the
-    // network here meant every tab switch and remount was a fresh request, and
-    // the endpoint rate-limits.
+    // No requestPolicy: the client's cache-first default applies, so a tab
+    // switch or remount within its cache lifetime reuses the page. Forcing the
+    // network here meant every one was a fresh request, and the endpoint
+    // rate-limits.
     void doFetch({ sellerSkip: 0, buyerSkip: 0, append: false });
   }, [doFetch, enabled, isWindowVisible]);
 
+  // An explicit refresh has to reach the subgraph: under the client's
+  // cache-first default it would hand back the result it already holds.
   const refetch = useCallback(() => {
     if (!enabled) return;
     nextSellerSkipRef.current = 0;
     nextBuyerSkipRef.current = 0;
-    void doFetch({ sellerSkip: 0, buyerSkip: 0, append: false });
+    void doFetch({
+      sellerSkip: 0,
+      buyerSkip: 0,
+      append: false,
+      requestPolicy: "network-only",
+    });
   }, [doFetch, enabled]);
 
   const loadMoreSeller = useCallback(() => {

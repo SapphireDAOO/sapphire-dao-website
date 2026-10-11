@@ -13,7 +13,10 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ContractContext } from "@/context/contract-context";
+import {
+  ContractActionsContext,
+  ContractLoadingContext,
+} from "@/context/contract-context";
 import { CircleCheckBig, Loader2, ShieldCheck } from "lucide-react";
 import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
@@ -77,8 +80,8 @@ const CheckoutCard = ({ data, isMetaInvoice }: CheckoutCardProps) => {
     };
   }, []);
 
-  const { payIntermediatedInvoice, isLoading, refetchInvoiceData } =
-    useContext(ContractContext);
+  const { payIntermediatedInvoice } = useContext(ContractActionsContext);
+  const isLoading = useContext(ContractLoadingContext);
 
   const normalizedStatus = data?.status?.toUpperCase?.();
 
@@ -140,10 +143,7 @@ const CheckoutCard = ({ data, isMetaInvoice }: CheckoutCardProps) => {
             clearInterval(countdownIntervalRef.current!);
             countdownIntervalRef.current = null;
 
-            (async () => {
-              await refetchInvoiceData?.();
-              router.push("/intermediated-dashboard/?tab=buyer");
-            })();
+            router.push("/intermediated-dashboard/?tab=buyer");
           }
 
           return next;

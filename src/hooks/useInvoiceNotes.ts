@@ -25,6 +25,22 @@ const NOTE_REFRESH_DELAY_MS = 5_000;
 // Shown until (or unless) the server-side decrypt resolves a note's content.
 const ENCRYPTED_NOTE_PLACEHOLDER = "Encrypted note";
 
+// A block's timestamp never changes, so labels are shared by every card and
+// survive a card remounting. Keyed by `<chainId>:<block>`; the oldest entry
+// goes once it is full. A plain Map rather than lru-cache, which this page's
+// bundle would otherwise carry twice.
+const BLOCK_LABEL_CACHE_MAX = 500;
+const blockLabelCache = new Map<string, string>();
+const blockLabelKey = (chainId: number, blockNumber: string) =>
+  `${chainId}:${blockNumber}`;
+const rememberBlockLabel = (key: string, label: string) => {
+  blockLabelCache.set(key, label);
+  if (blockLabelCache.size > BLOCK_LABEL_CACHE_MAX) {
+    const oldest = blockLabelCache.keys().next().value;
+    if (oldest !== undefined) blockLabelCache.delete(oldest);
+  }
+};
+
 const isNumericNoteId = (noteId: string) => {
   try {
     BigInt(noteId);
@@ -62,6 +78,8 @@ export type ThreadNote = {
   isAuthor: boolean;
   isPending: boolean;
   txHash?: string;
+  /** Block the note was created in; its timestamp fills createdAtLabel. */
+  createdAtBlock?: string;
 };
 
 const formatNowLabel = () => {
@@ -94,13 +112,12 @@ export const useInvoiceNotes = (
     {}
   );
 
-  const noteKeys = useNoteKeys();
+  const noteKeys = useNoteKeys({ enabled: isEnabled });
 
   const notesRef = useRef<ThreadNote[]>([]);
   // Sealed bodies straight from the subgraph, kept so decryption can happen
   // locally without re-querying.
   const ciphertextRef = useRef<Map<string, Hex>>(new Map());
-  const blockCacheRef = useRef<Map<string, string>>(new Map());
   const configWarnedRef = useRef(false);
   const invalidinvoiceIdRef = useRef(false);
   const refreshTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -241,46 +258,47 @@ export const useInvoiceNotes = (
   }, [isEnabled]);
 
 
+  /**
+   * Reads the timestamps of blocks not yet in the shared cache. Resolves true
+   * when it learned any. A failed read is left uncached so a later fetch can
+   * retry it; the note shows its block number meanwhile.
+   */
   const hydrateBlockLabels = useCallback(
-    async (blockNumbers: string[]) => {
-      if (!blockNumbers.length) return;
+    async (blockNumbers: string[]): Promise<boolean> => {
+      if (!publicClient) return false;
 
-      const uniqueBlocks = Array.from(new Set(blockNumbers));
-      const missingBlocks = uniqueBlocks.filter(
-        (blockNumber) => !blockCacheRef.current.has(blockNumber)
+      const missingBlocks = Array.from(new Set(blockNumbers)).filter(
+        (blockNumber) => !blockLabelCache.has(blockLabelKey(chainId, blockNumber))
       );
+      if (!missingBlocks.length) return false;
 
-      if (!missingBlocks.length) return;
-
-      if (!publicClient) {
-        missingBlocks.forEach((blockNumber) => {
-          blockCacheRef.current.set(blockNumber, `Block ${blockNumber}`);
-        });
-        return;
-      }
-
-      const results = await Promise.all(
+      const learned = await Promise.all(
         missingBlocks.map(async (blockNumber) => {
           try {
             const block = await publicClient.getBlock({
               blockNumber: BigInt(blockNumber),
             });
             const label = unixToGMT(Number(block.timestamp));
-            return { blockNumber, label: label || `Block ${blockNumber}` };
+            if (!label) return false;
+            rememberBlockLabel(blockLabelKey(chainId, blockNumber), label);
+            return true;
           } catch {
-            return { blockNumber, label: `Block ${blockNumber}` };
+            return false;
           }
         })
       );
 
-      results.forEach(({ blockNumber, label }) => {
-        blockCacheRef.current.set(blockNumber, label);
-      });
+      return learned.some(Boolean);
     },
-    [publicClient]
+    [chainId, publicClient]
   );
 
-  const fetchNotes = useCallback(async () => {
+  /**
+   * Loads the thread. `force` bypasses the notes client's cache-first
+   * default, which otherwise answers a refresh with the result it already
+   * holds; the first load of a thread may come from that cache.
+   */
+  const fetchNotes = useCallback(async (force = false) => {
     if (!isEnabled) return;
 
     if (normalizedinvoiceId === undefined) {
@@ -318,10 +336,14 @@ export const useInvoiceNotes = (
         NOTES_SIGNER_ADDRESS || viewer
       ).toLowerCase();
       const { data, error } = await graphClient
-        .query(NOTES_BY_ORDER_QUERY, {
-          invoiceId: normalizedinvoiceId.toString(),
-          user: openStateUser,
-        })
+        .query(
+          NOTES_BY_ORDER_QUERY,
+          {
+            invoiceId: normalizedinvoiceId.toString(),
+            user: openStateUser,
+          },
+          force ? { requestPolicy: "network-only" } : undefined,
+        )
         .toPromise();
 
       if (error) {
@@ -368,10 +390,6 @@ export const useInvoiceNotes = (
         notesRef.current.map((note) => [note.noteId, note.hasOpenState])
       );
 
-      await hydrateBlockLabels(
-        rawNotes.map((note) => note.createdAtBlock).filter(Boolean) as string[]
-      );
-
       // A private note never appears outside its author's view. This asks for
       // positive proof before listing one - shared, or provably authored by
       // the reader - so a note whose `share`/`author` the subgraph did not
@@ -408,9 +426,12 @@ export const useInvoiceNotes = (
             return null;
           }
           const message = openedMessage ?? ENCRYPTED_NOTE_PLACEHOLDER;
+          // Block timestamps fill in after the thread renders (see below),
+          // rather than holding the whole thread back for one read per note.
           const createdAtLabel = note.createdAtBlock
-            ? blockCacheRef.current.get(note.createdAtBlock) ||
-              `Block ${note.createdAtBlock}`
+            ? blockLabelCache.get(
+                blockLabelKey(chainId, note.createdAtBlock)
+              ) || `Block ${note.createdAtBlock}`
             : "-";
 
           const previousOpened = openStateMap.get(note.noteId);
@@ -436,6 +457,7 @@ export const useInvoiceNotes = (
             isAuthor: Boolean(isAuthor),
             isPending: false,
             txHash: note.createdAtTx,
+            createdAtBlock: note.createdAtBlock,
           } as ThreadNote;
         })
         .filter((note): note is ThreadNote => note !== null)
@@ -490,6 +512,27 @@ export const useInvoiceNotes = (
           }
         });
       });
+
+      // The thread is on screen already; swap block numbers for timestamps as
+      // they arrive.
+      void hydrateBlockLabels(
+        mapped
+          .map((note) => note.createdAtBlock)
+          .filter((block): block is string => Boolean(block)),
+      ).then((learned) => {
+        if (!learned) return;
+        setNotes((prev) =>
+          prev.map((note) => {
+            if (!note.createdAtBlock) return note;
+            const label = blockLabelCache.get(
+              blockLabelKey(chainId, note.createdAtBlock),
+            );
+            return label && label !== note.createdAtLabel
+              ? { ...note, createdAtLabel: label }
+              : note;
+          }),
+        );
+      });
     } catch (error) {
       console.error("Failed to fetch notes", error);
       toast.error("Failed to load notes.");
@@ -517,14 +560,16 @@ export const useInvoiceNotes = (
 
   const refresh = useCallback(async () => {
     if (!isEnabled) return;
-    await fetchNotes();
+    await fetchNotes(true);
   }, [fetchNotes, isEnabled]);
 
+  // Runs after a note is written or a note event arrives, both of which mean
+  // the cached thread is out of date.
   const scheduleRefresh = useCallback(() => {
     if (!isEnabled) return;
     if (refreshTimeoutRef.current) return;
     refreshTimeoutRef.current = setTimeout(() => {
-      void fetchNotes();
+      void fetchNotes(true);
       refreshTimeoutRef.current = null;
     }, NOTE_REFRESH_DELAY_MS);
   }, [fetchNotes, isEnabled]);

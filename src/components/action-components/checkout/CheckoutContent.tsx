@@ -3,7 +3,7 @@
 import { useContext, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
-import { ContractContext } from "@/context/contract-context";
+import { ContractActionsContext } from "@/context/contract-context";
 import { InvoiceDetails, TokenData } from "@/model/model";
 import {
   BASE_SEPOLIA,
@@ -30,7 +30,7 @@ const CheckoutPage = () => {
   const encodedId = searchParams.get(PAY_LINK_PARAM);
   const chainId = useChainId() || BASE_SEPOLIA;
 
-  const { getIntermediatedInvoiceData } = useContext(ContractContext);
+  const { getIntermediatedInvoiceData } = useContext(ContractActionsContext);
   const [invoiceId, setinvoiceId] = useState<bigint | null>(null);
   const [invoiceDetails, setInvoiceDetails] = useState<InvoiceDetails | null>(
     null

@@ -1,11 +1,5 @@
 import type { Metadata } from "next";
 import "@/styles/globals.css";
-import "@rainbow-me/rainbowkit/styles.css";
-import Web3Provider from "@/components/Web3Provider";
-import Navbar from "@/components/Navigation";
-import Footer from "@/components/Footer";
-import WalletHint from "@/components/wallet-hint/WalletHint";
-import { Toaster } from "sonner";
 
 if (typeof globalThis.indexedDB === "undefined") {
   const stubIndexedDB = {
@@ -38,6 +32,9 @@ export const metadata: Metadata = {
   },
 };
 
+// The wallet stack (wagmi, RainbowKit, WalletConnect) lives in the (app)
+// route group's layout, not here: the home page has no use for it, and
+// mounting it at the root made every route ship and boot it.
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -45,17 +42,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body>
-        <Web3Provider>
-          <div className="flex min-h-screen flex-col">
-            <Navbar />
-            <div className="flex-1">{children}</div>
-            <Footer />
-          </div>
-          <WalletHint />
-          <Toaster position="bottom-right" richColors />
-        </Web3Provider>
-      </body>
+      <body>{children}</body>
     </html>
   );
 }

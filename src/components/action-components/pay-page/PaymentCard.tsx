@@ -13,7 +13,11 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ContractContext } from "@/context/contract-context";
+import {
+  ContractActionsContext,
+  ContractLoadingContext,
+  InvoiceStateContext,
+} from "@/context/contract-context";
 import {
   CircleCheckBig,
   Loader2,
@@ -30,11 +34,10 @@ import {
   DialogPortal,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { formatEther, parseEther, type AbiEvent } from "viem";
+import { formatEther, parseEther } from "viem";
 import { useGetInvoiceData } from "@/hooks/useGetInvoiceData";
 import { useInvoiceNotes, ThreadNote } from "@/hooks/useInvoiceNotes";
 import { SIMPLE_PAYMENT_PROCESSOR } from "@/constants";
-import { paymentProcessor } from "@/abis/PaymentProcessor";
 import { BASE_SEPOLIA } from "@/constants";
 import { formatAddress, formatDurationSeconds } from "@/utils";
 import { Textarea } from "@/components/ui/textarea";
@@ -56,26 +59,6 @@ type InvoiceLike = {
   note?: string;
   notes?: { message?: string }[];
 };
-
-const paymentStatusFromEvent = {
-  InvoicePaid: "PAID",
-  InvoiceAccepted: "ACCEPTED",
-  InvoiceRejected: "REFUNDED",
-  InvoiceRefunded: "REFUNDED",
-  InvoiceReleased: "RELEASED",
-  InvoiceCanceled: "CANCELED",
-} as const;
-
-const paymentStatusEventNames = new Set(Object.keys(paymentStatusFromEvent));
-
-const paymentStatusEvents = (
-  paymentProcessor as readonly { type: string; name?: string }[]
-).filter(
-  (item): item is AbiEvent =>
-    item.type === "event" &&
-    typeof item.name === "string" &&
-    paymentStatusEventNames.has(item.name),
-);
 
 const getInvoiceSeller = (invoice: unknown) => {
   const item = invoice as
@@ -128,8 +111,14 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
     ? SIMPLE_PAYMENT_PROCESSOR[chain?.id || BASE_SEPOLIA]
     : undefined;
 
-  const { invoiceData, makeInvoicePayment, isLoading, refetchInvoiceData } =
-    useContext(ContractContext);
+  const { makeInvoicePayment, watchInvoiceEvents, watchInvoiceStatus } =
+    useContext(ContractActionsContext);
+  const isLoading = useContext(ContractLoadingContext);
+  const { invoiceData } = useContext(InvoiceStateContext);
+
+  // A payment from here lands in the dashboard's buyer tab through the live
+  // event feed, so the feed stays open while this page is.
+  useEffect(() => watchInvoiceEvents?.("simple"), [watchInvoiceEvents]);
 
   const liveInvoice = useMemo(() => {
     if (!invoiceId) return undefined;
@@ -234,38 +223,13 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
     setLiveStatus(normalizedStatus);
   }, [normalizedStatus]);
 
+  // Someone else paying, or the seller cancelling, while this page is open.
+  // Read off the shared simple-processor feed this page already holds open,
+  // rather than a second subscription to the same contract.
   useEffect(() => {
-    if (!publicClient || !invoiceId) return;
-
-    const activeChainId = chain?.id || BASE_SEPOLIA;
-    const processorAddress = SIMPLE_PAYMENT_PROCESSOR[activeChainId];
-    if (!processorAddress) return;
-
-    const unwatch = publicClient.watchEvent({
-      address: processorAddress,
-      events: paymentStatusEvents,
-      onLogs: (logs) => {
-        for (const log of logs) {
-          const name = log.eventName as
-            | keyof typeof paymentStatusFromEvent
-            | undefined;
-          const nextStatus = name ? paymentStatusFromEvent[name] : undefined;
-          if (!nextStatus) continue;
-
-          const args = log.args as
-            | { invoiceId?: bigint; invoiceNonce?: bigint }
-            | undefined;
-          const id = (args?.invoiceId ?? args?.invoiceNonce)?.toString();
-          if (id !== invoiceId.toString()) continue;
-          setLiveStatus(nextStatus);
-        }
-      },
-    });
-
-    return () => {
-      unwatch();
-    };
-  }, [publicClient, invoiceId, chain?.id]);
+    if (!invoiceId) return;
+    return watchInvoiceStatus?.(invoiceId, (status) => setLiveStatus(status));
+  }, [invoiceId, watchInvoiceStatus]);
 
   const canPay =
     liveStatus === "AWAITING PAYMENT" ||
@@ -301,13 +265,7 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
     }
 
     const nextTab = userIsCreator ? "seller" : "buyer";
-
-    const redirect = async () => {
-      await refetchInvoiceData?.();
-      router.push(`/dashboard?tab=${nextTab}`);
-    };
-
-    void redirect();
+    router.push(`/dashboard?tab=${nextTab}`);
   }, [
     invoiceId,
     canPay,
@@ -315,7 +273,6 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
     creatorChecked,
     isLoading,
     userIsCreator,
-    refetchInvoiceData,
     router,
   ]);
 

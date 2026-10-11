@@ -1,7 +1,10 @@
 "use client";
 
 import { useContext, useState } from "react";
-import { ContractContext } from "@/context/contract-context";
+import {
+  ContractActionsContext,
+  ContractLoadingContext,
+} from "@/context/contract-context";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
@@ -13,8 +16,8 @@ interface SellersActionProps {
 }
 
 const SellersAction = ({ invoiceId, state, text }: SellersActionProps) => {
-  const { sellerAction, isLoading, refetchInvoiceData } =
-    useContext(ContractContext);
+  const { sellerAction } = useContext(ContractActionsContext);
+  const isLoading = useContext(ContractLoadingContext);
 
   const [localLoading, setLocalLoading] = useState(false);
 
@@ -24,8 +27,6 @@ const SellersAction = ({ invoiceId, state, text }: SellersActionProps) => {
 
     try {
       if (await sellerAction(invoiceId, state)) {
-        await refetchInvoiceData?.();
-
         toast.success(
           `Successfully ${state ? "Accepted" : "Rejected"} the invoice.`
         );

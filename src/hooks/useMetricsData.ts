@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAccount } from "wagmi";
-import { BASE_SEPOLIA } from "@/constants";
+import { BASE_SEPOLIA, DEFAULT_QUERY_GC_TIME_MS } from "@/constants";
 import { fetchMetricsSnapshot } from "@/services/metrics/subgraphMetrics";
 import {
   createMetricsSocket,
@@ -13,6 +14,10 @@ import type {
   MetricsSnapshot,
   MetricsSocketStatus,
 } from "@/services/metrics/types";
+
+// The live socket keeps the figures moving between fetches, so a revisit
+// inside this window reuses the cached snapshot instead of reseeding.
+const METRICS_STALE_TIME_MS = 60_000;
 
 /** Return a copy of `series` with `fn` applied to its last point (the current
  *  day), leaving earlier points untouched. No-op on an empty series. */
@@ -90,70 +95,64 @@ export interface UseMetricsDataResult {
 
 /**
  * Hybrid metric feed: the subgraph provides the source-of-truth snapshot and
- * the websocket layers live deltas on top between polls. On socket reconnect we
- * drop optimistic state and reseed from the subgraph.
+ * the websocket layers live deltas on top between fetches. On socket reconnect
+ * we reseed from the subgraph, which replaces the optimistic state.
  *
- * The subgraph fetch and websocket transport are not implemented yet, so the
- * calls are wired here but currently resolve to an error / no live data.
+ * The snapshot sits in react-query, so leaving and returning to the page
+ * within METRICS_STALE_TIME_MS costs no request.
  */
 export const useMetricsData = (): UseMetricsDataResult => {
   const { chain } = useAccount();
   const chainId = chain?.id ?? BASE_SEPOLIA;
+  const queryClient = useQueryClient();
 
-  const [snapshot, setSnapshot] = useState<MetricsSnapshot | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const queryKey = useMemo(() => ["metrics-snapshot", chainId], [chainId]);
   const [socketStatus, setSocketStatus] =
     useState<MetricsSocketStatus>("connecting");
 
-  // Keep the base (subgraph) snapshot separate from the optimistic one so a
-  // reconnect can cleanly drop deltas and reseed.
-  const baseSnapshotRef = useRef<MetricsSnapshot | null>(null);
+  const query = useQuery({
+    queryKey,
+    // Subgraph call (source of truth for cumulative + windowed values).
+    queryFn: () => fetchMetricsSnapshot(chainId),
+    staleTime: METRICS_STALE_TIME_MS,
+    gcTime: DEFAULT_QUERY_GC_TIME_MS,
+    retry: false,
+  });
+  const { refetch: refetchQuery } = query;
 
-  const loadSnapshot = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      // Subgraph call (source of truth for cumulative + windowed values).
-      const next = await fetchMetricsSnapshot(chainId);
-      baseSnapshotRef.current = next;
-      setSnapshot(next);
-    } catch (err) {
-      baseSnapshotRef.current = null;
-      setSnapshot(null);
-      setError(err instanceof Error ? err.message : "Failed to load metrics");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [chainId]);
-
-  // Subgraph snapshot: initial load + reseed on chain change.
-  useEffect(() => {
-    loadSnapshot();
-  }, [loadSnapshot]);
+  const refetch = useCallback(() => {
+    void refetchQuery();
+  }, [refetchQuery]);
 
   // Websocket: apply live deltas optimistically; reseed on reconnect.
   useEffect(() => {
     let handle: MetricsSocketHandle | null = null;
     // The socket emits "open" synchronously on creation, which always
-    // coincides with the initial-load effect above (same deps) — reseeding
-    // there would just duplicate that fetch. Only reseed on a later reopen.
+    // coincides with the query's own load (same chain) — reseeding there would
+    // just duplicate that fetch. Only reseed on a later reopen.
     let initialOpen = true;
 
+    // Deltas go into the cached snapshot so a revisit still shows them. The
+    // fetch time is kept, so the snapshot still goes stale (and is refetched)
+    // on schedule however many events arrive.
     const handleDelta = (delta: MetricsDelta) => {
-      setSnapshot((prev) => (prev ? applyDelta(prev, delta) : prev));
+      const updatedAt = queryClient.getQueryState(queryKey)?.dataUpdatedAt;
+      queryClient.setQueryData<MetricsSnapshot>(
+        queryKey,
+        (prev) => (prev ? applyDelta(prev, delta) : prev),
+        { updatedAt },
+      );
     };
 
     const handleStatus = (status: MetricsSocketStatus) => {
       setSocketStatus(status);
-      // On reopen, drop optimistic state and reseed from the subgraph.
+      // On reopen, reseed from the subgraph; the result replaces the deltas.
       if (status === "open") {
         if (initialOpen) {
           initialOpen = false;
           return;
         }
-        if (baseSnapshotRef.current) setSnapshot(baseSnapshotRef.current);
-        loadSnapshot();
+        void queryClient.invalidateQueries({ queryKey });
       }
     };
 
@@ -172,13 +171,18 @@ export const useMetricsData = (): UseMetricsDataResult => {
     return () => {
       handle?.close();
     };
-  }, [chainId, loadSnapshot]);
+  }, [chainId, queryClient, queryKey]);
 
   return {
-    snapshot,
-    isLoading,
-    error,
+    snapshot: query.data ?? null,
+    // Any fetch, not only the first: the refresh button spins while it runs.
+    isLoading: query.isFetching,
+    error: query.error
+      ? query.error instanceof Error
+        ? query.error.message
+        : "Failed to load metrics"
+      : null,
     socketStatus,
-    refetch: loadSnapshot,
+    refetch,
   };
 };

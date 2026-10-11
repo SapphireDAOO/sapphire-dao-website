@@ -7,9 +7,9 @@ import { useViemReadContract } from "./useViemReadContract";
 /**
  * The address allowed to trip the emergency pause.
  *
- * `useEmergencyPause` reads this too, alongside the live pause state on a
- * poll. This is the bare read on its own, for callers that only need to know
- * who the pauser is — an access check should not be polling the chain.
+ * `useEmergencyPause` reads this too, alongside the live pause state. This is
+ * the bare read on its own, for callers that only need to know who the pauser
+ * is, without pulling in the pause state and its refresh timers.
  */
 export const useGetEmergencyPauser = () => {
   const { address } = useAccount();

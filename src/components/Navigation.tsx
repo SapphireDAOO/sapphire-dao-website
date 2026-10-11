@@ -1,7 +1,8 @@
 "use client";
 
 import { ConnectButton } from "@rainbow-me/rainbowkit";
-import { usePathname, useRouter } from "next/navigation";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ChevronDown,
@@ -46,21 +47,24 @@ const ADMIN_LINKS = [
   },
 ] as const;
 
-/** A single nav link: uniform typography, subtle hover, animated active underline. */
+/**
+ * A single nav link: uniform typography, subtle hover, animated active
+ * underline. A real <Link> rather than a router.push button, so the target
+ * route is prefetched while the link is on screen.
+ */
 const NavLink = ({
   label,
   active = false,
-  onClick,
+  href,
   ariaLabel,
 }: {
   label: string;
   active?: boolean;
-  onClick: () => void;
+  href: string;
   ariaLabel: string;
 }) => (
-  <button
-    type="button"
-    onClick={onClick}
+  <Link
+    href={href}
     aria-label={ariaLabel}
     aria-current={active ? "page" : undefined}
     className={cn(
@@ -78,7 +82,7 @@ const NavLink = ({
         active ? "scale-x-100" : "scale-x-0",
       )}
     />
-  </button>
+  </Link>
 );
 
 // Long enough to cross the gap between the trigger and the menu without the
@@ -88,11 +92,9 @@ const HOVER_CLOSE_DELAY_MS = 150;
 /** The admin group: reads as a NavLink until opened, then lists the section. */
 const AdminMenu = ({
   activePath,
-  onSelect,
   links,
 }: {
   activePath: string;
-  onSelect: (path: string) => void;
   /** Which of the admin pages this wallet may open. */
   links: typeof ADMIN_LINKS[number][];
 }) => {
@@ -191,37 +193,39 @@ const AdminMenu = ({
           return (
             <DropdownMenuItem
               key={path}
-              onSelect={() => onSelect(path)}
+              asChild
               aria-current={isActive ? "page" : undefined}
               className={cn(
                 "group relative cursor-pointer items-start gap-3 rounded-md px-2.5 py-2",
                 isActive && "bg-accent",
               )}
             >
-              {/* Echoes the navbar's underline, so "you are here" reads the
-                  same whether the menu is open or shut. */}
-              <span
-                className={cn(
-                  "pointer-events-none absolute left-0 top-1/2 h-7 w-0.5 -translate-y-1/2 rounded-full bg-blue-500 transition-opacity duration-200",
-                  isActive ? "opacity-100" : "opacity-0",
-                )}
-              />
-              <span
-                className={cn(
-                  "mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md border transition-colors",
-                  isActive
-                    ? "border-blue-500/30 bg-blue-500/10 text-blue-600 dark:text-blue-400"
-                    : "border-transparent bg-muted text-muted-foreground group-focus:text-foreground",
-                )}
-              >
-                <Icon className="h-4 w-4" />
-              </span>
-              <span className="flex min-w-0 flex-col gap-0.5">
-                <span className="text-sm font-medium leading-none">{label}</span>
-                <span className="text-xs leading-snug text-muted-foreground">
-                  {description}
+              <Link href={path}>
+                {/* Echoes the navbar's underline, so "you are here" reads the
+                    same whether the menu is open or shut. */}
+                <span
+                  className={cn(
+                    "pointer-events-none absolute left-0 top-1/2 h-7 w-0.5 -translate-y-1/2 rounded-full bg-blue-500 transition-opacity duration-200",
+                    isActive ? "opacity-100" : "opacity-0",
+                  )}
+                />
+                <span
+                  className={cn(
+                    "mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md border transition-colors",
+                    isActive
+                      ? "border-blue-500/30 bg-blue-500/10 text-blue-600 dark:text-blue-400"
+                      : "border-transparent bg-muted text-muted-foreground group-focus:text-foreground",
+                  )}
+                >
+                  <Icon className="h-4 w-4" />
                 </span>
-              </span>
+                <span className="flex min-w-0 flex-col gap-0.5">
+                  <span className="text-sm font-medium leading-none">{label}</span>
+                  <span className="text-xs leading-snug text-muted-foreground">
+                    {description}
+                  </span>
+                </span>
+              </Link>
             </DropdownMenuItem>
           );
         })}
@@ -233,14 +237,6 @@ const AdminMenu = ({
 const Navbar = () => {
   const { isAllowed: canAccessAdmin, canAccessGovernance } = useAdminAccess();
   const pathname = usePathname();
-  const navigator = useRouter();
-
-  const goTo = useCallback(
-    (path: string) => {
-      navigator.push(path);
-    },
-    [navigator],
-  );
 
   // `trailingSlash: true` makes usePathname return e.g. "/governance/", so strip
   // the trailing slash before comparing.
@@ -259,88 +255,60 @@ const Navbar = () => {
     return [];
   }, [canAccessAdmin, canAccessGovernance]);
 
-  const isHome = path === "/";
   const isMetrics = path === "/metrics";
   const isAdminSection = ADMIN_LINKS.some((link) => link.path === path);
 
+  // The home page renders HomeNavbar instead, so this only ever sits on an app
+  // route.
   return (
     <>
       {/* Main Navbar */}
       <nav className="bg-primary text-white p-4 shadow-md sticky top-0 z-50">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="text-xl font-semibold">
-            <button
-              type="button"
-              onClick={() => goTo("/")}
+            <Link
+              href="/"
               className="text-destructive hover:text-gray-200"
               aria-label="Go to home"
             >
               Sapphire DAO
-            </button>
+            </Link>
           </div>
 
-          <div>
-            {isHome ? (
-              <button
-                type="button"
-                className="bg-destructive text-primary px-4 py-2 rounded-lg shadow-md hover:bg-gray-200 transition"
-                onClick={() => goTo("/dashboard")}
-                aria-label="Open App"
-              >
-                Open App
-              </button>
+          <div className="flex items-center gap-1 sm:gap-2">
+            {isAdminSection ? (
+              <>
+                {/* Return out of the admin section. */}
+                <NavLink
+                  label="Dashboard"
+                  ariaLabel="Return to dashboard"
+                  href="/dashboard"
+                />
+                <NavLink
+                  label="Metrics"
+                  ariaLabel="Go to metrics"
+                  href="/metrics"
+                />
+              </>
+            ) : isMetrics ? (
+              <NavLink
+                label="Dashboard"
+                ariaLabel="Go to dashboard"
+                href="/dashboard"
+              />
             ) : (
-              <div className="flex items-center gap-1 sm:gap-2">
-                {isAdminSection ? (
-                  <>
-                    {/* Return out of the admin section. */}
-                    <NavLink
-                      label="Dashboard"
-                      ariaLabel="Return to dashboard"
-                      onClick={() => goTo("/dashboard")}
-                    />
-                    <NavLink
-                      label="Metrics"
-                      ariaLabel="Go to metrics"
-                      onClick={() => goTo("/metrics")}
-                    />
-                    {adminLinks.length > 0 && (
-                      <AdminMenu
-                        activePath={path}
-                        onSelect={goTo}
-                        links={adminLinks}
-                      />
-                    )}
-                  </>
-                ) : (
-                  <>
-                    {isMetrics ? (
-                      <NavLink
-                        label="Dashboard"
-                        ariaLabel="Go to dashboard"
-                        onClick={() => goTo("/dashboard")}
-                      />
-                    ) : (
-                      <NavLink
-                        label="Metrics"
-                        ariaLabel="Go to metrics"
-                        onClick={() => goTo("/metrics")}
-                      />
-                    )}
-                    {adminLinks.length > 0 && (
-                      <AdminMenu
-                        activePath={path}
-                        onSelect={goTo}
-                        links={adminLinks}
-                      />
-                    )}
-                  </>
-                )}
-                <div className="ml-2">
-                  <ConnectButton chainStatus="icon" showBalance={false} />
-                </div>
-              </div>
+              <NavLink
+                label="Metrics"
+                ariaLabel="Go to metrics"
+                href="/metrics"
+              />
             )}
+            {adminLinks.length > 0 && (
+              <AdminMenu activePath={path} links={adminLinks} />
+            )}
+            <div className="ml-2">
+              <ConnectButton chainStatus="icon" showBalance={false} />
+            </div>
           </div>
         </div>
       </nav>

@@ -311,7 +311,6 @@ export const releaseInvoice = async (
   invoiceId: bigint,
   chainId: number,
   setIsLoading: (value: string) => void,
-  getInvoiceData: () => Promise<void>,
 ): Promise<boolean> => {
   setIsLoading(`releaseInvoice:${invoiceId.toString()}`);
   let success = false;
@@ -341,7 +340,6 @@ export const releaseInvoice = async (
 
     if (receipt?.status) {
       toast.success("Invoice successfully released");
-      await getInvoiceData();
       success = true;
     } else {
       toast.error("Something went wrong, please try again.");
@@ -359,7 +357,6 @@ export const refundBuyerAfterWindow = async (
   invoiceId: bigint,
   chainId: number,
   setIsLoading: (value: string) => void,
-  getInvoiceData: () => Promise<void>,
 ): Promise<boolean> => {
   setIsLoading(`refundBuyerAfterWindow:${invoiceId.toString()}`);
   let success = false;
@@ -389,7 +386,6 @@ export const refundBuyerAfterWindow = async (
 
     if (receipt?.status) {
       toast.success("Refund to buyer successfully processed");
-      await getInvoiceData();
       success = true;
     } else {
       toast.error("An unexpected error occurred during refund.");

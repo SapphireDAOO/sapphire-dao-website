@@ -1,16 +1,12 @@
-import {
-  ReactNode,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { ReactNode, useCallback, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAccount, usePublicClient } from "wagmi";
 import {
-  ContractContext,
-  type ContractContextData,
+  ContractActionsContext,
+  ContractLoadingContext,
+  InvoiceStateContext,
+  type ContractActions,
+  type InvoiceState,
 } from "@/context/contract-context";
 import { useInvoiceData } from "@/hooks/useInvoiceData";
 import {
@@ -29,8 +25,6 @@ import { Address } from "viem";
 import { WagmiClient } from "@/services/blockchain/types";
 import { INTERMEDIATED_PAYMENT_PROCESSOR, BASE_SEPOLIA } from "@/constants";
 import { useHintedWalletClient } from "@/components/wallet-hint/useHintedWalletClient";
-
-const INVOICE_REFRESH_DELAY_MS = 5_000;
 
 type Props = {
   children?: ReactNode;
@@ -54,23 +48,20 @@ const WalletProvider = ({ children }: Props) => {
     invoiceData,
     liveInvoiceData,
     allInvoiceData,
-    invoicePage,
-    hasNextPage,
     getInvoiceOwner,
     getIntermediatedInvoiceData: fetchIntermediatedInvoiceData,
-    refetchAllInvoiceData,
-    refetchInvoiceData,
-    loadNextPage,
-    loadPrevPage,
-    getInvoiceData,
     refreshAdminData,
     addCreatedSimpleInvoice,
     upsertLocalInvoice,
-    setActiveEventTab,
+    watchInvoiceEvents,
+    watchInvoiceStatus,
+    trackInvoices,
   } = useInvoiceData();
 
-  const refreshTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
+  // A payment changes the chain reads behind checkout (invoice state, token
+  // allow-lists, balances), so those are invalidated. The subgraph refetches
+  // that used to follow only filled invoiceData, which the pay page alone
+  // reads, so they are gone.
   const invalidateIntermediatedInvoiceQueries = useCallback(() => {
     const contractAddress = INTERMEDIATED_PAYMENT_PROCESSOR[chainId];
     queryClient.invalidateQueries({
@@ -81,46 +72,11 @@ const WalletProvider = ({ children }: Props) => {
     });
   }, [chainId, queryClient]);
 
-  const scheduleInvoiceRefresh = useCallback(() => {
-    if (refreshTimeoutRef.current) return;
-    refreshTimeoutRef.current = setTimeout(() => {
-      refetchInvoiceData?.();
-      refreshTimeoutRef.current = null;
-    }, INVOICE_REFRESH_DELAY_MS);
-  }, [refetchInvoiceData]);
-
-  useEffect(() => {
-    return () => {
-      if (refreshTimeoutRef.current) {
-        clearTimeout(refreshTimeoutRef.current);
-      }
-    };
-  }, []);
-
-  const handleIntermediatedInvoiceSuccess = useCallback(async () => {
-    invalidateIntermediatedInvoiceQueries();
-    await refetchInvoiceData?.();
-    scheduleInvoiceRefresh();
-  }, [
-    invalidateIntermediatedInvoiceQueries,
-    refetchInvoiceData,
-    scheduleInvoiceRefresh,
-  ]);
-
-  // Memoized so the context value's identity only changes when its inputs do —
-  // an inline object literal here would re-render every ContractContext
-  // consumer on every provider render (which live invoice events make
-  // frequent), even when nothing they read has changed.
-  const contextValue = useMemo<ContractContextData>(
+  // Memoized apart from the invoice data and the loading flag, so components
+  // that only call actions (every card's buttons) keep the same value while
+  // live invoice events re-render the provider.
+  const actions = useMemo<ContractActions>(
     () => ({
-      isLoading,
-      invoiceData,
-      liveInvoiceData,
-      allInvoiceData,
-      invoicePage,
-      hasNextPage,
-      loadNextPage,
-      loadPrevPage,
       createInvoice: async (
         invoicePrice: bigint,
         storageRef?: string,
@@ -174,9 +130,9 @@ const WalletProvider = ({ children }: Props) => {
               chainId,
               address,
               setIsLoading,
-            ).then(async (success) => {
+            ).then((success) => {
               if (success) {
-                await handleIntermediatedInvoiceSuccess();
+                invalidateIntermediatedInvoiceQueries();
               }
               return success;
             })
@@ -188,61 +144,49 @@ const WalletProvider = ({ children }: Props) => {
       cancelInvoice: (invoiceId: bigint) =>
         cancelInvoice(wagmiClients, invoiceId, chainId, setIsLoading),
       releaseInvoice: (invoiceId: bigint) =>
-        releaseInvoice(
-          wagmiClients,
-          invoiceId,
-          chainId,
-          setIsLoading,
-          getInvoiceData,
-        ),
+        releaseInvoice(wagmiClients, invoiceId, chainId, setIsLoading),
       refundBuyerAfterWindow: (invoiceId: bigint) =>
-        refundBuyerAfterWindow(
-          wagmiClients,
-          invoiceId,
-          chainId,
-          setIsLoading,
-          getInvoiceData,
-        ),
+        refundBuyerAfterWindow(wagmiClients, invoiceId, chainId, setIsLoading),
       getInvoiceOwner,
       getIntermediatedInvoiceData: (
         invoiceId: bigint,
         type: "smartInvoice" | "metaInvoice",
       ) => fetchIntermediatedInvoiceData(invoiceId, type),
-      refetchAllInvoiceData,
-      refetchInvoiceData,
       refreshAdminData,
       upsertLocalInvoice,
-      setActiveEventTab,
+      watchInvoiceEvents,
+      watchInvoiceStatus,
+      trackInvoices,
     }),
     [
-      isLoading,
-      invoiceData,
-      liveInvoiceData,
-      allInvoiceData,
-      invoicePage,
-      hasNextPage,
-      loadNextPage,
-      loadPrevPage,
       wagmiClients,
       chainId,
       address,
       addCreatedSimpleInvoice,
-      getInvoiceData,
       getInvoiceOwner,
       fetchIntermediatedInvoiceData,
-      refetchAllInvoiceData,
-      refetchInvoiceData,
       refreshAdminData,
       upsertLocalInvoice,
-      setActiveEventTab,
-      handleIntermediatedInvoiceSuccess,
+      watchInvoiceEvents,
+      watchInvoiceStatus,
+      trackInvoices,
+      invalidateIntermediatedInvoiceQueries,
     ],
   );
 
+  const invoiceState = useMemo<InvoiceState>(
+    () => ({ invoiceData, liveInvoiceData, allInvoiceData }),
+    [invoiceData, liveInvoiceData, allInvoiceData],
+  );
+
   return (
-    <ContractContext.Provider value={contextValue}>
-      {children}
-    </ContractContext.Provider>
+    <ContractActionsContext.Provider value={actions}>
+      <ContractLoadingContext.Provider value={isLoading}>
+        <InvoiceStateContext.Provider value={invoiceState}>
+          {children}
+        </InvoiceStateContext.Provider>
+      </ContractLoadingContext.Provider>
+    </ContractActionsContext.Provider>
   );
 };
 

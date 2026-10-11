@@ -1,12 +1,12 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
+import { memo, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { Invoice } from "@/model/model";
-import { formatAddress, timeLeft, unixToGMT } from "@/utils";
+import { formatAddress, unixToGMT } from "@/utils";
 import { toast } from "sonner";
 import { usePayLink } from "@/hooks/usePayLink";
 import { QRCodeSVG } from "qrcode.react";
@@ -18,8 +18,9 @@ import {
   renderContractLink,
   renderTx,
   InvoiceField,
+  Countdown,
 } from "./InvoiceCardShared";
-import { useSharedSecondTicker } from "@/hooks/useSharedSecondTicker";
+import { useHasPassed } from "@/hooks/useHasPassed";
 
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 const isZeroAddress = (value?: string) => value?.toLowerCase() === ZERO_ADDRESS;
@@ -42,58 +43,45 @@ const formatAmountMax4 = (value?: string | null): string => {
   return negative ? `-${formatted}` : formatted;
 };
 
-export function InvoiceCard({
+function InvoiceCardImpl({
   invoice,
   isExpanded,
   onToggle,
 }: {
   invoice: Invoice;
   isExpanded: boolean;
-  onToggle: () => void;
+  onToggle: (invoiceId: bigint) => void;
 }) {
   const isSellerView = invoice.type === "Seller";
 
   const isBuyerView = invoice.type === "Buyer";
 
-  const shouldTrackCountdown = useMemo(() => {
-    if (invoice.status === "ACCEPTED" && invoice.releaseAt) return true;
-    if (invoice.status === "PAID" && invoice.paidAt) return true;
-    return (
-      (invoice.status === "AWAITING PAYMENT" ||
-        invoice.status === "CREATED" ||
-        invoice.status === "INITIATED") &&
-      Boolean(invoice.expiresAt)
-    );
-  }, [invoice.status, invoice.releaseAt, invoice.paidAt, invoice.expiresAt]);
+  const isAwaitingStatus =
+    invoice.status === "AWAITING PAYMENT" ||
+    invoice.status === "CREATED" ||
+    invoice.status === "INITIATED";
 
-  const tick = useSharedSecondTicker(shouldTrackCountdown);
-
+  // The ticking happens inside <Countdown>; the card only re-renders when the
+  // invoice itself changes. Undefined while the deadline is still unknown,
+  // which the field shows as loading.
   const countdown = useMemo(() => {
-    void tick;
-    if (!shouldTrackCountdown) return undefined;
-
     if (invoice.status === "ACCEPTED" && invoice.releaseAt) {
-      return timeLeft(
-        invoice.paidAt ? Number(invoice.paidAt) : null,
-        0,
-        Number(invoice.releaseAt) * 1000,
+      return (
+        <Countdown
+          startAt={invoice.paidAt ? Number(invoice.paidAt) : null}
+          endAtMs={Number(invoice.releaseAt) * 1000}
+        />
       );
     }
     if (invoice.status === "PAID" && invoice.paidAt) {
-      return timeLeft(Number(invoice.sellerActionDeadline) ?? 0, 0);
+      return <Countdown startAt={Number(invoice.sellerActionDeadline)} />;
     }
-    if (
-      invoice.status === "AWAITING PAYMENT" ||
-      invoice.status === "CREATED" ||
-      invoice.status === "INITIATED"
-    ) {
-      return timeLeft(Number(invoice.expiresAt) ?? 0, 0);
+    if (isAwaitingStatus && invoice.expiresAt) {
+      return <Countdown startAt={Number(invoice.expiresAt)} />;
     }
-
     return undefined;
   }, [
-    tick,
-    shouldTrackCountdown,
+    isAwaitingStatus,
     invoice.status,
     invoice.paidAt,
     invoice.releaseAt,
@@ -106,9 +94,14 @@ export function InvoiceCard({
     "pay",
   );
 
+  const toggle = useCallback(
+    () => onToggle(invoice.invoiceId),
+    [onToggle, invoice.invoiceId],
+  );
+
   const ensureExpanded = useCallback(() => {
-    if (!isExpanded) onToggle();
-  }, [isExpanded, onToggle]);
+    if (!isExpanded) toggle();
+  }, [isExpanded, toggle]);
 
   const shareLabel = useMemo(() => {
     if (isSellerView) {
@@ -161,19 +154,13 @@ export function InvoiceCard({
     toast.success("Payment link copied!");
   }, [paymentUrl]);
 
-  const isExpired = useMemo(() => {
-    if (
-      invoice.status === "AWAITING PAYMENT" ||
-      invoice.status === "CREATED" ||
-      invoice.status === "INITIATED"
-    ) {
-      return Boolean(
-        invoice.expiresAt &&
-        Date.now() > Number(invoice.expiresAt) * 1000,
-      );
-    }
-    return invoice.status === "EXPIRED";
-  }, [invoice.status, invoice.expiresAt]);
+  // Flips at the expiry moment without a per-second re-render of the card.
+  const hasExpiryPassed = useHasPassed(
+    invoice.expiresAt ? Number(invoice.expiresAt) * 1000 : undefined,
+  );
+  const isExpired = isAwaitingStatus
+    ? hasExpiryPassed
+    : invoice.status === "EXPIRED";
 
   const displayStatus = isExpired
     ? "EXPIRED"
@@ -224,7 +211,7 @@ export function InvoiceCard({
 
   return (
     <Card className="transition-shadow hover:shadow-md">
-      <CardHeader className="cursor-pointer select-none" onClick={onToggle}>
+      <CardHeader className="cursor-pointer select-none" onClick={toggle}>
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-semibold">#{invoice.id}</h3>
           <div className="flex items-center gap-2">
@@ -504,6 +491,10 @@ export function InvoiceCard({
     </Card>
   );
 }
+
+// Memoized: the dashboard re-renders on every live invoice event, and most
+// cards on the page are unaffected by any one of them.
+export const InvoiceCard = memo(InvoiceCardImpl);
 
 // renderContractLink, renderTx, InvoiceField live in InvoiceCardShared.tsx
 export {

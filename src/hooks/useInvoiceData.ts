@@ -3,7 +3,6 @@ import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { LRUCache } from "lru-cache";
 import {
   GET_ALL_INVOICES,
-  invoiceQuery,
   invoiceOwnerQuery,
   smartInvoiceQuery,
   metaInvoiceQuery,
@@ -15,18 +14,8 @@ import {
   INTERMEDIATED_PAYMENT_PROCESSOR,
   BASE_SEPOLIA,
   SIMPLE_PAYMENT_PROCESSOR,
-  ZERO_ADDRESS,
 } from "@/constants";
-import {
-  AllInvoice,
-  AdminAction,
-  UserCreatedInvoice,
-  UserPaidInvoice,
-  UserIssuedInvoiceInvoice,
-  UserReceivedInvoicesInvoice,
-  AllInvoicesData,
-  Invoice,
-} from "@/model/model";
+import { AllInvoice, AdminAction, AllInvoicesData, Invoice } from "@/model/model";
 
 import { formatEther } from "viem";
 import { client } from "@/services/graphql/client";
@@ -34,8 +23,6 @@ import { paymentProcessor } from "@/abis/PaymentProcessor";
 import { intermediatedPaymentProcessor } from "@/abis/IntermediatedPaymentProcessor";
 import {
   sortState,
-  sortHistory,
-  synthesizeIntermediatedHistory,
   pickNewerStatus,
   nowInSeconds,
   appendHistoryEntry,
@@ -52,20 +39,27 @@ import {
   getContractInvoiceIdBigInt,
   getDisplayInvoiceIdString,
   getInvoiceMergeKey,
+  matchesInvoiceIdentity,
 } from "@/lib/invoiceIdentifiers";
 import { useSimpleInvoiceEvents } from "./useSimpleInvoiceEvents";
 import { useIntermediatedInvoiceEvents } from "./useIntermediatedInvoiceEvents";
 import { useIsWindowVisible } from "./useIsWindowVisible";
 import type { CreatedSimpleInvoice } from "@/services/blockchain/SimplePaymentProcessor";
+import type { InvoiceEventTab } from "@/context/contract-context";
 
 const ERROR_BACKOFF_MS = 15_000;
-const PAGE_SIZE = 24;
-const ADMIN_INVOICE_CACHE_TTL_MS = 5_000;
-const USER_INVOICE_PAGE_CACHE_TTL_MS = 2_000;
-const USER_INVOICE_PAGE_CACHE_MAX = 100;
+// The subgraph's ceiling for `first`. Each list is walked with an id cursor,
+// so a large protocol costs a handful of requests rather than one per 24 rows.
+const ADMIN_PAGE_SIZE = 1000;
+// The admin lists are not kept live, so this is how stale a revisit may be
+// before the whole set is fetched again.
+const ADMIN_INVOICE_CACHE_TTL_MS = 30_000;
 const LIVE_INVOICE_OVERLAY_LIMIT = 100;
-const SIMPLE_INVOICE_READ_TTL_MS = 5_000;
-const INTERMEDIATED_INVOICE_READ_TTL_MS = 5_000;
+// invoiceData only feeds the pay page and is re-seeded from storage on load,
+// so the newest invoices are all worth persisting.
+const LOCAL_INVOICE_CACHE_LIMIT = 100;
+const INVOICE_READ_TTL_MS = 5_000;
+const INVOICE_READ_CACHE_MAX = 200;
 
 const INTERMEDIATED_STATE_LABELS: Record<number, string> = {
   1: "CREATED",
@@ -85,29 +79,19 @@ const CHECKOUT_QUERIES = {
   metaInvoice: metaInvoiceQuery,
 } as const;
 
-// seperate the contents of this file. admin cache should be different from users
-// caching in here might not be neccessary
-// paginate data from subgraph, when it is exhausted, make another query
-// use cache first in query
-type UserInvoicePageResult = {
-  data?: any;
-  error?: any;
-};
-
-const userInvoicePageCache = new LRUCache<string, UserInvoicePageResult>({
-  max: USER_INVOICE_PAGE_CACHE_MAX,
-  ttl: USER_INVOICE_PAGE_CACHE_TTL_MS,
+// Chain reads of single invoices, keyed by chain, contract and invoice id.
+// Bounded so a long session does not keep every invoice it ever read.
+type InvoiceRead = { data: unknown };
+const simpleInvoiceReadCache = new LRUCache<string, InvoiceRead>({
+  max: INVOICE_READ_CACHE_MAX,
+  ttl: INVOICE_READ_TTL_MS,
 });
-const userInvoicePageInflight = new Map<
-  string,
-  Promise<UserInvoicePageResult>
->();
-
-const getCachedUserInvoicePage = (
-  key: string,
-): UserInvoicePageResult | null => {
-  return userInvoicePageCache.get(key) ?? null;
-};
+const simpleInvoiceReadInflight = new Map<string, Promise<unknown>>();
+const intermediatedInvoiceReadCache = new LRUCache<string, InvoiceRead>({
+  max: INVOICE_READ_CACHE_MAX,
+  ttl: INVOICE_READ_TTL_MS,
+});
+const intermediatedInvoiceReadInflight = new Map<string, Promise<unknown>>();
 
 const compareInvoicesByLastActionDesc = (a: Invoice, b: Invoice) => {
   const timeA = getLastActionTime(a);
@@ -125,6 +109,11 @@ const getInvoiceCacheSignature = (invoices: Invoice[]) =>
         `${invoice.invoiceId.toString()}:${invoice.type ?? ""}:${invoice.source ?? ""}:${invoice.status ?? ""}:${getLastActionTime(invoice) ?? ""}`,
     )
     .join("|");
+
+const newestInvoices = (invoices: Invoice[]) =>
+  [...invoices]
+    .sort(compareInvoicesByLastActionDesc)
+    .slice(0, LOCAL_INVOICE_CACHE_LIMIT);
 
 export const useInvoiceData = () => {
   const { chain, address } = useAccount();
@@ -147,18 +136,30 @@ export const useInvoiceData = () => {
   );
   const lastCacheWriteSignatureRef = useRef("");
 
-  const [invoicePage, setInvoicePage] = useState(0);
-  const [hasNextPage, setHasNextPage] = useState(false);
-  const [activeEventTab, setActiveEventTab] = useState<
-    "simple" | "intermediated"
-  >("simple");
-  const currentPageRef = useRef(0);
-  const invoiceDataLengthRef = useRef(0);
+  // Pages holding the live event subscription open, newest last. Nothing is
+  // watched unless a page asks: the subscription used to run on every route,
+  // reading the chain for invoices that were not the user's.
+  const [eventWatches, setEventWatches] = useState<
+    { id: number; tab: InvoiceEventTab }[]
+  >([]);
+  const eventWatchIdRef = useRef(0);
+  // The newest holder wins: on a route change the incoming page can register
+  // before the outgoing one lets go.
+  const activeEventTab =
+    eventWatches.length > 0 ? eventWatches[eventWatches.length - 1].tab : null;
   const isWindowVisible = useIsWindowVisible();
 
-  const isFetchingRef = useRef(false);
+  // Invoice lists on screen that live outside invoiceData (the dashboard's
+  // paged query). Event handlers look here before deciding an invoice id
+  // is someone else's.
+  const trackedInvoiceListsRef = useRef(new Set<Invoice[]>());
+
+  // Status listeners for single simple-processor invoices, keyed by id.
+  const invoiceStatusListenersRef = useRef(
+    new Map<string, Set<(status: Invoice["status"]) => void>>(),
+  );
+
   const nextAllowedRequestRef = useRef<number>(0);
-  const hasFetchedRef = useRef(false);
   const cacheKey = getInvoiceCacheKey(address, chainId);
 
   const publishLiveInvoices = useCallback((updates: Invoice[]) => {
@@ -259,18 +260,6 @@ export const useInvoiceData = () => {
   const allInvoiceDataInflightRef = useRef<Promise<AllInvoicesData> | null>(
     null,
   );
-  const simpleInvoiceReadCacheRef = useRef<
-    Map<string, { timestamp: number; data: unknown }>
-  >(new Map());
-  const simpleInvoiceReadInflightRef = useRef<Map<string, Promise<unknown>>>(
-    new Map(),
-  );
-  const intermediatedInvoiceReadCacheRef = useRef<
-    Map<string, { timestamp: number; data: unknown }>
-  >(new Map());
-  const intermediatedInvoiceReadInflightRef = useRef<
-    Map<string, Promise<unknown>>
-  >(new Map());
   useEffect(() => {
     allInvoiceDataRef.current = allInvoiceData;
   }, [allInvoiceData]);
@@ -278,19 +267,17 @@ export const useInvoiceData = () => {
   const invoiceDataStateRef = useRef<Invoice[]>([]);
   useEffect(() => {
     invoiceDataStateRef.current = invoiceData;
-    invoiceDataLengthRef.current = invoiceData.length;
   }, [invoiceData]);
 
   useEffect(() => {
     if (!cacheKey) return;
-    if (!hasFetchedRef.current && invoiceData.length === 0) return;
     const signature = getInvoiceCacheSignature(invoiceData);
     if (signature === lastCacheWriteSignatureRef.current) return;
     if (cacheWriteTimeoutRef.current)
       clearTimeout(cacheWriteTimeoutRef.current);
     cacheWriteTimeoutRef.current = setTimeout(() => {
       lastCacheWriteSignatureRef.current = signature;
-      writeInvoiceCache(cacheKey, invoiceData);
+      writeInvoiceCache(cacheKey, newestInvoices(invoiceData));
       cacheWriteTimeoutRef.current = null;
     }, 1000);
     return () => {
@@ -303,7 +290,6 @@ export const useInvoiceData = () => {
     if (!cacheKey || typeof window === "undefined") return;
 
     const flushInvoiceCache = () => {
-      if (!hasFetchedRef.current && invoiceData.length === 0) return;
       if (cacheWriteTimeoutRef.current) {
         clearTimeout(cacheWriteTimeoutRef.current);
         cacheWriteTimeoutRef.current = null;
@@ -313,7 +299,7 @@ export const useInvoiceData = () => {
       if (signature === lastCacheWriteSignatureRef.current) return;
 
       lastCacheWriteSignatureRef.current = signature;
-      writeInvoiceCache(cacheKey, invoiceData);
+      writeInvoiceCache(cacheKey, newestInvoices(invoiceData));
     };
 
     window.addEventListener("pagehide", flushInvoiceCache);
@@ -360,15 +346,16 @@ export const useInvoiceData = () => {
 
         try {
           // Page through each list until exhausted; the subgraph caps a single
-          // request at PAGE_SIZE, so a one-shot query would silently drop
-          // anything past the first page. Each list pages sequentially, but
-          // the lists run in parallel so total latency is the longest list,
-          // not the sum of all of them.
+          // request at ADMIN_PAGE_SIZE, so a one-shot query would silently drop
+          // anything past the first page. Pages are cursored on id rather than
+          // skipped, since a large `skip` gets slower the deeper it goes. Each
+          // list pages sequentially, but the lists run in parallel so total
+          // latency is the longest list, not the sum of all of them.
           const fetchPagedList = async (
             list: "invoices" | "smartInvoices",
           ): Promise<any[]> => {
             const rows: any[] = [];
-            let skip = 0;
+            let lastId = "";
             let more = true;
 
             while (more) {
@@ -376,17 +363,15 @@ export const useInvoiceData = () => {
                 .query(
                   GET_ALL_INVOICES,
                   {
-                    skipInvoices: skip,
-                    firstInvoices: PAGE_SIZE,
+                    first: ADMIN_PAGE_SIZE,
+                    lastInvoiceId: lastId,
                     includeInvoices: list === "invoices",
-                    skipActions: 0,
-                    firstActions: PAGE_SIZE,
-                    includeActions: false,
-                    skipSmartInvoices: skip,
-                    firstSmartInvoices: PAGE_SIZE,
+                    lastSmartInvoiceId: lastId,
                     includeSmartInvoices: list === "smartInvoices",
                   },
-                  force ? { requestPolicy: "network-only" } : undefined,
+                  // The TTL cache above decides freshness. urql's cache-first
+                  // default would otherwise serve the first fetch forever.
+                  { requestPolicy: "network-only" },
                 )
                 .toPromise();
 
@@ -399,8 +384,8 @@ export const useInvoiceData = () => {
                 (list === "invoices" ? data?.invoices : data?.smartInvoices) ||
                 [];
               rows.push(...page);
-              more = page.length === PAGE_SIZE;
-              skip += page.length;
+              more = page.length === ADMIN_PAGE_SIZE;
+              if (page.length > 0) lastId = page[page.length - 1].id;
             }
 
             return rows;
@@ -503,271 +488,6 @@ export const useInvoiceData = () => {
     [chainId, handleRateLimit],
   );
 
-  const getInvoiceData = useCallback(
-    async (page = 0, force = false) => {
-      if (!address) return;
-
-      if (Date.now() < nextAllowedRequestRef.current) {
-        return;
-      }
-
-      const skip = page * PAGE_SIZE;
-      const normalizedAddress = address.toLowerCase();
-      const requestKey = `${chainId}:${normalizedAddress}:${PAGE_SIZE}:${skip}`;
-
-      try {
-        const cached = force ? null : getCachedUserInvoicePage(requestKey);
-        let result: UserInvoicePageResult;
-
-        if (cached) {
-          result = cached;
-        } else {
-          let inflight = force
-            ? undefined
-            : userInvoicePageInflight.get(requestKey);
-          if (!inflight) {
-            inflight = client(chainId)
-              .query(
-                invoiceQuery,
-                {
-                  address: normalizedAddress,
-                  first: PAGE_SIZE,
-                  skip,
-                },
-                force ? { requestPolicy: "network-only" } : undefined,
-              )
-              .toPromise()
-              .then((queryResult) => {
-                if (!queryResult.error) {
-                  userInvoicePageCache.set(requestKey, queryResult);
-                }
-                return queryResult;
-              })
-              .finally(() => {
-                userInvoicePageInflight.delete(requestKey);
-              });
-
-            if (!force) {
-              userInvoicePageInflight.set(requestKey, inflight);
-            }
-          }
-
-          result = await inflight;
-        }
-
-        const { data, error } = result;
-
-        if (error) {
-          console.error("GraphQL error fetching user invoices:", error.message);
-          handleRateLimit(error.message);
-          return;
-        }
-
-        if (!data?.user) return;
-
-        // The subgraph now exposes invoice history via an `events` relation;
-        // flatten it back into the legacy flat fields the mappings below read.
-        const createdInvoice: any[] = (data.user.ownedSimpleInvoices || []).map(
-          flattenInvoiceEvents,
-        );
-        const paidInvoices: any[] = (data.user.paidSimpleInvoices || []).map(
-          flattenInvoiceEvents,
-        );
-        const issuedInvoices: any[] = (
-          data.user.issuedAdvancedInvoices || []
-        ).map(flattenInvoiceEvents);
-        const receivedInvoices: any[] = (
-          data.user.receivedAdvancedInvoices || []
-        ).map(flattenInvoiceEvents);
-
-        const createdInvoiceData = createdInvoice.map((invoice: any) => ({
-          id: getDisplayInvoiceIdString(invoice),
-          invoiceId: getContractInvoiceIdBigInt(invoice),
-          createdAt: invoice.createdAt ? unixToGMT(invoice.createdAt) : null,
-          paidAt: invoice.paidAt || "Not Paid",
-          status: sortState(invoice.state, invoice.expiresAt),
-          price: invoice.price ? formatEther(BigInt(invoice.price)) : null,
-          amountPaid: invoice.amountPaid
-            ? formatEther(BigInt(invoice.amountPaid))
-            : null,
-          type: "Seller" as const,
-          contract: invoice.contract,
-          paymentTxHash: invoice.paymentTxHash,
-          expiresAt: invoice.expiresAt,
-          sellerActionDeadline: invoice.sellerActionDeadline,
-          seller: invoice.seller?.id ?? "",
-          buyer: invoice.buyer?.id ?? "",
-          releaseHash: invoice.releaseHash,
-          releaseAt: invoice.releasedAt,
-          source: "Simple" as const,
-          history: sortHistory(invoice.history, invoice.historyTime),
-          refundTxHash: invoice.refundTxHash,
-        }));
-
-        const paidInvoiceData = paidInvoices.map((invoice: any) => ({
-          id: getDisplayInvoiceIdString(invoice),
-          invoiceId: getContractInvoiceIdBigInt(invoice),
-          createdAt: invoice.createdAt ? unixToGMT(invoice.createdAt) : null,
-          paidAt: invoice.paidAt || "Not Paid",
-          status: sortState(invoice.state, invoice.expiresAt),
-          price: invoice.price ? formatEther(BigInt(invoice.price)) : null,
-          amountPaid: invoice.amountPaid
-            ? formatEther(BigInt(invoice.amountPaid))
-            : null,
-          type: "Buyer" as const,
-          seller: invoice.seller?.id ?? "",
-          contract: invoice.contract,
-          expiresAt: invoice.expiresAt,
-          sellerActionDeadline: invoice.sellerActionDeadline,
-          paymentTxHash: invoice.paymentTxHash,
-          releaseAt: invoice.releasedAt,
-          buyer: invoice.buyer?.id ?? "",
-          source: "Simple" as const,
-          history: sortHistory(invoice.history, invoice.historyTime),
-          refundTxHash: invoice.refundTxHash,
-        }));
-
-        const mapIntermediatedInvoice = (
-          invoice: any,
-          type: "IssuedInvoice" | "ReceivedInvoice",
-        ) => ({
-          id: getDisplayInvoiceIdString(invoice),
-          invoiceId: getContractInvoiceIdBigInt(invoice),
-          createdAt: invoice.createdAt ? unixToGMT(invoice.createdAt) : null,
-          paidAt: invoice.paidAt || "Not Paid",
-          status: sortState(invoice.state),
-          price: invoice.price ?? null,
-          // Pass raw string so the component can format with correct token decimals
-          amountPaid:
-            invoice.amountPaid != null ? String(invoice.amountPaid) : null,
-          amountReleased:
-            invoice.amountReleased != null
-              ? String(invoice.amountReleased)
-              : null,
-          amountRefunded:
-            invoice.amountRefunded != null
-              ? String(invoice.amountRefunded)
-              : null,
-          disputeSettledTxHash: invoice.disputeSettledTxHash,
-          sellerAmountReceivedAfterDispute:
-            invoice.sellerAmountReceivedAfterDispute ?? null,
-          buyerAmountReceivedAfterDispute:
-            invoice.buyerAmountReceivedAfterDispute ?? null,
-          type,
-          contract: invoice.contract,
-          paymentTxHash: invoice.paymentTxHash,
-          seller: invoice.seller?.id ?? "",
-          releaseHash: invoice.releaseHash,
-          releaseAt: invoice.releasedAt,
-          buyer: invoice.buyer?.id ?? "",
-          source: "Intermediated" as const,
-          // Native ETH has no PaymentToken entity in the subgraph — normalize to the
-          // zero address so downstream lookups (decimals, symbol) match correctly.
-          paymentToken: invoice.paymentToken?.id ?? ZERO_ADDRESS,
-          cancelAt: invoice.cancelAt,
-          refundTxHash: invoice.refundTxHash,
-          history: synthesizeIntermediatedHistory(invoice),
-        });
-
-        const issuedInvoicesData = issuedInvoices.map(
-          (inv: any) =>
-            mapIntermediatedInvoice(
-              inv,
-              "IssuedInvoice",
-            ) as UserIssuedInvoiceInvoice,
-        );
-        const receivedInvoicesData = receivedInvoices.map(
-          (inv: any) =>
-            mapIntermediatedInvoice(
-              inv,
-              "ReceivedInvoice",
-            ) as UserReceivedInvoicesInvoice,
-        );
-
-        const allInvoiceDataCombined: (
-          | UserCreatedInvoice
-          | UserPaidInvoice
-          | UserReceivedInvoicesInvoice
-          | UserIssuedInvoiceInvoice
-        )[] = [
-          ...createdInvoiceData,
-          ...paidInvoiceData,
-          ...issuedInvoicesData,
-          ...receivedInvoicesData,
-        ];
-
-        const moreAvailable =
-          createdInvoice.length === PAGE_SIZE ||
-          paidInvoices.length === PAGE_SIZE ||
-          issuedInvoices.length === PAGE_SIZE ||
-          receivedInvoices.length === PAGE_SIZE;
-
-        setInvoiceData((prev) => {
-          // Seed the merge map with ALL in-memory invoices (not just the current
-          // page). This ensures event-created invoices that haven't yet been indexed
-          // by the subgraph survive subsequent getInvoiceData calls. Subgraph results
-          // for the current page then overlay and update these entries below.
-          const mergedByKey = new Map<string, Invoice>(
-            prev.map((inv) => [getInvoiceMergeKey(inv), inv]),
-          );
-
-          allInvoiceDataCombined.forEach((inv) => {
-            const key = getInvoiceMergeKey(inv);
-            const existing = mergedByKey.get(key);
-            if (!existing) {
-              mergedByKey.set(key, inv as Invoice);
-              return;
-            }
-
-            mergedByKey.set(key, {
-              ...existing,
-              ...inv,
-              amountPaid:
-                inv.amountPaid && inv.amountPaid !== "0"
-                  ? inv.amountPaid
-                  : existing.amountPaid,
-              paidAt:
-                inv.paidAt && inv.paidAt !== "Not Paid"
-                  ? inv.paidAt
-                  : existing.paidAt,
-              paymentTxHash: inv.paymentTxHash || existing.paymentTxHash,
-              refundTxHash: inv.refundTxHash || existing.refundTxHash,
-              // Prefer the in-memory releaseAt (set by updateSimpleInvoiceTiming from
-              // the contract). The subgraph field mapped here is actually `releasedAt`
-              // (past event timestamp, "0" until released) — "0" is truthy as a string
-              // so `inv.releaseAt || existing` would incorrectly discard the valid
-              // contract-read hold-period timestamp and break the release countdown.
-              releaseAt:
-                Number(existing.releaseAt) > 0
-                  ? existing.releaseAt
-                  : Number(inv.releaseAt) > 0
-                    ? inv.releaseAt
-                    : undefined,
-              sellerActionDeadline: inv.sellerActionDeadline || existing.sellerActionDeadline,
-              buyer: inv.buyer || existing.buyer,
-              history: mergeHistory(existing.history, inv.history),
-              status: pickNewerStatus(existing.status ?? "", inv.status ?? ""),
-            } as Invoice);
-          });
-
-          return Array.from(mergedByKey.values()).sort(
-            compareInvoicesByLastActionDesc,
-          );
-        });
-        setHasNextPage(moreAvailable);
-        setInvoicePage(page);
-        currentPageRef.current = page;
-        hasFetchedRef.current = true;
-      } catch (error) {
-        console.error("Error fetching invoice data:", error);
-        if (typeof error === "object" && error !== null && "message" in error) {
-          handleRateLimit((error as any).message);
-        }
-      }
-    },
-    [address, chainId, handleRateLimit],
-  );
-
   const getInvoiceOwner = useCallback(
     async (id: string): Promise<string> => {
       if (Date.now() < nextAllowedRequestRef.current) {
@@ -813,7 +533,7 @@ export const useInvoiceData = () => {
     [chainId, handleRateLimit],
   );
 
-  const refetchAllInvoiceData = useCallback(
+  const refreshAdminData = useCallback(
     async (force = false) => {
       const fetchedInvoices = await getAllInvoiceData(force);
       setAllInvoiceData(fetchedInvoices);
@@ -828,15 +548,10 @@ export const useInvoiceData = () => {
       if (!contractAddress) return undefined;
 
       const key = `${chainId}:${contractAddress}:${invoiceId.toString()}`;
-      const cached = simpleInvoiceReadCacheRef.current.get(key);
-      if (
-        cached &&
-        Date.now() - cached.timestamp < SIMPLE_INVOICE_READ_TTL_MS
-      ) {
-        return cached.data;
-      }
+      const cached = simpleInvoiceReadCache.get(key);
+      if (cached) return cached.data;
 
-      const existing = simpleInvoiceReadInflightRef.current.get(key);
+      const existing = simpleInvoiceReadInflight.get(key);
       if (existing) return existing;
 
       const request = publicClient
@@ -847,17 +562,14 @@ export const useInvoiceData = () => {
           args: [invoiceId],
         })
         .then((data) => {
-          simpleInvoiceReadCacheRef.current.set(key, {
-            timestamp: Date.now(),
-            data,
-          });
+          simpleInvoiceReadCache.set(key, { data });
           return data;
         })
         .finally(() => {
-          simpleInvoiceReadInflightRef.current.delete(key);
+          simpleInvoiceReadInflight.delete(key);
         });
 
-      simpleInvoiceReadInflightRef.current.set(key, request);
+      simpleInvoiceReadInflight.set(key, request);
       return request;
     },
     [chainId, publicClient],
@@ -870,15 +582,10 @@ export const useInvoiceData = () => {
       if (!contractAddress) return undefined;
 
       const key = `${chainId}:${contractAddress}:${invoiceId.toString()}`;
-      const cached = intermediatedInvoiceReadCacheRef.current.get(key);
-      if (
-        cached &&
-        Date.now() - cached.timestamp < INTERMEDIATED_INVOICE_READ_TTL_MS
-      ) {
-        return cached.data;
-      }
+      const cached = intermediatedInvoiceReadCache.get(key);
+      if (cached) return cached.data;
 
-      const existing = intermediatedInvoiceReadInflightRef.current.get(key);
+      const existing = intermediatedInvoiceReadInflight.get(key);
       if (existing) return existing;
 
       const request = publicClient
@@ -889,17 +596,14 @@ export const useInvoiceData = () => {
           args: [invoiceId],
         })
         .then((data) => {
-          intermediatedInvoiceReadCacheRef.current.set(key, {
-            timestamp: Date.now(),
-            data,
-          });
+          intermediatedInvoiceReadCache.set(key, { data });
           return data;
         })
         .finally(() => {
-          intermediatedInvoiceReadInflightRef.current.delete(key);
+          intermediatedInvoiceReadInflight.delete(key);
         });
 
-      intermediatedInvoiceReadInflightRef.current.set(key, request);
+      intermediatedInvoiceReadInflight.set(key, request);
       return request;
     },
     [chainId, publicClient],
@@ -1354,29 +1058,63 @@ export const useInvoiceData = () => {
     ],
   );
 
-  const fetchLatestInvoices = useCallback(
-    async (
-      force = false,
-      mode: "user" | "admin" | "both" = "user",
-    ): Promise<void> => {
-      if (isFetchingRef.current && !force) return;
+  const watchInvoiceEvents = useCallback((tab: InvoiceEventTab) => {
+    const id = ++eventWatchIdRef.current;
+    setEventWatches((prev) => [...prev, { id, tab }]);
+    return () => {
+      setEventWatches((prev) => prev.filter((watch) => watch.id !== id));
+    };
+  }, []);
 
-      isFetchingRef.current = true;
-      try {
-        if (mode === "user" || mode === "both") {
-          await getInvoiceData(currentPageRef.current, force);
+  const trackInvoices = useCallback((invoices: Invoice[]) => {
+    const lists = trackedInvoiceListsRef.current;
+    lists.add(invoices);
+    return () => {
+      lists.delete(invoices);
+    };
+  }, []);
+
+  const watchInvoiceStatus = useCallback(
+    (invoiceId: bigint, listener: (status: Invoice["status"]) => void) => {
+      const key = invoiceId.toString();
+      const listeners = invoiceStatusListenersRef.current;
+      const forInvoice = listeners.get(key) ?? new Set();
+      forInvoice.add(listener);
+      listeners.set(key, forInvoice);
+      return () => {
+        forInvoice.delete(listener);
+        if (forInvoice.size === 0 && listeners.get(key) === forInvoice) {
+          listeners.delete(key);
         }
-        if (mode === "admin" || mode === "both") {
-          await refetchAllInvoiceData(force);
-        }
-      } finally {
-        isFetchingRef.current = false;
-      }
+      };
     },
-    [getInvoiceData, refetchAllInvoiceData],
+    [],
   );
 
-  // Initial fetch / address or chain change
+  const notifyInvoiceStatus = useCallback(
+    (invoiceId: string, status: Invoice["status"]) => {
+      invoiceStatusListenersRef.current
+        .get(invoiceId)
+        ?.forEach((listener) => listener(status));
+    },
+    [],
+  );
+
+  const findTrackedInvoice = useCallback(
+    (invoiceId: string, source: "Simple" | "Intermediated") => {
+      for (const list of trackedInvoiceListsRef.current) {
+        for (const invoice of list) {
+          if (matchesInvoiceIdentity(invoice, invoiceId, source)) {
+            return invoice;
+          }
+        }
+      }
+      return undefined;
+    },
+    [],
+  );
+
+  // Seed from storage on address or chain change
   useEffect(() => {
     if (!address) {
       setInvoiceData([]);
@@ -1389,21 +1127,17 @@ export const useInvoiceData = () => {
       return;
     }
 
-    hasFetchedRef.current = false;
-    lastCacheWriteSignatureRef.current = "";
-    currentPageRef.current = 0;
-    setInvoicePage(0);
-    setHasNextPage(false);
     setLiveInvoiceData([]);
+    // Replace even when nothing is stored: keeping the previous account's
+    // invoices would show them under this one and persist them for it.
     const cachedInvoices = readInvoiceCache(cacheKey);
-    if (cachedInvoices.length > 0) {
-      setInvoiceData(cachedInvoices);
-    }
+    lastCacheWriteSignatureRef.current =
+      getInvoiceCacheSignature(cachedInvoices);
+    setInvoiceData(cachedInvoices);
 
-    // No initial network fetch here — IndexRecentPayment runs its own paged
-    // query, event watchers stream new invoices into invoiceData, and
-    // refetchInvoiceData is invoked after actions complete. The cache above
-    // gives an instant render in the meantime.
+    // No network fetch: the dashboard renders its own paged query, event
+    // watchers stream changes into invoiceData, and the pay page reads the
+    // invoice from the chain when it is not here.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [address, chainId]);
 
@@ -1414,9 +1148,11 @@ export const useInvoiceData = () => {
     publicClient,
     invoicesRef: invoiceDataStateRef,
     setInvoiceData,
+    findTrackedInvoice,
     updateSimpleInvoiceTiming,
     hydrateSimpleInvoiceFromChain,
     onLiveInvoices: publishLiveInvoices,
+    onInvoiceStatus: notifyInvoiceStatus,
   });
 
   useIntermediatedInvoiceEvents({
@@ -1426,80 +1162,37 @@ export const useInvoiceData = () => {
     publicClient,
     invoicesRef: invoiceDataStateRef,
     setInvoiceData,
+    findTrackedInvoice,
     onLiveInvoices: publishLiveInvoices,
     hydrateIntermediatedInvoiceFromChain,
   });
-
-  // Stable wrappers so the returned object (and any context value built from
-  // it) only changes identity when the underlying data actually changes.
-  // Default to the same cache-aware behavior as loadNextPage/loadPrevPage;
-  // call refetchInvoiceData or pass force=true when a network refresh is needed.
-  const getInvoiceDataForPage = useCallback(
-    (page?: number, force = false) =>
-      getInvoiceData(page ?? currentPageRef.current, force),
-    [getInvoiceData],
-  );
-  const forceRefetchAllInvoiceData = useCallback(async () => {
-    const data = await getAllInvoiceData(true);
-    setAllInvoiceData(data);
-  }, [getAllInvoiceData]);
-  const refreshAdminData = useCallback(
-    async (force = false) => fetchLatestInvoices(force, "admin"),
-    [fetchLatestInvoices],
-  );
-  const refetchInvoiceData = useCallback(
-    () => getInvoiceData(currentPageRef.current, true),
-    [getInvoiceData],
-  );
-  const loadNextPage = useCallback(
-    () => getInvoiceData(currentPageRef.current + 1),
-    [getInvoiceData],
-  );
-  const loadPrevPage = useCallback(
-    () =>
-      currentPageRef.current > 0
-        ? getInvoiceData(currentPageRef.current - 1)
-        : Promise.resolve(),
-    [getInvoiceData],
-  );
 
   return useMemo(
     () => ({
       invoiceData,
       liveInvoiceData,
       allInvoiceData,
-      invoicePage,
-      hasNextPage,
-      getInvoiceData: getInvoiceDataForPage,
-      getAllInvoiceData,
       getInvoiceOwner,
       getIntermediatedInvoiceData,
       addCreatedSimpleInvoice,
       upsertLocalInvoice,
-      setActiveEventTab,
-      refetchAllInvoiceData: forceRefetchAllInvoiceData,
+      watchInvoiceEvents,
+      watchInvoiceStatus,
+      trackInvoices,
       refreshAdminData,
-      refetchInvoiceData,
-      loadNextPage,
-      loadPrevPage,
     }),
     [
       invoiceData,
       liveInvoiceData,
       allInvoiceData,
-      invoicePage,
-      hasNextPage,
-      getInvoiceDataForPage,
-      getAllInvoiceData,
       getInvoiceOwner,
       getIntermediatedInvoiceData,
       addCreatedSimpleInvoice,
       upsertLocalInvoice,
-      forceRefetchAllInvoiceData,
+      watchInvoiceEvents,
+      watchInvoiceStatus,
+      trackInvoices,
       refreshAdminData,
-      refetchInvoiceData,
-      loadNextPage,
-      loadPrevPage,
     ],
   );
 };

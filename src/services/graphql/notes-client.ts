@@ -1,18 +1,10 @@
-import { createClient, type Client } from "urql";
+import { createClient } from "urql";
 import { THE_GRAPH_API_URL } from "@/constants";
+import { expiringClients } from "./client";
 
-const NOTES_CLIENT_CACHE = new Map<number, Client>();
-
-export const notesClient = (chainId: number) => {
-  const cached = NOTES_CLIENT_CACHE.get(chainId);
-  if (cached) return cached;
-
-  if (!THE_GRAPH_API_URL[chainId]) return null;
-
-  const created = createClient({
-    url: THE_GRAPH_API_URL[chainId],
-  });
-
-  NOTES_CLIENT_CACHE.set(chainId, created);
-  return created;
-};
+// Replaced on the same schedule as the main subgraph client, so its cache is
+// bounded the same way. Null where no subgraph is configured.
+export const notesClient = expiringClients((chainId) => {
+  const url = THE_GRAPH_API_URL[chainId];
+  return url ? createClient({ url }) : null;
+});

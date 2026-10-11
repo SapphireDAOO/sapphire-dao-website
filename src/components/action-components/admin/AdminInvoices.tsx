@@ -1,7 +1,10 @@
 "use client";
 
 import { useContext, useEffect, useRef } from "react";
-import { ContractContext } from "@/context/contract-context";
+import {
+  ContractActionsContext,
+  InvoiceStateContext,
+} from "@/context/contract-context";
 import { formatAddress } from "@/utils";
 import {
   INTERMEDIATED_PAYMENT_PROCESSOR,
@@ -29,6 +32,27 @@ interface ContractLinkProps {
 }
 
 /**
+ * The intermediated platforms operator wallet's balance. Its own component so
+ * the read (refetched on every block) only runs where the balance is shown.
+ */
+const OperatorBalance = () => {
+  const { data: balance, isLoading } = useGetBalance();
+
+  const formattedBalance = balance ? Number(balance).toFixed(3) : undefined;
+
+  return (
+    <span>
+      Wallet Balance:{" "}
+      {isLoading
+        ? "Loading..."
+        : formattedBalance
+          ? `${formattedBalance} ETH`
+          : "0 ETH"}
+    </span>
+  );
+};
+
+/**
  * A component that displays a clickable contract address link and optionally the POL balance of the intermediated platforms operator wallet.
  *
  * @param {ContractLinkProps} props - The component props.
@@ -38,10 +62,6 @@ const ContractLink: React.FC<ContractLinkProps> = ({
   address,
   showBalance = true,
 }) => {
-  const { data: balance, isLoading } = useGetBalance();
-
-  const formattedBalance = balance ? Number(balance).toFixed(3) : undefined;
-
   return (
     <div className="flex flex-col gap-2">
       <span>
@@ -55,29 +75,22 @@ const ContractLink: React.FC<ContractLinkProps> = ({
           {formatAddress(address)}
         </a>
       </span>
-      {showBalance && (
-        <span>
-          Wallet Balance:{" "}
-          {isLoading
-            ? "Loading..."
-            : formattedBalance
-              ? `${formattedBalance} ETH`
-              : "0 ETH"}
-        </span>
-      )}
+      {showBalance && <OperatorBalance />}
     </div>
   );
 };
 
 const AdminInvoices = () => {
-  const { allInvoiceData, refreshAdminData } = useContext(ContractContext);
+  const { allInvoiceData } = useContext(InvoiceStateContext);
+  const { refreshAdminData } = useContext(ContractActionsContext);
   const hasFetchedAdmin = useRef(false);
 
-  // Initial fetch
+  // Initial fetch. Not forced: a revisit inside the data's TTL reuses what the
+  // provider already holds instead of walking every list again.
   useEffect(() => {
     if (hasFetchedAdmin.current) return;
     hasFetchedAdmin.current = true;
-    refreshAdminData?.(true);
+    refreshAdminData?.();
   }, [refreshAdminData]);
 
   return (

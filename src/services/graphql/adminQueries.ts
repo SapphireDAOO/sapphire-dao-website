@@ -1,19 +1,21 @@
 // Queries for the admin dashboard (all invoices, admin actions)
 
+// Walked with an id cursor: pass the last id of the previous page ("" for the
+// first) until a page comes back short. Ordering by id is what makes the
+// cursor sound; the admin table sorts rows itself.
 export const GET_ALL_INVOICES = `
   query GetAllInvoices(
-    $skipInvoices: Int! = 0
-    $firstInvoices: Int! = 50
+    $first: Int! = 1000
+    $lastInvoiceId: ID! = ""
     $includeInvoices: Boolean! = true
-    $skipSmartInvoices: Int! = 0
-    $firstSmartInvoices: Int! = 50
+    $lastSmartInvoiceId: ID! = ""
     $includeSmartInvoices: Boolean! = true
   ) {
     invoices: simplePaymentProcessors(
-      first: $firstInvoices
-      skip: $skipInvoices
-      orderBy: lastActionTime
-      orderDirection: desc
+      first: $first
+      where: { id_gt: $lastInvoiceId }
+      orderBy: id
+      orderDirection: asc
     ) @include(if: $includeInvoices) {
       contract
       fee
@@ -32,10 +34,10 @@ export const GET_ALL_INVOICES = `
     # adminActions disabled: the AdminAction entity was dropped in the subgraph's
     # event-log migration. TODO: rebuild the admin actions feed from InvoiceEvent.
     smartInvoices: advancedPaymentProcessors(
-      first: $firstSmartInvoices
-      skip: $skipSmartInvoices
-      orderBy: lastActionTime
-      orderDirection: desc
+      first: $first
+      where: { id_gt: $lastSmartInvoiceId }
+      orderBy: id
+      orderDirection: asc
     ) @include(if: $includeSmartInvoices) {
       contract
       id

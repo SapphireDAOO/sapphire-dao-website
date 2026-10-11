@@ -20,6 +20,11 @@ interface Params {
    *  timing refreshes, live publishes) outside the state updater. */
   invoicesRef: React.RefObject<Invoice[]>;
   setInvoiceData: React.Dispatch<React.SetStateAction<Invoice[]>>;
+  /** An on-screen invoice outside invoiceData with this id, if any. */
+  findTrackedInvoice: (
+    invoiceId: string,
+    source: "Simple",
+  ) => Invoice | undefined;
   updateSimpleInvoiceTiming: (invoiceId: bigint) => Promise<void>;
   hydrateSimpleInvoiceFromChain: (
     invoiceId: bigint,
@@ -27,6 +32,8 @@ interface Params {
     eventStatus?: Invoice["status"],
   ) => Promise<void>;
   onLiveInvoices?: (invoices: Invoice[]) => void;
+  /** Every status change on the processor, whoever's invoice it is. */
+  onInvoiceStatus?: (invoiceId: string, status: Invoice["status"]) => void;
 }
 
 const simpleEvents = (paymentProcessor as readonly { type: string }[]).filter(
@@ -69,7 +76,10 @@ type LogOp =
       refundedAmountPaid?: bigint;
       buyer?: string;
       sellerActionDeadline?: bigint;
-      /** Synthetic buyer-side invoice to insert when the id is unknown. */
+      /**
+       * Synthetic buyer-side invoice to insert when the id is unknown. Only
+       * set when the event names the user as buyer.
+       */
       fallback?: Invoice;
     };
 
@@ -94,6 +104,7 @@ const applyOps = (
   invoiceMap: Map<string, Invoice>,
   ops: LogOp[],
   batchTime: string,
+  findTracked: (invoiceId: string) => Invoice | undefined,
 ): ApplyResult => {
   const changedRows: Invoice[] = [];
   const hydrates = new Map<
@@ -111,20 +122,22 @@ const applyOps = (
       continue;
     }
 
-    const existingInvoice = findSimpleInvoice(
-      invoiceMap.values(),
-      op.invoiceId,
-    );
+    const existingInvoice =
+      findSimpleInvoice(invoiceMap.values(), op.invoiceId) ??
+      findTracked(op.invoiceId);
 
     if (!existingInvoice) {
-      hydrates.set(op.invoiceId, { txHash: op.txHash, status: op.status });
+      // The contract emits every invoice's events to every subscriber. An
+      // unknown id is only worth a chain read when the event itself names the
+      // user; anything else belongs to someone else, and the read would be
+      // thrown away by the seller/buyer check after it.
+      if (!op.fallback) continue;
 
-      if (op.fallback) {
-        const key = getInvoiceMergeKey(op.fallback);
-        if (!invoiceMap.has(key)) {
-          invoiceMap.set(key, op.fallback);
-          changedRows.push(op.fallback);
-        }
+      hydrates.set(op.invoiceId, { txHash: op.txHash, status: op.status });
+      const key = getInvoiceMergeKey(op.fallback);
+      if (!invoiceMap.has(key)) {
+        invoiceMap.set(key, op.fallback);
+        changedRows.push(op.fallback);
       }
 
       continue;
@@ -195,9 +208,11 @@ export function useSimpleInvoiceEvents({
   publicClient,
   invoicesRef,
   setInvoiceData,
+  findTrackedInvoice,
   updateSimpleInvoiceTiming,
   hydrateSimpleInvoiceFromChain,
   onLiveInvoices,
+  onInvoiceStatus,
 }: Params) {
   useEffect(() => {
     if (!active || !publicClient || !address) return;
@@ -206,6 +221,8 @@ export function useSimpleInvoiceEvents({
     if (!contractAddress) return;
 
     const userAddress = address.toLowerCase();
+    const findTracked = (invoiceId: string) =>
+      findTrackedInvoice(invoiceId, "Simple");
 
     const unwatch = publicClient.watchEvent({
       address: contractAddress,
@@ -338,11 +355,24 @@ export function useSimpleInvoiceEvents({
 
         if (ops.length === 0) return;
 
+        // Before the ownership filter below: a page showing one invoice (the
+        // pay page) needs its status whether or not it is the user's.
+        if (onInvoiceStatus) {
+          for (const op of ops) {
+            if (op.kind === "status") onInvoiceStatus(op.invoiceId, op.status);
+          }
+        }
+
         setInvoiceData((prev) => {
           const invoiceMap = new Map<string, Invoice>(
             prev.map((inv) => [getInvoiceMergeKey(inv), inv]),
           );
-          const { changedRows } = applyOps(invoiceMap, ops, batchTime);
+          const { changedRows } = applyOps(
+            invoiceMap,
+            ops,
+            batchTime,
+            findTracked,
+          );
           return changedRows.length > 0
             ? Array.from(invoiceMap.values())
             : prev;
@@ -358,6 +388,7 @@ export function useSimpleInvoiceEvents({
           overlay,
           ops,
           batchTime,
+          findTracked,
         );
 
         if (changedRows.length > 0) {
@@ -390,8 +421,10 @@ export function useSimpleInvoiceEvents({
     chainId,
     invoicesRef,
     setInvoiceData,
+    findTrackedInvoice,
     updateSimpleInvoiceTiming,
     hydrateSimpleInvoiceFromChain,
     onLiveInvoices,
+    onInvoiceStatus,
   ]);
 }

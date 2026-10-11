@@ -7,7 +7,7 @@ import DashboardHeader from "./Header";
 import RecentPayment from "./IndexRecentPayment";
 import { useRouter } from "next/navigation";
 import { useState, useContext, useEffect } from "react";
-import { ContractContext } from "@/context/contract-context";
+import { ContractActionsContext } from "@/context/contract-context";
 
 const DashboardIndex = ({
   isIntermediatedTab,
@@ -15,21 +15,24 @@ const DashboardIndex = ({
   isIntermediatedTab: boolean;
 }) => {
   const router = useRouter();
-  const { setActiveEventTab } = useContext(ContractContext);
+  const { watchInvoiceEvents } = useContext(ContractActionsContext);
   const [activeTab, setActiveTab] = useState(
     isIntermediatedTab ? "intermediated" : "invoices",
   );
 
-  // Sync the event watcher to the current route on mount and route changes.
-  // Without this, opening /intermediated-dashboard directly leaves the simple
-  // watcher active because setActiveEventTab was only fired in handleTabChange.
-  useEffect(() => {
-    setActiveEventTab?.(isIntermediatedTab ? "intermediated" : "simple");
-  }, [isIntermediatedTab, setActiveEventTab]);
+  // Hold the live event feed open for the processor on screen, and only while
+  // the dashboard is mounted. Keyed on the tab state rather than the route so
+  // a tab click switches the feed before the route change lands.
+  useEffect(
+    () =>
+      watchInvoiceEvents?.(
+        activeTab === "intermediated" ? "intermediated" : "simple",
+      ),
+    [activeTab, watchInvoiceEvents],
+  );
 
   const handleTabChange = (value: string) => {
     setActiveTab(value);
-    setActiveEventTab?.(value === "intermediated" ? "intermediated" : "simple");
     if (value === "intermediated") {
       router.push("/intermediated-dashboard");
     } else {

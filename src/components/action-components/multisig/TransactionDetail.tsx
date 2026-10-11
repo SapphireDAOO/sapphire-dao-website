@@ -12,16 +12,15 @@ import {
 import { Badge } from "@/components/ui/badge";
 import CopyableAddress from "@/components/ui/copyable-address";
 import { Loader2, ExternalLink } from "lucide-react";
-import { type AbiEvent, type Log, Hex } from "viem";
+import { type Log, Hex } from "viem";
 import { MultiSigTransaction } from "@/model/multisig";
 import { useHasApproved } from "@/hooks/useHasApproved";
-import { BASE_SEPOLIA, MULTISIG_CONTRACT } from "@/constants";
+import { BASE_SEPOLIA } from "@/constants";
 import {
   approveMultiSigTransaction,
   executeMultiSigTransaction,
   proposeCancelMultiSigTransaction,
 } from "@/services/blockchain/MultiSig";
-import { Multisig } from "@/abis/MultiSig";
 import {
   decodeMultiSigCalldata,
   formatAddress,
@@ -36,20 +35,14 @@ const STATUS_BADGE: Record<string, string> = {
   CANCELED: "bg-red-100 text-red-800",
 };
 
-const approvalAddedEvent = Multisig.find(
-  (e) => e.type === "event" && e.name === "ApprovalAdded",
-) as AbiEvent;
-const txApprovedEvent = Multisig.find(
-  (e) => e.type === "event" && e.name === "TransactionApproved",
-) as AbiEvent;
-const executedEvent = Multisig.find(
-  (e) => e.type === "event" && e.name === "TransactionExecuted",
-) as AbiEvent;
-const canceledEvent = Multisig.find(
-  (e) => e.type === "event" && e.name === "TransactionCanceled",
-) as AbiEvent;
+const isTerminalStatus = (status?: string) =>
+  status === "EXECUTED" || status === "CANCELED";
 
 interface Props {
+  /**
+   * The live row from the multisig list, which useMultiSigEvents keeps
+   * current. Status and approvals are read from it rather than watched here.
+   */
   tx: MultiSigTransaction | null;
   threshold: number;
   isSigner: boolean;
@@ -75,21 +68,12 @@ export default function TransactionDetail({
 
   const [isLoading, setIsLoading] = useState("");
   const [cancelActionLoading, setCancelActionLoading] = useState("");
-  const [localApprovalCount, setLocalApprovalCount] = useState(0);
-  const [localStatus, setLocalStatus] = useState<string>("PROPOSED");
 
-  const onActionSuccessRef = useRef(onActionSuccess);
-  onActionSuccessRef.current = onActionSuccess;
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
 
-  // Reset local state when a different tx is opened
-  useEffect(() => {
-    if (tx) {
-      setLocalApprovalCount(Number(tx.approvalCount));
-      setLocalStatus(tx.status);
-    }
-  }, [tx?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const localStatus = tx?.status ?? "PROPOSED";
+  const localApprovalCount = Number(tx?.approvalCount ?? 0);
 
   const { data: hasApproved, refetch: refetchHasApproved } = useHasApproved(
     tx?.id as Hex | undefined,
@@ -102,68 +86,45 @@ export default function TransactionDetail({
     address,
   );
 
-  // Real-time event watchers for the specific tx
+  // React to changes the shared feed brings in while this tx is open. Its own
+  // four subscriptions per open transaction duplicated useMultiSigEvents.
+  const previousRef = useRef<{
+    id?: string;
+    approvalCount: number;
+    status?: string;
+  }>({ approvalCount: 0 });
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  );
+  useEffect(() => () => clearTimeout(closeTimerRef.current), []);
+
   useEffect(() => {
-    if (!tx || !publicClient) return;
-
-    const txHash = tx.id as Hex;
-    const contractAddr = MULTISIG_CONTRACT[chainId];
-
-    const unwatchApprovalAdded = publicClient.watchEvent({
-      address: contractAddr,
-      event: approvalAddedEvent,
-      args: { txHash },
-      onLogs: (logs) => {
-        const log = logs[logs.length - 1];
-        if (log?.args && "approvalCount" in log.args) {
-          const newCount = Number(log.args.approvalCount as bigint);
-          setLocalApprovalCount(newCount);
-          if (newCount >= threshold) setLocalStatus("APPROVED");
-        }
-        void refetchHasApproved();
-        onActionSuccessRef.current();
-      },
-    });
-
-    const unwatchTxApproved = publicClient.watchEvent({
-      address: contractAddr,
-      event: txApprovedEvent,
-      args: { txHash },
-      onLogs: () => {
-        setLocalStatus("APPROVED");
-        onActionSuccessRef.current();
-      },
-    });
-
-    const unwatchExecuted = publicClient.watchEvent({
-      address: contractAddr,
-      event: executedEvent,
-      args: { txHash },
-      onLogs: () => {
-        setLocalStatus("EXECUTED");
-        onActionSuccessRef.current();
-        setTimeout(() => onCloseRef.current(), 1500);
-      },
-    });
-
-    const unwatchCanceled = publicClient.watchEvent({
-      address: contractAddr,
-      event: canceledEvent,
-      args: { txHash },
-      onLogs: () => {
-        setLocalStatus("CANCELED");
-        onActionSuccessRef.current();
-        setTimeout(() => onCloseRef.current(), 1500);
-      },
-    });
-
-    return () => {
-      unwatchApprovalAdded();
-      unwatchTxApproved();
-      unwatchExecuted();
-      unwatchCanceled();
+    const previous = previousRef.current;
+    previousRef.current = {
+      id: tx?.id,
+      approvalCount: localApprovalCount,
+      status: tx?.status,
     };
-  }, [tx?.id, publicClient, chainId, threshold]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    if (!tx || previous.id !== tx.id) {
+      // A different tx (or none): a close scheduled for the last one must
+      // not shut this one.
+      clearTimeout(closeTimerRef.current);
+      return;
+    }
+
+    // Any approval, this signer's from another tab included, can change
+    // whether this wallet has approved.
+    if (localApprovalCount !== previous.approvalCount) {
+      void refetchHasApproved();
+    }
+
+    // Executed or canceled while open: show the outcome, then close.
+    if (isTerminalStatus(tx.status) && !isTerminalStatus(previous.status)) {
+      clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = setTimeout(() => onCloseRef.current(), 1500);
+    }
+  }, [tx, localApprovalCount, refetchHasApproved]);
 
   if (!tx) return null;
 

@@ -1,11 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useAccount, useChainId, usePublicClient, useSignMessage } from "wagmi";
 import { BaseError, ContractFunctionRevertedError, type Address, type Hex } from "viem";
 import { BASE_SEPOLIA, NOTES_CONTRACT } from "@/constants";
 import { Notes } from "@/abis/Notes";
 import { useHintedWalletClient } from "@/components/wallet-hint/useHintedWalletClient";
+import { useViemReadContract } from "@/hooks/useViemReadContract";
 import {
   deriveNoteKeys,
   matchesDerivedKey,
@@ -19,6 +21,11 @@ import {
 // re-derived by signing again, never written to storage.
 
 const OPT_IN_KEY = "sapphire.notes.messaging";
+
+// The key version changes only when the contract rotates keys, and a viewer's
+// published key only when they register one (which writes it straight into
+// the cache below).
+const NOTE_KEY_STALE_TIME_MS = 5 * 60_000;
 
 const sessionKeys = new Map<string, NoteKeyPair>();
 const sessionKey = (address: string, version: number) =>
@@ -43,6 +50,12 @@ const writeOptIn = (address: string, enabled: boolean) => {
   }
 };
 
+/** The key out of a getPublicKey result, or null when none is published. */
+const readPublishedKey = (result: unknown): Hex | null => {
+  const key = (result as { key?: Hex } | undefined)?.key;
+  return key && key !== "0x" ? key : null;
+};
+
 /** The note public key an account has published, or null if it has none. */
 export const fetchNotePublicKey = async (
   publicClient: { readContract: (args: never) => Promise<unknown> } | undefined,
@@ -53,15 +66,14 @@ export const fetchNotePublicKey = async (
   if (!publicClient || !contractAddress) return null;
 
   try {
-    const result = (await publicClient.readContract({
+    const result = await publicClient.readContract({
       address: contractAddress,
       abi: Notes,
       functionName: "getPublicKey",
       args: [account],
-    } as never)) as { key?: Hex } | undefined;
+    } as never);
 
-    const key = result?.key;
-    return key && key !== "0x" ? key : null;
+    return readPublishedKey(result);
   } catch {
     return null;
   }
@@ -110,60 +122,56 @@ const REGISTER_HINTS: Record<string, string> = {
     "The registry only accepts a key whose hash matches your address, so it rejects derived messaging keys. The contract's setPublicKey check has to be relaxed before this can succeed.",
 };
 
-export const useNoteKeys = () => {
+export const useNoteKeys = (options?: {
+  /** False holds off the contract reads, e.g. for a collapsed invoice card. */
+  enabled?: boolean;
+}) => {
+  const readsEnabled = options?.enabled ?? true;
   const { address } = useAccount();
   const chainId = useChainId() || BASE_SEPOLIA;
   const publicClient = usePublicClient({ chainId });
+  const queryClient = useQueryClient();
   const { data: walletClient } = useHintedWalletClient();
   const { signMessageAsync } = useSignMessage();
 
   const [enabled, setEnabled] = useState(false);
   const [keys, setKeys] = useState<NoteKeyPair | null>(null);
-  const [registeredKey, setRegisteredKey] = useState<Hex | null>(null);
-  const [version, setVersion] = useState<number>(1);
   const [isBusy, setIsBusy] = useState(false);
 
   // Read in an effect: touching storage during render would make the first
   // client render disagree with the server markup.
   useEffect(() => setEnabled(readOptIn(address)), [address]);
 
+  // Both reads go through react-query so every mounted copy of this hook (one
+  // per invoice card) shares a single cached result per key.
+  const notesContract = NOTES_CONTRACT[chainId];
+
   // The key version is the contract's, so a bump rotates everyone's keys.
-  useEffect(() => {
-    const contractAddress = NOTES_CONTRACT[chainId];
-    if (!publicClient || !contractAddress) return;
+  const { data: version = 1 } = useViemReadContract<number>({
+    abi: Notes,
+    address: notesContract,
+    functionName: "getCurrentVersion",
+    chainId,
+    enabled: readsEnabled,
+    staleTime: NOTE_KEY_STALE_TIME_MS,
+    select: (value) => Number(value) || 1,
+  });
 
-    let canceled = false;
-    void publicClient
-      .readContract({
-        address: contractAddress,
-        abi: Notes,
-        functionName: "getCurrentVersion",
-      })
-      .then((value) => {
-        if (!canceled) setVersion(Number(value) || 1);
-      })
-      .catch(() => undefined);
-
-    return () => {
-      canceled = true;
-    };
-  }, [publicClient, chainId]);
-
-  useEffect(() => {
-    if (!address) {
-      setRegisteredKey(null);
-      return;
-    }
-    let canceled = false;
-    void fetchNotePublicKey(publicClient as never, chainId, address).then(
-      (key) => {
-        if (!canceled) setRegisteredKey(key);
-      },
-    );
-    return () => {
-      canceled = true;
-    };
-  }, [address, chainId, publicClient]);
+  const publicKeyQueryKey = useMemo(
+    () => ["note-public-key", chainId, address?.toLowerCase()],
+    [chainId, address],
+  );
+  const { data: registeredKey = null } = useViemReadContract<Hex | null>({
+    abi: Notes,
+    address: notesContract,
+    functionName: "getPublicKey",
+    args: address ? [address] : undefined,
+    chainId,
+    enabled: readsEnabled && Boolean(address),
+    queryKey: publicKeyQueryKey,
+    staleTime: NOTE_KEY_STALE_TIME_MS,
+    select: readPublishedKey,
+  });
 
   // A cached key from earlier in this tab, so unlocking prompts once.
   useEffect(() => {
@@ -234,7 +242,12 @@ export const useNoteKeys = () => {
         return { ok: false, reason: "The transaction was reverted." };
       }
 
-      setRegisteredKey(derived.publicKey);
+      // Shaped like the getPublicKey result, so every copy of this hook sees
+      // the new key without reading it back.
+      queryClient.setQueryData(publicKeyQueryKey, {
+        key: derived.publicKey,
+        version,
+      });
       return { ok: true };
     } catch (error) {
       const name = revertReason(error);
@@ -247,7 +260,17 @@ export const useNoteKeys = () => {
     } finally {
       setIsBusy(false);
     }
-  }, [address, chainId, keys, publicClient, unlock, walletClient]);
+  }, [
+    address,
+    chainId,
+    keys,
+    publicClient,
+    publicKeyQueryKey,
+    queryClient,
+    unlock,
+    version,
+    walletClient,
+  ]);
 
   const enable = useCallback(async () => {
     if (!address) return false;
