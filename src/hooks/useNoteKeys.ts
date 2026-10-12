@@ -1,6 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAccount, useChainId, usePublicClient, useSignMessage } from "wagmi";
 import { BaseError, ContractFunctionRevertedError, type Address, type Hex } from "viem";
@@ -15,21 +21,33 @@ import {
   type NoteKeyPair,
 } from "@/lib/noteKeys";
 
-// Messaging is opt-in: unlocking prompts a signature, and a wallet that signs
-// non-deterministically would derive a key it cannot reuse. Only the choice is
-// remembered - the private key lives in memory for the tab's lifetime and is
-// re-derived by signing again, never written to storage.
+// Only the opt-in is stored; the private key
+// stays in memory and is re-derived by signing.
 
 const OPT_IN_KEY = "sapphire.notes.messaging";
 
-// The key version changes only when the contract rotates keys, and a viewer's
-// published key only when they register one (which writes it straight into
-// the cache below).
 const NOTE_KEY_STALE_TIME_MS = 5 * 60_000;
 
+// Shared by every mounted copy of the hook (one per invoice card), so a key
+// unlocked in one place shows up in all of them.
 const sessionKeys = new Map<string, NoteKeyPair>();
+const pendingUnlocks = new Map<string, Promise<NoteKeyPair | null>>();
+const keyListeners = new Set<() => void>();
 const sessionKey = (address: string, version: number) =>
   `${address.toLowerCase()}:${version}`;
+
+const setSessionKey = (key: string, pair: NoteKeyPair | null) => {
+  if (pair) sessionKeys.set(key, pair);
+  else sessionKeys.delete(key);
+  keyListeners.forEach((listener) => listener());
+};
+
+const subscribeKeys = (listener: () => void) => {
+  keyListeners.add(listener);
+  return () => {
+    keyListeners.delete(listener);
+  };
+};
 
 const readOptIn = (address?: string): boolean => {
   if (!address || typeof window === "undefined") return false;
@@ -50,13 +68,11 @@ const writeOptIn = (address: string, enabled: boolean) => {
   }
 };
 
-/** The key out of a getPublicKey result, or null when none is published. */
 const readPublishedKey = (result: unknown): Hex | null => {
   const key = (result as { key?: Hex } | undefined)?.key;
   return key && key !== "0x" ? key : null;
 };
 
-/** The note public key an account has published, or null if it has none. */
 export const fetchNotePublicKey = async (
   publicClient: { readContract: (args: never) => Promise<unknown> } | undefined,
   chainId: number,
@@ -79,11 +95,6 @@ export const fetchNotePublicKey = async (
   }
 };
 
-/**
- * The contract's own error name, when it is one. A bare "transaction failed"
- * hides the difference between a key that is already published and one the
- * registry refuses, which are opposite problems.
- */
 const revertReason = (error: unknown): string | undefined => {
   if (!(error instanceof BaseError)) return undefined;
   const reverted = error.walk(
@@ -94,14 +105,8 @@ const revertReason = (error: unknown): string | undefined => {
     : undefined;
 };
 
-/**
- * What actually went wrong when the contract did not reject the call.
- *
- * viem reports a node's refusal to broadcast as though the function reverted,
- * which sends you looking at the contract for a problem that is not there. A
- * stale wallet nonce against a restarted local chain is the common one, and it
- * is worth naming because the fix is in the wallet, not the code.
- */
+// viem reports a node's refusal to broadcast as a
+// revert, so name the transport problem instead.
 const transportReason = (error: unknown): string | undefined => {
   if (!(error instanceof BaseError)) return undefined;
 
@@ -123,7 +128,6 @@ const REGISTER_HINTS: Record<string, string> = {
 };
 
 export const useNoteKeys = (options?: {
-  /** False holds off the contract reads, e.g. for a collapsed invoice card. */
   enabled?: boolean;
 }) => {
   const readsEnabled = options?.enabled ?? true;
@@ -135,18 +139,12 @@ export const useNoteKeys = (options?: {
   const { signMessageAsync } = useSignMessage();
 
   const [enabled, setEnabled] = useState(false);
-  const [keys, setKeys] = useState<NoteKeyPair | null>(null);
   const [isBusy, setIsBusy] = useState(false);
 
-  // Read in an effect: touching storage during render would make the first
-  // client render disagree with the server markup.
   useEffect(() => setEnabled(readOptIn(address)), [address]);
 
-  // Both reads go through react-query so every mounted copy of this hook (one
-  // per invoice card) shares a single cached result per key.
   const notesContract = NOTES_CONTRACT[chainId];
 
-  // The key version is the contract's, so a bump rotates everyone's keys.
   const { data: version = 1 } = useViemReadContract<number>({
     abi: Notes,
     address: notesContract,
@@ -173,44 +171,45 @@ export const useNoteKeys = (options?: {
     select: readPublishedKey,
   });
 
-  // A cached key from earlier in this tab, so unlocking prompts once.
-  useEffect(() => {
-    if (!address) {
-      setKeys(null);
-      return;
-    }
-    setKeys(sessionKeys.get(sessionKey(address, version)) ?? null);
-  }, [address, version]);
+  const currentKey = address ? sessionKey(address, version) : null;
+  const keys = useSyncExternalStore(
+    subscribeKeys,
+    () => (currentKey ? sessionKeys.get(currentKey) ?? null : null),
+    () => null,
+  );
 
-  /** Prompts the signature and derives this account's keypair. */
   const unlock = useCallback(async (): Promise<NoteKeyPair | null> => {
     if (!address) return null;
+    const key = sessionKey(address, version);
 
-    const cached = sessionKeys.get(sessionKey(address, version));
+    const cached = sessionKeys.get(key);
     if (cached) return cached;
+
+    let pending = pendingUnlocks.get(key);
+    if (!pending) {
+      pending = signMessageAsync({ message: noteKeyMessage(address, version) })
+        .then((signature) => {
+          const derived = deriveNoteKeys(signature as Hex);
+          setSessionKey(key, derived);
+          return derived;
+        })
+        .catch((error) => {
+          console.error("Failed to unlock note keys", error);
+          return null;
+        })
+        .finally(() => pendingUnlocks.delete(key));
+      pendingUnlocks.set(key, pending);
+    }
 
     setIsBusy(true);
     try {
-      const signature = await signMessageAsync({
-        message: noteKeyMessage(address, version),
-      });
-      const derived = deriveNoteKeys(signature as Hex);
-      sessionKeys.set(sessionKey(address, version), derived);
-      setKeys(derived);
-      return derived;
-    } catch (error) {
-      console.error("Failed to unlock note keys", error);
-      return null;
+      return await pending;
     } finally {
       setIsBusy(false);
     }
   }, [address, version, signMessageAsync]);
 
-  /**
-   * Publishes the derived public key so counterparties can seal notes to it.
-   * Sent from the user's own wallet: the contract keys the registry by
-   * msg.sender, so a relayer cannot do this on their behalf.
-   */
+  // Sent from the user's own wallet: the registry is keyed by msg.sender.
   const register = useCallback(async (): Promise<{
     ok: boolean;
     reason?: string;
@@ -225,9 +224,6 @@ export const useNoteKeys = (options?: {
 
     setIsBusy(true);
     try {
-      // Simulated first: registration reverts for reasons the user can do
-      // nothing about, and finding that out after paying gas - or after a
-      // wallet prompt - is worse than finding out now.
       const { request } = await publicClient.simulateContract({
         account: address,
         address: contractAddress,
@@ -242,8 +238,6 @@ export const useNoteKeys = (options?: {
         return { ok: false, reason: "The transaction was reverted." };
       }
 
-      // Shaped like the getPublicKey result, so every copy of this hook sees
-      // the new key without reading it back.
       queryClient.setQueryData(publicKeyQueryKey, {
         key: derived.publicKey,
         version,
@@ -283,13 +277,9 @@ export const useNoteKeys = (options?: {
     if (!address) return;
     writeOptIn(address, false);
     setEnabled(false);
-    sessionKeys.delete(sessionKey(address, version));
-    setKeys(null);
+    setSessionKey(sessionKey(address, version), null);
   }, [address, version]);
 
-  // A published key that this signature cannot reproduce means notes sealed to
-  // it are unreadable here - a non-deterministic wallet, or a key registered
-  // from a different one. Better to say so than to fail note by note.
   const keyMismatch = Boolean(
     keys && registeredKey && !matchesDerivedKey(registeredKey, keys.publicKey),
   );
