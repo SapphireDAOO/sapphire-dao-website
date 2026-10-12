@@ -10,7 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import { toast } from "sonner";
-import { useAccount, useAccountEffect, useSignMessage } from "wagmi";
+import { useAccount, useSignMessage } from "wagmi";
 import { BaseError, UserRejectedRequestError, type Address } from "viem";
 import {
   SessionRejectedError,
@@ -167,13 +167,6 @@ const SignInProvider = ({ children }: { children: ReactNode }) => {
   const signInNow = useCallback(() => {
     if (canSignIn && address && chainId) promptSignIn(address, chainId);
   }, [address, canSignIn, chainId, promptSignIn]);
-
-  useAccountEffect({
-    onDisconnect: () => {
-      clearSession();
-      prompted.clear();
-    },
-  });
 
   const withSession = useCallback(
     async <T,>(send: (token: string) => Promise<T>): Promise<T> => {
