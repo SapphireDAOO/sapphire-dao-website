@@ -28,6 +28,8 @@ export function InvoiceFilterBar({
   selectedDate,
   onDateChange,
 }: InvoiceFilterBarProps) {
+  const today = new Date();
+
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
       <div className="flex items-center justify-end gap-2 w-full">
@@ -49,6 +51,8 @@ export function InvoiceFilterBar({
               mode="single"
               selected={selectedDate ?? undefined}
               onSelect={(date) => onDateChange(date ?? null)}
+              disabled={{ after: today }}
+              endMonth={today}
               className="rounded-md"
             />
           </PopoverContent>
