@@ -20,6 +20,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAdminAccess } from "@/hooks/useAdminAccess";
+import { useSignIn } from "@/components/SignInProvider";
 
 const ADMIN_LINKS = [
   {
@@ -215,6 +216,7 @@ const AdminMenu = ({
 
 const Navbar = () => {
   const { isAllowed: canAccessAdmin, canAccessGovernance } = useAdminAccess();
+  const isSignedIn = useSignIn().status === "signedIn";
   const pathname = usePathname();
 
   // `trailingSlash: true` makes usePathname end in "/".
@@ -251,7 +253,7 @@ const Navbar = () => {
           </div>
 
           <div className="flex items-center gap-1 sm:gap-2">
-            {isAdminSection ? (
+            {isSignedIn && (isAdminSection ? (
               <>
                 <NavLink
                   label="Dashboard"
@@ -276,8 +278,8 @@ const Navbar = () => {
                 ariaLabel="Go to metrics"
                 href="/metrics"
               />
-            )}
-            {adminLinks.length > 0 && (
+            ))}
+            {isSignedIn && adminLinks.length > 0 && (
               <AdminMenu activePath={path} links={adminLinks} />
             )}
             <div className="ml-2">

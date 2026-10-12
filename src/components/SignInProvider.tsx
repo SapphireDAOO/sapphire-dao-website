@@ -7,6 +7,7 @@ import {
   useEffect,
   useMemo,
   useRef,
+  useState,
   type ReactNode,
 } from "react";
 import { toast } from "sonner";
@@ -17,9 +18,22 @@ import {
   clearSession,
   readSession,
   signIn,
+  type SignInSession,
 } from "@/services/auth";
 
+export type SignInStatus =
+  | "connecting"
+  | "disconnected"
+  | "unsupported"
+  | "wrongNetwork"
+  | "signingIn"
+  | "signedOut"
+  | "signedIn";
+
 type SignInContextValue = {
+  status: SignInStatus;
+  /** Prompts the connected wallet to sign in, e.g. after declining. */
+  signIn: () => void;
   /** Retries once with a fresh sign-in when the API refuses a stored token. */
   withSession: <T>(send: (token: string) => Promise<T>) => Promise<T>;
 };
@@ -45,7 +59,13 @@ const describe = (error: unknown) => {
 const SMART_WALLET_CONNECTORS = new Set(["safe"]);
 
 const SignInProvider = ({ children }: { children: ReactNode }) => {
-  const { address, chain, connector, isConnected } = useAccount();
+  const {
+    address,
+    chain,
+    connector,
+    isConnected,
+    status: accountStatus,
+  } = useAccount();
   const { signMessageAsync } = useSignMessage();
 
   // `chain` is only set on a configured network;
@@ -53,10 +73,48 @@ const SignInProvider = ({ children }: { children: ReactNode }) => {
   const chainId = chain?.id;
   const isSmartWallet = SMART_WALLET_CONNECTORS.has(connector?.id ?? "");
   const canSignIn = Boolean(isConnected && address && chainId && !isSmartWallet);
+  const accountKey = address?.toLowerCase();
+
+  // Storage is read after mount so the first render matches the static export.
+  const [mounted, setMounted] = useState(false);
+  const [current, setCurrent] = useState<{
+    key: string;
+    session: SignInSession | null;
+  } | null>(null);
+  const [signingInFor, setSigningInFor] = useState<string | null>(null);
 
   const inFlight = useRef(new Map<string, Promise<string>>());
-  // Prompted once per account per tab on connect; writing a note asks again.
+  // Prompted once per account per tab on connect; the gate offers a retry.
   const prompted = useRef(new Set<string>());
+
+  useEffect(() => setMounted(true), []);
+
+  useEffect(() => {
+    setCurrent(
+      address
+        ? { key: address.toLowerCase(), session: readSession(address) }
+        : null,
+    );
+  }, [address]);
+
+  // Ignored if the wallet has moved on to another account meanwhile.
+  const syncSession = useCallback((account: Address) => {
+    const key = account.toLowerCase();
+    setCurrent((prev) =>
+      prev?.key === key ? { key, session: readSession(account) } : prev,
+    );
+  }, []);
+
+  const session = current?.key === accountKey ? current?.session : undefined;
+
+  useEffect(() => {
+    if (!session || !address) return;
+    const timer = setTimeout(
+      () => syncSession(address),
+      Math.max(0, session.expiresAt - Date.now()),
+    );
+    return () => clearTimeout(timer);
+  }, [address, session, syncSession]);
 
   const requestToken = useCallback(
     (account: Address, onChain: number): Promise<string> => {
@@ -64,17 +122,33 @@ const SignInProvider = ({ children }: { children: ReactNode }) => {
       const pending = inFlight.current.get(key);
       if (pending) return pending;
 
+      setSigningInFor(key);
       const attempt = signIn({
         address: account,
         chainId: onChain,
         signMessage: (message) => signMessageAsync({ account, message }),
       })
         .then((session) => session.token)
-        .finally(() => inFlight.current.delete(key));
+        .finally(() => {
+          inFlight.current.delete(key);
+          setSigningInFor((prev) => (prev === key ? null : prev));
+          syncSession(account);
+        });
       inFlight.current.set(key, attempt);
       return attempt;
     },
-    [signMessageAsync],
+    [signMessageAsync, syncSession],
+  );
+
+  const promptSignIn = useCallback(
+    (account: Address, onChain: number) => {
+      requestToken(account, onChain).catch((error) => {
+        if (isUserRejection(error)) return;
+        console.error("Sign-in failed", error);
+        toast.error(describe(error));
+      });
+    },
+    [requestToken],
   );
 
   useEffect(() => {
@@ -82,13 +156,12 @@ const SignInProvider = ({ children }: { children: ReactNode }) => {
     const key = address.toLowerCase();
     if (prompted.current.has(key) || readSession(address)) return;
     prompted.current.add(key);
+    promptSignIn(address, chainId);
+  }, [address, canSignIn, chainId, promptSignIn]);
 
-    requestToken(address, chainId).catch((error) => {
-      if (isUserRejection(error)) return;
-      console.error("Sign-in failed", error);
-      toast.error(describe(error));
-    });
-  }, [address, canSignIn, chainId, requestToken]);
+  const signInNow = useCallback(() => {
+    if (canSignIn && address && chainId) promptSignIn(address, chainId);
+  }, [address, canSignIn, chainId, promptSignIn]);
 
   useAccountEffect({
     onDisconnect: () => {
@@ -132,7 +205,33 @@ const SignInProvider = ({ children }: { children: ReactNode }) => {
     [address, canSignIn, chainId, isSmartWallet, requestToken],
   );
 
-  const value = useMemo(() => ({ withSession }), [withSession]);
+  let status: SignInStatus;
+  if (
+    !mounted ||
+    accountStatus === "connecting" ||
+    accountStatus === "reconnecting"
+  ) {
+    status = "connecting";
+  } else if (!isConnected || !accountKey) {
+    status = "disconnected";
+  } else if (session === undefined) {
+    status = "connecting";
+  } else if (session) {
+    status = "signedIn";
+  } else if (isSmartWallet) {
+    status = "unsupported";
+  } else if (!chainId) {
+    status = "wrongNetwork";
+  } else if (signingInFor === accountKey) {
+    status = "signingIn";
+  } else {
+    status = "signedOut";
+  }
+
+  const value = useMemo(
+    () => ({ status, signIn: signInNow, withSession }),
+    [status, signInNow, withSession],
+  );
 
   return (
     <SignInContext.Provider value={value}>{children}</SignInContext.Provider>
