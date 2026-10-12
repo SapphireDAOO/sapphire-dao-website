@@ -6,7 +6,6 @@ import {
   useContext,
   useEffect,
   useMemo,
-  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -58,6 +57,12 @@ const describe = (error: unknown) => {
 // The API only accepts EOA signatures, so a Safe can't sign in.
 const SMART_WALLET_CONNECTORS = new Set(["safe"]);
 
+// Module-level, so a remounted provider can't open a second prompt, and one at
+// a time, so an account change waits for the open prompt instead of stacking.
+let pendingSignIn: { key: string; attempt: Promise<string> } | null = null;
+// Prompted once per account per tab on connect; the gate offers a retry.
+const prompted = new Set<string>();
+
 const SignInProvider = ({ children }: { children: ReactNode }) => {
   const {
     address,
@@ -82,10 +87,6 @@ const SignInProvider = ({ children }: { children: ReactNode }) => {
     session: SignInSession | null;
   } | null>(null);
   const [signingInFor, setSigningInFor] = useState<string | null>(null);
-
-  const inFlight = useRef(new Map<string, Promise<string>>());
-  // Prompted once per account per tab on connect; the gate offers a retry.
-  const prompted = useRef(new Set<string>());
 
   useEffect(() => setMounted(true), []);
 
@@ -119,22 +120,26 @@ const SignInProvider = ({ children }: { children: ReactNode }) => {
   const requestToken = useCallback(
     (account: Address, onChain: number): Promise<string> => {
       const key = account.toLowerCase();
-      const pending = inFlight.current.get(key);
-      if (pending) return pending;
+      if (pendingSignIn?.key === key) return pendingSignIn.attempt;
+      const previous = pendingSignIn?.attempt.catch(() => undefined);
 
       setSigningInFor(key);
-      const attempt = signIn({
-        address: account,
-        chainId: onChain,
-        signMessage: (message) => signMessageAsync({ account, message }),
-      })
-        .then((session) => session.token)
+      const attempt: Promise<string> = Promise.resolve(previous)
+        .then(
+          () =>
+            readSession(account)?.token ??
+            signIn({
+              address: account,
+              chainId: onChain,
+              signMessage: (message) => signMessageAsync({ account, message }),
+            }).then((session) => session.token),
+        )
         .finally(() => {
-          inFlight.current.delete(key);
+          if (pendingSignIn?.attempt === attempt) pendingSignIn = null;
           setSigningInFor((prev) => (prev === key ? null : prev));
           syncSession(account);
         });
-      inFlight.current.set(key, attempt);
+      pendingSignIn = { key, attempt };
       return attempt;
     },
     [signMessageAsync, syncSession],
@@ -154,8 +159,8 @@ const SignInProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     if (!canSignIn || !address || !chainId) return;
     const key = address.toLowerCase();
-    if (prompted.current.has(key) || readSession(address)) return;
-    prompted.current.add(key);
+    if (prompted.has(key) || readSession(address)) return;
+    prompted.add(key);
     promptSignIn(address, chainId);
   }, [address, canSignIn, chainId, promptSignIn]);
 
@@ -166,7 +171,7 @@ const SignInProvider = ({ children }: { children: ReactNode }) => {
   useAccountEffect({
     onDisconnect: () => {
       clearSession();
-      prompted.current.clear();
+      prompted.clear();
     },
   });
 
