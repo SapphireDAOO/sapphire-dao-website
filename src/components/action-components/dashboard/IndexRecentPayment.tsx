@@ -8,7 +8,7 @@ import {
 } from "@/context/contract-context";
 import { FilterTabs, CreateInvoiceCard } from "./invoice-cards/index";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Note, Invoice } from "@/model/model";
+import { Invoice } from "@/model/model";
 import { Button } from "@/components/ui/button";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { IntermediatedCard } from "./invoices/IntermediatedInvoices";
@@ -56,14 +56,11 @@ export default function IndexRecentPayment({
   const { liveInvoiceData } = useContext(InvoiceStateContext);
   const { trackInvoices } = useContext(ContractActionsContext);
 
-  // ── All state declarations BEFORE any derived state ──────────────────────
   const [statusFilter, setStatusFilter] = useState("All");
   const [walletQuery, setWalletQuery] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [page, setPage] = useState(1);
-  // localNotes MUST be declared before displayInvoices useMemo that references it
-  const [localNotes, setLocalNotes] = useState<Record<string, Note[]>>({});
 
   const params = useSearchParams();
   const router = useRouter();
@@ -79,7 +76,6 @@ export default function IndexRecentPayment({
 
   const basePath = isIntermediatedTab ? "/intermediated-dashboard" : "/dashboard";
 
-  // Reset to page 1 on any filter/tab change
   useEffect(() => {
     setPage(1);
   }, [
@@ -90,7 +86,6 @@ export default function IndexRecentPayment({
     debouncedWalletQuery,
   ]);
 
-  // ── Subgraph hook: loads BOTH seller + buyer on mount, no re-query on tab switch
   const {
     sellerInvoices,
     buyerInvoices,
@@ -108,16 +103,14 @@ export default function IndexRecentPayment({
     [],
   );
 
-  // These pages are this wallet's invoices but live outside invoiceData. The
-  // live event feed drops events for ids it cannot tie to the wallet, so it
-  // has to be told about them to keep the cards current.
+  // The live feed drops events for ids it can't
+  // tie to this wallet, so register them.
   useEffect(() => {
     if (!enabled) return;
     return trackInvoices?.([...sellerInvoices, ...buyerInvoices]);
   }, [enabled, sellerInvoices, buyerInvoices, trackInvoices]);
 
-  // Dedup by contract invoice id. `id` is the display nonce and does not match
-  // status events, which emit the hashed uint216 invoice id.
+  // `id` is the display nonce; status events carry the hashed invoice id.
   const sellerPagedIds = useMemo(
     () => new Set(sellerInvoices.map((invoice) => invoiceKey(invoice))),
     [invoiceKey, sellerInvoices],
@@ -130,7 +123,6 @@ export default function IndexRecentPayment({
   const sellerType = isIntermediatedTab ? "IssuedInvoice" : "Seller";
   const buyerType = isIntermediatedTab ? "ReceivedInvoice" : "Buyer";
 
-  // ── Merge recent live updates from context on top of paged subgraph data ───
   const liveOverlay = useMemo(() => {
     const byKey = new Map<string, Invoice>();
     const sellerOnly: Invoice[] = [];
@@ -164,8 +156,6 @@ export default function IndexRecentPayment({
     invoiceKey,
   ]);
 
-  // Also surface invoices that only exist in context (e.g. just-created or
-  // just-paid invoices not yet indexed by the subgraph).
   const liveSellerInvoices = useMemo(() => {
     const updated = sellerInvoices.map((invoice) => {
       return (
@@ -188,11 +178,9 @@ export default function IndexRecentPayment({
     return [...liveOverlay.buyerOnly, ...updated];
   }, [buyerInvoices, invoiceKey, liveOverlay]);
 
-  // ── Tab selection filters in-memory (no new subgraph query) ───────────────
   const allForTab = useMemo(() => {
     if (activeTab === "seller") return liveSellerInvoices;
     if (activeTab === "buyer") return liveBuyerInvoices;
-    // "all": merge both and sort newest-first
     return sortByLastAction([...liveSellerInvoices, ...liveBuyerInvoices]);
   }, [activeTab, liveSellerInvoices, liveBuyerInvoices]);
 
@@ -201,7 +189,6 @@ export default function IndexRecentPayment({
       if (!value) return "";
       const normalized = value.replace(/_/g, " ").toUpperCase().trim();
 
-      // Dynamically detect expired: awaiting payment past expiresAt
       if (
         (normalized === "AWAITING PAYMENT" ||
           normalized === "CREATED" ||
@@ -227,7 +214,6 @@ export default function IndexRecentPayment({
     [],
   );
 
-  // ── Client-side filters applied to the in-memory page data ───────────────
   const filteredInvoices = useMemo(() => {
     let invoices = allForTab;
 
@@ -268,23 +254,14 @@ export default function IndexRecentPayment({
     debouncedWalletQuery,
   ]);
 
-  // ── Client-side pagination over the filtered set ──────────────────────────
-  const displayInvoices = useMemo(() => {
-    const pageInvoices = filteredInvoices.slice(
-      (page - 1) * INVOICE_PAGE_SIZE,
-      page * INVOICE_PAGE_SIZE,
-    );
-
-    return pageInvoices.map((invoice) => {
-      const notes = localNotes[invoiceKey(invoice)];
-      if (!notes?.length) return invoice;
-
-      return {
-        ...invoice,
-        notes: [...(invoice.notes || []), ...notes],
-      };
-    });
-  }, [filteredInvoices, invoiceKey, page, localNotes]);
+  const displayInvoices = useMemo(
+    () =>
+      filteredInvoices.slice(
+        (page - 1) * INVOICE_PAGE_SIZE,
+        page * INVOICE_PAGE_SIZE,
+      ),
+    [filteredInvoices, page],
+  );
 
   const hasNextPageInMemory =
     page * INVOICE_PAGE_SIZE < filteredInvoices.length;
@@ -299,7 +276,6 @@ export default function IndexRecentPayment({
 
   const handleNext = useCallback(() => {
     const nextPage = page + 1;
-    // If the next page would exceed what we have cached, pull more from subgraph
     if (
       (nextPage - 1) * INVOICE_PAGE_SIZE >= allForTab.length &&
       hasMoreFromSubgraph
@@ -338,8 +314,6 @@ export default function IndexRecentPayment({
     [router, basePath],
   );
 
-  // Stable, so the memoized cards skip re-rendering when only another
-  // card's state changed.
   const handleToggle = useCallback(
     (invoiceId: bigint) => {
       const id = invoiceKey({ invoiceId });
@@ -348,22 +322,6 @@ export default function IndexRecentPayment({
     [invoiceKey],
   );
 
-  const handleAddNote = useCallback((invoiceId: string, message: string) => {
-    if (!message.trim()) return;
-    const note: Note = {
-      id: crypto.randomUUID(),
-      sender: "You",
-      message,
-      timestamp: new Date().toLocaleString(),
-    };
-    setLocalNotes((prev) => ({
-      ...prev,
-      [invoiceId]: [...(prev[invoiceId] || []), note],
-    }));
-  }, []);
-
-  // One tooltip provider for every InvoiceField on the page. Each card renders
-  // 5-10 of them, and a provider per field multiplied that across the grid.
   return (
     <TooltipProvider delayDuration={150}>
       <div className="container mx-auto mt-8">
@@ -434,7 +392,6 @@ export default function IndexRecentPayment({
                                 invoice={invoice}
                                 isExpanded={expandedId === key}
                                 onToggle={handleToggle}
-                                onAddNote={handleAddNote}
                               />
                             ) : (
                               <InvoiceCard

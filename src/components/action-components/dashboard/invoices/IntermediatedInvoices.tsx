@@ -6,13 +6,12 @@ import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ChevronDown, ChevronUp, Copy } from "lucide-react";
 import { Invoice } from "@/model/model";
-import { formatAddress, unixToGMT } from "@/utils";
+import { unixToGMT } from "@/utils";
 import { toast } from "sonner";
 import { usePayLink } from "@/hooks/usePayLink";
 import { QRCodeSVG } from "qrcode.react";
 import { formatUnits } from "viem";
 import { useGetPaymentTokenData } from "@/hooks/useGetPaymentTokenData";
-import { NotesThread } from "./NotesThread";
 import {
   renderContractLink,
   renderTx,
@@ -23,14 +22,10 @@ import {
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 const isZeroAddress = (value?: string) => value?.toLowerCase() === ZERO_ADDRESS;
 
-/** Display floor — anything > 0 but below this collapses to a "<min" sentinel */
 const TOKEN_DISPLAY_MIN = 0.0001;
 
-/** Format a numeric amount without scientific notation */
 const fmtAmount = (value: number): string => {
   if (!Number.isFinite(value) || value === 0) return "0";
-  // A tiny payment (e.g. 0.00005 ETH) would otherwise round to "0" at 4 fraction
-  // digits and read as if nothing was paid. Surface it explicitly instead.
   if (value > 0 && value < TOKEN_DISPLAY_MIN) return `<${TOKEN_DISPLAY_MIN}`;
   return value.toLocaleString("en-US", {
     minimumFractionDigits: 0,
@@ -44,8 +39,6 @@ const formatShortId = (value?: string) => {
   if (trimmed.length <= 8) return trimmed;
   return `${trimmed.slice(0, 4)}...${trimmed.slice(-4)}`;
 };
-
-/* -------------------------- STATUS NORMALIZATION -------------------------- */
 
 const normalizeStatus = (status: string): string => {
   const normalized = status?.replace(/_/g, " ").toUpperCase();
@@ -75,8 +68,6 @@ const normalizeStatus = (status: string): string => {
   }
 };
 
-/* ------------------------------ STATUS COLORS ----------------------------- */
-
 const statusColors: Record<string, string> = {
   "AWAITING PAYMENT": "bg-blue-100 text-blue-800",
   PAID: "bg-orange-100 text-orange-800",
@@ -101,21 +92,14 @@ function IntermediatedCardImpl({
   invoice: Invoice;
   isExpanded: boolean;
   onToggle: (invoiceId: bigint) => void;
-  onAddNote: (invoiceId: string, message: string) => void;
 }) {
   const isSellerView = invoice.type === "IssuedInvoice";
   const isBuyerView = invoice.type === "ReceivedInvoice";
 
   const tokenData = useGetPaymentTokenData(invoice.paymentToken ?? "");
-  // Resolve (decimals, symbol) from the same source so the rendered amount and the
-  // suffix always agree. Hardcoded KNOWN_PAYMENT_TOKENS is the source of truth; the
-  // subgraph fallback is gated by ENABLE_SUBGRAPH_PAYMENT_TOKENS. DEFAULT_TOKEN
-  // (decimals=18, name="") is treated as "not yet resolved" via the empty id.
   const { tokenDecimals, paymentCurrency } = useMemo(() => {
-    // Native ETH: the intermediated-platform subgraph stores ETH-paid invoices with no
-    // PaymentToken entity, so paymentToken arrives as "" (or the zero address).
-    // Both cases mean ETH — must be matched before the unknown-token fallback,
-    // otherwise an 18-decimal value gets divided by 10^8 (the 10^10 blow-up).
+    // The subgraph stores ETH payments with no
+    // PaymentToken, so "" or the zero address means ETH.
     if (!invoice.paymentToken || isZeroAddress(invoice.paymentToken)) {
       return { tokenDecimals: 18, paymentCurrency: "ETH" };
     }
@@ -125,9 +109,6 @@ function IntermediatedCardImpl({
         paymentCurrency: tokenData.name?.trim() || "tokens",
       };
     }
-    // Unknown token (not in the hardcoded list, subgraph disabled or empty result).
-    // Fall back to 8 decimals — the most common token width on intermediated
-    // platforms — and a generic label so the amount still renders with a unit.
     return { tokenDecimals: 8, paymentCurrency: "tokens" };
   }, [
     invoice.paymentToken,
@@ -136,7 +117,6 @@ function IntermediatedCardImpl({
     tokenData?.name,
   ]);
 
-  /** Format a raw bigint string (token units) to a human-readable string */
   const formatTokenAmount = useCallback(
     (raw: string | null | undefined): string => {
       if (!raw) return "0";
@@ -144,7 +124,6 @@ function IntermediatedCardImpl({
         const n = Number(formatUnits(BigInt(raw), tokenDecimals));
         return fmtAmount(n);
       } catch {
-        // If BigInt parse fails, try as plain decimal
         const n = parseFloat(raw);
         return fmtAmount(Number.isFinite(n) ? n : 0);
       }
@@ -161,19 +140,16 @@ function IntermediatedCardImpl({
       if (typeof raw === "number") return raw / 1e8;
       return Number(formatUnits(BigInt(String(raw)), 8));
     } catch {
-      // Fallback: price may already be a plain decimal string
       const n = parseFloat(String(raw));
       return Number.isFinite(n) ? n : 0;
     }
   }, [invoice.price]);
 
-  // Actual paid amount from the schema (raw bigint string → formatted)
   const paidAmountFormatted = useMemo(
     () => formatTokenAmount(invoice.amountPaid),
     [invoice.amountPaid, formatTokenAmount],
   );
 
-  // Released amount: use amountReleased from schema (after fees), fall back to estimate
   const releasedAmount = useMemo(() => {
     if (invoice.amountReleased)
       return formatTokenAmount(invoice.amountReleased);
@@ -204,15 +180,10 @@ function IntermediatedCardImpl({
     displayStatus === "DISPUTE DISMISSED" ||
     displayStatus === "DISPUTE SETTLED";
 
-  /* ── Countdown timers ─────────────────────────────────────────────────── */
-
-  // Show release countdown for PAID and DISPUTE DISMISSED (funds still in escrow)
   const shouldTrackReleaseCountdown =
     (displayStatus === "PAID" || displayStatus === "DISPUTE DISMISSED") &&
     Boolean(invoice.releaseAt);
 
-  // Each <Countdown> ticks on its own, so the card does not re-render every
-  // second.
   const releaseCountdown = useMemo(() => {
     if (!shouldTrackReleaseCountdown || !invoice.releaseAt) return "—";
     return (
@@ -227,8 +198,6 @@ function IntermediatedCardImpl({
     if (!isAwaitingPayment || !invoice.expiresAt) return "—";
     return <Countdown startAt={Number(invoice.expiresAt)} />;
   }, [isAwaitingPayment, invoice.expiresAt]);
-
-  /* ── History normalization (mirrors SimpleInvoices displayHistory) ─────── */
 
   const displayHistory = useMemo(() => {
     if (!invoice.history || invoice.history.length === 0) return [];
@@ -256,29 +225,10 @@ function IntermediatedCardImpl({
     return deduped;
   }, [invoice.history]);
 
-  /* ── Share helpers ─────────────────────────────────────────────────────── */
-
   const toggle = useCallback(
     () => onToggle(invoice.invoiceId),
     [onToggle, invoice.invoiceId],
   );
-
-  const ensureExpanded = useCallback(() => {
-    if (!isExpanded) toggle();
-  }, [isExpanded, toggle]);
-
-  const shareLabel = useMemo(() => {
-    if (isSellerView) {
-      return invoice.buyer
-        ? `Share with buyer ${formatAddress(invoice.buyer)}`
-        : "Share with buyer";
-    }
-    return invoice.seller
-      ? `Share with seller ${formatAddress(invoice.seller)}`
-      : "Share with seller";
-  }, [invoice.buyer, invoice.seller, isSellerView]);
-
-  /* ── Payment link ──────────────────────────────────────────────────────── */
 
   const paymentUrl = usePayLink(
     isExpanded ? invoice.invoiceId : undefined,
@@ -290,8 +240,6 @@ function IntermediatedCardImpl({
     navigator.clipboard.writeText(paymentUrl);
     toast.success("Payment link copied!");
   }, [paymentUrl]);
-
-  /* ── Copy handlers ─────────────────────────────────────────────────────── */
 
   const formattedInvoiceId = useMemo(
     () => formatShortId(invoice.id),
@@ -322,25 +270,19 @@ function IntermediatedCardImpl({
     [invoice.invoiceId],
   );
 
-  /* ── Amount display helpers ─────────────────────────────────────────────── */
-
   const withCurrencySuffix = useCallback(
     (value: string) => `${value} ${paymentCurrency}`,
     [paymentCurrency],
   );
 
-  // Amount stays plain; other monetary fields carry payment-currency suffix.
   const amountDisplay = fmtAmount(amount);
   const paidAmountDisplay = withCurrencySuffix(paidAmountFormatted);
   const releasedAmountDisplay = withCurrencySuffix(releasedAmount);
   const refundedAmountDisplay = withCurrencySuffix(refundedAmount);
 
-  /* ── UI Render ─────────────────────────────────────────────────────────── */
-
   return (
     <Card className="transition-shadow hover:shadow-md">
       <CardHeader className="cursor-pointer select-none" onClick={toggle}>
-        {/* ID row */}
         <div className="flex items-start justify-between">
           <div className="flex flex-col">
             <div className="flex items-center gap-2">
@@ -394,7 +336,6 @@ function IntermediatedCardImpl({
           </div>
         </div>
 
-        {/* Release countdown (PAID or DISPUTE DISMISSED) */}
         {shouldTrackReleaseCountdown && (
           <InvoiceField
             label="Release in"
@@ -403,7 +344,6 @@ function IntermediatedCardImpl({
           />
         )}
 
-        {/* Paid At (PAID and dispute states — payment happened) */}
         {(displayStatus === "PAID" || isDisputed) &&
           invoice.paidAt &&
           invoice.paidAt !== "Not Paid" && (
@@ -414,7 +354,6 @@ function IntermediatedCardImpl({
             />
           )}
 
-        {/* Amount (always USD) */}
         {invoice.price && (
           <InvoiceField
             label="Amount"
@@ -435,7 +374,6 @@ function IntermediatedCardImpl({
           />
         )}
 
-        {/* Amount Released in header (RELEASED) */}
         {displayStatus === "RELEASED" &&
           (invoice.amountPaid || invoice.price) && (
             <InvoiceField
@@ -463,7 +401,6 @@ function IntermediatedCardImpl({
             />
           )}
 
-        {/* Dispute settled: each party only sees their own received amount */}
         {displayStatus === "DISPUTE SETTLED" &&
           isSellerView &&
           invoice.sellerAmountReceivedAfterDispute && (
@@ -494,7 +431,6 @@ function IntermediatedCardImpl({
             />
           )}
 
-        {/* Void in countdown (AWAITING PAYMENT / CANCELED) */}
         {isAwaitingPayment && invoice.expiresAt && (
           <InvoiceField
             label="Void in"
@@ -519,7 +455,6 @@ function IntermediatedCardImpl({
             />
           )}
 
-        {/* REFUNDED state: key fields in header */}
         {displayStatus === "REFUNDED" && (
           <>
             <InvoiceField
@@ -565,17 +500,8 @@ function IntermediatedCardImpl({
             )}
           </>
         )}
-
-        <NotesThread
-          invoiceId={invoice.invoiceId}
-          invoice={invoice}
-          onExpand={ensureExpanded}
-          shareLabel={shareLabel}
-          expanded={isExpanded}
-        />
       </CardHeader>
 
-      {/* Expanded details */}
       {isExpanded && (
         <CardContent className="border-t pt-4 space-y-4 text-sm text-gray-800">
           {invoice.contract && (
@@ -608,7 +534,6 @@ function IntermediatedCardImpl({
               />
             )}
 
-          {/* Dispute Status — PAID only (pre-dispute window) */}
           {displayStatus === "PAID" && (
             <InvoiceField
               label="Dispute Status"
@@ -617,7 +542,6 @@ function IntermediatedCardImpl({
             />
           )}
 
-          {/* Dispute resolution detail */}
           {(displayStatus === "DISPUTE RESOLVED" ||
             displayStatus === "DISPUTE DISMISSED" ||
             displayStatus === "DISPUTE SETTLED") && (
@@ -628,7 +552,6 @@ function IntermediatedCardImpl({
             />
           )}
 
-          {/* State History */}
           {displayHistory.length > 0 && (
             <InvoiceField
               label="State History"
@@ -653,7 +576,6 @@ function IntermediatedCardImpl({
             />
           )}
 
-          {/* Payment Link + QR */}
           {paymentUrl && displayStatus === "AWAITING PAYMENT" && (
             <div className="mt-4 flex flex-col items-center gap-3">
               <div className="border border-dashed p-2 rounded-xl bg-gray-50">
@@ -670,11 +592,8 @@ function IntermediatedCardImpl({
   );
 }
 
-// Memoized: the dashboard re-renders on every live invoice event, and most
-// cards on the page are unaffected by any one of them.
 export const IntermediatedCard = memo(IntermediatedCardImpl);
 
-// renderContractLink, renderTx, InvoiceField live in InvoiceCardShared.tsx
 export {
   renderContractLink,
   renderTx,

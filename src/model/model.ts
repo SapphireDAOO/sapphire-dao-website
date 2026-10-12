@@ -1,12 +1,6 @@
 import type { Address } from "viem";
 export type { AdminAction, AllInvoice, AllInvoicesData } from "./admin";
 
-// Define the base Invoice type that represents an invoice's properties
-// turn this into two seperate invoices for third party and in-invoices
-// seperate into different files too
-
-// Shared fields between SimplePaymentProcessor and IntermediatedPaymentProcessor
-// in the subgraph schema, plus UI-only fields the dashboard uses.
 export type InvoiceType = {
   // Subgraph-shared fields
   id: string;
@@ -38,12 +32,10 @@ export type InvoiceType = {
   holdPeriod?: string | null;
   releaseAt?: string | null;
   cancelAt?: string;
-  notes?: Note[];
   note?: string;
   history?: History[];
 };
 
-// remove
 export type Invoice = {
   releaseAt?: string | null;
   id: string;
@@ -69,7 +61,6 @@ export type Invoice = {
   paymentToken?: string;
   cancelAt?: string;
   creationTxHash?: string;
-  notes?: Note[];
   note?: string;
   history?: History[];
   buyerNote?: string;
@@ -86,56 +77,38 @@ export interface History {
   time: string;
 }
 
-// remove
-export interface Note {
-  id: string;
-  sender: string;
-  message: string;
-  timestamp: string;
-}
-
-// used on ui
 export interface InvoiceCardProps {
   invoice: Invoice;
-  onAddNote?: (invoiceId: string, message: string) => void;
 }
 
-//remove
-// Specialized invoice type for invoices created by the user
 export interface UserCreatedInvoice extends Invoice {
-  type?: "Seller"; // Specifies that the invoice type is "Seller"
+  type?: "Seller";
   source?: "Simple";
 }
 
-//remove
-// Specialized invoice type for invoices paid by the user
 export interface UserPaidInvoice extends Invoice {
-  type?: "Buyer"; // Specifies that the invoice type is "Buyer"
+  type?: "Buyer";
   source?: "Simple";
 }
 
-//remove
 export interface UserIssuedInvoiceInvoice extends Invoice {
-  type?: "IssuedInvoice"; // Specifies that the invoice type is "IssuedInvoice"
+  type?: "IssuedInvoice";
   source?: "Intermediated";
 }
 
-//remove
 export interface UserReceivedInvoicesInvoice extends Invoice {
-  type?: "ReceivedInvoice"; // Specifies that the invoice type is "ReceivedInvoices"
+  type?: "ReceivedInvoice";
   source?: "Intermediated";
 }
 
-// Props for a Payment Card component, containing basic invoice details
 export type PaymentCardProps = {
   data: {
     invoiceId: string | bigint;
   } | null;
 };
 
-// Type for mapping error keys to corresponding error messages
 export type ErrorMessages = {
-  [key: string]: string; // A key-value pair where the key is the error key, and the value is the corresponding error message
+  [key: string]: string;
 };
 
 export interface TokenData {
@@ -169,7 +142,6 @@ export interface SmartInvoice {
   state?: string;
 }
 
-// remove
 export interface MetaInvoice {
   id: string;
   invoiceId: string;
