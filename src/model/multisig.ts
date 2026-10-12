@@ -17,7 +17,7 @@ export interface MultiSigTransaction {
   id: string;          // bytes32 txHash as hex
   target: string;
   value: string;
-  data: string;        // hex-encoded calldata
+  data: string;
   nonce: string;
   proposer: string;
   status: "PROPOSED" | "APPROVED" | "EXECUTED" | "CANCELED";
@@ -26,10 +26,8 @@ export interface MultiSigTransaction {
   executedAt?: string;
   executor?: string;
   /**
-   * Applied from a chain log rather than read back from the subgraph, and so
-   * not yet indexed. Kept across refetches until the subgraph returns it, so a
-   * just-proposed transaction does not vanish while the indexer catches up.
-   * Nothing to do with the local chain: every network indexes behind the head.
+   * Applied from a chain log and not yet indexed; kept
+   * across refetches until the subgraph returns it.
    */
   unindexed?: boolean;
 }

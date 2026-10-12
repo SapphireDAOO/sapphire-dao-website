@@ -7,10 +7,6 @@ import { formatDurationSeconds, unixToGMT } from "@/utils";
 import { useSharedSecondTicker } from "@/hooks/useSharedSecondTicker";
 
 export const PausedNotice = () => {
-  // The contract is the authority on whether it is paused; the subgraph adds
-  // who did it and when. Either saying paused is enough to warn: the index can
-  // lag the chain, and a warning shown a little early costs nothing next to
-  // one shown late.
   const { isPaused: chainPaused, pauseExpiry } = useEmergencyPause();
   const { isPaused: indexedPaused, state } = usePauseState();
   const isPaused = chainPaused || indexedPaused;

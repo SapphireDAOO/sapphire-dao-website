@@ -30,7 +30,6 @@ function formatParamValue(value: unknown, kind: string): string {
     if (kind === "bps") return `${(Number(value) / 100).toFixed(2)}%`;
     return value.toString();
   }
-  // Addresses and bytes32 hashes: truncate so they fit the card row
   if (kind === "address" || kind === "bytes32") {
     return truncateHex(String(value));
   }
@@ -40,7 +39,6 @@ function formatParamValue(value: unknown, kind: string): string {
 const explorerAddress = (address: string) =>
   `https://sepolia.basescan.org/address/${address}`;
 
-/** Symbol and decimals for a token address on any configured chain, if known. */
 function resolveToken(address: string): { name: string; decimals: number } | null {
   const lower = address.toLowerCase();
 
@@ -59,11 +57,6 @@ function resolveToken(address: string): { name: string; decimals: number } | nul
   return null;
 }
 
-/**
- * `Sweeper.sweep` takes parallel address/amount arrays, which the generic
- * decoder below cannot render, so it is summarised: how many fee receivers are
- * drained, for how much, and where the funds go.
- */
 function decodeSweepCall(hex: Hex): DecodedCall | null {
   let decoded;
   try {
@@ -150,7 +143,6 @@ export function decodeMultiSigCalldata(data: string): DecodedCall | null {
           params,
         };
       } catch {
-        // selector didn't match, try next
       }
     }
   }
@@ -158,7 +150,6 @@ export function decodeMultiSigCalldata(data: string): DecodedCall | null {
   return null;
 }
 
-/** Returns the raw lowercase target txHash if `data` encodes `cancelTransaction(bytes32)`, else null. */
 export function decodeCancelTargetHash(data: string): string | null {
   if (!data || data.length < 10) return null;
   const minimalAbi = [
@@ -176,7 +167,6 @@ export function decodeCancelTargetHash(data: string): string | null {
       return (decoded.args[0] as string).toLowerCase();
     }
   } catch {
-    // selector didn't match
   }
   return null;
 }

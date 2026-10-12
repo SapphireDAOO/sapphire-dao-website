@@ -1,7 +1,3 @@
-// Fee Paid feed: individual fee payments from the FeePaid timeseries entity
-// (timestamp + token + amount only). Amounts are formatted in token units and
-// converted to USD against the cached price, same as the rest of the dashboard.
-
 import { formatUnits } from "viem";
 import { getKnownPaymentToken } from "@/constants";
 import { client } from "../graphql/client";
@@ -13,18 +9,12 @@ const MICROS_PER_SECOND = 1_000_000;
 const NATIVE_DECIMALS = 18;
 const NATIVE_SYMBOL = "ETH";
 
-/** A single fee payment row for the Fees Paid popup. */
 export interface FeePaidRow {
   id: string;
-  /** Unix seconds. */
   timestamp: number;
-  /** Fee amount formatted in token units. */
   amount: string;
-  /** Token symbol. */
   currency: string;
-  /** USD-converted fee value. */
   amountUsd: number;
-  /** Transaction hash, for the block-explorer link. */
   txHash: string;
 }
 
@@ -36,11 +26,6 @@ interface FeePaidEventRow {
   txHash: string;
 }
 
-/**
- * One page of FeePaid records since `sinceSeconds` (newest first). Fetches
- * `pageSize + 1` rows to detect whether a next page exists. FeePaid timestamps
- * are the microsecond Timestamp scalar, so the cutoff is converted to micros.
- */
 export const fetchFeesPaid = async (
   chainId: number,
   page: number,

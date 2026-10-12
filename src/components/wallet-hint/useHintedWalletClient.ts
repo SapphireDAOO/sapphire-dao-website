@@ -5,13 +5,6 @@ import { useWalletClient } from "wagmi";
 import { beginWalletMoment } from "./walletMomentStore";
 import type { HintMoment } from "./walletHints";
 
-/**
- * A wallet client that announces when it is waiting on the user.
- *
- * Every method here opens a wallet popup. Wrapping the client rather than
- * editing each call site means new call sites are covered for free — and there
- * are already a dozen spread across the services and multisig components.
- */
 const APPROVAL_MOMENTS: Record<string, HintMoment> = {
   sendTransaction: "sendingTransaction",
   sendRawTransaction: "sendingTransaction",
@@ -26,7 +19,6 @@ const APPROVAL_MOMENTS: Record<string, HintMoment> = {
   requestPermissions: "connecting",
 };
 
-/** Wraps a viem wallet client so approval-triggering calls raise a hint. */
 export const wrapWalletClient = <T extends object>(client: T): T =>
   new Proxy(client, {
     get(target, prop) {
@@ -41,8 +33,6 @@ export const wrapWalletClient = <T extends object>(client: T): T =>
             target,
             args,
           );
-          // Approval methods are async, but guard anyway: a sync return that
-          // never settled would pin the hint open.
           return result instanceof Promise
             ? result.finally(end)
             : (end(), result);
@@ -54,10 +44,6 @@ export const wrapWalletClient = <T extends object>(client: T): T =>
     },
   });
 
-/**
- * Drop-in replacement for wagmi's `useWalletClient` that shows a hint whenever
- * the returned client opens a wallet popup.
- */
 export const useHintedWalletClient = () => {
   const query = useWalletClient();
   const { data } = query;

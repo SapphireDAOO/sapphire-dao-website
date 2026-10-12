@@ -19,7 +19,6 @@ import {
 } from "recharts";
 import type { InvoiceActivityPoint } from "@/services/metrics/types";
 
-// The design fixes this card to a rolling 7-day view.
 const WINDOW_DAYS = 7;
 
 const dayLabel = (timestampSeconds: number): string =>
@@ -28,7 +27,6 @@ const dayLabel = (timestampSeconds: number): string =>
   });
 
 interface InvoiceActivityChartProps {
-  /** Daily invoice-paid activity split by processor, oldest → newest. */
   series: InvoiceActivityPoint[];
   isLoading?: boolean;
 }
@@ -47,8 +45,6 @@ export function InvoiceActivityChart({
     [series],
   );
 
-  // The series is zero-filled to a full window, so "no data" means every
-  // point is zero rather than an empty array.
   const hasActivity = data.some(
     (point) => point.website > 0 || point.intermediated > 0,
   );

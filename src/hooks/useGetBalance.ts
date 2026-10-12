@@ -5,21 +5,11 @@ import { PaymentProcessorStorage } from "@/abis/PaymentProcessorStorage";
 import { useViemReadContract } from "./useViemReadContract";
 import { useViemBalance } from "./useViemBalance";
 
-/**
- * Custom hook to retrieve the balance of POL in the intermediated platforms operator wallet.
- *
- * @returns {string | undefined} return.data - The POL balance formatted in ether, or undefined if not available.
- * @returns {Function} return.refetch - Function to refetch the balance and intermediated address.
- * @returns {boolean} return.isLoading - Indicates if the balance or intermediated address is being fetched.
- */
 export const useGetBalance = () => {
-  // Retrieve the current user's wallet address using the wagmi `useAccount` hook
   const { address } = useAccount();
 
-  // Retrieve the current chain ID using the wagmi `useChainId` hook
   const chainId = useChainId() || BASE_SEPOLIA;
 
-  // Fetch the intermediated address from the IntermediatedPaymentProcessor contract
   const {
     data: intermediatedOperatorAddress,
     isLoading: isLoadingAddress,
@@ -32,7 +22,6 @@ export const useGetBalance = () => {
     account: address,
   });
 
-  // Fetch the POL balance of the intermediated address
   const {
     data: balanceData,
     isLoading: isLoadingBalance,
@@ -42,10 +31,8 @@ export const useGetBalance = () => {
     chainId,
   });
 
-  // Format the balance in ether (from wei)
   const formattedBalance = balanceData ? formatEther(balanceData) : undefined;
 
-  // Combine refetch functions
   const refetch = async () => {
     await Promise.all([refetchAddress(), refetchBalance()]);
   };

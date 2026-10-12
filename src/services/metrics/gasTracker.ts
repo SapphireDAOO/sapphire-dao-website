@@ -13,8 +13,7 @@ export const fetchGasStats = async (
   chainId: number,
 ): Promise<GasStats | null> => {
   const result = await client(chainId)
-    // network-only: react-query owns caching for this fetcher; cache-first
-    // would turn its refetches into stale no-ops.
+    // network-only: react-query owns caching for this fetcher.
     .query<{ gasPaid: GasPaidRow | null }>(GAS_TRACKER_QUERY, {}, {
       requestPolicy: "network-only",
     })

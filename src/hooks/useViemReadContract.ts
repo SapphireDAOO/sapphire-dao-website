@@ -25,8 +25,7 @@ type ReadContractParams<T> = {
   refetchOnWindowFocus?: boolean;
 };
 
-// React Query hashes `queryKey` values with `JSON.stringify`, which throws on BigInt.
-// Normalize any BigInt (and nested values) to string to keep the key serializable.
+// Query keys are hashed with JSON.stringify, which throws on BigInt.
 const serializeQueryKeyPart = (value: unknown): unknown => {
   if (typeof value === "bigint") return value.toString();
   if (Array.isArray(value)) return value.map(serializeQueryKeyPart);

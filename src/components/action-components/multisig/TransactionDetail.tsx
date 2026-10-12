@@ -39,10 +39,6 @@ const isTerminalStatus = (status?: string) =>
   status === "EXECUTED" || status === "CANCELED";
 
 interface Props {
-  /**
-   * The live row from the multisig list, which useMultiSigEvents keeps
-   * current. Status and approvals are read from it rather than watched here.
-   */
   tx: MultiSigTransaction | null;
   threshold: number;
   isSigner: boolean;
@@ -80,14 +76,11 @@ export default function TransactionDetail({
     address,
   );
 
-  // hasApproved for the cancel proposal (always called; disabled when no cancelProposal)
   const { data: hasApprovedCancel, refetch: refetchHasApprovedCancel } = useHasApproved(
     cancelProposal?.id as Hex | undefined,
     address,
   );
 
-  // React to changes the shared feed brings in while this tx is open. Its own
-  // four subscriptions per open transaction duplicated useMultiSigEvents.
   const previousRef = useRef<{
     id?: string;
     approvalCount: number;
@@ -107,19 +100,14 @@ export default function TransactionDetail({
     };
 
     if (!tx || previous.id !== tx.id) {
-      // A different tx (or none): a close scheduled for the last one must
-      // not shut this one.
       clearTimeout(closeTimerRef.current);
       return;
     }
 
-    // Any approval, this signer's from another tab included, can change
-    // whether this wallet has approved.
     if (localApprovalCount !== previous.approvalCount) {
       void refetchHasApproved();
     }
 
-    // Executed or canceled while open: show the outcome, then close.
     if (isTerminalStatus(tx.status) && !isTerminalStatus(previous.status)) {
       clearTimeout(closeTimerRef.current);
       closeTimerRef.current = setTimeout(() => onCloseRef.current(), 1500);
@@ -132,14 +120,10 @@ export default function TransactionDetail({
   const remaining = Math.max(0, threshold - localApprovalCount);
   const isTerminal = localStatus === "EXECUTED" || localStatus === "CANCELED";
 
-  // Main tx actions
   const canApprove = isSigner && !isTerminal && !hasApproved;
-  // Threshold reached (locally or via subgraph) means any signer can execute
   const canExecute = isSigner && !isTerminal && (localStatus === "APPROVED" || localApprovalCount >= threshold);
-  // Propose Cancel: only if no cancel proposal exists yet and tx is not terminal
   const canProposeCancelNew = isSigner && !isTerminal && !cancelProposal;
 
-  // Cancel proposal actions
   const cancelApprovalCount = cancelProposal ? Number(cancelProposal.approvalCount) : 0;
   const cancelRemaining = Math.max(0, threshold - cancelApprovalCount);
   const cancelIsExecuted = cancelProposal?.status === "EXECUTED";
@@ -240,9 +224,6 @@ export default function TransactionDetail({
 
         <div className="space-y-4 text-sm">
           <Row label="Tx Hash">
-            {/* The multisig's own proposal id, not an Ethereum transaction
-                hash, so an explorer has nothing to show for it. Copyable
-                instead: it is what identifies the proposal on chain. */}
             <CopyableAddress fullValue={tx.id} />
           </Row>
 
@@ -330,7 +311,6 @@ export default function TransactionDetail({
             </>
           )}
 
-          {/* Cancel proposal — only shown while tx is still active (not executed or canceled) */}
           {cancelProposal && !isTerminal && (
             <div className="rounded-md border border-orange-200 bg-orange-50 p-3 space-y-2">
               <div className="flex items-center justify-between">
@@ -395,7 +375,6 @@ export default function TransactionDetail({
             </div>
           )}
 
-          {/* Main tx actions */}
           <div className="flex gap-2 pt-2">
             {canApprove && (
               <Button

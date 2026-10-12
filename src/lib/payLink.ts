@@ -1,4 +1,3 @@
-/** Query parameter carrying the encoded invoice id. */
 export const PAY_LINK_PARAM = "id";
 
 export const META_ID_PREFIX = "mt-";
@@ -50,7 +49,6 @@ const toBytes = (id: bigint): Uint8Array => {
   return bytes;
 };
 
-/** Encodes an invoice id for a pay link. Returns "" for anything unusable. */
 export const encodeInvoiceId = (
   invoiceId: bigint | string | number | undefined | null,
   isMeta = false,
@@ -71,11 +69,6 @@ export const encodeInvoiceId = (
   return `${isMeta ? META_ID_PREFIX : ""}${toBase64Url(bytes)}`;
 };
 
-/**
- * Reads an invoice id, and which kind it is, back out of a pay link. Returns
- * null for anything that is not a well-formed id, so a mangled or hand-edited
- * link fails closed rather than sending the payer to a nonsense invoice.
- */
 export const decodeInvoiceId = (
   encoded: string | null | undefined,
 ): DecodedPayLink | null => {
@@ -95,10 +88,6 @@ export const decodeInvoiceId = (
   return id === null ? null : { invoiceId: id.toString(), isMeta };
 };
 
-/**
- * The shareable URL for an invoice. Built entirely in the browser, so it is
- * ready on first render rather than after a request settles.
- */
 export const buildPayLink = (
   invoiceId: bigint | string | number | undefined | null,
   path: "pay" | "checkout" = "pay",

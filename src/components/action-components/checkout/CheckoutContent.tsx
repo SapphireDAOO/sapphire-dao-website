@@ -37,8 +37,6 @@ const CheckoutPage = () => {
   );
   const [error, setError] = useState("");
 
-  // Step 1: read the invoice id, and which kind it is, out of the link. Both
-  // travel in the URL, so this resolves without a request.
   const [isMetaInvoice, setIsMetaInvoice] = useState(false);
 
   useEffect(() => {
@@ -64,7 +62,6 @@ const CheckoutPage = () => {
     | { invoiceId?: bigint; invoiceNonce?: bigint; price?: bigint; paymentToken?: string }
     | undefined;
 
-  // Step 3: Fetch invoice data dynamically
   useEffect(() => {
     if (!invoiceId) return;
 
@@ -77,9 +74,6 @@ const CheckoutPage = () => {
         const response = await getIntermediatedInvoiceData(invoiceId, type);
 
         const invoice = response?.[type];
-        // KNOWN_PAYMENT_TOKENS is the source of truth while the subgraph
-        // PaymentToken entity isn't reliable. Flip ENABLE_SUBGRAPH_PAYMENT_TOKENS
-        // to merge the subgraph's list in.
         const paymentTokens: TokenData[] = ENABLE_SUBGRAPH_PAYMENT_TOKENS
           ? mergeKnownPaymentTokens(chainId, response?.paymentTokens || [])
           : (KNOWN_PAYMENT_TOKENS[chainId] ?? []);
@@ -121,10 +115,6 @@ const CheckoutPage = () => {
     intermediatedInvoice,
   ]);
 
-  // UI
-
-  // Nothing else is awaited: the kind came from the link, so the only
-  // outstanding work is the invoice fetch itself.
   const isLoading = invoiceId && !invoiceDetails && !error;
 
   if (error) {

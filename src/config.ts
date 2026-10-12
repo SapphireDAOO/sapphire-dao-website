@@ -35,15 +35,10 @@ const wallets = [
   },
 ];
 
-// See LOCAL_CHAIN_ENABLED: a static export is built as "production"
-// regardless of where it will be served.
 const withLocalChain = LOCAL_CHAIN_ENABLED;
 
-// Real-time updates ride on the websocket: viem only opens a subscription
-// when the transport is a websocket, or a fallback whose *first* entry is one
-// - anything else makes watchEvent poll eth_getLogs on a timer. So the order
-// here is not cosmetic, and HTTP stays behind it purely as a fallback for
-// when the socket cannot be established.
+// Websocket first: viem only subscribes (rather than
+// polling) when the first transport is a websocket.
 const BASE_SEPOLIA_WS =
   process.env.NEXT_PUBLIC_BASE_SEPOLIA_WS_URL ??
   "wss://base-sepolia-rpc.publicnode.com";
@@ -62,13 +57,11 @@ const baseSepoliaTransport = fallback(
     http("https://sepolia.base.org"),
   ],
   {
-    rank: false, // keep order: websocket first, HTTP as backup
+    rank: false,
     retryCount: 1,
   },
 );
 
-// A hardhat node serves websockets on its HTTP port, so the local chain gets
-// the same live updates as a deployed one instead of falling back to polling.
 const localTransport = fallback([webSocket(LOCAL_WS), http(LOCAL_HTTP)], {
   rank: false,
   retryCount: 1,

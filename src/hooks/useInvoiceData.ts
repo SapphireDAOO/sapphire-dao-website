@@ -48,15 +48,10 @@ import type { CreatedSimpleInvoice } from "@/services/blockchain/SimplePaymentPr
 import type { InvoiceEventTab } from "@/context/contract-context";
 
 const ERROR_BACKOFF_MS = 15_000;
-// The subgraph's ceiling for `first`. Each list is walked with an id cursor,
-// so a large protocol costs a handful of requests rather than one per 24 rows.
+// The subgraph's ceiling for `first`.
 const ADMIN_PAGE_SIZE = 1000;
-// The admin lists are not kept live, so this is how stale a revisit may be
-// before the whole set is fetched again.
 const ADMIN_INVOICE_CACHE_TTL_MS = 30_000;
 const LIVE_INVOICE_OVERLAY_LIMIT = 100;
-// invoiceData only feeds the pay page and is re-seeded from storage on load,
-// so the newest invoices are all worth persisting.
 const LOCAL_INVOICE_CACHE_LIMIT = 100;
 const INVOICE_READ_TTL_MS = 5_000;
 const INVOICE_READ_CACHE_MAX = 200;
@@ -79,8 +74,6 @@ const CHECKOUT_QUERIES = {
   metaInvoice: metaInvoiceQuery,
 } as const;
 
-// Chain reads of single invoices, keyed by chain, contract and invoice id.
-// Bounded so a long session does not keep every invoice it ever read.
 type InvoiceRead = { data: unknown };
 const simpleInvoiceReadCache = new LRUCache<string, InvoiceRead>({
   max: INVOICE_READ_CACHE_MAX,
@@ -136,25 +129,18 @@ export const useInvoiceData = () => {
   );
   const lastCacheWriteSignatureRef = useRef("");
 
-  // Pages holding the live event subscription open, newest last. Nothing is
-  // watched unless a page asks: the subscription used to run on every route,
-  // reading the chain for invoices that were not the user's.
   const [eventWatches, setEventWatches] = useState<
     { id: number; tab: InvoiceEventTab }[]
   >([]);
   const eventWatchIdRef = useRef(0);
-  // The newest holder wins: on a route change the incoming page can register
-  // before the outgoing one lets go.
+  // Newest wins: on a route change the incoming page
+  // can register before the outgoing one lets go.
   const activeEventTab =
     eventWatches.length > 0 ? eventWatches[eventWatches.length - 1].tab : null;
   const isWindowVisible = useIsWindowVisible();
 
-  // Invoice lists on screen that live outside invoiceData (the dashboard's
-  // paged query). Event handlers look here before deciding an invoice id
-  // is someone else's.
   const trackedInvoiceListsRef = useRef(new Set<Invoice[]>());
 
-  // Status listeners for single simple-processor invoices, keyed by id.
   const invoiceStatusListenersRef = useRef(
     new Map<string, Set<(status: Invoice["status"]) => void>>(),
   );
@@ -246,7 +232,6 @@ export const useInvoiceData = () => {
     [address, chainId, upsertLocalInvoice],
   );
 
-  // Keep refs so callbacks don't depend on state and cause re-subscribe loops
   const allInvoiceDataRef = useRef<AllInvoicesData>({
     invoices: [],
     actions: [],
@@ -319,8 +304,6 @@ export const useInvoiceData = () => {
 
   const getAllInvoiceData = useCallback(
     async (force = false): Promise<AllInvoicesData> => {
-      // Respect the 429 backoff unconditionally — retrying while rate limited
-      // (even with nothing cached) only extends the lockout.
       if (Date.now() < nextAllowedRequestRef.current) {
         return allInvoiceDataRef.current;
       }
@@ -345,12 +328,6 @@ export const useInvoiceData = () => {
         const intermediatedInvoices: AllInvoice[] = [];
 
         try {
-          // Page through each list until exhausted; the subgraph caps a single
-          // request at ADMIN_PAGE_SIZE, so a one-shot query would silently drop
-          // anything past the first page. Pages are cursored on id rather than
-          // skipped, since a large `skip` gets slower the deeper it goes. Each
-          // list pages sequentially, but the lists run in parallel so total
-          // latency is the longest list, not the sum of all of them.
           const fetchPagedList = async (
             list: "invoices" | "smartInvoices",
           ): Promise<any[]> => {
@@ -369,8 +346,8 @@ export const useInvoiceData = () => {
                     lastSmartInvoiceId: lastId,
                     includeSmartInvoices: list === "smartInvoices",
                   },
-                  // The TTL cache above decides freshness. urql's cache-first
-                  // default would otherwise serve the first fetch forever.
+                  // The TTL cache decides freshness; urql's
+                  // cache-first would serve the first fetch forever.
                   { requestPolicy: "network-only" },
                 )
                 .toPromise();
@@ -395,8 +372,8 @@ export const useInvoiceData = () => {
             fetchPagedList("invoices"),
             fetchPagedList("smartInvoices"),
           ]);
-          // Admin actions disabled: the AdminAction entity was dropped in the
-          // subgraph's event-log migration. TODO: rebuild from InvoiceEvent.
+          // TODO: rebuild from InvoiceEvent; the
+          // subgraph dropped the AdminAction entity.
           const rawAdminActions: any[] = [];
 
           for (const raw of rawInvoices) {
@@ -652,9 +629,6 @@ export const useInvoiceData = () => {
           ? readBigInt(invoiceObject.sellerActionDeadline)
           : readBigInt(invoiceArray?.[5] as bigint | number | undefined);
 
-        // Pure per-invoice patch so it can be applied both inside the state
-        // updater and against the ref snapshot for the live publish below —
-        // state updaters must stay side-effect free.
         const matchesInvoice = (inv: Invoice) =>
           inv.invoiceId.toString() === invoiceId.toString();
         const applyTiming = (inv: Invoice): Invoice => ({
@@ -777,9 +751,8 @@ export const useInvoiceData = () => {
 
         const resolvedInvoiceId = inv;
 
-        // Status comes from the event that triggered this hydration when we
-        // have it; otherwise infer from the contract's paidAt so an invoice
-        // hydrated off a refund/release event doesn't get stamped "PAID".
+        // Without the triggering event, infer from paidAt
+        // so a refund/release hydration isn't stamped PAID.
         const isPaid = paidAt !== undefined && paidAt > BigInt(0);
         const status: Invoice["status"] =
           eventStatus ?? (isPaid ? "PAID" : "AWAITING PAYMENT");
@@ -1114,7 +1087,6 @@ export const useInvoiceData = () => {
     [],
   );
 
-  // Seed from storage on address or chain change
   useEffect(() => {
     if (!address) {
       setInvoiceData([]);
@@ -1128,16 +1100,13 @@ export const useInvoiceData = () => {
     }
 
     setLiveInvoiceData([]);
-    // Replace even when nothing is stored: keeping the previous account's
-    // invoices would show them under this one and persist them for it.
+    // Replace even when nothing is stored, or the
+    // previous account's invoices would carry over.
     const cachedInvoices = readInvoiceCache(cacheKey);
     lastCacheWriteSignatureRef.current =
       getInvoiceCacheSignature(cachedInvoices);
     setInvoiceData(cachedInvoices);
 
-    // No network fetch: the dashboard renders its own paged query, event
-    // watchers stream changes into invoiceData, and the pay page reads the
-    // invoice from the chain when it is not here.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [address, chainId]);
 

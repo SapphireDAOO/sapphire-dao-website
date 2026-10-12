@@ -9,7 +9,6 @@ import {
 } from "@/constants";
 import { fetchAdminTransactions } from "@/services/metrics/adminTransactions";
 
-/** Most recent multisig transactions for the metrics page's Admin card. */
 export const useAdminTransactions = (count = 5) => {
   const { chain } = useAccount();
   const chainId = chain?.id ?? BASE_SEPOLIA;

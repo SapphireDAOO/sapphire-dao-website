@@ -7,14 +7,6 @@ import { Button } from "@/components/ui/button";
 import { useNoteKeys } from "@/hooks/useNoteKeys";
 import { formatAddress } from "@/utils";
 
-/**
- * Publishing this account's note public key, which is what lets anyone else
- * seal a note that only this account can open.
- *
- * Registration is a one-time on-chain write: the contract stores one key per
- * account and rejects a second, so the button gives way to a status line once
- * the key is published rather than offering an action that would revert.
- */
 export const MessagingKey = () => {
   const {
     enabled,
@@ -51,8 +43,6 @@ export const MessagingKey = () => {
         );
         return;
       }
-      // The contract's reason is the actionable part; without it this is just
-      // "it failed".
       toast.error(reason ?? "Could not publish your messaging key.", {
         duration: reason ? 8000 : undefined,
       });

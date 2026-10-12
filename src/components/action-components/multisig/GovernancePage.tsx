@@ -83,10 +83,8 @@ export default function GovernancePage() {
     ? wallet.signers.filter((signer) => signer.active).length
     : 0;
 
-  // A threshold at or below half the signers would let a minority execute, so
-  // the floor is a strict majority. The contract only enforces its own
-  // MINIMUM_THRESHOLD of 2 and an upper bound of the signer count; whichever
-  // of the two is higher applies here.
+  // A strict majority; the contract itself only
+  // enforces MINIMUM_THRESHOLD and the signer count.
   const minimumThreshold = signerCount
     ? Math.max(CONTRACT_MINIMUM_THRESHOLD, Math.floor(signerCount / 2) + 1)
     : CONTRACT_MINIMUM_THRESHOLD;
@@ -96,7 +94,6 @@ export default function GovernancePage() {
       (s) => s.active && s.address.toLowerCase() === address.toLowerCase(),
     ) ?? false);
 
-  // --- Signer management state ---
   const [addLoading, setAddLoading] = useState("");
   const [removeLoading, setRemoveLoading] = useState("");
   const [thresholdLoading, setThresholdLoading] = useState("");
@@ -104,8 +101,6 @@ export default function GovernancePage() {
   const [removeSignerAddr, setRemoveSignerAddr] = useState("");
   const [newThreshold, setNewThreshold] = useState("");
 
-  // Checked before proposing as well as shown: a proposal that can never
-  // execute still costs a signature and clutters the queue.
   const thresholdError = (() => {
     if (!newThreshold) return null;
     const n = Number(newThreshold);
@@ -170,7 +165,6 @@ export default function GovernancePage() {
   return (
     <Container>
       <div className="py-8 space-y-6 max-w-4xl mx-auto">
-        {/* Header */}
         <div className="flex items-start justify-between flex-wrap gap-4">
           <div>
             <div className="flex items-center gap-2">
@@ -190,7 +184,6 @@ export default function GovernancePage() {
             </p>
           </div>
 
-          {/* Stats */}
           {wallet && (
             <div className="flex gap-6 text-sm">
               <Stat label="Threshold" value={`${wallet.threshold} / ${wallet.signerCount}`} />
@@ -199,11 +192,8 @@ export default function GovernancePage() {
           )}
         </div>
 
-        {/* Halting the protocol is a governance action too, but an urgent one:
-            it stays in the open rather than behind a tab. */}
         <EmergencyPause />
 
-        {/* Signers */}
         {wallet?.signers && wallet.signers.length > 0 && (
           <SignerList signers={wallet.signers} threshold={threshold} />
         )}
@@ -222,7 +212,6 @@ export default function GovernancePage() {
           </Card>
         )}
 
-        {/* Contract descriptions — collapsible */}
         <div>
           <button
             type="button"
@@ -258,7 +247,6 @@ export default function GovernancePage() {
           )}
         </div>
 
-        {/* Main content */}
         <Tabs defaultValue="transactions">
           <TabsList>
             <TabsTrigger value="transactions">Transactions</TabsTrigger>
@@ -299,7 +287,6 @@ export default function GovernancePage() {
                   <CardTitle className="text-base">Signer Management</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                  {/* Add Signer */}
                   <div className="space-y-1.5">
                     <div className="flex items-center gap-1.5">
                       <Label htmlFor="addSigner">Add Signer</Label>
@@ -326,7 +313,6 @@ export default function GovernancePage() {
                     <p className="text-xs text-muted-foreground">Proposes adding a new authorized signer to the multisig.</p>
                   </div>
 
-                  {/* Remove Signer */}
                   <div className="space-y-1.5">
                     <div className="flex items-center gap-1.5">
                       <Label htmlFor="removeSigner">Remove Signer</Label>
@@ -353,7 +339,6 @@ export default function GovernancePage() {
                     <p className="text-xs text-muted-foreground">Proposes removing a signer. Cannot drop below the current threshold.</p>
                   </div>
 
-                  {/* Update Threshold */}
                   <div className="space-y-1.5">
                     <div className="flex items-center gap-1.5">
                       <Label htmlFor="updateThreshold">Update Threshold</Label>
@@ -439,11 +424,6 @@ export default function GovernancePage() {
   );
 }
 
-/**
- * The signer-management fields propose calls on the multisig itself, so their
- * explanations and docs links come from the same definitions the decoder uses
- * to render those proposals.
- */
 const multisigAction = (name: string) =>
   MULTISIG_ADMIN_CONTRACT.functions.find((fn) => fn.name === name);
 

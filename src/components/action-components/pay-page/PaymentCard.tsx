@@ -101,10 +101,8 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
   const { data: fetchedInvoice } = useGetInvoiceData(invoiceId);
   const { notes: invoiceNotes } = useInvoiceNotes(invoiceId);
   const noteKeys = useNoteKeys();
-  // wagmi reports no chain during SSR, so the server falls back to Base Sepolia
-  // while the browser resolves the connected chain (e.g. localhost). Rendering
-  // that address straight away makes the two HTML trees disagree and React
-  // throws a hydration mismatch, so resolve it only after mount.
+  // Resolved after mount: the server falls back to Base Sepolia,
+  // so rendering it straight away mismatches on hydration.
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
   const contractAddress = mounted
@@ -116,8 +114,6 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
   const isLoading = useContext(ContractLoadingContext);
   const { invoiceData } = useContext(InvoiceStateContext);
 
-  // A payment from here lands in the dashboard's buyer tab through the live
-  // event feed, so the feed stays open while this page is.
   useEffect(() => watchInvoiceEvents?.("simple"), [watchInvoiceEvents]);
 
   const liveInvoice = useMemo(() => {
@@ -134,8 +130,6 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
     [fetchedInvoice, liveInvoice],
   );
 
-  // The page shows the human-facing invoice nonce, never the uint216 invoice
-  // id the contract keys invoices by.
   const displayInvoiceNonce = useMemo(() => {
     const fetched = fetchedInvoice as
       | ({ invoiceNonce?: string | number | bigint } & {
@@ -144,17 +138,16 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
       | undefined;
     const live = liveInvoice as InvoiceLike | undefined;
 
-    // Prefer the nonce directly from the chain response for accuracy.
     if (fetched?.invoiceNonce !== undefined && fetched?.invoiceNonce !== null) {
       return fetched.invoiceNonce;
     }
 
-    // Viem tuple fallback: index 0 is invoiceNonce in the current ABI.
+    // Tuple fallback: index 0 is invoiceNonce.
     if (fetched && fetched[0] !== undefined && fetched[0] !== null) {
       return fetched[0] as string | number | bigint;
     }
 
-    // Subgraph/app cache fallback: the app's Invoice.id holds the nonce.
+    // The app's Invoice.id holds the nonce.
     return (
       live?.invoiceNonce ??
       live?.id ??
@@ -166,11 +159,8 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
 
   const displayPriceEth = invoiceLike?.price ?? invoiceLike?.amount ?? null;
 
-  // Hold period in seconds — prefer the on-chain read, fall back to the
-  // subgraph/app cache value.
   const holdPeriodSeconds = useMemo(() => {
-    // The contract struct calls this escrowHoldPeriod; holdPeriod is kept as a
-    // fallback for invoices cached from the pre-rename shape.
+    // holdPeriod is the field's pre-rename name.
     const fetched = fetchedInvoice as
       | { escrowHoldPeriod?: number | bigint; holdPeriod?: number | bigint }
       | undefined;
@@ -223,9 +213,6 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
     setLiveStatus(normalizedStatus);
   }, [normalizedStatus]);
 
-  // Someone else paying, or the seller cancelling, while this page is open.
-  // Read off the shared simple-processor feed this page already holds open,
-  // rather than a second subscription to the same contract.
   useEffect(() => {
     if (!invoiceId) return;
     return watchInvoiceStatus?.(invoiceId, (status) => setLiveStatus(status));
@@ -299,9 +286,6 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
     }
 
     try {
-      // The note rides inside the payment transaction, so it is sealed here.
-      // A shared note also seals to the seller, which needs them to have
-      // published a key; without one the note can only be private.
       let storageRef = "0x";
       const trimmedNote = paymentNote.trim();
       if (trimmedNote) {
@@ -389,10 +373,6 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
 
         <CardContent>
           <div className="grid w-full items-center gap-4">
-            {/* Every invoice carries a hold period now, so the payer is
-                always told the terms rather than only when one was set. An
-                older invoice created before the fixed period may still read
-                zero, which is shown as-is rather than hidden. */}
             {holdPeriodSeconds !== undefined && (
               <div className="flex items-start gap-2.5 rounded-lg border border-amber-300 bg-amber-50 p-3">
                 <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
@@ -514,7 +494,6 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
         </CardFooter>
       </Card>
 
-      {/* Popup */}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogPortal>
           <DialogOverlay className="fixed inset-0 bg-black/50" />
@@ -536,7 +515,6 @@ const PaymentCard = ({ data }: PaymentCardProps) => {
               Your payment has been processed successfully.
             </p>
 
-            {/* NEW Countdown display */}
             <p className="text-sm text-gray-500">
               Redirecting to <span className="font-medium">Dashboard</span> in{" "}
               <span className="font-bold">{countdown}</span>s...

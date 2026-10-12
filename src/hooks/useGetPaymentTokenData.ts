@@ -54,8 +54,6 @@ export const useGetPaymentTokenData = (tokenId: string) => {
         return;
       }
 
-      // Subgraph PaymentToken lookup is gated — hardcoded KNOWN_PAYMENT_TOKENS is
-      // the source of truth until ENABLE_SUBGRAPH_PAYMENT_TOKENS is flipped to true.
       if (!ENABLE_SUBGRAPH_PAYMENT_TOKENS) {
         setToken(DEFAULT_TOKEN);
         return;

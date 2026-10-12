@@ -20,11 +20,6 @@ import {
   formatTimestamp,
 } from "@/components/action-components/multisig/decodeCalldata";
 
-/**
- * Platform fees that have been credited to fee receivers but not yet swept,
- * totalled per token. Sweeping them is a multisig action and lives on the
- * multisig page.
- */
 export default function FeesCollected() {
   const chainId = useChainId() || BASE_SEPOLIA;
   const { tokens, sweeps, truncated, isLoading, error, notIndexed, refresh } =

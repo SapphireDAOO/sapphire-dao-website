@@ -21,7 +21,6 @@ const WINDOW_DAYS = 30;
 const explorerTxUrl = (txHash: string): string =>
   `https://sepolia.basescan.org/tx/${txHash}`;
 
-/** One labelled field row inside a card. */
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="flex items-center gap-1.5">
@@ -31,11 +30,6 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
-/**
- * Inline dropdown panel of paginated fee-payment cards. Rendered in normal
- * document flow (below the metric cards) so it pushes the page down instead of
- * overlaying the charts. Mounts only while its card is expanded.
- */
 export function FeesPaidPanel() {
   const { chain } = useAccount();
   const chainId = chain?.id ?? BASE_SEPOLIA;

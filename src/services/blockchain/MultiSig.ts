@@ -49,14 +49,6 @@ export const proposeMultiSigTransaction = async (
   }
 };
 
-/**
- * Proposes cancelling an existing transaction.
- *
- * Cancelling is itself a multisig action: this raises a second proposal whose
- * calldata is `cancelTransaction(txHash)`, which the signers then approve like
- * any other. Shared by the transaction list and the detail dialog so the two
- * cannot drift over what "cancel" means.
- */
 export const proposeCancelMultiSigTransaction = async (
   clients: WagmiClient,
   txHash: Hex,

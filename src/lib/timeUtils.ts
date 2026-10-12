@@ -1,9 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-/**
- * Calculates remaining time from a paid-at timestamp until expiry.
- * Returns a human-readable "DDd HHh MMm SSs" string, "Time Elapsed", or "-".
- */
 export const timeLeft = (
   paidAtTimestamp: number | string | null,
   extra: number = 0,
@@ -26,14 +22,6 @@ export const timeLeft = (
   return `${String(days).padStart(2, "0")}d ${String(hours).padStart(2, "0")}h ${String(minutes).padStart(2, "0")}m ${String(seconds).padStart(2, "0")}s`;
 };
 
-/**
- * Formats a duration in seconds in full words,
- * e.g. 90 → "1 minute 30 seconds", 7200 → "2 hours", 259200 → "3 days".
- * Returns "None" for zero/invalid input.
- *
- * Spelled out rather than abbreviated: this renders inside sentences such as
- * "Held in escrow for ...", where "2h" reads as a typo.
- */
 export const formatDurationSeconds = (totalSeconds: number): string => {
   if (!Number.isFinite(totalSeconds) || totalSeconds <= 0) return "None";
   const units: [number, string][] = [
@@ -48,7 +36,6 @@ export const formatDurationSeconds = (totalSeconds: number): string => {
     .join(" ");
 };
 
-/** Converts a Unix timestamp to a "DD-Mon-YYYY HH:MM" UTC string. */
 export const unixToGMT = (unixTimestamp: any): string => {
   if (!unixTimestamp) return "";
   const date = new Date(unixTimestamp * 1000);

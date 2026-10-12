@@ -23,18 +23,11 @@ import { useGetBalance } from "@/hooks/useGetBalance";
 import { Address } from "viem";
 
 
-/**
- * Props for the ContractLink component.
- */
 interface ContractLinkProps {
-  address: Address; // The contract address to display
-  showBalance?: boolean; // Whether to display the balance (defaults to true)
+  address: Address;
+  showBalance?: boolean;
 }
 
-/**
- * The intermediated platforms operator wallet's balance. Its own component so
- * the read (refetched on every block) only runs where the balance is shown.
- */
 const OperatorBalance = () => {
   const { data: balance, isLoading } = useGetBalance();
 
@@ -52,12 +45,6 @@ const OperatorBalance = () => {
   );
 };
 
-/**
- * A component that displays a clickable contract address link and optionally the POL balance of the intermediated platforms operator wallet.
- *
- * @param {ContractLinkProps} props - The component props.
- * @returns {JSX.Element} The rendered contract link and optional balance display.
- */
 const ContractLink: React.FC<ContractLinkProps> = ({
   address,
   showBalance = true,
@@ -85,8 +72,6 @@ const AdminInvoices = () => {
   const { refreshAdminData } = useContext(ContractActionsContext);
   const hasFetchedAdmin = useRef(false);
 
-  // Initial fetch. Not forced: a revisit inside the data's TTL reuses what the
-  // provider already holds instead of walking every list again.
   useEffect(() => {
     if (hasFetchedAdmin.current) return;
     hasFetchedAdmin.current = true;

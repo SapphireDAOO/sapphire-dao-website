@@ -2,38 +2,28 @@ import type { ErrorMessages, TokenData } from "./model/model";
 import type { Address } from "viem";
 import { baseSepolia, hardhat } from "viem/chains";
 
-// remove unused chains
 export const BASE_SEPOLIA = baseSepolia.id;
-// Local Hardhat/Anvil node (http://127.0.0.1:8545)
 export const LOCALHOST = hardhat.id;
 export const ONE_SECOND_MS = 1_000;
 export const ONE_DAY_MS = 24 * 60 * 60 * ONE_SECOND_MS;
 export const DEFAULT_QUERY_STALE_TIME_MS = 15 * ONE_SECOND_MS;
 export const DEFAULT_QUERY_GC_TIME_MS = ONE_DAY_MS;
 
-// Every invoice is escrowed for the same fixed window. Sellers do not choose
-// it: a per-invoice hold is a term the payer cannot see until the link is
-// opened, and one a seller could quietly set to zero.
+// Fixed for every invoice: a per-invoice hold is a
+// term the payer can't see until opening the link.
 export const DEFAULT_HOLD_PERIOD_SECONDS = 5 * 60;
 
 export const MAX_NOTE_LENGTH = 20;
 export const DEFAULT_BLOCK_POLLING_INTERVAL_MS = 12 * ONE_SECOND_MS;
 
 /**
- * Whether this build should offer the local chain and the local contract API.
- *
- * `next build` sets NODE_ENV=production for every build, including a static
- * export that is only ever served from a laptop - so keying off NODE_ENV alone
- * silently drops the local chain from any exported build. Set
- * NEXT_PUBLIC_LOCAL_CHAIN=true at build time to keep it.
+ * `next build` always sets NODE_ENV=production, so an exported
+ * build needs NEXT_PUBLIC_LOCAL_CHAIN=true to keep the local chain.
  */
 export const LOCAL_CHAIN_ENABLED =
   process.env.NEXT_PUBLIC_LOCAL_CHAIN === "true" ||
   process.env.NODE_ENV !== "production";
 
-// The contract API derives and approves the stealth fee receivers, and signs
-// the authorization the processors verify. Override either with
-// NEXT_PUBLIC_CONTRACT_API_URL.
 export const CONTRACT_API_URL = (
   process.env.NEXT_PUBLIC_CONTRACT_API_URL ||
   (LOCAL_CHAIN_ENABLED
@@ -41,8 +31,7 @@ export const CONTRACT_API_URL = (
     : "https://sapphiredaotesting.com")
 ).replace(/\/+$/, "");
 
-// The fee-receiver sidecar derives at most this many receivers per call, so a
-// meta invoice with more sub-invoices than this cannot be paid in one go.
+// The fee-receiver sidecar's per-call limit.
 export const MAX_FEE_RECEIVERS = 5;
 
 export const PAYMENT_PROCESSOR_STORAGE: Record<number, Address> = {
@@ -65,11 +54,7 @@ export const MULTISIG_CONTRACT: Record<number, Address> = {
   [LOCALHOST]: "0xEE79d9E7EDBEf7c927A6A58EBc2a3b4c927C1384",
 };
 
-/**
- * MultiSig.sol's own floor (MINIMUM_THRESHOLD). The contract will not accept a
- * threshold below this even when the signer set is small enough for a majority
- * to be lower.
- */
+/** MultiSig.sol's MINIMUM_THRESHOLD. */
 export const CONTRACT_MINIMUM_THRESHOLD = 2;
 
 export const NOTES_CONTRACT: Record<number, Address> = {
@@ -82,16 +67,12 @@ export const MOCK_USDC_CONTRACT: Record<number, Address> = {
   [LOCALHOST]: "0x2d19afC50EaaCe1CE730ab2A9a5D87712b0d4bCc",
 };
 
-// Wrapped native token used for fee approvals on native payments. Must match
-// the WETH the payment processors were constructed with (`weth()`); verified
-// against the deployed Base Sepolia processor.
+// Must match the processors' `weth()`.
 export const WETH_CONTRACT: Record<number, Address> = {
   [BASE_SEPOLIA]: "0x4200000000000000000000000000000000000006",
   [LOCALHOST]: "0x4a1E2AB38b64a82ef43fe3fD5921E915BfA4920c",
 };
 
-// Pulls fee tokens out of stealth fee receivers via `transferFrom`; each
-// stealth account grants it a max approval when it is created.
 export const SWEEPER_CONTRACT: Record<number, Address> = {
   [BASE_SEPOLIA]: "0x23F53C2422AF06eb1B98f4B78f11F583a2435F5D",
   [LOCALHOST]: "0x0E078853ef04266c5d09F9cD21DFA761134B13f6",
@@ -105,12 +86,10 @@ export const MOCK_WBTC_CONTRACT: Record<number, Address> = {
 export const ZERO_ADDRESS: Address =
   "0x0000000000000000000000000000000000000000";
 
-// Feature flag: the subgraph PaymentToken entity is not reliably available yet,
-// so we use a hardcoded list as the source of truth. Flip to `true` once the
-// subgraph is ready and the hook will fall back to querying it for unknown tokens.
+// The subgraph's PaymentToken entity isn't reliable
+// yet, so KNOWN_PAYMENT_TOKENS is the source of truth.
 export const ENABLE_SUBGRAPH_PAYMENT_TOKENS = false;
 
-// Hardcoded source of truth while ENABLE_SUBGRAPH_PAYMENT_TOKENS is false.
 export const KNOWN_PAYMENT_TOKENS: Record<number, TokenData[]> = {
   [BASE_SEPOLIA]: [
     {
@@ -148,7 +127,6 @@ export const KNOWN_PAYMENT_TOKENS: Record<number, TokenData[]> = {
   ],
 };
 
-// this should be in utils
 export const getKnownPaymentToken = (
   chainId: number,
   tokenId?: string | null,
@@ -162,7 +140,6 @@ export const getKnownPaymentToken = (
   );
 };
 
-// this should be in utils
 export const mergeKnownPaymentTokens = (
   chainId: number,
   tokens: TokenData[] = [],
@@ -189,9 +166,8 @@ export const NOTES_SIGNER_ADDRESS =
   process.env.NEXT_PUBLIC_NOTES_SIGNER_ADDRESS;
 
 export const THE_GRAPH_API_URL: Record<number, string> = {
-  // Pinned to a published version rather than `/version/latest`: the latest
-  // alias follows whatever was deployed last, so a subgraph publish can change
-  // what this app queries without the app changing at all.
+  // Pinned rather than `/version/latest`, so a subgraph
+  // publish can't change what the app queries.
   [BASE_SEPOLIA]:
     process.env.NEXT_PUBLIC_THE_GRAPH_API_URL ??
     "https://api.studio.thegraph.com/query/100227/payment-processor-indexer/version/latest",
@@ -200,7 +176,6 @@ export const THE_GRAPH_API_URL: Record<number, string> = {
     "http://localhost:8000/subgraphs/name/payment-processor-indexer",
 };
 
-// review errors and seperate using contract address as key(maybe)
 export const errorMessages: ErrorMessages = {
   // SimplePaymentProcessor errors
   "0x5033f274":

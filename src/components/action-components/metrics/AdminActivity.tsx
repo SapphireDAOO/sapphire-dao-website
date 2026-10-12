@@ -17,7 +17,6 @@ import { useAdminTransactions } from "@/hooks/useAdminTransactions";
 import { usePauseState } from "@/hooks/usePauseState";
 import { unixToGMT } from "@/utils";
 
-/** Governance moves slowly; a handful of rows would hide most of a week. */
 const FEED_SIZE = 20;
 
 const explorerTxUrl = (txHash: string): string =>
@@ -42,14 +41,11 @@ const PAUSE_LABEL: Record<PauseActionType, string> = {
   EMERGENCY_PAUSE_APPROVED: "Emergency pause approved",
 };
 
-/** A multisig transaction or a pause action, flattened onto one timeline. */
 interface FeedRow {
   key: string;
   txHash: string;
-  /** What the transaction actually does, not just how far along it is. */
   title: string;
   badge: { label: string; variant: BadgeVariant };
-  /** Contract, arguments, nonce — the supporting line under the title. */
   subtitle: string;
   account: string;
   timestamp: number;
@@ -72,9 +68,6 @@ export function AdminActivity() {
 
   const rows = useMemo<FeedRow[]>(() => {
     const multisig: FeedRow[] = transactions.map((tx) => {
-      // The status alone says nothing about what was governed; the calldata
-      // does, so decode it and fall back to the nonce only when the selector
-      // is one we do not know.
       const call = decodeMultiSigCalldata(tx.data);
       const args = call?.params.map((p) => `${p.label} ${p.value}`).join(", ");
 
@@ -102,8 +95,6 @@ export function AdminActivity() {
       subtitle: "Pause control · PaymentProcessorStorage",
       account: action.account,
       timestamp: Number(action.timestamp),
-      // Only an emergency pause carries an expiry, and when it lapses is the
-      // whole question while one is running.
       detail: action.expiry
         ? `Lapses ${unixToGMT(Number(action.expiry))} UTC`
         : null,

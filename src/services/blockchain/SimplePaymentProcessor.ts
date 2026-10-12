@@ -189,11 +189,8 @@ export const sellerAction = async (
   let success = false;
 
   try {
-    // Accepting fixes the fee terms: the server hands out a one-time stealth
-    // fee receiver plus the fee signer's authorization over it. Accepting is
-    // the only point in this processor that issues one — rejecting, paying,
-    // releasing and refunding must never derive an address, since nothing
-    // would ever consume it.
+    // Accepting is the only point here that issues a
+    // fee receiver; nothing else would consume one.
     let data: Hex;
     if (state) {
       const feeAuthorization = await requestFeeReceiver({

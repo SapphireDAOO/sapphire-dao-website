@@ -5,23 +5,12 @@ import { BASE_SEPOLIA, PAYMENT_PROCESSOR_STORAGE } from "@/constants";
 import { PaymentProcessorStorage } from "@/abis/PaymentProcessorStorage";
 import { useViemReadContract } from "./useViemReadContract";
 
-// An emergency pause ends without an event, so the chain is re-read just after
-// its expiry. Several attempts, because the chain's clock can trail this one
-// and an early read still reports the pause.
+// A pause lapses without an event, so the chain is
+// re-read after expiry; its clock can trail ours.
 const LAPSE_RECHECK_DELAYS_MS = [2_000, 10_000, 30_000];
 // setTimeout fires immediately for anything longer than this (~24.8 days).
 const MAX_TIMEOUT_MS = 2_147_483_647;
 
-/**
- * Reads the emergency pause state from PaymentProcessorStorage: whether the
- * protocol is paused, who is allowed to trigger an emergency pause, when the
- * current pause lapses, and how long a fresh one lasts.
- *
- * Not polled. Everywhere this renders, usePauseState is mounted too, and its
- * pause-event subscription invalidates these reads when someone pauses or
- * unpauses. A lapse is caught by the timers below, and anything missed while
- * the tab was hidden by the refetch on focus.
- */
 export const useEmergencyPause = () => {
   const { address } = useAccount();
   const chainId = useChainId() || BASE_SEPOLIA;
@@ -84,7 +73,6 @@ export const useEmergencyPause = () => {
     pauseExpiry,
     emergencyPauser,
     pauseDuration,
-    /** True when the connected wallet is the designated emergency pauser. */
     canPause,
     refetch,
   };

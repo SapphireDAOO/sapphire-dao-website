@@ -25,7 +25,6 @@ import {
   METRIC_PLACEHOLDER,
 } from "./formatMetric";
 
-/** Live status dot mirroring the websocket transport state. */
 const LiveIndicator = ({ status }: { status: string }) => {
   const isLive = status === "open";
   return (
@@ -41,19 +40,16 @@ const LiveIndicator = ({ status }: { status: string }) => {
   );
 };
 
-/** Which top-card detail panel is expanded below the metric grid. */
 type ActivePanel = "volume" | "escrow" | "fees" | "invoices";
 
 export default function MetricsIndex() {
   const { snapshot, isLoading, error, socketStatus, refetch } =
     useMetricsData();
 
-  // Only one detail panel is open at a time; clicking an open card closes it.
   const [activePanel, setActivePanel] = useState<ActivePanel | null>(null);
   const togglePanel = (panel: ActivePanel) =>
     setActivePanel((current) => (current === panel ? null : panel));
 
-  // Render the formatted value, or a placeholder dash when no snapshot yet.
   const show = (
     metric: MetricValue | undefined,
     format: (n: number) => string,

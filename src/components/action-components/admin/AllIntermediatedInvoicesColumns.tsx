@@ -192,33 +192,7 @@ const allIntermediatedInvoices: ColumnDef<AllInvoice>[] = [
       return <div className="text-center">{status}</div>;
     },
   },
-  //   {
-  //     accessorKey: "release",
-  //     header: () => <div className="text-center">Release</div>,
-  //     cell: ({ row }) => {
-  //       const releasedAtTimeStamp: string = row.getValue("release");
-  //       const { releaseHash, status } = row.original;
 
-  //       if (status === "REFUNDED" || status === "REJECTED") {
-  //         return <div className="text-center">-</div>;
-  //       }
-
-  //       if (status === "RELEASED") {
-  //         return (
-  //           <a
-  //             href={`https://sepolia.basescan.org/address/${releaseHash}`}
-  //             target="_blank"
-  //             rel="noopener noreferrer"
-  //             className="text-blue-500 underline"
-  //           >
-  //             {formatAddress(releaseHash)}
-  //           </a>
-  //         );
-  //       }
-
-  //       return <div className="text-center">{releasedAtTimeStamp}</div>;
-  //     },
-  //   },
   {
     accessorKey: "fee",
     header: () => <div className="text-center">Fee</div>,

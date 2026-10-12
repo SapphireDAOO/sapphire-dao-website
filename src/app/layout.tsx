@@ -32,9 +32,7 @@ export const metadata: Metadata = {
   },
 };
 
-// The wallet stack (wagmi, RainbowKit, WalletConnect) lives in the (app)
-// route group's layout, not here: the home page has no use for it, and
-// mounting it at the root made every route ship and boot it.
+// The wallet stack lives in the (app) layout so the home page doesn't ship it.
 export default function RootLayout({
   children,
 }: Readonly<{

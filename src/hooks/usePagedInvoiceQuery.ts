@@ -11,9 +11,7 @@ import {
   transformIntermediated,
 } from "@/services/invoice-transformers";
 
-/** How many invoices to pull from the subgraph in each batch */
 export const INVOICE_FETCH_SIZE = 24;
-/** How many invoices to show per UI page */
 export const INVOICE_PAGE_SIZE = 12;
 
 export type InvoiceTab = "all" | "seller" | "buyer";
@@ -30,13 +28,10 @@ interface Result {
   buyerInvoices: Invoice[];
   hasMoreSeller: boolean;
   hasMoreBuyer: boolean;
-  /** Fetch the next batch of seller invoices and append */
   loadMoreSeller: () => void;
-  /** Fetch the next batch of buyer invoices and append */
   loadMoreBuyer: () => void;
   isLoading: boolean;
   error: string | null;
-  /** Re-fetch from scratch, bypassing the subgraph client's cache */
   refetch: () => void;
 }
 
@@ -55,17 +50,10 @@ export function usePagedInvoiceQuery({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Track the next skip for load-more
   const nextSellerSkipRef = useRef(0);
   const nextBuyerSkipRef = useRef(0);
-  // Cancellation token
   const fetchIdRef = useRef(0);
 
-  /**
-   * Core fetch: runs a single query fetching whichever categories have non-null skips.
-   * When seller and buyer have equal skips (e.g. initial load), one query fetches both.
-   * When only one is requested (load-more), only that category is included.
-   */
   const doFetch = useCallback(
     async ({
       sellerSkip,
@@ -117,7 +105,6 @@ export function usePagedInvoiceQuery({
           buyerSkip !== null &&
           sellerSkip === buyerSkip
         ) {
-          // Both at same skip: one combined query (common case: initial load)
           const { data, error: gqlError } = await client(chainId)
             .query(
               userInvoicesPageQuery,
@@ -145,7 +132,6 @@ export function usePagedInvoiceQuery({
             ? (raw?.receivedAdvancedInvoices ?? [])
             : (raw?.paidSimpleInvoices ?? []);
         } else {
-          // Different skips or only one category: run in parallel where needed
           const [sellerResult, buyerResult] = await Promise.all([
             sellerSkip !== null
               ? client(chainId)
@@ -248,8 +234,6 @@ export function usePagedInvoiceQuery({
     [address, chainId, isIntermediated, enabled],
   );
 
-  // Initial load: fetch both categories at once.
-  // Skip when the tab is hidden — the effect re-runs when the tab becomes visible again.
   useEffect(() => {
     if (!enabled) {
       nextSellerSkipRef.current = 0;
@@ -267,15 +251,10 @@ export function usePagedInvoiceQuery({
 
     nextSellerSkipRef.current = 0;
     nextBuyerSkipRef.current = 0;
-    // No requestPolicy: the client's cache-first default applies, so a tab
-    // switch or remount within its cache lifetime reuses the page. Forcing the
-    // network here meant every one was a fresh request, and the endpoint
-    // rate-limits.
+    // cache-first on purpose: the endpoint rate-limits.
     void doFetch({ sellerSkip: 0, buyerSkip: 0, append: false });
   }, [doFetch, enabled, isWindowVisible]);
 
-  // An explicit refresh has to reach the subgraph: under the client's
-  // cache-first default it would hand back the result it already holds.
   const refetch = useCallback(() => {
     if (!enabled) return;
     nextSellerSkipRef.current = 0;
@@ -321,13 +300,10 @@ export function usePagedInvoiceQuery({
 
 const toSortableMs = (t: string): number => {
   const n = Number(t);
-  // Unix timestamp (seconds): all-digit strings parse cleanly
   if (!isNaN(n) && n > 0) return n * 1000;
-  // Formatted date string (e.g. from unixToGMT): use Date.parse
   return Date.parse(t) || 0;
 };
 
-/** Sort invoices newest-first by last meaningful action time */
 export function sortByLastAction(invoices: Invoice[]): Invoice[] {
   return [...invoices].sort((a, b) => {
     const tA = getLastActionTime(a);

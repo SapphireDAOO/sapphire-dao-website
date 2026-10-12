@@ -22,10 +22,6 @@ import type { MultiSigData } from "./useMultiSigEvents";
 
 const PAGE_SIZE = 20;
 
-/**
- * How far along a transaction is. Cancelled and executed are both terminal, so
- * they rank together: whichever the subgraph reports is the end of the story.
- */
 const STATUS_RANK: Record<MultiSigTransaction["status"], number> = {
   PROPOSED: 0,
   APPROVED: 1,
@@ -33,15 +29,8 @@ const STATUS_RANK: Record<MultiSigTransaction["status"], number> = {
   CANCELED: 2,
 };
 
-/**
- * Reconciles a locally-applied transaction with the indexed one.
- *
- * Applying a receipt log moves a row forward immediately, but the refetch that
- * follows queries a subgraph that may not have seen the block yet. Taking the
- * indexed row at face value then walks the approval back to its old count
- * until the indexer catches up, which is why an approval appeared to need a
- * page reload. Whichever side is further along wins, field by field.
- */
+// Whichever of the local and indexed copies is further along
+// wins, field by field; the subgraph can trail a receipt.
 const mergeIndexedTransaction = (
   local: MultiSigTransaction,
   indexed: MultiSigTransaction,
@@ -58,7 +47,6 @@ const mergeIndexedTransaction = (
     approvalCount: String(Math.max(localCount, indexedCount)),
     executedAt: indexed.executedAt ?? local.executedAt,
     executor: indexed.executor ?? local.executor,
-    // Still ahead of the index, so the next refetch merges rather than trusts.
     unindexed: true,
   };
 };
@@ -140,11 +128,7 @@ export const useMultiSigData = () => {
     [chainId, walletId],
   );
 
-  /**
-   * `force` goes past the subgraph client's cache-first default, which would
-   * otherwise answer with the result it already holds. Mount and page flips
-   * may use the cache; anything meant to pick up changes must force.
-   */
+  /** `force` bypasses the client's cache-first default. */
   const refresh = useCallback(async (force = false) => {
     if (!walletId) {
       setData({
@@ -177,14 +161,8 @@ export const useMultiSigData = () => {
       const fetched = hasNext ? txs.slice(0, PAGE_SIZE) : txs;
 
       setData((prev) => {
-        // A transaction applied from a receipt log exists on chain but may not
-        // be indexed yet. Replacing the list wholesale drops it, which is why
-        // a freshly proposed transaction appeared, vanished on the refetch,
-        // and came back only once the subgraph caught up. Indexer lag is not
-        // particular to any one network.
-        //
-        // Only on the first page: these sort newest-first, so an unindexed
-        // transaction belongs at the top and nowhere else.
+        // Keep receipt-applied transactions the index hasn't caught
+        // up to; they sort newest-first, so only on page one.
         const stillUnindexed =
           skip > 0
             ? []
@@ -196,9 +174,6 @@ export const useMultiSigData = () => {
                   ),
               );
 
-        // A transaction the index already knows about can still be behind what
-        // this session has seen on chain — an approval lands a block before it
-        // is queryable.
         const localById = new Map(
           prev.transactions.map((tx) => [tx.id.toLowerCase(), tx]),
         );
@@ -230,19 +205,15 @@ export const useMultiSigData = () => {
     }
   }, [page, walletId, fetchWallet, fetchTransactions, normalizeGraphError]);
 
-  // Stable ref so the event watcher can call refresh without being in its deps
   const refreshRef = useRef(refresh);
   useEffect(() => { refreshRef.current = refresh; }, [refresh]);
 
-  // Initial fetch and page changes
   useEffect(() => {
     setData((prev) => ({ ...prev, isLoading: true }));
     void refresh();
   }, [page, refresh]);
 
-  // Seeded on mount rather than in the initial state: a static export renders
-  // this page without local storage, so reading it during the first render
-  // would disagree with the prerendered markup.
+  // Seeded on mount: the static export prerenders without storage.
   useEffect(() => {
     const pending = readPendingTransactions(chainId);
     if (pending.length === 0) return;
@@ -261,8 +232,6 @@ export const useMultiSigData = () => {
     }));
   }, [chainId]);
 
-  // Re-fetch when the tab becomes visible after being hidden: events were not
-  // watched meanwhile, so the cached result is the one thing known stale.
   const wasVisibleRef = useRef(isWindowVisible);
   useEffect(() => {
     if (isWindowVisible && !wasVisibleRef.current) {
@@ -271,10 +240,6 @@ export const useMultiSigData = () => {
     wasVisibleRef.current = isWindowVisible;
   }, [isWindowVisible]);
 
-  // Contract events are the live channel: they carry the state change itself,
-  // so there is nothing to gain from turning each one into another subgraph
-  // query. The subgraph is read on mount, on page change, and when the tab
-  // comes back - the one case where events were not being watched.
   useMultiSigEvents({
     active: isWindowVisible,
     publicClient,
@@ -282,10 +247,6 @@ export const useMultiSigData = () => {
     setData,
   });
 
-  // Anything seen on chain but not yet returned by the index is kept in local
-  // storage, so it survives a reload instead of disappearing until the indexer
-  // catches up. Entries drop out of the overlay as soon as `refresh` finds the
-  // index level with them.
   useEffect(() => {
     if (!walletId) return;
     savePendingTransactions(
@@ -294,9 +255,6 @@ export const useMultiSigData = () => {
     );
   }, [chainId, walletId, data.transactions]);
 
-  // Parse raw receipt logs and immediately apply state updates — called after
-  // every on-chain action so the dashboard reflects changes without waiting
-  // for any subscription or subgraph indexing.
   const applyLogs = useCallback((rawLogs: readonly Log[]) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let parsed: any[];

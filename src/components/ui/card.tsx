@@ -2,8 +2,6 @@ import * as React from "react";
 
 import { cn } from "@/lib/utils";
 
-// Main Card component
-// A wrapper component for a card UI element with default styles and additional class support
 const Card = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement>
@@ -19,8 +17,6 @@ const Card = React.forwardRef<
 ));
 Card.displayName = "Card";
 
-// CardHeader component
-// A styled header section for the card, used for titles and other top-level content
 const CardHeader = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement>
@@ -33,8 +29,6 @@ const CardHeader = React.forwardRef<
 ));
 CardHeader.displayName = "CardHeader";
 
-// CardTitle Component
-// A styled title section for the card, typically placed inside the header
 const CardTitle = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement>
@@ -47,8 +41,6 @@ const CardTitle = React.forwardRef<
 ));
 CardTitle.displayName = "CardTitle";
 
-// CardDescription Component
-// A smaller, muted text section for the card, often used for subtitles or descriptions
 const CardDescription = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement>
@@ -61,8 +53,6 @@ const CardDescription = React.forwardRef<
 ));
 CardDescription.displayName = "CardDescription";
 
-// CardContent Component
-// The main content area of the card, used for displaying the card's primary content
 const CardContent = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement>
@@ -71,8 +61,6 @@ const CardContent = React.forwardRef<
 ));
 CardContent.displayName = "CardContent";
 
-// CardFooter Component
-// The footer section of the card, often used for actions like buttons or additional information
 const CardFooter = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement>
@@ -85,7 +73,6 @@ const CardFooter = React.forwardRef<
 ));
 CardFooter.displayName = "CardFooter";
 
-// Export all components for use in other parts of the application
 export {
   Card,
   CardHeader,

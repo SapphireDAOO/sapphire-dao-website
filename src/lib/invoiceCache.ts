@@ -63,6 +63,5 @@ export const writeInvoiceCache = (key: string | undefined, invoices: Invoice[]) 
     };
     window.localStorage.setItem(key, JSON.stringify(payload));
   } catch {
-    // ignore storage errors
   }
 };

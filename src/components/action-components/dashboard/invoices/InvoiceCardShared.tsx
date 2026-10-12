@@ -12,7 +12,6 @@ import { useSharedSecondTicker } from "@/hooks/useSharedSecondTicker";
 
 const stopProp = (e: React.MouseEvent) => e.stopPropagation();
 
-/** Etherscan address link */
 export const renderContractLink = (address?: string) => {
   if (!address) return <span className="text-gray-500">—</span>;
   return (
@@ -29,7 +28,6 @@ export const renderContractLink = (address?: string) => {
   );
 };
 
-/** Etherscan transaction link */
 export const renderTx = (txHash?: string, display?: string) => {
   if (!txHash) return <span className="text-gray-500">—</span>;
   return (
@@ -46,12 +44,6 @@ export const renderTx = (txHash?: string, display?: string) => {
   );
 };
 
-/**
- * A countdown that ticks every second. It holds the ticker itself so the only
- * thing re-rendering each second is this text, not the card around it.
- * Takes timeLeft's arguments: counts to `endAtMs` when given, otherwise to
- * `startAt` (unix seconds).
- */
 export const Countdown = ({
   startAt,
   endAtMs,
@@ -63,10 +55,6 @@ export const Countdown = ({
   return <>{timeLeft(startAt, 0, endAtMs)}</>;
 };
 
-/**
- * Labelled field row with an info tooltip. Relies on the TooltipProvider
- * around the dashboard list rather than creating one per field.
- */
 export const InvoiceField = ({
   label,
   value,

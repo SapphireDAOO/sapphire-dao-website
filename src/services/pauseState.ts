@@ -34,12 +34,8 @@ export type PauseSnapshot = {
 };
 
 /**
- * Whether the protocol is paused right now.
- *
- * An owner pause stands until it is lifted. An emergency pause expires on its
- * own, and the contract emits nothing when it does, so the indexer cannot
- * record the transition: the only honest reading is to compare the stored
- * expiry against the clock.
+ * An emergency pause expires without an event,
+ * so its expiry is compared against the clock.
  */
 export const isEffectivelyPaused = (
   state: PauseState | null,
@@ -54,7 +50,6 @@ export const isEffectivelyPaused = (
   return expiry > 0 && nowSeconds < expiry;
 };
 
-/** Reads the pause singleton and recent actions. Null state when unindexed. */
 export const fetchPauseSnapshot = async (
   chainId: number,
 ): Promise<PauseSnapshot> => {

@@ -1,6 +1,3 @@
-// Admin activity feed: the most recent multisig transactions, from the
-// MultiSigTransaction entity (id = txHash, used for the explorer link).
-
 import { client } from "../graphql/client";
 import { ADMIN_TRANSACTIONS_QUERY } from "../graphql/metricsQueries";
 import { throwSubgraphError } from "./errors";
@@ -11,19 +8,14 @@ export type MultisigStatus =
   | "CANCELED"
   | "EXECUTED";
 
-/** A single multisig transaction row for the Admin card. */
 export interface AdminTransaction {
-  /** Transaction hash (entity id), for the block-explorer link. */
   id: string;
   status: MultisigStatus;
   proposer: string;
   approvalCount: number;
   nonce: string;
-  /** Contract the call is aimed at. */
   target: string;
-  /** Raw calldata, decoded for display so a row names the actual action. */
   data: string;
-  /** Unix seconds — executedAt when executed, else proposedAt. */
   timestamp: number;
 }
 
@@ -40,14 +32,12 @@ interface AdminTxRow {
   executedAt: string | null;
 }
 
-/** The latest `first` multisig transactions, newest first. */
 export const fetchAdminTransactions = async (
   chainId: number,
   first = 5,
 ): Promise<AdminTransaction[]> => {
   const result = await client(chainId)
-    // network-only: react-query owns caching for this fetcher; cache-first
-    // would turn its refetches into stale no-ops.
+    // network-only: react-query owns caching for this fetcher.
     .query<{ multiSigTransactions: AdminTxRow[] }>(
       ADMIN_TRANSACTIONS_QUERY,
       { first },

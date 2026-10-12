@@ -33,7 +33,6 @@ const dayLabel = (timestampSeconds: number): string =>
   });
 
 interface EscrowChartProps {
-  /** Daily running escrow-balance series, oldest → newest. */
   series: EscrowSeriesPoint[];
   isLoading?: boolean;
 }
@@ -41,8 +40,7 @@ interface EscrowChartProps {
 export function EscrowChart({ series, isLoading = false }: EscrowChartProps) {
   const [activeDays, setActiveDays] = useState<number>(30);
 
-  // Points within the last `activeDays` days (filter by timestamp, not count —
-  // the series only has points for days with escrow movement).
+  // By timestamp, not count: the series skips days without movement.
   const data = useMemo(() => {
     const cutoff = Math.floor(Date.now() / 1000) - activeDays * 86400;
     return series

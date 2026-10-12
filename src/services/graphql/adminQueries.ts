@@ -1,8 +1,5 @@
-// Queries for the admin dashboard (all invoices, admin actions)
-
-// Walked with an id cursor: pass the last id of the previous page ("" for the
-// first) until a page comes back short. Ordering by id is what makes the
-// cursor sound; the admin table sorts rows itself.
+// Cursored on id: pass the previous page's last
+// id ("" first) until a page comes back short.
 export const GET_ALL_INVOICES = `
   query GetAllInvoices(
     $first: Int! = 1000

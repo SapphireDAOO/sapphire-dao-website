@@ -1,12 +1,3 @@
-/**
- * Copy and artwork for the hints shown to first-time users during a wallet
- * interaction.
- *
- * `image` is a path under `public/`. Leave it undefined until a screenshot
- * exists; a hint renders text-only rather than showing a broken image.
- */
-
-/** The wallet interactions a newcomer needs talking through. */
 export type HintMoment =
   | "connecting"
   | "signing"
@@ -16,19 +7,12 @@ export type HintMoment =
   | "wrongNetwork";
 
 export type WalletHint = {
-  /** e.g. "Open Phantom". */
   title: string;
-  /**
-   * One or two lines naming the exact action to take. `{network}` is replaced
-   * with the network this app actually targets, read from the wagmi config —
-   * hardcoding a chain name here would drift the moment the config changes.
-   */
+  /** `{network}` is replaced with the chain from the wagmi config. */
   body: string;
-  /** Reassurance for the "wait, is this safe?" beat. Optional. */
   note?: string;
-  /** Optional screenshot of the wallet popup, cropped tight. */
+  /** Path under public/; omit until a screenshot exists. */
   image?: string;
-  /** Describes the action to take, not the picture. Required with `image`. */
   alt?: string;
 };
 
@@ -64,11 +48,8 @@ const MOMENTS: Record<HintMoment, WalletHint> = {
   },
 };
 
-/**
- * Per-wallet overrides for the connect step. Keyed by lowercased connector id
- * or name: RainbowKit has renamed connector ids across versions (metaMask ->
- * metaMaskSDK), so keying on id alone silently drops the hint on an upgrade.
- */
+// Keyed by connector id or name: RainbowKit has renamed
+// ids across versions (metaMask -> metaMaskSDK).
 const CONNECT_BY_WALLET: Record<string, WalletHint> = {
   phantom: {
     title: "Open Phantom to finish",
@@ -86,7 +67,6 @@ const CONNECT_BY_WALLET: Record<string, WalletHint> = {
     note: "Connecting only lets this site see your address and balance.",
   },
   walletconnect: {
-    // WalletConnect hands off to a phone, so extension wording is wrong here.
     title: "Check your phone",
     body: "Approve the connection request in your wallet app to continue.",
     note: "Connecting only lets this site see your address and balance.",
@@ -95,7 +75,6 @@ const CONNECT_BY_WALLET: Record<string, WalletHint> = {
 
 const normalize = (value: string) => value.toLowerCase().replace(/[^a-z]/g, "");
 
-/** Resolves the hint for a moment, preferring wallet-specific connect copy. */
 export const getWalletHint = (
   moment: HintMoment,
   connector?: { id?: string; name?: string },
@@ -109,6 +88,5 @@ export const getWalletHint = (
   return MOMENTS[moment];
 };
 
-/** Fills the `{network}` placeholder with the chain the app actually targets. */
 export const fillNetwork = (text: string, network: string) =>
   text.replace(/\{network\}/g, network);

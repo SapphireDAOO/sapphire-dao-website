@@ -12,17 +12,7 @@ import {
   type GovernableFunction,
 } from "./governableFunctions";
 
-/**
- * What an action does, and where it is written up.
- *
- * Every governable call carries its own one-line explanation and docs anchor,
- * so this renders beside whichever control proposes it — the function picker
- * on the propose form, or a labelled field in signer management. The link
- * follows the explanation inside the tooltip rather than sitting next to the
- * icon, the way the invoice cards' info tooltips read.
- *
- * Callers must sit inside a `TooltipProvider`.
- */
+/** Callers must sit inside a `TooltipProvider`. */
 export const FunctionInfo = ({
   contract,
   fn,

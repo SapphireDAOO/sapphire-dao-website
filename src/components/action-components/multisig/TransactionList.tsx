@@ -55,9 +55,6 @@ export default function TransactionList({
   onApplyLogs,
 }: Props) {
   const [clickedTx, setClickedTx] = useState<MultiSigTransaction | null>(null);
-  // The row as it is now, not as it was when clicked: the detail reads status
-  // and approvals from it, and useMultiSigEvents keeps `transactions` live.
-  // The click-time copy stands in if a refresh drops the row.
   const selectedTx = useMemo(() => {
     if (!clickedTx) return null;
     const id = clickedTx.id.toLowerCase();
@@ -69,8 +66,6 @@ export default function TransactionList({
   const publicClient = usePublicClient({ chainId });
   const { data: walletClient } = useHintedWalletClient();
 
-  // Cancelling is itself a proposal, so it is offered only while the
-  // transaction can still be acted on and no cancel proposal already exists.
   const canProposeCancel = (
     tx: MultiSigTransaction,
     cancelProposal?: MultiSigTransaction,
@@ -95,7 +90,6 @@ export default function TransactionList({
     }
   };
 
-  // Decode calldata once per transactions array change
   const decodedMap = useMemo(() => {
     const map = new Map<string, ReturnType<typeof decodeMultiSigCalldata>>();
     for (const tx of transactions) {
@@ -104,7 +98,6 @@ export default function TransactionList({
     return map;
   }, [transactions]);
 
-  // Map: original txHash (lowercase) → cancel proposal tx
   const cancelProposalMap = useMemo(() => {
     const map = new Map<string, MultiSigTransaction>();
     for (const tx of transactions) {
@@ -114,7 +107,6 @@ export default function TransactionList({
     return map;
   }, [transactions]);
 
-  // IDs of cancel proposal txs (excluded from main display rows)
   const cancelProposalIds = useMemo(() => {
     const ids = new Set<string>();
     for (const tx of transactions) {
@@ -223,8 +215,6 @@ export default function TransactionList({
                         className="h-7 px-2 text-xs"
                         disabled={cancelling === tx.id}
                         aria-busy={cancelling === tx.id}
-                        // The row opens the detail dialog, so the button must
-                        // not carry the click up with it.
                         onClick={(e) => {
                           e.stopPropagation();
                           void handleProposeCancel(tx);
@@ -246,7 +236,6 @@ export default function TransactionList({
         </table>
       </div>
 
-      {/* Pagination */}
       <div className="flex items-center justify-between mt-3">
         <span className="text-xs text-muted-foreground">Page {page + 1}</span>
         <div className="flex gap-2">

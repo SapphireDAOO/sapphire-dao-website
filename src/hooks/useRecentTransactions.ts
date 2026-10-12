@@ -18,12 +18,6 @@ import type {
   RecentTransaction,
 } from "@/services/metrics/types";
 
-/**
- * Most recent settlement-type transactions across both processors, for the
- * metrics page's Recent Transactions card. The subgraph poll is the source of
- * truth; a live event subscription prepends rows between polls and is cleared
- * each time the poll returns (which already includes those events).
- */
 export const useRecentTransactions = (count = 5) => {
   const { chain } = useAccount();
   const chainId = chain?.id ?? BASE_SEPOLIA;
@@ -35,25 +29,21 @@ export const useRecentTransactions = (count = 5) => {
     gcTime: DEFAULT_QUERY_GC_TIME_MS,
   });
 
-  // Live rows that arrived since the last poll, newest first.
   const [liveTxs, setLiveTxs] = useState<RecentTransaction[]>([]);
   const [socketStatus, setSocketStatus] =
     useState<MetricsSocketStatus>("connecting");
 
-  // Drop optimistic rows whenever the authoritative poll result changes — the
-  // fresh list already includes anything we prepended.
   useEffect(() => {
     setLiveTxs([]);
   }, [data]);
 
-  // Keep refetch stable for the subscription effect.
   const refetchRef = useRef(refetch);
   refetchRef.current = refetch;
 
   useEffect(() => {
     let handle: RecentTransactionsSocketHandle | null = null;
-    // The socket emits "open" synchronously on creation; the useQuery above
-    // already fetches on mount / chain change, so only reseed on a reopen.
+    // The socket opens synchronously alongside the
+    // query's own load, so only a later reopen reseeds.
     let initialOpen = true;
     try {
       handle = createRecentTransactionsSocket(chainId, {
@@ -61,7 +51,6 @@ export const useRecentTransactions = (count = 5) => {
           setLiveTxs((prev) => [tx, ...prev].slice(0, count)),
         onStatus: (status) => {
           setSocketStatus(status);
-          // On reconnect, reseed from the subgraph and drop optimistic rows.
           if (status === "open") {
             if (initialOpen) {
               initialOpen = false;
@@ -78,7 +67,6 @@ export const useRecentTransactions = (count = 5) => {
     return () => handle?.close();
   }, [chainId, count]);
 
-  // Merge live rows on top of the polled list, de-duped by tx hash + kind, capped.
   const transactions = useMemo(() => {
     const polled = data ?? [];
     const seen = new Set(polled.map((t) => `${t.txHash}-${t.kind}`));

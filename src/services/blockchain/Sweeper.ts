@@ -1,7 +1,5 @@
-// Sweeper calls. `sweep` pulls fee tokens out of the stealth fee receivers via
-// the max approval each one granted when it was created, and is restricted to
-// the PaymentProcessorStorage owner — the multisig — so sweeps are proposed
-// through the multisig rather than sent directly.
+// `sweep` is restricted to the storage owner (the
+// multisig), so sweeps are proposed rather than sent.
 
 import { toast } from "sonner";
 import { Address, encodeFunctionData, Hex, TransactionReceipt } from "viem";
@@ -11,7 +9,6 @@ import type { SweepSource } from "@/model/fees";
 import { proposeMultiSigTransaction } from "./MultiSig";
 import { WagmiClient } from "./types";
 
-/** Calldata for `sweep(token, from[], amounts[], destination)`. */
 export const encodeSweepCall = (
   token: Address,
   sources: SweepSource[],
@@ -28,10 +25,6 @@ export const encodeSweepCall = (
     ],
   });
 
-/**
- * Proposes the sweep to the multisig. Once enough signers approve, executing
- * the proposal makes the multisig the caller the Sweeper expects.
- */
 export const proposeSweep = async (
   clients: WagmiClient,
   chainId: number,

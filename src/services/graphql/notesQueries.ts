@@ -1,5 +1,3 @@
-// Queries for the notes subgraph
-
 export const NOTES_BY_ORDER_QUERY = `
   query NotesByOrder($invoiceId: BigInt!, $user: Bytes!) {
     notes(where: { invoiceId: $invoiceId }, orderBy: noteId, orderDirection: desc) {

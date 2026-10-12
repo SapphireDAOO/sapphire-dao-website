@@ -5,13 +5,8 @@ import { Address, Chain, encodeFunctionData, erc20Abi } from "viem";
 import { baseSepolia, hardhat } from "viem/chains";
 import { beginWalletMoment } from "@/components/wallet-hint/walletMomentStore";
 
-// Resolve the viem chain for a given chainId so writes target the wallet's
-// connected network (e.g. local Hardhat) instead of always Base Sepolia.
-//
-// Gated on LOCAL_CHAIN_ENABLED rather than NODE_ENV: a static export is built
-// as "production" wherever it will be served, and dropping hardhat here sends
-// a transaction to a local contract while declaring Base Sepolia, which the
-// wallet rejects as a chain mismatch.
+// LOCAL_CHAIN_ENABLED, not NODE_ENV: a
+// static export always builds as production.
 const SUPPORTED_CHAINS: Record<number, Chain> = LOCAL_CHAIN_ENABLED
   ? { [baseSepolia.id]: baseSepolia, [hardhat.id]: hardhat }
   : { [baseSepolia.id]: baseSepolia };
@@ -93,8 +88,6 @@ export const handleApproval = async (
       return false;
     }
 
-    // Explains the approval popup, which is otherwise indistinguishable from
-    // the payment that follows it.
     const endMoment = beginWalletMoment("approvingToken");
     let tx: `0x${string}` | undefined;
     try {
@@ -117,9 +110,6 @@ export const handleApproval = async (
       return false;
     }
 
-    // The wallet popup has closed by now, so the mining wait belongs in a toast
-    // rather than the popup hint: it stays out of the way, and resolves in
-    // place into whichever result lands below.
     const processingToast = toast.loading(
       "Approval is processing. Keep this tab open while it confirms.",
     );
@@ -127,7 +117,6 @@ export const handleApproval = async (
     try {
       receipt = await publicClient?.waitForTransactionReceipt({ hash: tx });
     } catch (error) {
-      // Without this the spinner outlives the failure it was waiting on.
       toast.dismiss(processingToast);
       throw error;
     }

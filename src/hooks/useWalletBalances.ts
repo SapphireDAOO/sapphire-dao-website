@@ -26,7 +26,6 @@ import {
 import { useViemReadContract } from "./useViemReadContract";
 import { useViemBalance } from "./useViemBalance";
 
-/** A single row in the Wallet & Contract Balances card. */
 export interface WalletBalanceItem {
   name: string;
   address?: Address;
@@ -45,11 +44,6 @@ export const useWalletBalances = () => {
   const chainId = chain?.id ?? BASE_SEPOLIA;
   const storage = PAYMENT_PROCESSOR_STORAGE[chainId];
 
-  /**
-   * -------------------------
-   * Contract reads (batched conceptually)
-   * -------------------------
-   */
   const { data: feeReceiver, isLoading: loadingFeeReceiver } =
     useViemReadContract<Address>({
       abi: PaymentProcessorStorage,
@@ -98,11 +92,6 @@ export const useWalletBalances = () => {
     gcTime: DEFAULT_QUERY_GC_TIME_MS,
   });
 
-  /**
-   * -------------------------
-   * Derived values (memoized)
-   * -------------------------
-   */
   const gasEth = useMemo(() => {
     if (!gasWei) return undefined;
     return formatEth(gasWei);
@@ -113,11 +102,6 @@ export const useWalletBalances = () => {
     return Number(formatEther(gasWei)) * nativePrice;
   }, [gasWei, nativePrice]);
 
-  /**
-   * -------------------------
-   * UI items (fully stable)
-   * -------------------------
-   */
   const items: WalletBalanceItem[] = useMemo(
     () => [
       {
@@ -153,11 +137,6 @@ export const useWalletBalances = () => {
     ],
   );
 
-  /**
-   * -------------------------
-   * Refetch (fixed completeness)
-   * -------------------------
-   */
   const refetch = () => {
     void refetchFees();
     void refetchGasBalance();

@@ -30,8 +30,6 @@ export const deriveNoteKeys = (signature: Hex): NoteKeyPair => {
     const candidate = hkdf(sha256, ikm, KEY_SALT, `${KEY_INFO}/${counter}`, 32);
 
     if (secp256k1.utils.isValidPrivateKey(candidate)) {
-      // Uncompressed is 65 bytes with a 0x04 prefix; the contract stores the
-      // 64-byte coordinate pair, and derives an address from exactly that.
       const uncompressed = secp256k1.getPublicKey(candidate, false);
       return {
         privateKey: candidate,
@@ -40,11 +38,8 @@ export const deriveNoteKeys = (signature: Hex): NoteKeyPair => {
     }
   }
 
-  // 256 consecutive invalid scalars is not reachable in practice; failing here
-  // beats returning a key that was silently reduced into range.
   throw new Error("Could not derive a note key from this signature");
 };
 
-/** True when a registered key matches the one this signature derives. */
 export const matchesDerivedKey = (registered: Hex, derived: Hex): boolean =>
   registered.toLowerCase() === derived.toLowerCase();

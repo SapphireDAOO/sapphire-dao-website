@@ -9,9 +9,8 @@ import type { Address, Hex } from "viem";
 export type ProcessorKind = "simple" | "intermediated";
 
 /**
- * Which authorization the processor verifies. A meta-invoice holding one
- * sub-invoice still needs the array form, so this is passed explicitly rather
- * than inferred from the receiver count.
+ * Passed explicitly: a meta-invoice holding
+ * one sub-invoice still needs the array form.
  */
 export type InvoiceKind = "single" | "meta";
 
@@ -27,11 +26,6 @@ type CreateResponse = {
 };
 type ApiError = { error?: string; reason?: string };
 
-/**
- * The contract API names tokens by symbol and resolves them through its own
- * table. Native payments are named by omission, which is also what keeps a
- * local symbol that the table may not carry out of the request.
- */
 const feeTokenSymbol = (
   chainId: number,
   paymentToken: Address,
@@ -43,15 +37,8 @@ const feeTokenSymbol = (
 };
 
 /**
- * Gets the one-time stealth fee receivers an invoice is paid/accepted with,
- * and the fee signer's signature over them, from `POST /v1/fee-receivers`.
- *
- * One request does it all: the API derives the addresses, upgrades each to a
- * 7702 delegator, approves the sweeper on it, waits for those to be mined and
- * then signs. Nothing is kept between attempts; a retry derives a fresh set.
- *
- * Returns null on failure; callers must abort rather than submit without a
- * valid authorization.
+ * Returns null on failure; callers must abort
+ * rather than submit without an authorization.
  */
 export const requestFeeReceiver = async (params: {
   invoiceId: bigint;
@@ -88,10 +75,6 @@ export const requestFeeReceiver = async (params: {
 
     payload = (await response.json()) as CreateResponse & ApiError;
     if (!response.ok) {
-      // The status separates the causes the sidecar's own wording does not:
-      // 400 is a bad request, 502 an internal sidecar failure (chain error or
-      // an unset key), 503 an unconfigured network or an unfunded relayer,
-      // 504 a timeout. `reason` carries the sidecar's message.
       console.error(
         `fee receiver request failed (${response.status})`,
         payload?.error ?? "",
@@ -104,8 +87,6 @@ export const requestFeeReceiver = async (params: {
     return null;
   }
 
-  // The processor reverts on a count that does not match the invoice, so a
-  // short or long array is as unusable as none.
   if (
     !payload.signature ||
     !Array.isArray(payload.feeReceivers) ||

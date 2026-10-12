@@ -1,8 +1,7 @@
 import { History, Invoice } from "@/model/model";
 
-// Maps the subgraph's event-log `eventType` (new schema) onto the status labels
-// the UI history timeline uses. Event types not listed (oracle/hold-period/escrow
-// bookkeeping, etc.) are intentionally dropped from the user-facing history.
+// Event types not listed (oracle, hold-period, escrow
+// bookkeeping) are left out of the history on purpose.
 const EVENT_TYPE_TO_STATUS: Record<string, string> = {
   INVOICE_CREATED: "CREATED",
   INVOICE_PAID: "PAID",
@@ -19,9 +18,8 @@ const EVENT_TYPE_TO_STATUS: Record<string, string> = {
   DISPUTE_SETTLED: "DISPUTE_SETTLED",
 };
 
-// Lifecycle ordering used as a tiebreaker when several events share a timestamp
-// (common locally / in batched txs, where the subgraph returns them in id order
-// rather than logical order).
+// Tiebreaker for events sharing a timestamp,
+// which the subgraph returns in id order.
 const EVENT_SEQUENCE: Record<string, number> = {
   INVOICE_CREATED: 0,
   META_INVOICE_CREATED: 0,
@@ -47,11 +45,8 @@ type RawInvoiceEvent = {
 };
 
 /**
- * The subgraph migrated from flat invoice fields (createdAt, paidAt,
- * paymentTxHash, history, historyTime, …) to an `events` relation. This rebuilds
- * the old wire shape from `events` so the existing transformers/consumers — which
- * read those flat fields — keep working unchanged. Pass a raw subgraph invoice;
- * returns it augmented with the derived legacy fields.
+ * Rebuilds the pre-migration flat invoice fields (createdAt,
+ * paidAt, history, …) from the subgraph's `events`.
  */
 export const flattenInvoiceEvents = <T extends Record<string, unknown>>(
   inv: T,
@@ -60,8 +55,6 @@ export const flattenInvoiceEvents = <T extends Record<string, unknown>>(
     ? [...((inv as { events?: RawInvoiceEvent[] }).events as RawInvoiceEvent[])]
     : [];
 
-  // Events arrive in entity-id order, not chronological — sort by timestamp,
-  // falling back to lifecycle order when timestamps tie (same block).
   events.sort((a, b) => {
     const ts = Number(a.timestamp ?? 0) - Number(b.timestamp ?? 0);
     if (ts !== 0) return ts;
@@ -112,8 +105,7 @@ export const flattenInvoiceEvents = <T extends Record<string, unknown>>(
         break;
       case "DISPUTE_SETTLED":
         disputeSettledTxHash ??= ev.txHash;
-        // Intermediated invoices settled via dispute pay the fee in the settlement
-        // tx instead of a release.
+        // Settled through a dispute, the fee is paid in the settlement tx.
         commisionTxHash ??= ev.txHash;
         break;
     }
@@ -123,8 +115,7 @@ export const flattenInvoiceEvents = <T extends Record<string, unknown>>(
     ...inv,
     createdAt,
     paidAt,
-    // `releaseAt` is now an authoritative field on the invoice entity; prefer it
-    // over the event-derived timestamp. The release tx hash still comes from events.
+    // The entity's own releaseAt wins over the event-derived timestamp.
     releasedAt: (inv as { releaseAt?: string }).releaseAt ?? releasedAt,
     paymentTxHash,
     releaseHash,
@@ -167,7 +158,6 @@ export const sortHistory = (status?: string[], time?: string[]): History[] => {
   return history;
 };
 
-/** Build a minimal history array for intermediated invoices that lack subgraph history data */
 export const synthesizeIntermediatedHistory = (inv: {
   history?: string[];
   historyTime?: string[];
@@ -176,7 +166,6 @@ export const synthesizeIntermediatedHistory = (inv: {
 }): History[] => {
   const history = sortHistory(inv.history, inv.historyTime);
 
-  // Always ensure a CREATED entry exists from createdAt when not already present
   const hasCreated = history.some(
     (h) =>
       h.status === "CREATED" ||
@@ -202,7 +191,6 @@ export const sortState = (state: string, voidAt?: string): string => {
     return "CANCELED";
   }
 
-  // If created and already past voidAt, mark as expired first
   if (state === "CREATED" && voidAt && Date.now() > Number(voidAt) * 1000) {
     return "EXPIRED";
   }
@@ -218,7 +206,6 @@ export const sortState = (state: string, voidAt?: string): string => {
   return state;
 };
 
-// Define a status priority so we can keep the "newer" one when merging
 const STATUS_ORDER = [
   "AWAITING PAYMENT",
   "CREATED",
@@ -243,7 +230,6 @@ const getStatusRank = (status: string | undefined): number => {
 export const pickNewerStatus = (existing: string, incoming: string): string => {
   const existingRank = getStatusRank(existing);
   const incomingRank = getStatusRank(incoming);
-  // higher/equal rank means "later" or same status; never downgrade
   return incomingRank >= existingRank ? incoming : existing;
 };
 

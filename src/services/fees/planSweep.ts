@@ -1,13 +1,5 @@
-// Chooses which fee receivers a sweep draws from. Kept free of network and
-// chain access so it stays directly testable.
-
 import type { FeeReceiverBalance, SweepPlan, SweepSource } from "@/model/fees";
 
-/**
- * Smallest balance first, address as the tie-break so a plan is stable across
- * reloads. Draining the smallest receivers first keeps the long tail of dust
- * accounts from growing without bound.
- */
 export const compareReceivers = (
   a: FeeReceiverBalance,
   b: FeeReceiverBalance,
@@ -17,22 +9,8 @@ export const compareReceivers = (
 };
 
 /**
- * Picks receivers to cover `requested`.
- *
- * A receiver that can cover the whole request on its own is used alone: every
- * extra source is another `transferFrom` in the sweep, so pulling in a second
- * address that isn't needed just costs gas. With balances of 0.5 and 50 and a
- * request of 45, the sweep takes 45 from the 50 and leaves the 0.5 untouched.
- * Of the receivers that could cover it, the smallest wins — it leaves the least
- * behind in the account it touches and keeps the larger balances whole.
- *
- * Only when no single receiver is enough does the sweep combine several, taking
- * each one's whole balance until the last, which is drawn from as far as needed
- * so the total is exact. Those are taken smallest first, which keeps the long
- * tail of dust accounts from growing without bound.
- *
- * `shortfall` is non-zero when the receivers cannot cover the request; the
- * sources returned then represent everything that is available.
+ * A single receiver that covers the request is used alone (the
+ * smallest such); otherwise whole balances are taken smallest first.
  */
 export const planSweep = (
   receivers: FeeReceiverBalance[],
@@ -45,7 +23,6 @@ export const planSweep = (
       .filter((receiver) => receiver.balance > BigInt(0))
       .sort(compareReceivers);
 
-    // Ascending, so the first that fits is the smallest that can.
     const single = funded.find((receiver) => receiver.balance >= requested);
 
     if (single) {

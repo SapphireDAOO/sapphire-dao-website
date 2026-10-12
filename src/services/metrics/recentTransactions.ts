@@ -1,8 +1,3 @@
-// Recent Transactions feed: the latest settlement-type InvoiceEvents across both
-// processors, with the displayed amount read from the linked invoice. The simple
-// processor is native-ETH denominated; the intermediated processor carries a
-// PaymentToken (name + decimals) used to format and label the amount.
-
 import { formatUnits } from "viem";
 import { getKnownPaymentToken, ZERO_ADDRESS } from "@/constants";
 import type { RecentTransaction, TransactionKind } from "./types";
@@ -57,14 +52,8 @@ const formatTokenAmount = (raw: string, decimals: number): string =>
     maximumFractionDigits: 4,
   });
 
-/** Settlement-type events surfaced in the feed, keyed by PaymentProcessorEventType. */
 export const RECENT_TX_KIND_BY_EVENT = KIND_BY_EVENT;
 
-/**
- * Format a raw token amount for display, resolving decimals + symbol from the
- * known-token list. The zero address (or an unknown token) falls back to native
- * ETH. Shared with the live socket so live rows match polled rows.
- */
 export const formatTokenDisplay = (
   chainId: number,
   tokenId: string,
@@ -77,7 +66,6 @@ export const formatTokenDisplay = (
   };
 };
 
-/** Map a raw InvoiceEvent row to a display transaction, or null if unsupported. */
 const mapInvoiceEventRow = (
   chainId: number,
   row: InvoiceEventRow,
@@ -87,7 +75,6 @@ const mapInvoiceEventRow = (
   const invoice = row.advancedInvoice ?? row.simpleInvoice;
   if (!kind || !invoice) return null;
 
-  // Intermediated invoices carry a PaymentToken; simple invoices are native ETH.
   let decimals = NATIVE_DECIMALS;
   let currency = NATIVE_SYMBOL;
   let tokenId = ZERO_ADDRESS as string;
@@ -120,8 +107,7 @@ export const fetchRecentTransactions = async (
   first = 5,
 ): Promise<RecentTransaction[]> => {
   const result = await client(chainId)
-    // network-only: react-query owns caching for this fetcher; cache-first
-    // would turn its refetches into stale no-ops.
+    // network-only: react-query owns caching for this fetcher.
     .query<{ invoiceEvents: InvoiceEventRow[] }>(
       RECENT_TRANSACTIONS_QUERY,
       { first },
@@ -137,10 +123,6 @@ export const fetchRecentTransactions = async (
     .filter((tx): tx is RecentTransaction => tx !== null);
 };
 
-/**
- * One page of `query`'s invoice events since `sinceSeconds` (newest first).
- * Fetches `pageSize + 1` rows to detect whether a next page exists.
- */
 const fetchPaginatedEvents = async (
   query: string,
   chainId: number,
@@ -172,7 +154,6 @@ const fetchPaginatedEvents = async (
   return { rows, hasNext: raw.length > pageSize };
 };
 
-/** One page of INVOICE_PAID transactions since `sinceSeconds`. */
 export const fetchPaidTransactions = (
   chainId: number,
   page: number,
@@ -187,7 +168,6 @@ export const fetchPaidTransactions = (
     sinceSeconds,
   );
 
-/** One page of escrow-moving events (paid in / released-refunded-settled out). */
 export const fetchEscrowTransactions = (
   chainId: number,
   page: number,

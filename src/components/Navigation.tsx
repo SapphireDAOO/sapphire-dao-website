@@ -21,11 +21,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useAdminAccess } from "@/hooks/useAdminAccess";
 
-/**
- * The admin-only pages, grouped behind one nav entry. Each carries a line of
- * its own: terse labels give no clue which page holds what, and these are
- * pages an admin reaches for rarely.
- */
 const ADMIN_LINKS = [
   {
     label: "Invoices",
@@ -47,11 +42,6 @@ const ADMIN_LINKS = [
   },
 ] as const;
 
-/**
- * A single nav link: uniform typography, subtle hover, animated active
- * underline. A real <Link> rather than a router.push button, so the target
- * route is prefetched while the link is on screen.
- */
 const NavLink = ({
   label,
   active = false,
@@ -85,17 +75,13 @@ const NavLink = ({
   </Link>
 );
 
-// Long enough to cross the gap between the trigger and the menu without the
-// menu closing under the pointer.
 const HOVER_CLOSE_DELAY_MS = 150;
 
-/** The admin group: reads as a NavLink until opened, then lists the section. */
 const AdminMenu = ({
   activePath,
   links,
 }: {
   activePath: string;
-  /** Which of the admin pages this wallet may open. */
   links: typeof ADMIN_LINKS[number][];
 }) => {
   const active = links.some((link) => link.path === activePath);
@@ -111,8 +97,8 @@ const AdminMenu = ({
 
   useEffect(() => cancelClose, [cancelClose]);
 
-  // Touch fires pointerenter on tap as well, which would race the tap-to-open
-  // toggle and leave the menu flickering shut. Those keep the click path.
+  // Touch fires pointerenter on tap too,
+  // which would race the tap-to-open toggle.
   const handleEnter = useCallback(
     (event: React.PointerEvent) => {
       if (event.pointerType !== "mouse") return;
@@ -134,8 +120,6 @@ const AdminMenu = ({
     [cancelClose],
   );
 
-  // Radix drives this on click, Escape, outside-click and item select; a
-  // pending hover-close would otherwise reopen or re-close after those.
   const handleOpenChange = useCallback(
     (next: boolean) => {
       cancelClose();
@@ -145,9 +129,6 @@ const AdminMenu = ({
   );
 
   return (
-    // `modal` would make the rest of the page inert and hide the scrollbar
-    // while the menu is up, which is wrong for something a pointer opens in
-    // passing.
     <DropdownMenu open={open} onOpenChange={handleOpenChange} modal={false}>
       <DropdownMenuTrigger
         aria-label="Open admin menu"
@@ -201,8 +182,6 @@ const AdminMenu = ({
               )}
             >
               <Link href={path}>
-                {/* Echoes the navbar's underline, so "you are here" reads the
-                    same whether the menu is open or shut. */}
                 <span
                   className={cn(
                     "pointer-events-none absolute left-0 top-1/2 h-7 w-0.5 -translate-y-1/2 rounded-full bg-blue-500 transition-opacity duration-200",
@@ -238,15 +217,14 @@ const Navbar = () => {
   const { isAllowed: canAccessAdmin, canAccessGovernance } = useAdminAccess();
   const pathname = usePathname();
 
-  // `trailingSlash: true` makes usePathname return e.g. "/governance/", so strip
-  // the trailing slash before comparing.
+  // `trailingSlash: true` makes usePathname end in "/".
   const path = useMemo(
     () => (pathname ?? "/").replace(/\/+$/, "") || "/",
     [pathname],
   );
 
-  // An emergency pauser is not an admin, but the pause control sits on the
-  // governance page, so that one entry is offered on its own.
+  // The emergency pauser isn't an admin but
+  // needs the governance page's pause control.
   const adminLinks = useMemo(() => {
     if (canAccessAdmin) return [...ADMIN_LINKS];
     if (canAccessGovernance) {
@@ -258,11 +236,8 @@ const Navbar = () => {
   const isMetrics = path === "/metrics";
   const isAdminSection = ADMIN_LINKS.some((link) => link.path === path);
 
-  // The home page renders HomeNavbar instead, so this only ever sits on an app
-  // route.
   return (
     <>
-      {/* Main Navbar */}
       <nav className="bg-primary text-white p-4 shadow-md sticky top-0 z-50">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="text-xl font-semibold">
@@ -278,7 +253,6 @@ const Navbar = () => {
           <div className="flex items-center gap-1 sm:gap-2">
             {isAdminSection ? (
               <>
-                {/* Return out of the admin section. */}
                 <NavLink
                   label="Dashboard"
                   ariaLabel="Return to dashboard"

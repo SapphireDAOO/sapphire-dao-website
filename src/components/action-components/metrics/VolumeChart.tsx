@@ -20,8 +20,7 @@ import {
 import type { VolumeSeriesPoint } from "@/services/metrics/types";
 import { formatUsd } from "./formatMetric";
 
-// Windows the volume series can be viewed over. Capped at 60 days because the
-// snapshot query pulls 60 days of daily buckets.
+// Capped at 60 days: the snapshot query pulls 60 daily buckets.
 const TIME_RANGES = [
   { label: "7D", days: 7 },
   { label: "30D", days: 30 },
@@ -35,7 +34,6 @@ const dayLabel = (timestampSeconds: number): string =>
   });
 
 interface VolumeChartProps {
-  /** Cumulative USD total-volume series, oldest → newest. */
   series: VolumeSeriesPoint[];
   isLoading?: boolean;
 }
@@ -43,8 +41,7 @@ interface VolumeChartProps {
 export function VolumeChart({ series, isLoading = false }: VolumeChartProps) {
   const [activeDays, setActiveDays] = useState<number>(30);
 
-  // Points within the last `activeDays` days (filter by timestamp, not count —
-  // the series only has points for days with activity).
+  // By timestamp, not count: the series skips days without activity.
   const data = useMemo(() => {
     const cutoff = Math.floor(Date.now() / 1000) - activeDays * 86400;
     return series

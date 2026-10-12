@@ -55,8 +55,7 @@ const CheckoutCard = ({ data, isMetaInvoice }: CheckoutCardProps) => {
   const chainId = chain?.id || BASE_SEPOLIA;
   const contractAddress = INTERMEDIATED_PAYMENT_PROCESSOR[chainId];
 
-  // Escrow hold period, read from the intermediated processor. The struct calls
-  // it escrowHoldPeriod; holdPeriod is kept as a fallback for the pre-rename shape.
+  // holdPeriod is the field's pre-rename name.
   const { data: onChainInvoice } = useGetIntermediatedInvoiceData(data?.invoiceId);
   const holdPeriodSeconds = useMemo(() => {
     const fetched = onChainInvoice as
@@ -85,26 +84,18 @@ const CheckoutCard = ({ data, isMetaInvoice }: CheckoutCardProps) => {
 
   const normalizedStatus = data?.status?.toUpperCase?.();
 
-  // Everything the chain might accept, before the invoice's own allow-list is
-  // applied. A meta-invoice reports no status of its own, so the payable
-  // decision for both kinds comes from the hook below rather than from here.
   const candidateTokens: TokenData[] = Array.isArray(data?.tokenList)
     ? data.tokenList.filter(Boolean)
     : data.tokenList
       ? [data.tokenList]
       : [];
 
-  // The seller nominates the tokens when creating the invoice, and the state
-  // has to be CREATED for the contract to take payment at all. Neither is in
-  // the subgraph, so both are read from the processor.
   const {
     tokens: supportedTokens,
     isPayable: isPayableStatus,
     isLoading: isLoadingOptions,
   } = useInvoicePaymentOptions(data?.invoiceId, Boolean(isMetaInvoice), candidateTokens);
 
-  // A token chosen before the allow-list landed, or left over from another
-  // invoice, must not survive into the payment call.
   useEffect(() => {
     if (!selectedToken) return;
     if (supportedTokens.some((token) => token.id.toString() === selectedToken)) {
@@ -192,7 +183,6 @@ const CheckoutCard = ({ data, isMetaInvoice }: CheckoutCardProps) => {
                 </div>
               </div>
             )}
-            {/* Request Amount */}
             <div className="flex flex-col space-y-2">
               <Label>Request Amount</Label>
               <Input
@@ -205,7 +195,6 @@ const CheckoutCard = ({ data, isMetaInvoice }: CheckoutCardProps) => {
               />
             </div>
 
-            {/* Token Selector */}
             <div className="flex flex-col space-y-2 mt-3">
               <Label>Payment Token</Label>
               <Select
@@ -284,7 +273,6 @@ const CheckoutCard = ({ data, isMetaInvoice }: CheckoutCardProps) => {
         </CardFooter>
       </Card>
 
-      {/* SUCCESS POPUP */}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogPortal>
           <DialogOverlay className="fixed inset-0 bg-black/50" />
@@ -306,7 +294,6 @@ const CheckoutCard = ({ data, isMetaInvoice }: CheckoutCardProps) => {
               Your payment has been processed successfully.
             </p>
 
-            {/* Countdown */}
             <p className="text-sm text-gray-500">
               Redirecting to <span className="font-medium">Dashboard</span> in{" "}
               <span className="font-bold">{countdown}</span>s...

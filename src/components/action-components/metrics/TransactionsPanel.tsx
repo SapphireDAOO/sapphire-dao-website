@@ -25,7 +25,6 @@ import { formatUsd } from "./formatMetric";
 
 type BadgeVariant = "default" | "secondary" | "destructive";
 
-/** Label + badge treatment per transaction kind. */
 const KIND_META: Record<TransactionKind, { label: string; badge: BadgeVariant }> =
   {
     paid: { label: "Payment", badge: "default" },
@@ -40,7 +39,6 @@ const WINDOW_DAYS = 30;
 const explorerTxUrl = (txHash: string): string =>
   `https://sepolia.basescan.org/tx/${txHash}`;
 
-/** One labelled field row inside a card. */
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="flex items-center gap-1.5">
@@ -51,31 +49,20 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 }
 
 export interface TransactionsPanelProps {
-  /** Panel heading. */
   title: string;
-  /** Stable React Query cache-key segment, e.g. "paid" | "escrow". */
   cacheKey: string;
-  /** Empty-state message. */
   emptyLabel: string;
-  /** Fetch one page of rows for the given cutoff. */
   fetchPage: (
     chainId: number,
     page: number,
     pageSize: number,
     sinceSeconds: number,
   ) => Promise<{ rows: RecentTransaction[]; hasNext: boolean }>;
-  /**
-   * Show escrow-style direction: INVOICE_PAID is an inflow (+, green) and every
-   * other event is an outflow (−, red).
-   */
   showDirection?: boolean;
-  /** Unix-seconds cutoff; defaults to 30 days ago. */
   sinceSeconds?: number;
-  /** Show the kind badge (Payment / Release / …). Defaults to true. */
   showType?: boolean;
 }
 
-/** One transaction rendered as a dashboard-style card. */
 function TransactionCard({
   tx,
   showDirection,
@@ -137,11 +124,6 @@ function TransactionCard({
   );
 }
 
-/**
- * Inline dropdown panel of paginated transaction cards. Rendered in normal
- * document flow (below the metric cards) so it pushes the page down instead of
- * overlaying the charts. Mounts only while its card is expanded.
- */
 export function TransactionsPanel({
   title,
   cacheKey,
@@ -155,7 +137,6 @@ export function TransactionsPanel({
   const chainId = chain?.id ?? BASE_SEPOLIA;
 
   const [page, setPage] = useState(0);
-  // Fix the cutoff for the lifetime of the panel so paging is stable.
   const defaultSince = useMemo(
     () => Math.floor(Date.now() / 1000) - WINDOW_DAYS * 86400,
     [],

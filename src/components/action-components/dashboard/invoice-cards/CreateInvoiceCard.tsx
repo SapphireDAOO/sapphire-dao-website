@@ -126,11 +126,8 @@ export default function CreateInvoiceDialog() {
     ? formatEther(minimumInvoiceValue)
     : undefined;
 
-  // The contract rejects anything under its minimum, so check it here rather
-  // than letting the transaction fail after the wallet prompt. parseEther
-  // throws on input Number() still accepts, such as a lone space, so a bad
-  // value is treated as "not yet below the minimum" and left to the normal
-  // amount validation to reject.
+  // parseEther throws on input Number() accepts (e.g.
+  // " "); that's left to the amount validation.
   const isAboveMinimum = (() => {
     if (minimumInvoiceValue === undefined || !amount) return true;
     try {
@@ -149,14 +146,10 @@ export default function CreateInvoiceDialog() {
   const handleClick = useCallback(async () => {
     if (!isAmountValid) return;
 
-    // First click with no hold period asks for confirmation instead of
-    // creating; the second click goes through.
     setIsCreating(true);
     try {
       const amountValue = parseUnits(amount, 18);
 
-      // The note goes on chain inside the create transaction, so it is sealed
-      // here, to this account alone.
       let storageRef = "0x";
       const trimmedNote = note.trim();
       if (trimmedNote) {
@@ -169,9 +162,8 @@ export default function CreateInvoiceDialog() {
         storageRef = sealNote(trimmedNote, [keys.publicKey]);
       }
 
-      // Always private. The payer is unknown at creation, so there is no key
-      // to seal a shared note to; it would be marked shared and readable by
-      // nobody but the author.
+      // Always private: the payer is unknown at
+      // creation, so there is no key to share to.
       const response = await createInvoice(
         amountValue,
         storageRef,
@@ -184,8 +176,6 @@ export default function CreateInvoiceDialog() {
 
         setOpenCreate(false);
         setOpenQR(true);
-        // createInvoice already put the new invoice in the live overlay, and
-        // its InvoiceCreated event lands there too.
         toast.success("Invoice created successfully!");
       } else {
         toast.error("Failed to create invoice");
@@ -233,8 +223,6 @@ export default function CreateInvoiceDialog() {
             </DialogDescription>
           </DialogHeader>
 
-          {/* A fixed term of every invoice, not something chosen here, so it
-              is stated once at the top rather than sitting among the inputs. */}
           <div className="flex items-start gap-2 rounded-md bg-muted/60 px-3 py-2">
             <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-gray-500" />
             <p className="text-xs leading-snug text-gray-600">
@@ -332,7 +320,6 @@ export default function CreateInvoiceDialog() {
         </DialogContent>
       </Dialog>
 
-      {/* Only mount QR dialog when needed */}
       {openQR && (
         <InvoiceQRLink
           open={openQR}

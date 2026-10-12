@@ -20,9 +20,6 @@ const DashboardIndex = ({
     isIntermediatedTab ? "intermediated" : "invoices",
   );
 
-  // Hold the live event feed open for the processor on screen, and only while
-  // the dashboard is mounted. Keyed on the tab state rather than the route so
-  // a tab click switches the feed before the route change lands.
   useEffect(
     () =>
       watchInvoiceEvents?.(
@@ -42,8 +39,6 @@ const DashboardIndex = ({
 
   return (
     <div className="container mx-auto">
-      {/* Above the tabs: it applies to both, and it changes what the actions
-          below will do. */}
       <Container>
         <PausedNotice />
       </Container>

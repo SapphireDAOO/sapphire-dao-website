@@ -59,8 +59,6 @@ export const payIntermediatedInvoice = async (
       }
     }
 
-    // Paying fixes the fee terms: the server hands out one-time stealth fee
-    // receivers plus the fee signer's authorization over them.
     let txData: `0x${string}`;
     if (paymentType === "paySingleInvoice") {
       const feeAuthorization = await requestFeeReceiver({
@@ -85,10 +83,8 @@ export const payIntermediatedInvoice = async (
         ],
       });
     } else {
-      // A meta-invoice needs one receiver per sub-invoice, index-aligned with
-      // `subInvoiceIds` and covering every position — the contract reverts with
-      // FeeReceiverCountMismatch on any other length, and skipped sub-invoices
-      // still occupy their slot.
+      // One receiver per sub-invoice, index-aligned
+      // with `subInvoiceIds`; any other length reverts.
       const metaInvoice = (await publicClient?.readContract({
         address: contractAddress,
         abi: intermediatedPaymentProcessor,
@@ -205,7 +201,6 @@ export const setIntermediatedOperator = async (
       toast.error("Failed to set new address. Please try again");
     }
   } catch (error) {
-    // toast.dismiss(progressToastId);
     getError(error);
   } finally {
     setIsLoading("");

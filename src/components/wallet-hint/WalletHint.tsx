@@ -9,26 +9,13 @@ import { fillNetwork, getWalletHint, type HintMoment } from "./walletHints";
 import { useHintsDismissed } from "./useHintsDismissed";
 import { useWalletMoment } from "./walletMomentStore";
 
-/**
- * Wallet popups are browser-extension windows, so they live outside this page's
- * DOM: nothing we render can point at one directly, and first-time users
- * routinely miss them and sit on a spinner until it times out. This renders an
- * on-page hint for as long as a wallet interaction is pending.
- */
-
-// RainbowKit's modal renders at 2147483646, so anything lower is hidden behind
-// it. Sit one above.
+// RainbowKit's modal sits at 2147483646.
 const Z_INDEX = 2147483647;
 
-// An unlocked, already-authorised wallet responds near-instantly. Waiting
-// before showing a hint keeps it from flashing on those.
 const PENDING_DELAY_MS = 600;
 
-// The wrong-network hint is a steady state rather than a spinner, so it waits
-// longer — the user may already be reaching for the network switcher.
 const WRONG_NETWORK_DELAY_MS = 2000;
 
-/** wagmi mutation keys, mapped to the moment each one represents. */
 const MOMENT_BY_MUTATION_KEY: Record<string, HintMoment> = {
   connect: "connecting",
   signMessage: "signing",
@@ -38,8 +25,6 @@ const MOMENT_BY_MUTATION_KEY: Record<string, HintMoment> = {
   switchChain: "switchingChain",
 };
 
-// Checked in order, so the most immediate interaction wins when more than one
-// is in flight.
 const PRIORITY: HintMoment[] = [
   "connecting",
   "signing",
@@ -51,8 +36,8 @@ type PendingConnector = { id?: string; name?: string } | undefined;
 
 const WalletHint = () => {
   const { isConnected, chain } = useAccount();
-  // Interactions driven straight through the wallet client, which register no
-  // wagmi mutation. See walletMomentStore.
+  // Calls made straight through the wallet client
+  // register no wagmi mutation; see walletMomentStore.
   const directMoment = useWalletMoment();
   const config = useConfig();
   const { dismissed, ready, dismissForever } = useHintsDismissed();
@@ -60,8 +45,6 @@ const WalletHint = () => {
   const [closed, setClosed] = useState(false);
   const [mounted, setMounted] = useState(false);
 
-  // wagmi actions are react-query mutations with stable keys, so every pending
-  // wallet interaction is readable from here without owning the call sites.
   const pending = useMutationState({
     filters: { status: "pending" },
     select: (mutation) => ({
@@ -71,13 +54,10 @@ const WalletHint = () => {
     }),
   });
 
-  // `chain` is undefined while connected to a chain outside the configured
-  // list — see getAccount() in @wagmi/core.
+  // `chain` is undefined on a network outside the configured list.
   const onWrongNetwork = isConnected && !chain;
 
   const { moment, connector } = useMemo(() => {
-    // A direct call is already open in the wallet, so it outranks anything the
-    // mutation cache reports.
     if (directMoment) return { moment: directMoment, connector: undefined };
 
     const active = pending
@@ -108,7 +88,6 @@ const WalletHint = () => {
   useEffect(() => {
     if (!moment) {
       setVisible(false);
-      // Reset the manual close so the next interaction gets its own hint.
       setClosed(false);
       return;
     }
@@ -126,9 +105,7 @@ const WalletHint = () => {
   const hint = getWalletHint(moment, connector);
 
   return createPortal(
-    // The wrapper spans the viewport but ignores pointer events, so anything
-    // underneath stays clickable — the user must still be able to hit Cancel in
-    // the RainbowKit modal.
+    // Ignores pointer events so the RainbowKit modal's Cancel stays clickable.
     <div
       className="pointer-events-none fixed inset-0 flex items-start justify-center p-4 sm:p-8"
       style={{ zIndex: Z_INDEX }}
@@ -153,9 +130,6 @@ const WalletHint = () => {
         </p>
 
         {hint.image && (
-          // Served from public/ as a plain asset: next/image adds nothing for a
-          // fixed-size screenshot, and its optimiser has no server to run on in
-          // the exported build.
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={hint.image}

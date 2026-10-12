@@ -16,13 +16,10 @@ import { ZERO_ADDRESS } from "@/constants";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type RawInvoice = any;
 
-/** Transform a raw simple-payment-processor invoice from the subgraph */
 export const transformSimple = (
   raw: RawInvoice,
   type: "Seller" | "Buyer"
 ): Invoice => {
-  // Rebuild legacy flat fields (createdAt, paidAt, paymentTxHash, history, …)
-  // from the subgraph's new `events` relation.
   const inv = flattenInvoiceEvents(raw);
   return {
   id: getDisplayInvoiceIdString(inv),
@@ -47,7 +44,6 @@ export const transformSimple = (
   };
 };
 
-/** Transform a raw intermediated-payment-processor (intermediated) invoice from the subgraph */
 export const transformIntermediated = (
   raw: RawInvoice,
   type: "IssuedInvoice" | "ReceivedInvoice"
@@ -62,7 +58,6 @@ export const transformIntermediated = (
     paidAt: inv.paidAt || "Not Paid",
     status: sortState(inv.state),
     price: inv.price ?? null,
-    // Pass raw bigint/string so the component can format with correct token decimals
     amountPaid: inv.amountPaid != null ? String(inv.amountPaid) : null,
     amountReleased: inv.amountReleased != null ? String(inv.amountReleased) : null,
     amountRefunded: inv.amountRefunded != null ? String(inv.amountRefunded) : null,
@@ -78,8 +73,7 @@ export const transformIntermediated = (
     releaseAt: inv.releasedAt,
     expiresAt: inv.expiresAt,
     source: "Intermediated" as const,
-    // Native ETH has no PaymentToken entity in the subgraph — normalize to the
-    // zero address so downstream code (token lookup, display) has a real sentinel.
+    // ETH payments have no PaymentToken entity.
     paymentToken: inv.paymentToken?.id ?? ZERO_ADDRESS,
     refundTxHash: inv.refundTxHash,
     history,

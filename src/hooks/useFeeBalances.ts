@@ -32,11 +32,6 @@ const INITIAL: FeeBalancesState = {
   notIndexed: false,
 };
 
-/**
- * Unswept platform fees grouped by token, plus recent sweeps. Fee receivers are
- * one-time addresses, so this reads the whole non-zero balance set and adds it
- * up rather than tracking a single treasury address.
- */
 export const useFeeBalances = () => {
   const chainId = useChainId() || BASE_SEPOLIA;
   const [state, setState] = useState<FeeBalancesState>(INITIAL);

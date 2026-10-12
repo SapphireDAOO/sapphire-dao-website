@@ -1,5 +1,3 @@
-// Queries scoped to a single user (dashboard, pay, checkout)
-
 export const userInvoicesPageQuery = `
   query UserInvoicesPage(
     $address: String!

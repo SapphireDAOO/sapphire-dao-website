@@ -41,7 +41,6 @@ export const useViemBlockNumber = (
     const unwatch = publicClient.watchBlockNumber({
       emitMissed: true,
       emitOnBegin: true,
-      // Let viem prefer websocket subscriptions; falls back to polling if WS is unavailable.
       pollingInterval,
       onBlockNumber: (nextBlockNumber) => {
         queryClient.setQueryData<bigint | undefined>(queryKey, (currentBlockNumber) => {

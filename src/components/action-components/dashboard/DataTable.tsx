@@ -25,7 +25,6 @@ import {
 
 type StatusOption = { label: string; value: string };
 
-// Extend TableMeta to include currentTab
 interface CustomTableMeta<TData> extends TableMeta<TData> {
   currentTab?: "buyer" | "seller" | "all";
 }
@@ -48,7 +47,6 @@ const DataTable = <TData,>({
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
 
-  // Filter columns if `currentTab` exists
   const filteredColumns = useMemo(() => {
     if (!currentTab) return columns;
     return columns.filter((column) => {
@@ -62,7 +60,6 @@ const DataTable = <TData,>({
     });
   }, [columns, currentTab]);
 
-  // Search + optional status filter
   const filteredData = useMemo(() => {
     return data.filter((row: any) => {
       const matchesSearch =
@@ -78,7 +75,6 @@ const DataTable = <TData,>({
     });
   }, [data, searchQuery, statusFilter, statuses]);
 
-  // Optional prioritization of "PAID" status
   const sortedData = useMemo(() => {
     if (!prioritizePaid) return filteredData;
     const paid = filteredData
@@ -106,7 +102,6 @@ const DataTable = <TData,>({
 
   return (
     <div>
-      {/* Controls */}
       <div className="flex flex-col sm:flex-row justify-between items-center py-4 gap-4">
         <Input
           placeholder="Search by ID..."
@@ -129,7 +124,6 @@ const DataTable = <TData,>({
         )}
       </div>
 
-      {/* Table */}
       <div className="rounded-md border w-full overflow-x-auto">
         <div className="min-w-[1200px]">
           <Table>
@@ -178,7 +172,6 @@ const DataTable = <TData,>({
         </div>
       </div>
 
-      {/* Pagination */}
       <div className="flex items-center justify-end space-x-2 py-4">
         <Button
           variant="outline"

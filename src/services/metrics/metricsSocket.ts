@@ -13,26 +13,17 @@ import { subscribeProcessorLogs } from "./processorLogs";
 import type { MetricsDelta, MetricsSocketStatus } from "./types";
 
 export interface MetricsSocketHandlers {
-  /** A live delta arrived; apply it optimistically over the current values. */
   onDelta: (delta: MetricsDelta) => void;
-  /** Transport status changed; on reconnect the consumer should reseed. */
   onStatus?: (status: MetricsSocketStatus) => void;
 }
 
 export interface MetricsSocketHandle {
-  /** Tear down the subscriptions and underlying transport. */
   close: () => void;
 }
 
 const asBigInt = (v: unknown): bigint | undefined =>
   typeof v === "bigint" ? v : undefined;
 
-/**
- * Open the live metric feed for a chain: subscribe to both processors' events
- * and route USD deltas to the handlers. Returns a handle the caller closes on
- * unmount / chain change. Emits "connecting" → "open" once subscribed, "error"
- * on a transport error, and "closed" when there is nothing to subscribe to.
- */
 export const createMetricsSocket = (
   chainId: number,
   handlers: MetricsSocketHandlers,
@@ -55,7 +46,6 @@ export const createMetricsSocket = (
   const unwatchers: Array<() => void> = [];
   const handleError = () => onStatus?.("error");
 
-  // Simple processor is native-only → token is always the zero address.
   if (simpleAddress) {
     const unsubscribe = subscribeProcessorLogs(chainId, "Simple", {
       onError: handleError,
@@ -107,8 +97,8 @@ export const createMetricsSocket = (
     if (unsubscribe) unwatchers.push(unsubscribe);
   }
 
-  // Intermediated refund / dispute events carry no token, so cache each invoice's
-  // token from its InvoicePaid for the rest of the session.
+  // Intermediated refund/dispute events carry no token,
+  // so each invoice's is remembered from InvoicePaid.
   if (intermediatedAddress) {
     const tokenByInvoice = new Map<string, Address>();
     const unsubscribe = subscribeProcessorLogs(chainId, "Intermediated", {

@@ -1,6 +1,5 @@
 import { InvoiceType } from "./model";
 
-// IntermediatedPaymentProcessor-specific fields
 export interface IntermediatedInvoice extends InvoiceType {
   escrow?: string;
   balance?: string;
@@ -22,11 +21,11 @@ export interface MetaInvoice {
 
 
 export interface UserReceivedInvoicesInvoice extends InvoiceType {
-  type?: "ReceivedInvoice"; // Specifies that the invoice type is "ReceivedInvoices"
+  type?: "ReceivedInvoice";
   source?: "Intermediated";
 }
 
 export interface UserIssuedInvoiceInvoice extends InvoiceType {
-  type?: "IssuedInvoice"; // Specifies that the invoice type is "IssuedInvoice"
+  type?: "IssuedInvoice";
   source?: "Intermediated";
 }

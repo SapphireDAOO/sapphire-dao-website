@@ -1,6 +1,3 @@
-// Barrel re-export — import from the specific query files for new code,
-// or continue importing from "@/services/graphql/queries" for backwards compatibility.
-
 export {
   userInvoicesPageQuery,
   invoiceQuery,

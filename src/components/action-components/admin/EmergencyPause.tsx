@@ -48,7 +48,6 @@ const EmergencyPause = () => {
   } = useEmergencyPause();
 
   const [loadingAction, setLoadingAction] = useState("");
-  // Halting the whole protocol should never be one stray click away.
   const [confirming, setConfirming] = useState(false);
 
   const isPausing = loadingAction === "emergencyPause";
@@ -103,7 +102,6 @@ const EmergencyPause = () => {
       </CardHeader>
 
       <CardContent className="space-y-4">
-        {/* Current state */}
         {isPaused === undefined ? (
           <p className="text-sm text-muted-foreground">Loading status...</p>
         ) : isPaused ? (
@@ -135,10 +133,6 @@ const EmergencyPause = () => {
           </div>
         )}
 
-        {/* While paused, who did it and in which transaction is the useful
-            detail, and only the subgraph has it - the contract exposes the
-            current state but no history. Once running again that provenance is
-            noise, so it collapses back to the designated pauser. */}
         {isPaused && lastAction ? (
           <p className="flex flex-wrap items-center gap-1.5 text-sm font-medium">
             <span className="text-muted-foreground">
@@ -212,8 +206,6 @@ const EmergencyPause = () => {
 
         <div className="flex items-center gap-3">
           {isPaused ? (
-            /* Nothing to confirm on the way back up: lifting a pause only
-               restores normal operation. */
             <Button
               onClick={handleUnpause}
               disabled={!canPause || isUnpausing}

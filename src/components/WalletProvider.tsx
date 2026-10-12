@@ -58,10 +58,6 @@ const WalletProvider = ({ children }: Props) => {
     trackInvoices,
   } = useInvoiceData();
 
-  // A payment changes the chain reads behind checkout (invoice state, token
-  // allow-lists, balances), so those are invalidated. The subgraph refetches
-  // that used to follow only filled invoiceData, which the pay page alone
-  // reads, so they are gone.
   const invalidateIntermediatedInvoiceQueries = useCallback(() => {
     const contractAddress = INTERMEDIATED_PAYMENT_PROCESSOR[chainId];
     queryClient.invalidateQueries({
@@ -72,9 +68,6 @@ const WalletProvider = ({ children }: Props) => {
     });
   }, [chainId, queryClient]);
 
-  // Memoized apart from the invoice data and the loading flag, so components
-  // that only call actions (every card's buttons) keep the same value while
-  // live invoice events re-render the provider.
   const actions = useMemo<ContractActions>(
     () => ({
       createInvoice: async (

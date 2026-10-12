@@ -17,11 +17,8 @@ interface Params {
   address: string | undefined;
   chainId: number;
   publicClient: PublicClient | undefined;
-  /** Latest committed invoice list; used to derive side effects (hydration,
-   *  live publishes) outside the state updater. */
   invoicesRef: React.RefObject<Invoice[]>;
   setInvoiceData: React.Dispatch<React.SetStateAction<Invoice[]>>;
-  /** An on-screen invoice outside invoiceData with this id, if any. */
   findTrackedInvoice: (
     invoiceId: string,
     source: "Intermediated",
@@ -81,7 +78,6 @@ const addSeconds = (
   }
 };
 
-/** A decoded log, reduced to the plain data the merge below needs. */
 type LogOp =
   | { kind: "created"; invoice: Invoice }
   | {
@@ -97,30 +93,20 @@ type LogOp =
       buyerAmount?: bigint;
       releaseAt?: bigint;
       releaseUpdate?: string;
-      /** The event names the user (e.g. as the release receiver). */
       namesUser: boolean;
-      /** Fields to hand to the chain hydration when the id is unknown. */
       eventFields: Partial<Invoice>;
     };
 
 interface ApplyResult {
-  /** Rows inserted or patched, in op order (feeds the live overlay). */
   changedRows: Invoice[];
-  /** Unknown invoices that need a chain read, keyed by invoice id. */
   hydrates: Map<
     string,
     { status?: Invoice["status"]; txHash?: string; eventFields: Partial<Invoice> }
   >;
 }
 
-/**
- * Apply a batch of ops to a merge-key map of invoices. Pure aside from
- * mutating the passed-in map, so it can run both inside the state updater
- * (against the real previous state) and outside it (against the ref snapshot)
- * to derive side effects — React state updaters must stay side-effect free
- * and are not guaranteed to run at dispatch time, so nothing consumed after
- * setState may be collected inside one.
- */
+// Pure apart from mutating `map`, so it can run in the
+// state updater and again against the ref for side effects.
 const applyOps = (
   invoiceMap: Map<string, Invoice>,
   ops: LogOp[],
@@ -144,9 +130,6 @@ const applyOps = (
       findTracked(op.invoiceId);
 
     if (!existingInvoice) {
-      // Every invoice's events reach every subscriber. Only one that names the
-      // user can be about an invoice of theirs that is not on screen; reading
-      // the rest from the chain would only fail the seller/buyer check.
       if (!op.namesUser) continue;
 
       hydrates.set(op.invoiceId, {
@@ -420,9 +403,6 @@ export function useIntermediatedInvoiceEvents({
             : prev;
         });
 
-        // Re-run the same pure merge against the latest committed snapshot to
-        // derive the side effects. The ref can trail the update above by one
-        // commit; hydration backfills anything that slips through.
         const overlay = new Map<string, Invoice>(
           invoicesRef.current.map((inv) => [getInvoiceMergeKey(inv), inv]),
         );

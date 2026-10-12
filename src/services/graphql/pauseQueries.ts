@@ -1,13 +1,5 @@
-// Pause state and history from the subgraph.
-
-/**
- * The singleton pause record plus the most recent actions.
- *
- * `emergencyPauseExpiry` matters more than it looks: the contract lets an
- * emergency pause lapse silently, with no event to index, so there is no
- * stored boolean that stays true only while it holds. Effective state has to
- * be derived against the clock — see `isEffectivelyPaused`.
- */
+// An emergency pause lapses with no event, so effective state is
+// derived from emergencyPauseExpiry; see isEffectivelyPaused.
 export const PAUSE_STATE_QUERY = `
   query PauseState {
     pauseState(id: "global") {

@@ -24,9 +24,8 @@ const pauseEvent = (name: string) =>
     (item) => item.type === "event" && item.name === name,
   ) as AbiEvent;
 
-// Every transition the contract announces. An emergency pause *lapsing* is
-// absent on purpose: nothing is emitted for it, which is why the derived state
-// below is still computed against the clock.
+// A lapsing emergency pause emits nothing,
+// hence the clock-based derivation below.
 const PAUSE_EVENTS = [
   pauseEvent("Paused"),
   pauseEvent("Unpaused"),
@@ -34,32 +33,12 @@ const PAUSE_EVENTS = [
   pauseEvent("EmergencyPauseApproved"),
 ] as const;
 
-// The pause banner, the pause card and the metrics feed all want this at once.
-// Long enough that mounting them together costs one request, short enough that
-// a tab left open overnight is not trusted on return.
 const STALE_TIME_MS = 30_000;
 
 const EMPTY: PauseSnapshot = { state: null, actions: [] };
 
 const nowSeconds = () => Math.floor(Date.now() / 1000).toString();
 
-/**
- * Pause state and history from the subgraph, kept current over the websocket.
- *
- * The chain knows whether it is paused; only the index knows who did it, when,
- * and in which transaction. That history is what the UI needs to say "paused
- * 3h ago by 0x…" and to link the transaction, and none of it is readable from
- * a view function — so the subgraph is read once, and every later change
- * arrives as a contract event rather than by asking again on a timer.
- *
- * The read is shared: several components render this at once and the endpoint
- * rate-limits, so they go through one react-query entry rather than each
- * issuing its own request.
- *
- * An event is applied to the shared cache immediately and then reconciled
- * against the index, which may not have seen the block yet. A snapshot older
- * than what this session already witnessed is discarded rather than believed.
- */
 export const usePauseState = () => {
   const chainId = useChainId() || BASE_SEPOLIA;
   const publicClient = usePublicClient({ chainId });
@@ -71,20 +50,14 @@ export const usePauseState = () => {
 
   const queryKey = useMemo(() => ["pause-state", chainId], [chainId]);
 
-  // Bumped when a running emergency pause reaches its expiry, so the derived
-  // value below is recomputed at that moment instead of on a poll.
   const [, setExpiryTick] = useState(0);
 
   const { data, isLoading, refetch } = useQuery({
     queryKey,
     staleTime: STALE_TIME_MS,
     gcTime: DEFAULT_QUERY_GC_TIME_MS,
-    // The endpoint answers 429 under load, and retrying immediately is how a
-    // rate limit turns into a sustained one.
+    // The endpoint answers 429 under load; immediate retries prolong it.
     retry: false,
-    // The subscription is dropped while the tab is hidden, so anything that
-    // happened meanwhile has to be caught on return. Unlike a manual refetch
-    // this respects staleTime, so flicking between tabs costs nothing.
     refetchOnWindowFocus: true,
     queryFn: async () => {
       const fetched = await fetchPauseSnapshot(chainId);
@@ -92,8 +65,7 @@ export const usePauseState = () => {
 
       const seen = Number(prev?.state?.lastActionAt ?? 0);
       const indexed = Number(fetched.state?.lastActionAt ?? 0);
-      // Indexer lag: keep the event-applied state until the index catches up
-      // with it, or an approval would appear to undo itself for a few blocks.
+      // Indexer lag: keep the event-applied state until the index catches up.
       if (prev?.state && indexed < seen) {
         return { state: prev.state, actions: fetched.actions };
       }
@@ -151,7 +123,6 @@ export const usePauseState = () => {
                 ...stamp("EMERGENCY_PAUSED"),
               };
             } else if (name === "EmergencyPauseApproved") {
-              // Approval converts a timed pause into an open-ended one.
               state = {
                 ...state,
                 ownerPaused: true,
@@ -164,13 +135,10 @@ export const usePauseState = () => {
           return { state, actions: prev?.actions ?? [] };
         });
 
-        // The event carried the transition; this fills in the provenance the
-        // index holds. Invalidating rather than refetching means the several
-        // components mounting this hook still cause a single request.
         void queryClient.invalidateQueries({ queryKey });
 
-        // useEmergencyPause's chain reads are not polled; this is what tells
-        // them the pause state moved. Prefix of useViemReadContract's key.
+        // useEmergencyPause's reads aren't polled, so this is
+        // their refresh. Prefix of useViemReadContract's key.
         for (const functionName of ["isPaused", "getEmergencyPauseExpiry"]) {
           void queryClient.invalidateQueries({
             queryKey: ["viem-read", chainId, contractAddress, functionName],
@@ -192,8 +160,6 @@ export const usePauseState = () => {
     chainId,
   ]);
 
-  // An emergency pause ends silently, so schedule a single re-render for the
-  // moment it does rather than checking over and over.
   const expirySeconds = Number(snapshot.state?.emergencyPauseExpiry ?? 0);
   useEffect(() => {
     if (!expirySeconds) return;
@@ -210,7 +176,6 @@ export const usePauseState = () => {
   return {
     ...snapshot,
     isLoading,
-    /** Derived against the clock: an emergency pause lapses without an event. */
     isPaused: isEffectivelyPaused(snapshot.state),
     refresh,
   };

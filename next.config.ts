@@ -8,9 +8,7 @@ const nextConfig: NextConfig = {
   assetPrefix: "../",
   reactStrictMode: false,
   trailingSlash: true,
-  // Reproducible builds: the default build id is random, which changes the
-  // static/<id>/ directory name and every manifest on every build. Pin it to
-  // the commit being built so two builds of one commit are byte-identical.
+  // Pinned to the commit so builds are reproducible; the default id is random.
   generateBuildId: async () => process.env.SOURCE_COMMIT || "dev",
   experimental: {
     optimizeCss: false,
@@ -45,17 +43,14 @@ const nextConfig: NextConfig = {
   },
   webpack: (config) => {
     config.resolve.fallback = { fs: false, net: false, tls: false };
-    // Optional imports in the wallet SDKs that never run in a browser:
-    // MetaMask's React Native storage and pino's pretty printer. Resolving
-    // them to empty modules keeps webpack quiet without installing either,
-    // and async-storage would otherwise pull in all of React Native.
+    // Optional deps of the wallet SDKs that never run in a browser.
     config.resolve.alias = {
       ...config.resolve.alias,
       "@react-native-async-storage/async-storage": false,
       "pino-pretty": false,
     };
-    // Server chunks otherwise get module ids assigned in compilation-finish
-    // order, which races: ids swap between builds of identical source.
+    // Deterministic ids: by default they race
+    // between builds of identical source.
     config.optimization = {
       ...config.optimization,
       moduleIds: "deterministic",

@@ -9,13 +9,8 @@ import {
 import { paymentProcessor } from "@/abis/PaymentProcessor";
 import { intermediatedPaymentProcessor } from "@/abis/IntermediatedPaymentProcessor";
 
-// The metrics page runs two live feeds (metric deltas and recent transactions)
-// over the same two processors. Each used to open its own subscription per
-// processor; they now share one, fanned out to every listener.
-
 export type ProcessorSource = "Simple" | "Intermediated";
 
-/** Minimal decoded-log shape the metrics feeds read from the processor ABIs. */
 export interface ProcessorLog {
   eventName?: string;
   args?: Record<string, unknown>;
@@ -35,12 +30,6 @@ interface Stream {
 
 const streams = new Map<string, Stream>();
 
-/**
- * Listen to every event one processor emits on a chain. Returns the function
- * that stops listening, or null when the processor is not deployed there. The
- * underlying subscription opens with the first listener and closes with the
- * last.
- */
 export const subscribeProcessorLogs = (
   chainId: number,
   source: ProcessorSource,

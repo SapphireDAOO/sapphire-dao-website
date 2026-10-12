@@ -21,7 +21,6 @@ interface Params {
   setData: React.Dispatch<React.SetStateAction<MultiSigData>>;
 }
 
-// Pre-define each ABI event once (same pattern as TransactionDetail)
 const proposedEvent = Multisig.find(
   (e) => e.type === "event" && e.name === "TransactionProposed",
 ) as AbiEvent;

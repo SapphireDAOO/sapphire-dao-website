@@ -12,17 +12,13 @@ import { formatPercent } from "./formatMetric";
 
 interface MetricCardProps {
   title: string;
-  /** Pre-formatted display value (USD / count), or the placeholder dash. */
   value: string;
-  /** % change vs. the prior window; null when not computable, undefined while loading. */
+  /** null when not computable, undefined while loading. */
   change?: number | null;
   changeLabel?: string;
   icon?: React.ReactNode;
-  /** Show a skeleton shimmer while the first snapshot loads. */
   isLoading?: boolean;
-  /** When set, shows a clickable affordance + this label (e.g. "View payments"). */
   actionLabel?: string;
-  /** Rotates the dropdown chevron to indicate the panel is open. */
   expanded?: boolean;
 }
 

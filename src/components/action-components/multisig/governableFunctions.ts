@@ -25,19 +25,10 @@ export interface FunctionParam {
 export interface GovernableFunction {
   name: string;
   label: string;
-  /** Solidity function signature, used for encoding */
   signature: string;
-  /** Solidity input types in order, for encodeFunctionData */
   inputTypes: string[];
   params: FunctionParam[];
-  /** One line on what executing this proposal would do. */
   hint: string;
-  /**
-   * Anchor for this function on the contract's docs page. GitBook derives it
-   * from the heading, so `#### setFeeSigner` becomes `#setfeesigner`. Omitted
-   * where the function is not documented, in which case the page itself is
-   * linked.
-   */
   docsAnchor?: string;
 }
 
@@ -45,7 +36,6 @@ export interface GovernableContract {
   label: string;
   key: "simple" | "intermediated" | "storage" | "multisig";
   getAddress: (chainId: number) => Address;
-  /** Where this contract is written up, for the per-function docs links. */
   docsUrl: string;
   functions: GovernableFunction[];
 }
@@ -53,7 +43,6 @@ export interface GovernableContract {
 const DOCS_BASE =
   "https://sapphiredao.gitbook.io/sapphiredao-docs/technical-docs/core-contracts";
 
-/** The docs link for one proposable action. */
 export const functionDocsUrl = (
   contract: GovernableContract,
   fn: GovernableFunction,
@@ -99,9 +88,6 @@ export const GOVERNABLE_CONTRACTS: GovernableContract[] = [
       },
       {
         name: "pause",
-        // Named for what it does rather than what the contract calls it: the
-        // distinction that matters to a signer is that this one never lapses,
-        // unlike the emergency pause the designated pauser can trip.
         label: "Emergency Unlimited Pause",
         signature: "pause()",
         inputTypes: [],
@@ -143,13 +129,8 @@ export const GOVERNABLE_CONTRACTS: GovernableContract[] = [
   },
 ];
 
-/**
- * The multisig's own administration, which it can only perform on itself and
- * so only through a proposal. It is deliberately absent from
- * `GOVERNABLE_CONTRACTS` — the propose form governs the storage contract and
- * nothing else — but the calldata still has to be readable wherever these
- * proposals are listed, which is what this entry is for.
- */
+// Deliberately not in GOVERNABLE_CONTRACTS; listed
+// only so these proposals' calldata decodes.
 export const MULTISIG_ADMIN_CONTRACT: GovernableContract = {
   label: "MultiSig",
   key: "multisig",
@@ -195,7 +176,6 @@ export const MULTISIG_ADMIN_CONTRACT: GovernableContract = {
   ],
 };
 
-/** Every contract whose calldata we can render, proposable or not. */
 export const DECODABLE_CONTRACTS: GovernableContract[] = [
   ...GOVERNABLE_CONTRACTS,
   MULTISIG_ADMIN_CONTRACT,
@@ -215,7 +195,7 @@ function encodeParam(value: string, kind: ParamKind): bigint | string {
     case "uint96":
       return BigInt(value);
     case "bps":
-      // User enters a percentage (e.g. 10 for 10%); contract expects basis points (* 100)
+      // Percentage in, basis points out.
       return BigInt(Math.round(parseFloat(value) * 100));
     case "address":
     case "bytes32":

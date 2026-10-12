@@ -1,17 +1,9 @@
 import { CONTRACT_API_URL } from "@/constants";
 
-// Token prices from the contract API's oracle-backed exchange rate endpoint.
-
 export type UsdPrices = Record<string, number>;
 
-/**
- * The symbol the API's token table knows this token by.
- *
- * Mock deployments prefix the real symbol with "m" - mUSDC is the stand-in for
- * USDC - and the API prices the real asset, so the prefix is dropped on the
- * way out. The API answers keyed by whatever it was asked for, so callers get
- * their own names back rather than having to reverse this.
- */
+// Mock deployments prefix the real symbol with
+// "m" (mUSDC), and the API prices the real asset.
 const toApiSymbol = (name: string): string =>
   /^m[A-Z]/.test(name) ? name.slice(1) : name;
 
@@ -23,11 +15,8 @@ type ExchangeRateResponse = {
 };
 
 /**
- * USD price per token, keyed by the names passed in.
- *
- * Symbols are passed as one `to` parameter each; the API does not split a
- * comma-separated list. Returns an empty map on failure rather than throwing,
- * so a price outage degrades the figures instead of breaking the page.
+ * One `to` parameter per symbol: the API doesn't
+ * split a comma-separated list. Empty on failure.
  */
 export const fetchUsdPrices = async (
   names: string[],
@@ -36,7 +25,6 @@ export const fetchUsdPrices = async (
   const wanted = Array.from(new Set(names.filter(Boolean)));
   if (wanted.length === 0) return {};
 
-  // Several names can share one API symbol, so the lookup is symbol -> names.
   const namesBySymbol = new Map<string, string[]>();
   for (const name of wanted) {
     const symbol = toApiSymbol(name);
@@ -54,8 +42,6 @@ export const fetchUsdPrices = async (
     const payload = (await response.json()) as ExchangeRateResponse;
 
     if (!response.ok || !payload.to) {
-      // 400 names an unknown symbol, 502 an oracle failure, 503 an oracle that
-      // is not configured for this network. None is recoverable here.
       console.error(
         `exchange rate lookup failed (${response.status})`,
         payload?.error ?? "",

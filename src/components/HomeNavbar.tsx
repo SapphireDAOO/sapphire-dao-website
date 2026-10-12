@@ -1,10 +1,6 @@
 import Link from "next/link";
 
-/**
- * The home page's navbar. Kept apart from Navigation.tsx, which imports
- * RainbowKit and wagmi hooks: the home page links into the app and needs
- * none of the wallet code.
- */
+// Separate from Navigation so the home page doesn't pull in wallet code.
 const HomeNavbar = () => (
   <nav className="bg-primary text-white p-4 shadow-md sticky top-0 z-50">
     <div className="max-w-7xl mx-auto flex items-center justify-between">

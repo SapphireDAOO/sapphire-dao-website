@@ -5,8 +5,6 @@ import { randomBytes } from "@noble/hashes/utils";
 import { secp256k1 } from "@noble/curves/secp256k1";
 import { bytesToHex, hexToBytes, type Hex } from "viem";
 
-// Sealing a note to one or more note public keys.
-
 const ENVELOPE_VERSION = 1;
 const EPHEMERAL_KEY_BYTES = 33; // compressed secp256k1 point
 const NONCE_BYTES = 12;
@@ -16,13 +14,7 @@ const WRAPPED_KEY_BYTES = NONCE_BYTES + CONTENT_KEY_BYTES + GCM_TAG_BYTES;
 
 const WRAP_INFO = "sapphire-dao/notes/wrap";
 
-/**
- * ECDH against a note public key, stretched into an AES key.
- *
- * The x-coordinate of the shared point is the only part used, per SEC-1: the
- * y-coordinate carries no extra entropy and including it would make the two
- * sides disagree over point encoding.
- */
+// Only the x-coordinate of the shared point is used, per SEC-1.
 const wrapKey = (privateKey: Uint8Array, publicKey: Uint8Array): Uint8Array => {
   const shared = secp256k1.getSharedSecret(privateKey, publicKey, true);
   return hkdf(sha256, shared.slice(1), undefined, WRAP_INFO, 32);
@@ -41,10 +33,6 @@ const toCurvePoint = (publicKey: Hex): Uint8Array => {
   return point;
 };
 
-/**
- * Encrypts `content` so that every key in `readers` can open it. Returns the
- * hex payload to hand to the notes API, which stores it without inspection.
- */
 export const sealNote = (content: string, readers: Hex[]): Hex => {
   if (readers.length === 0) {
     throw new Error("A note needs at least one reader");
@@ -56,8 +44,8 @@ export const sealNote = (content: string, readers: Hex[]): Hex => {
     new TextEncoder().encode(content),
   );
 
-  // One ephemeral key serves every reader: each ECDH is against a different
-  // reader key, so the wrapping keys still differ.
+  // One ephemeral key serves every reader; each
+  // ECDH is against a different reader key.
   const ephemeralPrivate = secp256k1.utils.randomPrivateKey();
   const ephemeralPublic = secp256k1.getPublicKey(ephemeralPrivate, true);
 

@@ -47,8 +47,6 @@ export default function SweepForm({
 
   const token = tokens.find((t) => t.tokenId === tokenId);
 
-  // Parsed on every render so the preview and the proposal always agree on the
-  // exact base-unit amount the user asked for.
   const requested = useMemo(() => {
     if (!token || !amount.trim()) return null;
     try {

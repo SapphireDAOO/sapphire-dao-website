@@ -17,11 +17,9 @@ import {
   METRIC_PLACEHOLDER,
 } from "@/components/action-components/metrics/formatMetric";
 
-/** A single tile in the Gas Tracker card. */
 export interface GasTile {
   label: string;
   value: string;
-  /** Secondary USD line; omitted for non-monetary tiles (gas price, count). */
   usd?: string;
 }
 
@@ -35,11 +33,6 @@ const formatGweiLabel = (wei: bigint): string =>
     maximumFractionDigits: 2,
   })} gwei`;
 
-/**
- * Backs the metrics page's Gas Tracker card: cumulative gas spend + transaction
- * count from the subgraph, average derived on the client, and the live gas price
- * from the connected RPC.
- */
 export const useGasTracker = () => {
   const { chain } = useAccount();
   const chainId = chain?.id ?? BASE_SEPOLIA;

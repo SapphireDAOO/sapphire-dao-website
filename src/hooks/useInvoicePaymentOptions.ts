@@ -12,7 +12,7 @@ import {
 } from "@/constants";
 import type { TokenData } from "@/model/model";
 
-/** `CREATED` in constants/Intermediated.sol — the only state that can be paid. */
+/** `CREATED` in Intermediated.sol, the only payable state. */
 const STATE_CREATED = 1;
 
 export const useInvoicePaymentOptions = (
@@ -58,8 +58,6 @@ export const useInvoicePaymentOptions = (
           ]
         : [invoiceId];
 
-      // A meta-invoice with no sub-invoices cannot be paid, and treating an
-      // empty set as "every member qualifies" would say the opposite.
       if (invoiceIds.length === 0) {
         return { allowed: [] as string[], isPayable: false };
       }
@@ -102,9 +100,7 @@ export const useInvoicePaymentOptions = (
   const allowedIds = new Set(data?.allowed ?? []);
 
   return {
-    /** The candidates this invoice accepts, in the order they were given. */
     tokens: candidates.filter((token) => allowedIds.has(token.id.toString())),
-    /** False until the reads land, so the pay button cannot be jumped on. */
     isPayable: data?.isPayable ?? false,
     isLoading,
     error: error instanceof Error ? error.message : null,

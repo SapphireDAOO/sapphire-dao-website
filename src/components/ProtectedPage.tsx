@@ -6,10 +6,6 @@ import useWalletRestriction from "@/hooks/useWalletRestriction";
 
 interface ProtectedPageProps {
   children: ReactNode;
-  /**
-   * Also admits the emergency pauser, who is not an owner or a signer but
-   * needs the governance page to reach the pause control.
-   */
   allowEmergencyPauser?: boolean;
 }
 

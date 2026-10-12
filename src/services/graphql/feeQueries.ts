@@ -1,7 +1,3 @@
-// Queries over the fee-receiver entities: per-(receiver, token) balances that
-// the processors have credited but the Sweeper has not yet moved out, plus the
-// history of sweeps.
-
 export const FEE_RECEIVER_BALANCES_QUERY = `
   query GetFeeReceiverBalances($first: Int! = 1000, $skip: Int! = 0) {
     feeReceiverTokenBalances(

@@ -5,9 +5,7 @@ import { fetchEscrowTransactions } from "@/services/metrics/recentTransactions";
 import { getWindowBounds } from "@/services/metrics/subgraphMetrics";
 import { TransactionsPanel } from "./TransactionsPanel";
 
-/** Inline panel for the Escrow Balance card: movements today & yesterday. */
 export function EscrowTransactionsPanel() {
-  // Escrow only covers today + yesterday (matching the card's day-over-day %).
   const since = useMemo(() => getWindowBounds().yesterdayMark, []);
 
   return (

@@ -20,13 +20,8 @@ const NOTES_PAGE_SIZE = 3;
 const NOTE_LOCK_DAYS = 3;
 const MS_PER_DAY = 86_400_000;
 
-/** Statuses that permanently prevent new notes */
 const ALWAYS_LOCKED_STATUSES = new Set(["CANCELED"]);
 
-/**
- * Terminal statuses that leave a short window for closing remarks, then lock
- * notes NOTE_LOCK_DAYS after the invoice last moved.
- */
 const TIMED_LOCK_STATUSES = new Set([
   "EXPIRED",
   "RELEASED",
@@ -79,14 +74,10 @@ export function NotesThread({
   invoice: Invoice;
   onExpand: () => void;
   shareLabel: string;
-  /** Whether the parent card is expanded (shows thread list when true) */
   expanded: boolean;
 }) {
   const { address } = useAccount();
 
-  // Whoever on this invoice is not the viewer. A shared note is sealed to them
-  // as well, so without this a note marked shared would be readable only by
-  // its author.
   const counterparty = useMemo(() => {
     const viewer = address?.toLowerCase();
     const seller = invoice.seller?.toLowerCase();
@@ -97,7 +88,6 @@ export function NotesThread({
     return undefined;
   }, [address, invoice.seller, invoice.buyer]);
   const noteBlockReason = getNoteBlockReason(invoice);
-  // Defer note fetching until the component enters the viewport
   const containerRef = useRef<HTMLDivElement>(null);
   const [isInView, setIsInView] = useState(false);
 
@@ -117,7 +107,6 @@ export function NotesThread({
     return () => observer.disconnect();
   }, []);
 
-  // Query notes only for the currently expanded card.
   const isNotesEnabled = isInView && expanded;
 
   const {
@@ -138,7 +127,6 @@ export function NotesThread({
   const [notePage, setNotePage] = useState(0);
   const [isRevealing, setIsRevealing] = useState(false);
 
-  // Count notes from others that haven't been opened yet
   const unreadCount = useMemo(
     () => notes.filter((n) => !n.opened && !n.isAuthor && n.share).length,
     [notes],
@@ -163,9 +151,6 @@ export function NotesThread({
       setShare(false);
       setIsComposerOpen(false);
       setNotePage(0);
-      // The write endpoint returns once the transaction is broadcast, so the
-      // note is genuinely pending until the subgraph indexes it. Say that,
-      // rather than leaving a silent row sitting at "pending".
       toast.success("Note submitted. It will appear once confirmed.");
     }
   }, [createNote, draft, share]);
@@ -236,7 +221,6 @@ export function NotesThread({
       onClick={(e) => e.stopPropagation()}
       onMouseDown={(e) => e.stopPropagation()}
     >
-      {/* Header bar — always visible (collapsed + expanded) */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5">
           <span className="text-xs font-semibold text-gray-700">
@@ -259,15 +243,12 @@ export function NotesThread({
         </Button>
       </div>
 
-      {/* Notes thread — only visible when card is expanded */}
       {expanded && (
         <>
           {isLoading ? (
             <p className="text-[11px] text-gray-400">Loading notes...</p>
           ) : notes.length === 0 ? (
             unreadableCount > 0 ? (
-              // There are notes; this key just cannot open them. Saying "no
-              // notes" here would be a lie the reader has no way to see past.
               <p className="text-[11px] text-amber-700 dark:text-amber-400">
                 {unreadableCount} {unreadableCount === 1 ? "note" : "notes"} on
                 this invoice could not be opened with your messaging key. They
@@ -278,9 +259,6 @@ export function NotesThread({
               <p className="text-[11px] text-gray-400">No notes yet.</p>
             )
           ) : !isUnlocked ? (
-            // Sealed until the reader asks: the list stays hidden, and one
-            // signature derives the key that opens both shared and private
-            // notes rather than prompting per note.
             <div className="flex flex-wrap items-center gap-2 rounded-md border border-dashed p-2">
               <Lock className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
               <p className="min-w-0 flex-1 text-[11px] text-muted-foreground">
@@ -354,15 +332,12 @@ export function NotesThread({
         </>
       )}
 
-      {/* Composer — shown whenever triggered (expand card first) */}
       {isComposerOpen && (
         <div
           className="space-y-2 rounded-md border border-gray-200 bg-white p-2"
           onClick={(e) => e.stopPropagation()}
           onMouseDown={(e) => e.stopPropagation()}
         >
-          {/* Publishing matters when writing, not reading: without a published
-              key nobody can seal a note back to this account. */}
           <MessagingKey />
           <Textarea
             value={draft}

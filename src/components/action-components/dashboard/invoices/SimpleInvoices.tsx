@@ -61,9 +61,6 @@ function InvoiceCardImpl({
     invoice.status === "CREATED" ||
     invoice.status === "INITIATED";
 
-  // The ticking happens inside <Countdown>; the card only re-renders when the
-  // invoice itself changes. Undefined while the deadline is still unknown,
-  // which the field shows as loading.
   const countdown = useMemo(() => {
     if (invoice.status === "ACCEPTED" && invoice.releaseAt) {
       return (
@@ -154,7 +151,6 @@ function InvoiceCardImpl({
     toast.success("Payment link copied!");
   }, [paymentUrl]);
 
-  // Flips at the expiry moment without a per-second re-render of the card.
   const hasExpiryPassed = useHasPassed(
     invoice.expiresAt ? Number(invoice.expiresAt) * 1000 : undefined,
   );
@@ -190,7 +186,6 @@ function InvoiceCardImpl({
     "AWAITING PAYMENT": "bg-yellow-100 text-yellow-800",
     PAID: "bg-orange-100 text-orange-800",
     ACCEPTED: "bg-green-100 text-green-800",
-    // REJECTED: "bg-red-100 text-red-800",
     CANCELED: "bg-gray-100 text-gray-800",
     RELEASED: "bg-purple-100 text-purple-800",
     REFUNDED: "bg-indigo-100 text-indigo-800",
@@ -201,7 +196,6 @@ function InvoiceCardImpl({
 
   const badgeColor = statusColors[displayStatus] ?? "bg-gray-100 text-gray-600";
 
-  // Shared countdown label
   const countdownLabel =
     invoice.status === "PAID"
       ? "Decision window"
@@ -230,7 +224,6 @@ function InvoiceCardImpl({
           </div>
         </div>
 
-        {/* Consistent countdown in header */}
         {countdownLabel && (
           <InvoiceField
             label={countdownLabel}
@@ -245,7 +238,6 @@ function InvoiceCardImpl({
           />
         )}
 
-        {/* Paid timestamp in header */}
         {invoice.status === "PAID" &&
           invoice.paidAt &&
           invoice.paidAt !== "Not Paid" && (
@@ -256,7 +248,6 @@ function InvoiceCardImpl({
             />
           )}
 
-        {/* Amount always shown */}
         {invoice.price && (
           <InvoiceField
             label="Amount"
@@ -285,7 +276,6 @@ function InvoiceCardImpl({
           />
         )}
 
-        {/* Seller view: show payer */}
         {invoice.status === "PAID" &&
           isSellerView &&
           invoice.buyer &&
@@ -298,7 +288,6 @@ function InvoiceCardImpl({
             />
           )}
 
-        {/* Rejected state: show rejection info */}
         {invoice.status === "REFUNDED" && (
           <>
             <InvoiceField
@@ -379,14 +368,12 @@ function InvoiceCardImpl({
           expanded={isExpanded}
         />
 
-        {/* Cancel button in header */}
         {invoice.status === "AWAITING PAYMENT" && (
           <div className="mt-3">
             <CancelInvoice invoiceId={invoice.invoiceId} invoice={invoice} />
           </div>
         )}
 
-        {/* Seller actions in header */}
         {invoice.status === "PAID" && isSellerView && (
           <div className="pt-3 mt-3 border-t border-gray-200 flex justify-end gap-3">
             <SellersAction invoiceId={invoice.invoiceId} state text="Accept" />
@@ -399,10 +386,8 @@ function InvoiceCardImpl({
         )}
       </CardHeader>
 
-      {/* Expanded Content */}
       {isExpanded && (
         <CardContent className="border-t pt-4 space-y-4 text-sm text-gray-800">
-          {/* Core Fields */}
           {invoice.contract && (
             <InvoiceField
               label="Contract"
@@ -450,7 +435,6 @@ function InvoiceCardImpl({
               />
             )}
 
-          {/* State History */}
           {displayHistory.length > 0 && (
             <InvoiceField
               label="State History"
@@ -475,7 +459,6 @@ function InvoiceCardImpl({
             />
           )}
 
-          {/* Payment Link & QR */}
           {paymentUrl && invoice.status === "AWAITING PAYMENT" && (
             <div className="mt-4 flex flex-col items-center gap-3">
               <div className="border border-dashed p-2 rounded-xl bg-gray-50">
@@ -492,11 +475,8 @@ function InvoiceCardImpl({
   );
 }
 
-// Memoized: the dashboard re-renders on every live invoice event, and most
-// cards on the page are unaffected by any one of them.
 export const InvoiceCard = memo(InvoiceCardImpl);
 
-// renderContractLink, renderTx, InvoiceField live in InvoiceCardShared.tsx
 export {
   renderContractLink,
   renderTx,

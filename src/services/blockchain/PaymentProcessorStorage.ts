@@ -6,13 +6,8 @@ import { fetchGasPrice, getChainById, getError } from "./utils";
 import { WagmiClient } from "./types";
 
 /**
- * Trips the emergency pause on PaymentProcessorStorage, halting payment
- * processing until the pause lapses or governance lifts it.
- *
- * Unlike every other admin action this is sent straight from the caller's
- * wallet rather than proposed to the multisig: the contract restricts it to
- * the designated emergency pauser precisely so it can land without waiting
- * for signatures.
+ * Sent straight from the pauser's wallet rather than proposed:
+ * the contract restricts it to the designated pauser.
  */
 export const emergencyPause = async (
   { walletClient, publicClient }: WagmiClient,
@@ -55,11 +50,8 @@ export const emergencyPause = async (
 };
 
 /**
- * Lifts an active pause on PaymentProcessorStorage.
- *
- * Note that on-chain `unpause()` is `onlyOwner`: the emergency pauser can trip
- * a pause but the owner is the one who clears it, so this reverts unless the
- * connected wallet owns the storage contract.
+ * `unpause()` is onlyOwner, so this reverts
+ * unless the wallet owns the storage contract.
  */
 export const emergencyUnpause = async (
   { walletClient, publicClient }: WagmiClient,

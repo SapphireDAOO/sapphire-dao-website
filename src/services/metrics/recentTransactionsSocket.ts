@@ -19,9 +19,7 @@ import type {
 } from "./types";
 
 export interface RecentTransactionsSocketHandlers {
-  /** A live transaction arrived; prepend it to the feed. */
   onTransaction: (tx: RecentTransaction) => void;
-  /** Transport status changed; on reconnect the consumer should reseed. */
   onStatus?: (status: MetricsSocketStatus) => void;
 }
 
@@ -32,10 +30,6 @@ export interface RecentTransactionsSocketHandle {
 const asBigInt = (v: unknown): bigint | undefined =>
   typeof v === "bigint" ? v : undefined;
 
-/**
- * Open the live Recent Transactions feed for a chain. Returns a handle the
- * caller closes on unmount / chain change.
- */
 export const createRecentTransactionsSocket = (
   chainId: number,
   handlers: RecentTransactionsSocketHandlers,
@@ -57,10 +51,8 @@ export const createRecentTransactionsSocket = (
   const unwatchers: Array<() => void> = [];
   const handleError = () => onStatus?.("error");
 
-  // Display nonce for a contract invoice id, read from the invoice itself.
-  // Events only carry the hashed uint216 id, so each new id costs one cached
-  // contract read — the polled subgraph rows show the same nonce, and the two
-  // must agree for the feed to make sense.
+  // Events carry only the hashed invoice id, so the
+  // display nonce is read (and cached) from the contract.
   const nonceCache = new Map<string, string>();
 
   const readInvoiceNonce = (data: unknown): string => {

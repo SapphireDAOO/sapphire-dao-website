@@ -3,27 +3,16 @@
 import { useSyncExternalStore } from "react";
 import type { HintMoment } from "./walletHints";
 
-/**
- * Tracks wallet interactions that this app drives through viem's wallet client
- * directly rather than through a wagmi hook.
- *
- * wagmi actions are react-query mutations, so they are observable from
- * anywhere; a bare `walletClient.sendTransaction(...)` is not, even though it
- * opens exactly the same wallet popup. This store is what makes those visible.
- * It lives outside React so plain service modules can announce into it.
- */
+// Wallet interactions made through viem's wallet client
+// directly, which wagmi's mutation cache can't see.
 
 const listeners = new Set<() => void>();
 
-// A stack, not a flag: one interaction can begin before another ends, and the
-// most recent one is what the wallet is actually showing.
 const active: HintMoment[] = [];
 let snapshot: HintMoment | undefined;
 
-// A token approval opens the same popup as any other transaction, so the
-// wallet client announces `sendingTransaction` on top of it. The specific
-// explanation is the more useful one, so it outranks the generic hint nested
-// inside it rather than losing to the plain most-recent rule.
+// A token approval also announces
+// sendingTransaction; the specific hint should win.
 const OUTRANKS_NESTED: HintMoment[] = ["approvingToken"];
 
 const currentMoment = () =>
@@ -36,10 +25,7 @@ const emit = () => {
   for (const listener of listeners) listener();
 };
 
-/**
- * Marks a wallet interaction as pending. Returns the function that ends it —
- * call it in a `finally`, or the hint stays on screen forever.
- */
+/** Returns the function that ends the moment; call it in a `finally`. */
 export const beginWalletMoment = (moment: HintMoment) => {
   active.push(moment);
   emit();
@@ -64,6 +50,5 @@ const subscribe = (listener: () => void) => {
 const getSnapshot = () => snapshot;
 const getServerSnapshot = () => undefined;
 
-/** The wallet interaction currently awaiting the user, if any. */
 export const useWalletMoment = () =>
   useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);

@@ -1,9 +1,3 @@
-// Subgraph side of the hybrid metric flow: fetch the source-of-truth snapshot
-// for the first-section metrics. A single batched query pulls 60 days of daily
-// buckets in one round-trip; all four metric values are derived on the client.
-// Raw token amounts are converted to USD at read time against a globally-cached
-// price (see fetchTokenPricesUsd).
-
 import { ONE_DAY_MS, KNOWN_PAYMENT_TOKENS, ZERO_ADDRESS } from "@/constants";
 import { fetchUsdPrices } from "@/services/exchangeRate";
 import type {
@@ -29,14 +23,8 @@ const MICROS_PER_SECOND = 1_000_000;
 const tsToSeconds = (timestamp: string): number =>
   Number(timestamp) / MICROS_PER_SECOND;
 
-// Prices are read on synchronous paths all over the metrics code, so they are
-// fetched once into this cache rather than threaded through as a promise.
-// Keyed by chain, then by PaymentToken.name.
 const livePricesByChain = new Map<number, Record<string, number>>();
 
-// The metrics page loads the snapshot, the fee-receiver total and the native
-// price together, and each refreshes prices first. They share one lookup, and
-// one this recent is reused rather than repeated.
 const PRICE_REFRESH_TTL_MS = 60_000;
 const priceRefreshByChain = new Map<
   number,
@@ -44,21 +32,15 @@ const priceRefreshByChain = new Map<
 >();
 
 /**
- * Refreshes the cached USD prices for a chain's known tokens. Call before
- * building a snapshot; the converters below then read what it stored.
- *
- * A failed lookup leaves the previous prices in place rather than clearing
- * them, so a blip shows the last known figures. With no hardcoded fallback
- * behind it, a lookup that has never succeeded leaves every price at zero and
- * USD totals read as 0 - which is the honest answer when nothing can be
- * priced, and visibly wrong rather than quietly invented.
+ * A failed lookup keeps the previous prices;
+ * one that never succeeded leaves them at zero.
  */
 export const refreshTokenPrices = async (
   chainId: number,
   signal?: AbortSignal,
 ): Promise<void> => {
-  // A caller with its own abort signal gets its own request, so aborting it
-  // cannot cancel a lookup other callers are waiting on.
+  // A caller with its own abort signal gets its own
+  // request, so aborting can't cancel anyone else's.
   if (signal) {
     await lookUpTokenPrices(chainId, signal);
     return;
@@ -70,7 +52,6 @@ export const refreshTokenPrices = async (
   }
 
   const request = lookUpTokenPrices(chainId).then((ok) => {
-    // A failed lookup is not worth reusing; let the next caller retry.
     if (!ok && priceRefreshByChain.get(chainId)?.request === request) {
       priceRefreshByChain.delete(chainId);
     }
@@ -79,7 +60,6 @@ export const refreshTokenPrices = async (
   return request;
 };
 
-/** One price lookup into the cache. Resolves false when nothing was priced. */
 const lookUpTokenPrices = async (
   chainId: number,
   signal?: AbortSignal,
@@ -95,10 +75,6 @@ const lookUpTokenPrices = async (
   return true;
 };
 
-/**
- * Day-aligned window boundaries (unix seconds) so each bound lands on a daily
- * bucket edge.
- */
 export const getWindowBounds = (nowSeconds = Math.floor(Date.now() / 1000)) => {
   const dayMark = nowSeconds - (nowSeconds % SECONDS_PER_DAY);
   return {
@@ -112,11 +88,6 @@ export const getWindowBounds = (nowSeconds = Math.floor(Date.now() / 1000)) => {
   };
 };
 
-/**
- * % change vs. the prior window. When the prior window is 0 we can't divide, so
- * a move from nothing to a non-zero value reads as a full ±100% (and 0 → 0 stays
- * null, i.e. no change to show).
- */
 export const percentChange = (current: number, prior: number): number | null => {
   if (prior === 0) {
     if (current === 0) return null;
@@ -130,30 +101,17 @@ interface TokenMeta {
   priceUsd: number;
 }
 
-/**
- * Per-token decimals + USD price keyed by lowercased token id. Tokens absent
- * from KNOWN_PAYMENT_TOKENS are skipped on the read path — the constants list
- * is the canonical source for supported tokens.
- */
 const tokenMetaByChain = (chainId: number): Map<string, TokenMeta> => {
   const out = new Map<string, TokenMeta>();
   for (const token of KNOWN_PAYMENT_TOKENS[chainId] ?? []) {
     out.set(token.id.toLowerCase(), {
       decimals: token.decimals,
-      // No standing price of its own: an unpriced token contributes nothing
-      // rather than a made-up figure, so a USD total is either real or
-      // visibly zero.
       priceUsd: livePricesByChain.get(chainId)?.[token.name] ?? 0,
     });
   }
   return out;
 };
 
-/**
- * Current USD price for each held token, keyed by lowercased token id.
- * Cache this once per render pass — the read path must not issue a price call
- * per metric.
- */
 export const fetchTokenPricesUsd = async (
   chainId: number,
 ): Promise<Record<string, number>> => {
@@ -184,9 +142,7 @@ interface FeeBucket {
 interface EscrowBucket {
   timestamp: string;
   token: TokenRef;
-  /** Σ signed balance deltas for the day (running sum = live escrow balance). */
   totalBalance: string;
-  /** Σ gross amount paid into escrow for the day. */
   totalAmountPaid: string;
 }
 
@@ -195,7 +151,6 @@ type InvoiceType = "SIMPLE" | "ADVANCED";
 interface InvoiceActivityBucket {
   timestamp: string;
   invoiceType: InvoiceType;
-  /** Cumulative paid-invoice count for this processor through this day. */
   totalActivity: string;
 }
 
@@ -204,14 +159,11 @@ type UserRole = "CREATOR" | "PAYER";
 interface NewUserBucket {
   timestamp: string;
   role: UserRole;
-  /** Users added this day for the role. */
   newUsers: string;
-  /** Cumulative users for the role through this day. */
   totalUsers: string;
 }
 
 interface ActiveUserBucket {
-  /** Unique users active this day (the day is pinned by the query's filter). */
   activeUsers: string;
 }
 
@@ -230,11 +182,6 @@ const toUsd = (raw: bigint, decimals: number, priceUsd: number): number => {
   return (Number(raw) / 10 ** decimals) * priceUsd;
 };
 
-/**
- * Build a reusable (tokenId, rawAmount) → USD converter for a chain, using the
- * same decimals + cached price map the snapshot uses. Returns 0 for unknown
- * tokens. Shared with the live socket so optimistic deltas convert identically.
- */
 export const createUsdConverter = (
   chainId: number,
 ): ((tokenId: string, raw: bigint) => number) => {
@@ -245,7 +192,6 @@ export const createUsdConverter = (
   };
 };
 
-/** Σ (raw token amount × price) across buckets within [start, end]. */
 const sumWindowUsd = <T extends { timestamp: string; token: TokenRef }>(
   buckets: T[],
   start: number,
@@ -264,12 +210,6 @@ const sumWindowUsd = <T extends { timestamp: string; token: TokenRef }>(
   return usd;
 };
 
-/**
- * Running USD escrow figure at `cutoff`: per-token sum of the chosen field
- * across every bucket with timestamp <= cutoff, converted at the current price.
- * Used for both the live balance (totalBalance) and the gross-paid running total
- * (totalAmountPaid) behind the card's % change.
- */
 const escrowAtUsd = (
   buckets: EscrowBucket[],
   cutoff: number,
@@ -292,9 +232,8 @@ const escrowAtUsd = (
 };
 
 /**
- * Cumulative invoices-paid count at `cutoff`: for each token, take the latest
- * bucket with timestamp <= cutoff (the @aggregate cumulative count is per-token
- * per-day) and sum the values across tokens.
+ * The @aggregate count is cumulative per token, so
+ * take each token's latest bucket <= cutoff and sum.
  */
 const invoicesPaidAt = (buckets: VolumeBucket[], cutoff: number): number => {
   const latestByToken = new Map<string, { ts: number; value: bigint }>();
@@ -312,12 +251,6 @@ const invoicesPaidAt = (buckets: VolumeBucket[], cutoff: number): number => {
   return Number(total);
 };
 
-/**
- * Volume series (oldest → newest) from VolumeStats: each point is that day's own
- * volume (per-token `dailyVolume` summed into one USD total per day). Per-day,
- * standalone — not cumulative. Day buckets are keyed by their (day-aligned)
- * timestamp in seconds.
- */
 const buildVolumeSeries = (
   buckets: VolumeBucket[],
   meta: Map<string, TokenMeta>,
@@ -335,18 +268,8 @@ const buildVolumeSeries = (
     .map(([timestamp, volumeUsd]) => ({ timestamp, volumeUsd }));
 };
 
-/**
- * Escrow chart series (oldest → newest): the running escrow balance at the end
- * of each day with movement.
- *
- * This has to be the same quantity the card shows, which is the running sum of
- * the signed `totalBalance` deltas. Plotting `totalAmountPaid` instead — gross
- * amount paid in per day — draws a line that only ever climbs, so the chart
- * pointed up while the card correctly read 0.
- *
- * Balances are carried per token and converted once per day, matching
- * `escrowAtUsd`, so the final point equals the card's figure.
- */
+// The running sum of signed totalBalance, the figure
+// the card shows; totalAmountPaid only ever climbs.
 const buildEscrowSeries = (
   buckets: EscrowBucket[],
   meta: Map<string, TokenMeta>,
@@ -377,19 +300,11 @@ const buildEscrowSeries = (
     });
 };
 
-// The Invoice Activity card is fixed to a rolling 7-day view; the series is
-// zero-filled so every calendar day in that window is present even when the
-// subgraph has no bucket for it (buckets only exist on days with activity).
 const INVOICE_ACTIVITY_WINDOW_DAYS = 7;
 
 /**
- * Daily invoice-paid activity split by processor over the trailing 7 calendar
- * days (oldest → newest), zero-filled for days without activity. The subgraph
- * reports `totalActivity` as a cumulative count per processor, so the per-day
- * count is the diff between consecutive daily buckets for that type. Buckets
- * are fetched from genesis (not just the window) so the earliest bucket's
- * cumulative *is* that day's count; buckets before the window only seed the
- * diff baseline.
+ * totalActivity is cumulative, so a day's count is the
+ * diff between buckets; earlier buckets seed the baseline.
  */
 const buildInvoiceActivitySeries = (
   buckets: InvoiceActivityBucket[],
@@ -409,9 +324,8 @@ const buildInvoiceActivitySeries = (
   };
   for (const b of buckets) {
     if (b.invoiceType !== "SIMPLE" && b.invoiceType !== "ADVANCED") continue;
-    // An empty current bucket comes back with a null timestamp (see the
-    // activeUserStats comment in the query); ts=0 would sort first and poison
-    // the cumulative-diff baseline.
+    // An empty current bucket has a null timestamp; 0
+    // would sort first and poison the diff baseline.
     if (!b.timestamp) continue;
     byType[b.invoiceType].push({
       ts: tsToSeconds(b.timestamp),
@@ -435,7 +349,6 @@ const buildInvoiceActivitySeries = (
   return [...perDay.values()];
 };
 
-/** Σ per-day `newUsers` for a role within [start, end]. */
 const sumNewUsers = (
   buckets: NewUserBucket[],
   role: UserRole,
@@ -452,7 +365,6 @@ const sumNewUsers = (
   return total;
 };
 
-/** Cumulative user total for a role: the latest bucket's `totalUsers`. */
 const latestTotalUsers = (buckets: NewUserBucket[], role: UserRole): number => {
   let best: { ts: number; value: number } | undefined;
   for (const b of buckets) {
@@ -463,11 +375,6 @@ const latestTotalUsers = (buckets: NewUserBucket[], role: UserRole): number => {
   return best?.value ?? 0;
 };
 
-/**
- * User metrics: 7-day new-creator / new-payer counts vs. the prior 7 days, the
- * latest day's active-user count with day-over-day growth, and the cumulative
- * user total.
- */
 const buildUserMetrics = (
   newUserBuckets: NewUserBucket[],
   activeTodayBuckets: ActiveUserBucket[],
@@ -490,8 +397,6 @@ const buildUserMetrics = (
     return { value: current, changePct: percentChange(current, prior) };
   };
 
-  // Active users (24h): today's unique count vs. yesterday's. Each set is
-  // already pinned to its day by the query filter, so just sum across tokens.
   const sumActive = (buckets: ActiveUserBucket[]): number =>
     buckets.reduce((total, b) => total + Number(b.activeUsers), 0);
   const activeLatest = sumActive(activeTodayBuckets);
@@ -510,21 +415,14 @@ const buildUserMetrics = (
   };
 };
 
-/**
- * Run a metrics query, tolerating the empty-current-bucket error above. On that
- * error we retry with `current: include` swapped for `current: ignore`, so a
- * brand-new day with no activity simply contributes 0 instead of failing.
- */
+/** Retries with `current: ignore` when the empty current bucket errors. */
 const queryMetrics = async <T>(
   chainId: number,
   query: string,
   variables: Record<string, unknown>,
 ): Promise<T> => {
-  // network-only: these fetchers sit behind react-query, which is the caching
-  // and freshness layer. Serving them cache-first would (a) make every
-  // react-query refetch a stale no-op and (b) with time-derived variables,
-  // pile a new entry into urql's document cache per fetch until the client
-  // expires — network-only overwrites the same key instead.
+  // network-only: react-query is the caching layer, and
+  // time-derived variables would pile entries into urql's cache.
   const result = await client(chainId)
     .query<T>(query, variables, { requestPolicy: "network-only" })
     .toPromise();
@@ -534,11 +432,6 @@ const queryMetrics = async <T>(
   return result.data;
 };
 
-/**
- * Build the first-section metric snapshot from the subgraph. Runs a single
- * batched query for all four metrics and converts per-token amounts to USD
- * against the cached price map.
- */
 export const fetchMetricsSnapshot = async (
   chainId: number,
 ): Promise<MetricsSnapshot> => {
@@ -546,8 +439,7 @@ export const fetchMetricsSnapshot = async (
   await refreshTokenPrices(chainId);
   const meta = tokenMetaByChain(chainId);
 
-  // graph-node's Timestamp scalar is microseconds since epoch; pass as strings
-  // because the microsecond value exceeds JS's safe-integer range.
+  // Microseconds exceed the safe-integer range, so they're passed as strings.
   const toTimestamp = (seconds: number): string =>
     (BigInt(seconds) * BigInt(MICROS_PER_SECOND)).toString();
 
@@ -555,10 +447,8 @@ export const fetchMetricsSnapshot = async (
     chainId,
     METRICS_SNAPSHOT_QUERY,
     {
-      // $now only upper-bounds day-aligned buckets, so end-of-current-day
-      // returns identical data while keeping the variables (and therefore the
-      // urql document-cache key) stable for the whole day instead of minting
-      // a new cache entry every fetch.
+      // End of the current day: the same data,
+      // but a cache key that holds all day.
       now: toTimestamp(bounds.dayMark + SECONDS_PER_DAY),
       sixtyDaysAgo: toTimestamp(bounds.sixtyDaysAgo),
       dayMark: toTimestamp(bounds.dayMark),
@@ -604,14 +494,12 @@ export const fetchMetricsSnapshot = async (
     changePct: percentChange(feesCurrent, feesPrior),
   };
 
-  // Card value: live balance = running sum of signed deltas (totalBalance).
   const escrowNow = escrowAtUsd(
     data.escrowBuckets,
     bounds.now,
     meta,
     (b) => b.totalBalance,
   );
-  // Card % change: escrow balance today vs. the balance as of yesterday.
   const escrowYesterday = escrowAtUsd(
     data.escrowBuckets,
     bounds.yesterdayMark,
@@ -660,10 +548,6 @@ interface FeeTotalBucket {
   totalFeePaid: string;
 }
 
-/**
- * Wallet Balance — Fee Receiver. Lifetime protocol fees collected, summed across
- * every daily bucket per token and converted to USD against the cached price.
- */
 export const fetchFeeReceiverTotalUsd = async (
   chainId: number,
 ): Promise<number> => {
@@ -684,21 +568,12 @@ export const fetchFeeReceiverTotalUsd = async (
   return usd;
 };
 
-/**
- * Current USD price of the chain's native token (ETH, the zero-address entry in
- * KNOWN_PAYMENT_TOKENS), used to value the gas-reserve balance.
- */
 export const fetchNativePriceUsd = async (chainId: number): Promise<number> => {
   await refreshTokenPrices(chainId);
   const meta = tokenMetaByChain(chainId);
   return meta.get(ZERO_ADDRESS.toLowerCase())?.priceUsd ?? 0;
 };
 
-/**
- * Unix seconds of the last storage-config change (StorageConfiguration.updatedAt),
- * used to show how long ago the fee receiver was changed. Null when the config
- * singleton hasn't been indexed yet.
- */
 export const fetchFeeReceiverChangedAt = async (
   chainId: number,
 ): Promise<number | null> => {
