@@ -4,12 +4,12 @@ import { WagmiProvider } from "wagmi";
 import { RainbowKitProvider, darkTheme } from "@rainbow-me/rainbowkit";
 import config from "@/config";
 import WalletProvider from "./WalletProvider";
+import SignInProvider from "./SignInProvider";
 import {
   DEFAULT_QUERY_GC_TIME_MS,
   DEFAULT_QUERY_STALE_TIME_MS,
 } from "@/constants";
 
-// Create a new QueryClient instance for React Query
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -44,20 +44,14 @@ const blackTheme = (() => {
   };
 })();
 
-/**
- * Web3Provider Component
- * Wraps the application in necessary providers for blockchain and wallet functionality.
- *
- * @param {Object} props - The props for the component.
- * @param {React.ReactNode} props.children - The child components to render inside the provider.
- * @returns {JSX.Element} - A provider-wrapped component tree.
- */
 const Web3Provider = ({ children }: { children: React.ReactNode }) => {
   return (
     <WagmiProvider config={config}>
       <QueryClientProvider client={queryClient}>
         <RainbowKitProvider theme={blackTheme}>
-          <WalletProvider>{children}</WalletProvider>
+          <SignInProvider>
+            <WalletProvider>{children}</WalletProvider>
+          </SignInProvider>
         </RainbowKitProvider>
       </QueryClientProvider>
     </WagmiProvider>

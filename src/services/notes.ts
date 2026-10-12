@@ -1,4 +1,5 @@
 import { CONTRACT_API_URL } from "@/constants";
+import { SessionRejectedError } from "@/services/auth";
 import type { Hex } from "viem";
 
 export type CreateNotePayload = {
@@ -34,10 +35,6 @@ export type PendingNote = {
 
 const PENDING_NOTES_KEY = "sapphire.pendingNotes";
 
-// A just-written note is held locally only until the subgraph catches up. The
-// plaintext is already in hand, so it is shown straight away rather than as a
-// pending row; the window is short because anything longer starts competing
-// with the indexed copy.
 const PENDING_NOTE_TTL_MS = 20_000;
 
 const getStorage = () =>
@@ -53,8 +50,6 @@ const readPendingNotes = (): PendingNote[] => {
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
 
-    // Expired entries are dropped on the way through, so a note the subgraph
-    // never indexed cannot linger as a permanent row.
     const cutoff = Date.now() - PENDING_NOTE_TTL_MS;
     return (parsed as PendingNote[]).filter(
       (note) => typeof note?.createdAt === "number" && note.createdAt * 1000 > cutoff,
@@ -70,7 +65,6 @@ const writePendingNotes = (notes: PendingNote[]) => {
   try {
     storage.setItem(PENDING_NOTES_KEY, JSON.stringify(notes));
   } catch {
-    // ignore storage errors
   }
 };
 
@@ -125,13 +119,7 @@ export const removePendingNote = (params: {
   writePendingNotes(filtered);
 };
 
-/**
- * Clears pending notes that the subgraph has now indexed.
- *
- * Matched on tx hash as well as note id: the write endpoint answers with a tx
- * hash and no id, so an entry stored without one would otherwise never be
- * cleared and would reappear as a stuck "pending" row on every reload.
- */
+// Matched on tx hash too: the write endpoint returns no note id.
 export const removePendingNotesByIds = (
   invoiceId: string,
   noteIds: string[],
@@ -156,32 +144,39 @@ export const removePendingNotesByIds = (
 const postNotes = async (
   path: "/v1/notes" | "/v1/notes/open",
   payload: Record<string, unknown>,
+  token: string,
 ): Promise<NotesApiResponse> => {
   const response = await fetch(`${CONTRACT_API_URL}${path}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
     body: JSON.stringify(payload),
     cache: "no-store",
   });
 
   const data = (await response.json()) as NotesApiResponse;
+  if (response.status === 401) {
+    throw new SessionRejectedError(data.error || "Session is invalid or expired");
+  }
   if (!response.ok || !data.success) {
     throw new Error(data.error || "Notes request failed");
   }
   return data;
 };
 
-/**
- * Writes an already-sealed note. `content` is the envelope from `sealNote`;
- * the API relays the bytes unchanged and never sees the plaintext.
- */
-export const createNote = async (payload: CreateNotePayload) =>
-  postNotes("/v1/notes", {
-    invoiceId: payload.invoiceId,
-    author: payload.author,
-    content: payload.content,
-    share: payload.share,
-  }).then((result) => {
+export const createNote = async (payload: CreateNotePayload, token: string) =>
+  postNotes(
+    "/v1/notes",
+    {
+      invoiceId: payload.invoiceId,
+      author: payload.author,
+      content: payload.content,
+      share: payload.share,
+    },
+    token,
+  ).then((result) => {
     try {
       addPendingNote({
         invoiceId: payload.invoiceId,
@@ -193,15 +188,20 @@ export const createNote = async (payload: CreateNotePayload) =>
         createdAt: Math.floor(Date.now() / 1000),
       });
     } catch {
-      // ignore storage errors
     }
     return result;
   });
 
-/** Only opening is recorded on chain; closing stays client-side. */
-export const setNoteOpenState = async (payload: SetNoteStatePayload) =>
-  postNotes("/v1/notes/open", {
-    invoiceId: payload.invoiceId,
-    author: payload.author,
-    noteId: payload.noteId,
-  });
+export const setNoteOpenState = async (
+  payload: SetNoteStatePayload,
+  token: string,
+) =>
+  postNotes(
+    "/v1/notes/open",
+    {
+      invoiceId: payload.invoiceId,
+      author: payload.author,
+      noteId: payload.noteId,
+    },
+    token,
+  );
