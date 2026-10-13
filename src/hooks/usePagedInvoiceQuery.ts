@@ -35,6 +35,22 @@ interface Result {
   refetch: () => void;
 }
 
+type CachedPages = {
+  seller: Invoice[];
+  buyer: Invoice[];
+  hasMoreSeller: boolean;
+  hasMoreBuyer: boolean;
+  nextSellerSkip: number;
+  nextBuyerSkip: number;
+};
+
+const pageCache = new Map<string, CachedPages>();
+const pageCacheKey = (
+  chainId: number,
+  address: string,
+  isIntermediated: boolean,
+) => `${chainId}:${address.toLowerCase()}:${isIntermediated ? "i" : "s"}`;
+
 export function usePagedInvoiceQuery({
   isIntermediated,
   enabled = true,
@@ -43,16 +59,40 @@ export function usePagedInvoiceQuery({
   const chainId = chain?.id ?? BASE_SEPOLIA;
   const isWindowVisible = useIsWindowVisible();
 
-  const [sellerInvoices, setSellerInvoices] = useState<Invoice[]>([]);
-  const [buyerInvoices, setBuyerInvoices] = useState<Invoice[]>([]);
-  const [hasMoreSeller, setHasMoreSeller] = useState(false);
-  const [hasMoreBuyer, setHasMoreBuyer] = useState(false);
+  const cacheKey = address
+    ? pageCacheKey(chainId, address, isIntermediated)
+    : null;
+  const cached = cacheKey ? pageCache.get(cacheKey) : undefined;
+
+  const [sellerInvoices, setSellerInvoices] = useState<Invoice[]>(
+    () => cached?.seller ?? [],
+  );
+  const [buyerInvoices, setBuyerInvoices] = useState<Invoice[]>(
+    () => cached?.buyer ?? [],
+  );
+  const [hasMoreSeller, setHasMoreSeller] = useState(
+    () => cached?.hasMoreSeller ?? false,
+  );
+  const [hasMoreBuyer, setHasMoreBuyer] = useState(
+    () => cached?.hasMoreBuyer ?? false,
+  );
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const nextSellerSkipRef = useRef(0);
-  const nextBuyerSkipRef = useRef(0);
+  const nextSellerSkipRef = useRef(cached?.nextSellerSkip ?? 0);
+  const nextBuyerSkipRef = useRef(cached?.nextBuyerSkip ?? 0);
   const fetchIdRef = useRef(0);
+
+  // Another account or chain: show its cached lists, never the previous one's.
+  useEffect(() => {
+    const entry = cacheKey ? pageCache.get(cacheKey) : undefined;
+    setSellerInvoices(entry?.seller ?? []);
+    setBuyerInvoices(entry?.buyer ?? []);
+    setHasMoreSeller(entry?.hasMoreSeller ?? false);
+    setHasMoreBuyer(entry?.hasMoreBuyer ?? false);
+    nextSellerSkipRef.current = entry?.nextSellerSkip ?? 0;
+    nextBuyerSkipRef.current = entry?.nextBuyerSkip ?? 0;
+  }, [cacheKey]);
 
   const doFetch = useCallback(
     async ({
@@ -208,21 +248,35 @@ export function usePagedInvoiceQuery({
               : transformSimple(inv, "Buyer"),
           );
 
+        const key = pageCacheKey(chainId, address, isIntermediated);
+        const entry: CachedPages = pageCache.get(key) ?? {
+          seller: [],
+          buyer: [],
+          hasMoreSeller: false,
+          hasMoreBuyer: false,
+          nextSellerSkip: 0,
+          nextBuyerSkip: 0,
+        };
+
         if (sellerSkip !== null) {
+          entry.seller = append ? [...entry.seller, ...newSeller] : newSeller;
+          entry.hasMoreSeller = hasMoreSel;
+          entry.nextSellerSkip = sellerSkip + INVOICE_FETCH_SIZE;
           setHasMoreSeller(hasMoreSel);
-          setSellerInvoices((prev) =>
-            append ? [...prev, ...newSeller] : newSeller,
-          );
-          nextSellerSkipRef.current = sellerSkip + INVOICE_FETCH_SIZE;
+          setSellerInvoices(entry.seller);
+          nextSellerSkipRef.current = entry.nextSellerSkip;
         }
 
         if (buyerSkip !== null) {
+          entry.buyer = append ? [...entry.buyer, ...newBuyer] : newBuyer;
+          entry.hasMoreBuyer = hasMoreBuy;
+          entry.nextBuyerSkip = buyerSkip + INVOICE_FETCH_SIZE;
           setHasMoreBuyer(hasMoreBuy);
-          setBuyerInvoices((prev) =>
-            append ? [...prev, ...newBuyer] : newBuyer,
-          );
-          nextBuyerSkipRef.current = buyerSkip + INVOICE_FETCH_SIZE;
+          setBuyerInvoices(entry.buyer);
+          nextBuyerSkipRef.current = entry.nextBuyerSkip;
         }
+
+        pageCache.set(key, entry);
       } catch (err) {
         if (id !== fetchIdRef.current) return;
         console.error("[usePagedInvoiceQuery] Error:", err);

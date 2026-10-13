@@ -1,7 +1,7 @@
 "use client";
 
 import { useContext, useState, useMemo, useCallback, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import {
   ContractActionsContext,
   InvoiceStateContext,
@@ -63,7 +63,6 @@ export default function IndexRecentPayment({
   const [page, setPage] = useState(1);
 
   const params = useSearchParams();
-  const router = useRouter();
   const defaultTab = params.get("tab") || "all";
   const [activeTab, setActiveTab] = useState(defaultTab);
   const debouncedWalletQuery = useDebouncedValue(walletQuery, 250)
@@ -74,7 +73,6 @@ export default function IndexRecentPayment({
     setActiveTab(defaultTab);
   }, [defaultTab]);
 
-  const basePath = isIntermediatedTab ? "/intermediated-dashboard" : "/dashboard";
 
   useEffect(() => {
     setPage(1);
@@ -307,11 +305,16 @@ export default function IndexRecentPayment({
       setStatusFilter("All");
       setWalletQuery("");
       setPage(1);
-      router.replace(value === "all" ? basePath : `${basePath}?tab=${value}`, {
-        scroll: false,
-      });
+      // Native history updates useSearchParams without remounting the page,
+      // which router.replace would do, refetching every list.
+      const path = window.location.pathname;
+      window.history.replaceState(
+        null,
+        "",
+        value === "all" ? path : `${path}?tab=${value}`,
+      );
     },
-    [router, basePath],
+    [],
   );
 
   const handleToggle = useCallback(
