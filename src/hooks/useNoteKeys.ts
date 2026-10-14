@@ -68,6 +68,26 @@ const writeOptIn = (address: string, enabled: boolean) => {
   }
 };
 
+// A published key can't be replaced, so once found it is remembered per wallet
+// and the chain is not asked again. "None yet" is never stored.
+const PUBLISHED_KEY_PREFIX = "sapphire.notes.publishedKey";
+
+const readStoredKey = (storageKey: string): Hex | null => {
+  try {
+    const value = window.localStorage.getItem(storageKey);
+    return value && value !== "0x" ? (value as Hex) : null;
+  } catch {
+    return null;
+  }
+};
+
+const writeStoredKey = (storageKey: string, key: Hex) => {
+  try {
+    window.localStorage.setItem(storageKey, key);
+  } catch {
+  }
+};
+
 const readPublishedKey = (result: unknown): Hex | null => {
   const key = (result as { key?: Hex } | undefined)?.key;
   return key && key !== "0x" ? key : null;
@@ -159,17 +179,44 @@ export const useNoteKeys = (options?: {
     () => ["note-public-key", chainId, address?.toLowerCase()],
     [chainId, address],
   );
-  const { data: registeredKey = null } = useViemReadContract<Hex | null>({
-    abi: Notes,
-    address: notesContract,
-    functionName: "getPublicKey",
-    args: address ? [address] : undefined,
-    chainId,
-    enabled: readsEnabled && Boolean(address),
-    queryKey: publicKeyQueryKey,
-    staleTime: NOTE_KEY_STALE_TIME_MS,
-    select: readPublishedKey,
-  });
+  const storageKey =
+    address && notesContract
+      ? `${PUBLISHED_KEY_PREFIX}:${chainId}:${notesContract.toLowerCase()}:${address.toLowerCase()}`
+      : null;
+
+  // Read after mount so the first render matches the static export.
+  const [stored, setStored] = useState<{
+    storageKey: string;
+    key: Hex | null;
+  } | null>(null);
+  useEffect(() => {
+    setStored(
+      storageKey ? { storageKey, key: readStoredKey(storageKey) } : null,
+    );
+  }, [storageKey]);
+  const storageChecked = stored !== null && stored.storageKey === storageKey;
+  const storedKey = storageChecked ? stored.key : null;
+
+  const { data: chainKey = null, isSuccess: chainKeyLoaded } =
+    useViemReadContract<Hex | null>({
+      abi: Notes,
+      address: notesContract,
+      functionName: "getPublicKey",
+      args: address ? [address] : undefined,
+      chainId,
+      enabled:
+        readsEnabled && Boolean(address) && storageChecked && !storedKey,
+      queryKey: publicKeyQueryKey,
+      staleTime: NOTE_KEY_STALE_TIME_MS,
+      select: readPublishedKey,
+    });
+
+  useEffect(() => {
+    if (storageKey && chainKey) writeStoredKey(storageKey, chainKey);
+  }, [storageKey, chainKey]);
+
+  const registeredKey = storedKey ?? chainKey;
+  const registeredKeyLoaded = Boolean(storedKey) || chainKeyLoaded;
 
   const currentKey = address ? sessionKey(address, version) : null;
   const keys = useSyncExternalStore(
@@ -292,6 +339,8 @@ export const useNoteKeys = (options?: {
       keys,
       publicKey: keys?.publicKey ?? null,
       registeredKey,
+      /** False until the published-key read lands, so null is not yet "none". */
+      registeredKeyLoaded,
       needsRegistration: Boolean(keys && !registeredKey),
       keyMismatch,
       unlock,
@@ -305,6 +354,7 @@ export const useNoteKeys = (options?: {
       version,
       keys,
       registeredKey,
+      registeredKeyLoaded,
       keyMismatch,
       unlock,
       register,

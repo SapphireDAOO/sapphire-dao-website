@@ -33,6 +33,7 @@ import { toast } from "sonner";
 import { usePayLink } from "@/hooks/usePayLink";
 import { sealNote } from "@/lib/noteCrypto";
 import { useNoteKeys } from "@/hooks/useNoteKeys";
+import { MessagingKey } from "@/components/action-components/notes/MessagingKey";
 import React from "react";
 import { BASE_SEPOLIA, SIMPLE_PAYMENT_PROCESSOR } from "@/constants";
 import {
@@ -137,6 +138,9 @@ export default function CreateInvoiceDialog() {
     }
   })();
 
+  // Required so the payer can always write notes back to the seller.
+  const hasPublishedKey = Boolean(noteKeys.registeredKey);
+
   const isAmountValid =
     !!amount &&
     !isNaN(Number(amount)) &&
@@ -145,6 +149,10 @@ export default function CreateInvoiceDialog() {
 
   const handleClick = useCallback(async () => {
     if (!isAmountValid) return;
+    if (!hasPublishedKey) {
+      toast.error("Publish your messaging key before creating an invoice.");
+      return;
+    }
 
     setIsCreating(true);
     try {
@@ -190,6 +198,7 @@ export default function CreateInvoiceDialog() {
   }, [
     amount,
     noteKeys,
+    hasPublishedKey,
     isAmountValid,
     createInvoice,
     note,
@@ -234,6 +243,10 @@ export default function CreateInvoiceDialog() {
               this before paying.
             </p>
           </div>
+
+          {address &&
+            noteKeys.registeredKeyLoaded &&
+            !noteKeys.registeredKey && <MessagingKey />}
 
           {contractAddress && (
             <InvoiceField
@@ -301,7 +314,10 @@ export default function CreateInvoiceDialog() {
               <Button
                 onClick={handleClick}
                 disabled={
-                  !isAmountValid || isCreating || isLoading === "createInvoice"
+                  !isAmountValid ||
+                  !hasPublishedKey ||
+                  isCreating ||
+                  isLoading === "createInvoice"
                 }
                 className="w-full sm:w-auto"
               >
