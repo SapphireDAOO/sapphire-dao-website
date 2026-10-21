@@ -41,9 +41,6 @@ const RateCountdown = ({ updatedAt }: { updatedAt: number }) => {
   );
 };
 
-// The currency dropdown's value for the token being paid with.
-const TOKEN_VALUE = "token";
-
 const formatFiat = (value: number, currency: string) =>
   new Intl.NumberFormat("en-US", { style: "currency", currency }).format(value);
 
@@ -104,10 +101,6 @@ const AmountDue = ({
 }: AmountDueProps) => {
   const rates = FIAT_RATES;
   const [currency, setCurrency] = useState<FiatCurrency>("USD");
-  // A USD-billed price can also be shown in the token being paid with.
-  const [inToken, setInToken] = useState(false);
-  const convertible = billedInUsd && Boolean(token);
-  const showToken = inToken && convertible;
   const offered = FIAT_CURRENCIES.filter((code) => rates?.[code]);
   const shownCurrency = rates?.[currency] ? currency : "USD";
   const tokenAmount =
@@ -118,38 +111,32 @@ const AmountDue = ({
     priceUsd === undefined
       ? undefined
       : formatFiat(priceUsd * (rates?.[shownCurrency] ?? 1), shownCurrency);
-  // The headline is what the invoice is billed in, unless a
-  // token is picked; the other amount sits beneath it.
-  const shown = billedInUsd && !showToken ? (fiat ?? "…") : tokenAmount;
+  // The headline is what the invoice is billed in; the other amount sits beneath it.
+  const shown = billedInUsd ? (fiat ?? "…") : tokenAmount;
 
-  const fiatOptions = (offered.length ? offered : ["USD"]).map((code) => (
-    <option key={code} value={code}>
-      {code}
-    </option>
-  ));
-  const currencySelect = (className: string) => (
-    <InlineSelect
-      label="Show amount in"
-      value={showToken ? TOKEN_VALUE : shownCurrency}
-      display={showToken && token ? token.name : shownCurrency}
-      onChange={(value) => {
-        setInToken(value === TOKEN_VALUE);
-        if (value !== TOKEN_VALUE) setCurrency(value as FiatCurrency);
-      }}
-      className={className}
-    >
-      {convertible && token ? (
-        <>
-          <optgroup label="Currencies">{fiatOptions}</optgroup>
-          <optgroup label="Token you pay with">
-            <option value={TOKEN_VALUE}>{token.name}</option>
-          </optgroup>
-        </>
-      ) : (
-        fiatOptions
-      )}
-    </InlineSelect>
-  );
+  // A dropdown only when there is more than one currency to pick.
+  const currencySelect = (className: string) =>
+    offered.length > 1 ? (
+      <InlineSelect
+        label="Show amount in"
+        value={shownCurrency}
+        display={shownCurrency}
+        onChange={(value) => setCurrency(value as FiatCurrency)}
+        className={className}
+      >
+        {offered.map((code) => (
+          <option key={code} value={code}>
+            {code}
+          </option>
+        ))}
+      </InlineSelect>
+    ) : (
+      <span
+        className={`font-semibold tracking-[0.12em] text-stone-900 ${className}`}
+      >
+        {shownCurrency}
+      </span>
+    );
 
   const tokenBadge = (
     <span className="flex h-4 w-4 items-center justify-center rounded-full border border-stone-400 text-[9px] text-stone-600 sm:h-5 sm:w-5 sm:text-[10px]">
@@ -186,17 +173,7 @@ const AmountDue = ({
         )}
       </div>
 
-      {billedInUsd && showToken ? (
-        <>
-          <p className="mt-3 text-[11px] text-stone-700 sm:text-sm">
-            ≈ {priceUsd !== undefined ? formatFiat(priceUsd, "USD") : "…"} USD
-          </p>
-          {rateUpdatedAt ? <RateCountdown updatedAt={rateUpdatedAt} /> : null}
-          <p className="mt-1 text-[11px] text-stone-500 sm:text-sm">
-            Billed in USD; you pay this in {token?.name}.
-          </p>
-        </>
-      ) : billedInUsd ? (
+      {billedInUsd ? (
         <>
           <p className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-stone-500 sm:text-sm">
             {tokenBadge}
