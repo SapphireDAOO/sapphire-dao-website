@@ -56,7 +56,7 @@ const LOCAL_INVOICE_CACHE_LIMIT = 100;
 const INVOICE_READ_TTL_MS = 5_000;
 const INVOICE_READ_CACHE_MAX = 200;
 
-const INTERMEDIATED_STATE_LABELS: Record<number, string> = {
+export const INTERMEDIATED_STATE_LABELS: Record<number, string> = {
   1: "CREATED",
   2: "PAID",
   3: "REFUNDED",

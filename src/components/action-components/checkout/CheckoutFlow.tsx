@@ -65,7 +65,7 @@ const CheckoutFlow = ({
             </p>
           ),
           status: invoice.status
-            ? `Invoice ${invoice.status.toLowerCase()}`
+            ? `Invoice ${invoice.status.toLowerCase().replace(/_/g, " ")}`
             : "Not payable",
         };
 

@@ -7,6 +7,7 @@ import { ContractActionsContext } from "@/context/contract-context";
 import { InvoiceDetails } from "@/model/model";
 
 import { useCheckoutQuote } from "@/hooks/useCheckoutQuote";
+import { INTERMEDIATED_STATE_LABELS } from "@/hooks/useInvoiceData";
 import CheckoutFlow from "./CheckoutFlow";
 import { BackLink, CheckoutHeader } from "./CheckoutHeader";
 import { PaymentShell, ShellMessage, TextLink } from "./CheckoutLayout";
@@ -126,8 +127,14 @@ const CheckoutPage = () => {
               "",
             invoiceId: invoiceId,
             price: intermediatedInvoice?.price?.toString() ?? "0",
-            status: (intermediatedInvoice as { state?: string } | undefined)
-              ?.state,
+            // The contract reports state as a number; the subgraph, by name.
+            status:
+              INTERMEDIATED_STATE_LABELS[
+                Number(
+                  (intermediatedInvoice as { state?: number } | undefined)
+                    ?.state,
+                )
+              ],
           };
         }
         setInvoiceDetails(structured);
