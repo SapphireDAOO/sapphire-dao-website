@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 
-export const REDIRECT_SECONDS = 3;
+export const REDIRECT_SECONDS = 5;
 
 /** Counts down once `active`, then calls `go`; returns the seconds left. */
 export const useRedirectCountdown = (active: boolean, go: () => void) => {
