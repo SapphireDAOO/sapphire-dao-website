@@ -10,16 +10,19 @@ import { useViemReadContract } from "./useViemReadContract";
 const LAPSE_RECHECK_DELAYS_MS = [2_000, 10_000, 30_000];
 // setTimeout fires immediately for anything longer than this (~24.8 days).
 const MAX_TIMEOUT_MS = 2_147_483_647;
+// Changes only by a governance vote; usePauseState refreshes it on the event.
+const PAUSER_STALE_TIME_MS = 60 * 60 * 1_000;
 
 export const useEmergencyPause = () => {
   const { address } = useAccount();
   const chainId = useChainId() || BASE_SEPOLIA;
   const address_ = PAYMENT_PROCESSOR_STORAGE[chainId];
+  // No `account`: these are global views, and a sender both splits the
+  // cache per wallet and stops viem batching the reads into one multicall.
   const shared = {
     abi: PaymentProcessorStorage,
     chainId,
     address: address_,
-    account: address,
   };
 
   const { data: isPaused, refetch: refetchIsPaused } =
@@ -39,17 +42,19 @@ export const useEmergencyPause = () => {
   const { data: emergencyPauser } = useViemReadContract<Address>({
     ...shared,
     functionName: "getEmergencyPauser",
+    staleTime: PAUSER_STALE_TIME_MS,
   });
 
   const { data: pauseDuration } = useViemReadContract<bigint>({
     ...shared,
     functionName: "EMERGENCY_PAUSE_DURATION",
+    staleTime: Infinity,
   });
 
   const canPause = Boolean(
     address &&
-      emergencyPauser &&
-      address.toLowerCase() === emergencyPauser.toLowerCase(),
+    emergencyPauser &&
+    address.toLowerCase() === emergencyPauser.toLowerCase(),
   );
 
   const refetch = useCallback(async () => {
@@ -60,13 +65,17 @@ export const useEmergencyPause = () => {
     const expiryMs = Number(pauseExpiry ?? 0) * 1000;
     if (!isPaused || !expiryMs) return;
 
+    const recheck = () => {
+      void refetchIsPaused({ cancelRefetch: false });
+      void refetchPauseExpiry({ cancelRefetch: false });
+    };
     const untilExpiry = expiryMs - Date.now();
     const timers = LAPSE_RECHECK_DELAYS_MS.map((delay) => untilExpiry + delay)
       .filter((delay) => delay > 0 && delay <= MAX_TIMEOUT_MS)
-      .map((delay) => setTimeout(() => void refetch(), delay));
+      .map((delay) => setTimeout(recheck, delay));
 
     return () => timers.forEach(clearTimeout);
-  }, [isPaused, pauseExpiry, refetch]);
+  }, [isPaused, pauseExpiry, refetchIsPaused, refetchPauseExpiry]);
 
   return {
     isPaused,

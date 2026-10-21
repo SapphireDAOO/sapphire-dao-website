@@ -32,6 +32,7 @@ const PAUSE_EVENTS = [
   pauseEvent("EmergencyPaused"),
   pauseEvent("EmergencyPauseApproved"),
 ] as const;
+const PAUSER_UPDATED = pauseEvent("EmergencyPauserUpdated");
 
 const STALE_TIME_MS = 30_000;
 
@@ -84,8 +85,19 @@ export const usePauseState = () => {
 
     const unwatch = publicClient.watchEvent({
       address: contractAddress,
-      events: [...PAUSE_EVENTS],
-      onLogs: (logs) => {
+      events: [...PAUSE_EVENTS, PAUSER_UPDATED],
+      onLogs: (allLogs) => {
+        // A new pauser changes no pause state; it only refreshes the cached pauser.
+        const logs = allLogs.filter(
+          (log) => log.eventName !== PAUSER_UPDATED.name,
+        );
+        if (logs.length < allLogs.length) {
+          void queryClient.invalidateQueries({
+            queryKey: ["viem-read", chainId, contractAddress, "getEmergencyPauser"],
+          });
+        }
+        if (logs.length === 0) return;
+
         queryClient.setQueryData<PauseSnapshot>(queryKey, (prev) => {
           let state: PauseState = prev?.state ?? { ownerPaused: false };
 
