@@ -219,7 +219,6 @@ const PaymentSteps = ({
                 Your wallet is the easiest way to pay. Connect it to continue
                 securely.
               </p>
-              {tokenChooser}
               {!isConnected && (
                 <PrimaryButton type="button" onClick={connect}>
                   Connect wallet
