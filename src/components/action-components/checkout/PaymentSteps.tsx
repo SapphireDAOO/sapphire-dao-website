@@ -180,7 +180,8 @@ const PaymentSteps = ({
   };
 
   const connect = () => openConnectModal?.();
-  const tokenChooser = tokens.length > 1 && onTokenChange && (
+  // Offered once a wallet is connected, when there's a balance to pay from.
+  const tokenChooser = isConnected && tokens.length > 1 && onTokenChange && (
     <TokenChooser
       tokens={tokens}
       selectedId={selectedTokenId}
