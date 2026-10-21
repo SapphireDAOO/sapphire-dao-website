@@ -44,12 +44,18 @@ const blackTheme = (() => {
   };
 })();
 
-const Web3Provider = ({ children }: { children: React.ReactNode }) => {
+const Web3Provider = ({
+  children,
+  promptSignIn = true,
+}: {
+  children: React.ReactNode;
+  promptSignIn?: boolean;
+}) => {
   return (
     <WagmiProvider config={config}>
       <QueryClientProvider client={queryClient}>
         <RainbowKitProvider theme={blackTheme}>
-          <SignInProvider>
+          <SignInProvider promptOnConnect={promptSignIn}>
             <WalletProvider>{children}</WalletProvider>
           </SignInProvider>
         </RainbowKitProvider>

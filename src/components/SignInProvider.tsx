@@ -63,7 +63,14 @@ let pendingSignIn: { key: string; attempt: Promise<string> } | null = null;
 // Prompted once per account per tab on connect; the gate offers a retry.
 const prompted = new Set<string>();
 
-const SignInProvider = ({ children }: { children: ReactNode }) => {
+const SignInProvider = ({
+  children,
+  promptOnConnect = true,
+}: {
+  children: ReactNode;
+  /** Off where signing in isn't needed, e.g. checkout. */
+  promptOnConnect?: boolean;
+}) => {
   const {
     address,
     chain,
@@ -157,12 +164,12 @@ const SignInProvider = ({ children }: { children: ReactNode }) => {
   );
 
   useEffect(() => {
-    if (!canSignIn || !address || !chainId) return;
+    if (!promptOnConnect || !canSignIn || !address || !chainId) return;
     const key = address.toLowerCase();
     if (prompted.has(key) || readSession(address)) return;
     prompted.add(key);
     promptSignIn(address, chainId);
-  }, [address, canSignIn, chainId, promptSignIn]);
+  }, [address, canSignIn, chainId, promptOnConnect, promptSignIn]);
 
   const signInNow = useCallback(() => {
     if (canSignIn && address && chainId) promptSignIn(address, chainId);
