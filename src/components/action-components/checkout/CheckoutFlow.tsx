@@ -1,6 +1,6 @@
 "use client";
 
-import { useContext, useMemo } from "react";
+import { useContext, useMemo, useState } from "react";
 import type { Address } from "viem";
 import {
   ContractActionsContext,
@@ -12,6 +12,7 @@ import { useGetIntermediatedInvoiceData } from "@/hooks/useGetIntermediatedInvoi
 import { isNativeToken, type useCheckoutQuote } from "@/hooks/useCheckoutQuote";
 import { TextLink } from "./CheckoutLayout";
 import PaymentSteps from "./PaymentSteps";
+import { RedirectNotice, useRedirectCountdown } from "./RedirectNotice";
 import { MARKETPLACE_LINKS } from "./checkoutLinks";
 
 const useHoldPeriodSeconds = (invoiceId: bigint) => {
@@ -39,6 +40,10 @@ const CheckoutFlow = ({
   const isLoading = useContext(ContractLoadingContext);
   const holdPeriodSeconds = useHoldPeriodSeconds(invoice.invoiceId);
   const { token, amount, balance, isPayable, isLoadingOptions } = quote;
+  const [paid, setPaid] = useState(false);
+  const countdown = useRedirectCountdown(paid, () =>
+    window.location.assign(MARKETPLACE_LINKS.home),
+  );
 
   const hold =
     holdPeriodSeconds !== undefined
@@ -75,17 +80,18 @@ const CheckoutFlow = ({
       paying={
         isLoading === "paySingleInvoice" || isLoading === "payMetaInvoice"
       }
-      onPay={async (onSubmitted) =>
-        token
-          ? payIntermediatedInvoice(
-              isMetaInvoice ? "payMetaInvoice" : "paySingleInvoice",
-              BigInt(invoice.price),
-              invoice.invoiceId,
-              token.id as Address,
-              onSubmitted,
-            )
-          : false
-      }
+      onPay={async (onSubmitted) => {
+        if (!token) return false;
+        const success = await payIntermediatedInvoice(
+          isMetaInvoice ? "payMetaInvoice" : "paySingleInvoice",
+          BigInt(invoice.price),
+          invoice.invoiceId,
+          token.id as Address,
+          onSubmitted,
+        );
+        setPaid(success);
+        return success;
+      }}
       payDetails={
         hold && (
           <p className="border-l-2 border-blue-900 pl-3">
@@ -95,11 +101,14 @@ const CheckoutFlow = ({
         )
       }
       paidDetails={
-        hold && (
-          <p>
-            It&apos;s held in escrow for {hold}, then released to the seller.
-          </p>
-        )
+        <>
+          {hold && (
+            <p>
+              It&apos;s held in escrow for {hold}, then released to the seller.
+            </p>
+          )}
+          <RedirectNotice destination="the marketplace" seconds={countdown} />
+        </>
       }
       exitLinks={
         <>

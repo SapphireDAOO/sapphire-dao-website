@@ -4,7 +4,6 @@ import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useAccount, useChainId, usePublicClient } from "wagmi";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
 import { formatEther, parseEther, type Hash } from "viem";
 import {
   ContractActionsContext,
@@ -32,9 +31,12 @@ import {
   TextLink,
 } from "@/components/action-components/checkout/CheckoutLayout";
 import PaymentSteps from "@/components/action-components/checkout/PaymentSteps";
+import {
+  RedirectNotice,
+  useRedirectCountdown,
+} from "@/components/action-components/checkout/RedirectNotice";
 
 const ETH: TokenData = { id: ZERO_ADDRESS, name: "ETH", decimals: 18 };
-const REDIRECT_SECONDS = 5;
 
 export const dashboardLinks = (
   <BackLink href="/dashboard?tab=buyer" label="Dashboard" />
@@ -75,17 +77,6 @@ const toWei = (price: InvoiceLike["price"]): bigint | undefined => {
   return undefined;
 };
 
-const RedirectNotice = ({ seconds }: { seconds?: number }) => (
-  <p
-    role="status"
-    className="flex items-center gap-2 rounded-xl bg-white/70 p-3 font-medium text-stone-900"
-  >
-    <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-blue-900" />
-    Redirecting to your dashboard
-    {seconds !== undefined ? ` in ${seconds}s` : ""}…
-  </p>
-);
-
 const PayFlow = ({ invoiceId }: { invoiceId: bigint }) => {
   const { address } = useAccount();
   const chainId = useChainId() || BASE_SEPOLIA;
@@ -114,7 +105,6 @@ const PayFlow = ({ invoiceId }: { invoiceId: bigint }) => {
   const [paymentNote, setPaymentNote] = useState("");
   const [shareNote, setShareNote] = useState(false);
   const [paid, setPaid] = useState(false);
-  const [countdown, setCountdown] = useState(REDIRECT_SECONDS);
   const paymentSubmittedRef = useRef(false);
 
   useEffect(() => watchInvoiceEvents?.("simple"), [watchInvoiceEvents]);
@@ -223,15 +213,9 @@ const PayFlow = ({ invoiceId }: { invoiceId: bigint }) => {
     router.push(`/dashboard?tab=${userIsCreator ? "seller" : "buyer"}`);
   }, [canPay, paid, redirectsWhenSettled, isLoading, userIsCreator, router]);
 
-  useEffect(() => {
-    if (!paid) return;
-    if (countdown <= 0) {
-      router.push("/dashboard?tab=buyer");
-      return;
-    }
-    const timer = setTimeout(() => setCountdown((left) => left - 1), 1_000);
-    return () => clearTimeout(timer);
-  }, [paid, countdown, router]);
+  const countdown = useRedirectCountdown(paid, () =>
+    router.push("/dashboard?tab=buyer"),
+  );
 
   const pay = async (onSubmitted: (hash: Hash) => void) => {
     if (amount === undefined) {
@@ -304,7 +288,7 @@ const PayFlow = ({ invoiceId }: { invoiceId: bigint }) => {
             <>
               <p>It has already been paid or is closed.</p>
               {redirectsWhenSettled ? (
-                <RedirectNotice />
+                <RedirectNotice destination="your dashboard" />
               ) : (
                 <p>You can follow it from your dashboard.</p>
               )}
@@ -398,7 +382,10 @@ const PayFlow = ({ invoiceId }: { invoiceId: bigint }) => {
           paidDetails={
             <>
               {holdNote && <p>{holdNote}</p>}
-              <RedirectNotice seconds={countdown} />
+              <RedirectNotice
+                destination="your dashboard"
+                seconds={countdown}
+              />
             </>
           }
           exitLinks={

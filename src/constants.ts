@@ -9,7 +9,7 @@ export const ONE_DAY_MS = 24 * 60 * 60 * ONE_SECOND_MS;
 export const DEFAULT_QUERY_STALE_TIME_MS = 15 * ONE_SECOND_MS;
 export const DEFAULT_QUERY_GC_TIME_MS = ONE_DAY_MS;
 // How long a payment page shows one price quote before refreshing it.
-export const RATE_WINDOW_MS = 5 * 60 * ONE_SECOND_MS;
+export const RATE_WINDOW_MS = 30 * ONE_SECOND_MS;
 
 // Fixed for every invoice: a per-invoice hold is a
 // term the payer can't see until opening the link.
