@@ -6,10 +6,13 @@ import { ArrowLeft, ChevronDown } from "lucide-react";
 import { formatAddress } from "@/utils";
 import type { TokenData } from "@/model/model";
 import { RATE_WINDOW_MS } from "@/constants";
-import { useFiatRates } from "@/hooks/useFiatRates";
 import { useSharedSecondTicker } from "@/hooks/useSharedSecondTicker";
 import { formatTokenAmount } from "@/hooks/useCheckoutQuote";
-import { FIAT_CURRENCIES, type FiatCurrency } from "@/services/fiatRates";
+import {
+  FIAT_CURRENCIES,
+  FIAT_RATES,
+  type FiatCurrency,
+} from "@/services/fiatRates";
 import { CheckoutColumns, Eyebrow, TextLink } from "./CheckoutLayout";
 
 export const Brand = () => (
@@ -99,7 +102,7 @@ const AmountDue = ({
   token,
   rateUpdatedAt,
 }: AmountDueProps) => {
-  const { data: rates } = useFiatRates();
+  const rates = FIAT_RATES;
   const [currency, setCurrency] = useState<FiatCurrency>("USD");
   // A USD-billed price can also be shown in the token being paid with.
   const [inToken, setInToken] = useState(false);

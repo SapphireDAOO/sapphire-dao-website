@@ -18,7 +18,7 @@ import { useGetInvoiceData } from "@/hooks/useGetInvoiceData";
 import { useInvoiceNotes, ThreadNote } from "@/hooks/useInvoiceNotes";
 import { fetchNotePublicKey, useNoteKeys } from "@/hooks/useNoteKeys";
 import { useViemBalance } from "@/hooks/useViemBalance";
-import { useUsdPrice } from "@/hooks/useFiatRates";
+import { useUsdPrice } from "@/hooks/useUsdPrice";
 import { sealNote } from "@/lib/noteCrypto";
 import { Textarea } from "@/components/ui/textarea";
 import { NoteLength } from "@/components/NoteLength";
@@ -100,7 +100,15 @@ const PayFlow = ({ invoiceId }: { invoiceId: bigint }) => {
   const { data: fetchedInvoice } = useGetInvoiceData(invoiceId);
   const { notes: invoiceNotes } = useInvoiceNotes(invoiceId);
   const noteKeys = useNoteKeys();
-  const { data: balance } = useViemBalance({ address, chainId });
+  // Followed live only while the wallet is short, so the
+  // page can move on when the funds arrive.
+  const [isShort, setIsShort] = useState(false);
+  const { data: balance } = useViemBalance({
+    address,
+    chainId,
+    watchBlock: isShort,
+    refetchOnWindowFocus: true,
+  });
   const { data: usdPerEth, dataUpdatedAt: rateUpdatedAt } = useUsdPrice("ETH");
 
   const [paymentNote, setPaymentNote] = useState("");
@@ -124,6 +132,14 @@ const PayFlow = ({ invoiceId }: { invoiceId: bigint }) => {
   const invoiceSeller =
     getInvoiceSeller(liveInvoice) ?? getInvoiceSeller(fetchedInvoice);
   const amount = toWei(invoiceLike?.price);
+
+  useEffect(
+    () =>
+      setIsShort(
+        amount !== undefined && balance !== undefined && balance < amount,
+      ),
+    [amount, balance],
+  );
 
   const reference = useMemo(() => {
     const fetched = fetchedInvoice as

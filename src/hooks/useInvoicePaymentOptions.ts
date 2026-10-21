@@ -28,91 +28,116 @@ export const useInvoicePaymentOptions = (
   const address = INTERMEDIATED_PAYMENT_PROCESSOR[chainId] as
     | Address
     | undefined;
+  const shared = address
+    ? ({ address, abi: intermediatedPaymentProcessor } as const)
+    : undefined;
+  const id = invoiceId?.toString();
 
-  const { data, isLoading, error } = useQuery({
-    queryKey: [
-      "invoice-payment-options",
-      chainId,
-      invoiceId?.toString(),
-      isMetaInvoice,
-    ],
-    enabled: Boolean(publicClient && address && invoiceId),
-    staleTime: DEFAULT_QUERY_STALE_TIME_MS,
+  // Fixed when the invoice was created, so fetched once and never refetched.
+  const terms = useQuery({
+    queryKey: ["invoice-payment-terms", chainId, id, isMetaInvoice],
+    enabled: Boolean(publicClient && shared && invoiceId),
+    staleTime: Infinity,
     gcTime: DEFAULT_QUERY_GC_TIME_MS,
     queryFn: async () => {
-      if (!publicClient || !address || !invoiceId) {
-        return { tokens: [] as TokenData[], isPayable: false };
+      if (!publicClient || !shared || !invoiceId || !address) {
+        return { invoiceIds: [] as bigint[], tokens: [] as TokenData[] };
       }
 
-      const shared = { address, abi: intermediatedPaymentProcessor } as const;
-
-      const invoiceIds: bigint[] = isMetaInvoice
-        ? [
-            ...((
-              await publicClient.readContract({
+      const [invoiceIds, registered] = await Promise.all([
+        isMetaInvoice
+          ? publicClient
+              .readContract({
                 ...shared,
                 functionName: "getMetaInvoice",
                 args: [invoiceId],
               })
-            )?.subInvoiceIds ?? []),
-          ]
-        : [invoiceId];
-
-      if (invoiceIds.length === 0) {
-        return { tokens: [] as TokenData[], isPayable: false };
-      }
-
-      const states = (await publicClient.multicall({
-        allowFailure: false,
-        contracts: invoiceIds.map((id) => ({
-          ...shared,
-          functionName: "getInvoice",
-          args: [id],
-        })),
-      })) as unknown as { state: number | bigint }[];
-
-      const isPayable = states.every(
-        (invoice) => Number(invoice?.state) === STATE_CREATED,
-      );
-
-      const candidateIds = await fetchRegisteredPaymentTokens(
-        publicClient,
-        chainId,
-        address,
-        invoiceId,
-        isMetaInvoice,
-      );
-
-      // Rechecked live, in case the contract has since stopped accepting one.
-      const allowances = (await publicClient.multicall({
-        allowFailure: false,
-        contracts: invoiceIds.flatMap((id) =>
-          candidateIds.map((token) => ({
-            ...shared,
-            functionName: "isPaymentTokenAllowed",
-            args: [id, token],
-          })),
+              .then((meta) => [...(meta?.subInvoiceIds ?? [])])
+          : Promise.resolve([invoiceId]),
+        fetchRegisteredPaymentTokens(
+          publicClient,
+          chainId,
+          address,
+          invoiceId,
+          isMetaInvoice,
         ),
-      })) as unknown as boolean[];
-
-      const allowed = candidateIds.filter((_, tokenIndex) =>
-        invoiceIds.every(
-          (_id, idIndex) =>
-            allowances[idIndex * candidateIds.length + tokenIndex] === true,
-        ),
-      );
+      ]);
 
       return {
-        tokens: await fetchTokenData(publicClient, allowed),
-        isPayable,
+        invoiceIds,
+        tokens: await fetchTokenData(publicClient, registered),
       };
     },
   });
 
+  const invoiceIds = terms.data?.invoiceIds ?? [];
+  const candidates = terms.data?.tokens ?? [];
+
+  // State and allowances in one request: the only part that can change.
+  const live = useQuery({
+    queryKey: [
+      "invoice-payment-options",
+      chainId,
+      id,
+      isMetaInvoice,
+      candidates.map((token) => token.id).join(","),
+    ],
+    enabled: Boolean(publicClient && shared && invoiceIds.length),
+    staleTime: DEFAULT_QUERY_STALE_TIME_MS,
+    gcTime: DEFAULT_QUERY_GC_TIME_MS,
+    queryFn: async () => {
+      if (!publicClient || !shared) {
+        return { allowed: [] as string[], isPayable: false };
+      }
+
+      const results = (await publicClient.multicall({
+        allowFailure: false,
+        contracts: [
+          ...invoiceIds.map((invoice) => ({
+            ...shared,
+            functionName: "getInvoice" as const,
+            args: [invoice] as const,
+          })),
+          ...invoiceIds.flatMap((invoice) =>
+            candidates.map((token) => ({
+              ...shared,
+              functionName: "isPaymentTokenAllowed" as const,
+              args: [invoice, token.id as Address] as const,
+            })),
+          ),
+        ],
+      })) as unknown[];
+
+      const states = results.slice(0, invoiceIds.length) as {
+        state: number | bigint;
+      }[];
+      const allowances = results.slice(invoiceIds.length) as boolean[];
+
+      return {
+        isPayable: states.every(
+          (invoice) => Number(invoice?.state) === STATE_CREATED,
+        ),
+        // Rechecked live, in case the contract has since stopped accepting one.
+        allowed: candidates
+          .filter((_, tokenIndex) =>
+            invoiceIds.every(
+              (_invoice, idIndex) =>
+                allowances[idIndex * candidates.length + tokenIndex] === true,
+            ),
+          )
+          .map((token) => token.id),
+      };
+    },
+  });
+
+  const allowed = new Set(live.data?.allowed ?? []);
+  const error = terms.error ?? live.error;
+
   return {
-    tokens: data?.tokens ?? [],
-    isPayable: data?.isPayable ?? false,
-    isLoading,
+    tokens: candidates.filter((token) => allowed.has(token.id)),
+    isPayable: live.data?.isPayable ?? false,
+    // A meta invoice with no sub-invoices never runs the live check.
+    isLoading: terms.isLoading || (invoiceIds.length > 0 && live.isPending),
     error: error instanceof Error ? error.message : null,
   };
 };

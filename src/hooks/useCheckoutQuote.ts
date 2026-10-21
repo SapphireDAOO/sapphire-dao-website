@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAccount, useChainId } from "wagmi";
 import { erc20Abi, formatUnits, type Abi, type Address } from "viem";
 import { intermediatedPaymentProcessor } from "@/abis/IntermediatedPaymentProcessor";
@@ -72,9 +72,15 @@ export const useCheckoutQuote = (
       refetchInterval: RATE_WINDOW_MS,
     });
 
+  // Followed live only while the wallet is short, so the
+  // page can move on when the funds arrive.
+  const [isShort, setIsShort] = useState(false);
+
   const { data: nativeBalance } = useViemBalance({
     address: native ? address : undefined,
     chainId,
+    watchBlock: isShort,
+    refetchOnWindowFocus: true,
   });
 
   const { data: tokenBalance } = useViemReadContract<bigint>({
@@ -84,8 +90,18 @@ export const useCheckoutQuote = (
     args: [address],
     chainId,
     enabled: Boolean(address),
-    refetchInterval: DEFAULT_BLOCK_POLLING_INTERVAL_MS,
+    refetchInterval: isShort ? DEFAULT_BLOCK_POLLING_INTERVAL_MS : false,
+    refetchOnWindowFocus: true,
   });
+
+  const balance = native ? nativeBalance : tokenBalance;
+  useEffect(
+    () =>
+      setIsShort(
+        amount !== undefined && balance !== undefined && balance < amount,
+      ),
+    [amount, balance],
+  );
 
   return {
     tokens,
@@ -93,7 +109,7 @@ export const useCheckoutQuote = (
     setTokenId,
     amount,
     rateUpdatedAt,
-    balance: native ? nativeBalance : tokenBalance,
+    balance,
     isPayable,
     isLoadingOptions,
   };
