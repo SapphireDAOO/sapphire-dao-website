@@ -208,14 +208,6 @@ export const paymentTokenQuery = `
   }
 `;
 
-const paymentTokensFragment = `
-  paymentTokens(first: 5) {
-    id
-    name
-    decimal
-  }
-`;
-
 export const smartInvoiceQuery = `
   query ($id: ID!) {
     smartInvoice: advancedPaymentProcessor(id: $id) {
@@ -237,7 +229,6 @@ export const smartInvoiceQuery = `
       buyer { id }
       events { eventType txHash timestamp }
     }
-    ${paymentTokensFragment}
   }
 `;
 
@@ -249,7 +240,6 @@ export const metaInvoiceQuery = `
       invoiceId: invoiceNonce
       price
     }
-    ${paymentTokensFragment}
   }
 `;
 

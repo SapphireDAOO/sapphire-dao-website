@@ -8,6 +8,8 @@ export const ONE_SECOND_MS = 1_000;
 export const ONE_DAY_MS = 24 * 60 * 60 * ONE_SECOND_MS;
 export const DEFAULT_QUERY_STALE_TIME_MS = 15 * ONE_SECOND_MS;
 export const DEFAULT_QUERY_GC_TIME_MS = ONE_DAY_MS;
+// How long a payment page shows one price quote before refreshing it.
+export const RATE_WINDOW_MS = 5 * 60 * ONE_SECOND_MS;
 
 // Fixed for every invoice: a per-invoice hold is a
 // term the payer can't see until opening the link.
@@ -138,28 +140,6 @@ export const getKnownPaymentToken = (
       (token) => token.id.toLowerCase() === tokenId.toLowerCase(),
     ) ?? null
   );
-};
-
-export const mergeKnownPaymentTokens = (
-  chainId: number,
-  tokens: TokenData[] = [],
-): TokenData[] => {
-  const merged = new Map<string, TokenData>();
-
-  for (const token of tokens) {
-    if (!token?.id) continue;
-    merged.set(token.id.toLowerCase(), token);
-  }
-
-  for (const token of KNOWN_PAYMENT_TOKENS[chainId] ?? []) {
-    if (!token?.id) continue;
-    const key = token.id.toLowerCase();
-    if (!merged.has(key)) {
-      merged.set(key, token);
-    }
-  }
-
-  return [...merged.values()];
 };
 
 export const NOTES_SIGNER_ADDRESS =

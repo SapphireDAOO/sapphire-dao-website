@@ -3,10 +3,8 @@ import { Suspense } from "react";
 
 export default function Checkout() {
   return (
-    <main>
-      <Suspense fallback={<div>Loading...</div>}>
-        <CheckoutContent />
-      </Suspense>
-    </main>
+    <Suspense fallback={<div className="min-h-screen bg-stone-100" />}>
+      <CheckoutContent />
+    </Suspense>
   );
 }

@@ -3,10 +3,8 @@ import { Suspense } from "react";
 
 export default function Pay() {
   return (
-    <main>
-      <Suspense fallback={<div>Loading...</div>}>
-        <PayContent />
-      </Suspense>
-    </main>
+    <Suspense fallback={<div className="min-h-screen bg-stone-100" />}>
+      <PayContent />
+    </Suspense>
   );
 }

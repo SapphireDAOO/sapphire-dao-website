@@ -4,31 +4,66 @@ import { useContext, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 import { ContractActionsContext } from "@/context/contract-context";
-import { InvoiceDetails, TokenData } from "@/model/model";
-import {
-  BASE_SEPOLIA,
-  ENABLE_SUBGRAPH_PAYMENT_TOKENS,
-  KNOWN_PAYMENT_TOKENS,
-  mergeKnownPaymentTokens,
-} from "@/constants";
-import { useChainId } from "wagmi";
+import { InvoiceDetails } from "@/model/model";
 
-import CheckoutCard from "./CheckoutCard";
-import Container from "@/components/Container";
+import { useCheckoutQuote } from "@/hooks/useCheckoutQuote";
+import CheckoutFlow from "./CheckoutFlow";
+import { BackLink, CheckoutHeader } from "./CheckoutHeader";
+import { PaymentShell, ShellMessage, TextLink } from "./CheckoutLayout";
+import { MARKETPLACE_LINKS } from "./checkoutLinks";
 import { useGetIntermediatedInvoiceData } from "@/hooks/useGetIntermediatedInvoiceData";
 import {
   getContractInvoiceIdBigInt,
   getDisplayInvoiceIdString,
   toInvoiceIdBigInt,
 } from "@/lib/invoiceIdentifiers";
-
-
 import { decodeInvoiceId, PAY_LINK_PARAM } from "@/lib/payLink";
+
+const marketplaceLinks = (
+  <>
+    <BackLink href={MARKETPLACE_LINKS.home} label="Marketplace" />
+    <TextLink href={MARKETPLACE_LINKS.shopping} external={false}>
+      Shopping
+    </TextLink>
+    <TextLink href={MARKETPLACE_LINKS.help}>Help</TextLink>
+  </>
+);
+
+const InvoiceCheckout = ({
+  invoice,
+  isMetaInvoice,
+}: {
+  invoice: InvoiceDetails;
+  isMetaInvoice: boolean;
+}) => {
+  const quote = useCheckoutQuote(invoice, isMetaInvoice);
+  return (
+    <PaymentShell>
+      <CheckoutHeader
+        links={marketplaceLinks}
+        amountDue={{
+          priceUsd: Number(invoice.price) / 1e8,
+          billedInUsd: true,
+          reference: invoice.id || undefined,
+          amount: quote.amount,
+          token: quote.token,
+          rateUpdatedAt: quote.rateUpdatedAt,
+        }}
+      />
+      <main>
+        <CheckoutFlow
+          invoice={invoice}
+          isMetaInvoice={isMetaInvoice}
+          quote={quote}
+        />
+      </main>
+    </PaymentShell>
+  );
+};
 
 const CheckoutPage = () => {
   const searchParams = useSearchParams();
   const encodedId = searchParams.get(PAY_LINK_PARAM);
-  const chainId = useChainId() || BASE_SEPOLIA;
 
   const { getIntermediatedInvoiceData } = useContext(ContractActionsContext);
   const [invoiceId, setinvoiceId] = useState<bigint | null>(null);
@@ -74,9 +109,6 @@ const CheckoutPage = () => {
         const response = await getIntermediatedInvoiceData(invoiceId, type);
 
         const invoice = response?.[type];
-        const paymentTokens: TokenData[] = ENABLE_SUBGRAPH_PAYMENT_TOKENS
-          ? mergeKnownPaymentTokens(chainId, response?.paymentTokens || [])
-          : (KNOWN_PAYMENT_TOKENS[chainId] ?? []);
 
         let structured: InvoiceDetails;
         if (invoice) {
@@ -84,7 +116,6 @@ const CheckoutPage = () => {
             id: getDisplayInvoiceIdString(invoice),
             invoiceId: getContractInvoiceIdBigInt(invoice),
             price: invoice.price,
-            tokenList: paymentTokens,
             status: invoice.state,
           };
         } else {
@@ -95,7 +126,6 @@ const CheckoutPage = () => {
               "",
             invoiceId: invoiceId,
             price: intermediatedInvoice?.price?.toString() ?? "0",
-            tokenList: paymentTokens,
             status: (intermediatedInvoice as { state?: string } | undefined)
               ?.state,
           };
@@ -108,51 +138,31 @@ const CheckoutPage = () => {
     };
     loadInvoice();
   }, [
-    chainId,
     invoiceId,
     isMetaInvoice,
     getIntermediatedInvoiceData,
     intermediatedInvoice,
   ]);
 
-  const isLoading = invoiceId && !invoiceDetails && !error;
-
-  if (error) {
+  if (invoiceDetails && !error) {
     return (
-      <Container>
-        <div className="flex items-center justify-center min-h-[calc(100vh-4rem)] text-red-500">
-          An error occurred. Try again
-        </div>
-      </Container>
-    );
-  }
-
-  if (isLoading) {
-    return (
-      <Container>
-        <div className="flex items-center justify-center min-h-[calc(100vh-4rem)]">
-          <p>Loading invoice details...</p>
-        </div>
-      </Container>
-    );
-  }
-
-  if (!invoiceDetails) {
-    return (
-      <Container>
-        <div className="flex items-center justify-center min-h-[calc(100vh-4rem)]">
-          <p>No invoice details...</p>
-        </div>
-      </Container>
+      <InvoiceCheckout invoice={invoiceDetails} isMetaInvoice={isMetaInvoice} />
     );
   }
 
   return (
-    <Container>
-      <div className="flex items-center justify-center min-h-[calc(100vh-4rem)]">
-        <CheckoutCard data={invoiceDetails} isMetaInvoice={isMetaInvoice} />
-      </div>
-    </Container>
+    <PaymentShell>
+      <CheckoutHeader links={marketplaceLinks} />
+      <main>
+        {error ? (
+          <ShellMessage>{error}</ShellMessage>
+        ) : invoiceId ? (
+          <ShellMessage>Loading the invoice…</ShellMessage>
+        ) : (
+          <ShellMessage>This payment link is missing its invoice.</ShellMessage>
+        )}
+      </main>
+    </PaymentShell>
   );
 };
 

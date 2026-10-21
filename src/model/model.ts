@@ -101,12 +101,6 @@ export interface UserReceivedInvoicesInvoice extends Invoice {
   source?: "Intermediated";
 }
 
-export type PaymentCardProps = {
-  data: {
-    invoiceId: string | bigint;
-  } | null;
-};
-
 export type ErrorMessages = {
   [key: string]: string;
 };
@@ -122,7 +116,6 @@ export interface InvoiceDetails {
   invoiceId: bigint;
   price: string;
   paymentToken?: Address;
-  tokenList: TokenData[];
   status?: string;
 }
 
