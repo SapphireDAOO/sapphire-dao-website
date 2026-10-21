@@ -133,6 +133,7 @@ export const makeInvoicePayment = async (
   setIsLoading: (value: string) => void,
   storageRef?: string,
   share?: boolean,
+  onSubmitted?: (hash: `0x${string}`) => void,
 ): Promise<boolean> => {
   setIsLoading("makeInvoicePayment");
 
@@ -158,6 +159,7 @@ export const makeInvoicePayment = async (
       toast.error("Transaction failed to initiate");
       return false;
     }
+    onSubmitted?.(tx);
 
     const receipt = await publicClient?.waitForTransactionReceipt({
       hash: tx,

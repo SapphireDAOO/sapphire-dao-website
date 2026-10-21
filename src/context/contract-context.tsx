@@ -16,13 +16,15 @@ export interface ContractActions {
     amount: bigint,
     invoiceId: bigint,
     storageRef?: string,
-    share?: boolean
+    share?: boolean,
+    onSubmitted?: (hash: `0x${string}`) => void
   ) => Promise<boolean>;
   payIntermediatedInvoice: (
     paymentType: "paySingleInvoice" | "payMetaInvoice",
     amount: bigint,
     invoiceId: bigint,
-    paymentToken: Address
+    paymentToken: Address,
+    onSubmitted?: (hash: `0x${string}`) => void
   ) => Promise<boolean>;
   getInvoiceOwner: (id: string) => Promise<string>;
   sellerAction: (invoiceId: bigint, state: boolean) => Promise<boolean>;

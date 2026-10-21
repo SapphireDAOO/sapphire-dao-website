@@ -97,6 +97,7 @@ const WalletProvider = ({ children }: Props) => {
         invoiceId: bigint,
         storageRef?: string,
         share?: boolean,
+        onSubmitted?: (hash: `0x${string}`) => void,
       ) =>
         makeInvoicePayment(
           wagmiClients,
@@ -106,12 +107,14 @@ const WalletProvider = ({ children }: Props) => {
           setIsLoading,
           storageRef,
           share,
+          onSubmitted,
         ),
       payIntermediatedInvoice: (
         paymentType: "paySingleInvoice" | "payMetaInvoice",
         price: bigint,
         invoiceId: bigint,
         paymentToken: Address,
+        onSubmitted?: (hash: `0x${string}`) => void,
       ) =>
         address
           ? submitIntermediatedInvoicePayment(
@@ -123,6 +126,7 @@ const WalletProvider = ({ children }: Props) => {
               chainId,
               address,
               setIsLoading,
+              onSubmitted,
             ).then((success) => {
               if (success) {
                 invalidateIntermediatedInvoiceQueries();

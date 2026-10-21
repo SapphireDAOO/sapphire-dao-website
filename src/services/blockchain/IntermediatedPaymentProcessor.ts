@@ -21,6 +21,7 @@ export const payIntermediatedInvoice = async (
   chainId: number,
   owner: Address,
   setIsLoading: (value: string) => void,
+  onSubmitted?: (hash: `0x${string}`) => void,
 ): Promise<boolean> => {
   setIsLoading(paymentType);
 
@@ -145,6 +146,7 @@ export const payIntermediatedInvoice = async (
       toast.error("Transaction failed to initiate");
       return false;
     }
+    onSubmitted?.(tx);
 
     const receipt = await publicClient?.waitForTransactionReceipt({
       hash: tx,
