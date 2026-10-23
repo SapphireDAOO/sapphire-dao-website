@@ -26,10 +26,15 @@ export const LOCAL_CHAIN_ENABLED =
   process.env.NEXT_PUBLIC_LOCAL_CHAIN === "true" ||
   process.env.NODE_ENV !== "production";
 
+// The local API runs beside the dev server, so a phone that loaded
+// the app by network address reaches it at that same host.
+const LOCAL_API_HOST =
+  typeof window === "undefined" ? "localhost" : window.location.hostname;
+
 export const CONTRACT_API_URL = (
   process.env.NEXT_PUBLIC_CONTRACT_API_URL ||
   (LOCAL_CHAIN_ENABLED
-    ? "http://localhost:8080"
+    ? `http://${LOCAL_API_HOST}:8080`
     : "https://sapphiredaotesting.com")
 ).replace(/\/+$/, "");
 

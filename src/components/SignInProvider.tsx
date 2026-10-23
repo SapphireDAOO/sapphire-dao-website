@@ -22,6 +22,7 @@ import {
 
 export type SignInStatus =
   | "connecting"
+  | "walletPending"
   | "disconnected"
   | "unsupported"
   | "wrongNetwork"
@@ -63,6 +64,24 @@ let pendingSignIn: { key: string; attempt: Promise<string> } | null = null;
 // Prompted once per account per tab on connect; the gate offers a retry.
 const prompted = new Set<string>();
 
+// A wallet app's answer can be lost while a phone browser is in the
+// background; after this long the gate offers to connect again.
+const WALLET_WAIT_MS = 4_000;
+
+// On a phone with no in-browser wallet, signing opens the wallet app. Opened
+// without a tap, the browser asks first and the user bounces between apps, so
+// there the gate's Sign in button starts it.
+const signsInAnotherApp = () => {
+  if (typeof window === "undefined") return false;
+  if ((window as { ethereum?: unknown }).ethereum) return false;
+  const agent = navigator.userAgent;
+  return (
+    /Android|iPhone|iPad|iPod/i.test(agent) ||
+    // iPadOS reports itself as a Mac.
+    (/Macintosh/.test(agent) && navigator.maxTouchPoints > 1)
+  );
+};
+
 const SignInProvider = ({
   children,
   promptOnConnect = true,
@@ -96,6 +115,16 @@ const SignInProvider = ({
   const [signingInFor, setSigningInFor] = useState<string | null>(null);
 
   useEffect(() => setMounted(true), []);
+
+  const awaitingWallet =
+    accountStatus === "connecting" || accountStatus === "reconnecting";
+  const [waitedLong, setWaitedLong] = useState(false);
+  useEffect(() => {
+    setWaitedLong(false);
+    if (!awaitingWallet) return;
+    const timer = setTimeout(() => setWaitedLong(true), WALLET_WAIT_MS);
+    return () => clearTimeout(timer);
+  }, [awaitingWallet]);
 
   useEffect(() => {
     setCurrent(
@@ -165,6 +194,7 @@ const SignInProvider = ({
 
   useEffect(() => {
     if (!promptOnConnect || !canSignIn || !address || !chainId) return;
+    if (signsInAnotherApp()) return;
     const key = address.toLowerCase();
     if (prompted.has(key) || readSession(address)) return;
     prompted.add(key);
@@ -211,12 +241,10 @@ const SignInProvider = ({
   );
 
   let status: SignInStatus;
-  if (
-    !mounted ||
-    accountStatus === "connecting" ||
-    accountStatus === "reconnecting"
-  ) {
+  if (!mounted) {
     status = "connecting";
+  } else if (awaitingWallet) {
+    status = waitedLong ? "walletPending" : "connecting";
   } else if (!isConnected || !accountKey) {
     status = "disconnected";
   } else if (session === undefined) {

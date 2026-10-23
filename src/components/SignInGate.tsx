@@ -43,6 +43,15 @@ const SignInGate = ({ children }: { children: ReactNode }) => {
           <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
         </GatePanel>
       );
+    case "walletPending":
+      return (
+        <GatePanel
+          title="Still waiting for your wallet"
+          body="If you approved the connection in your wallet app, come back to this tab. Otherwise, connect again."
+        >
+          <ConnectButton chainStatus="icon" showBalance={false} />
+        </GatePanel>
+      );
     case "disconnected":
       return (
         <GatePanel
