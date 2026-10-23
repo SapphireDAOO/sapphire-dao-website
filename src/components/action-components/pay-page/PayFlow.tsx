@@ -4,6 +4,7 @@ import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useAccount, useChainId, usePublicClient } from "wagmi";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { isUserRejection, WALLET_CANCELLED } from "@/lib/walletErrors";
 import { formatEther, parseEther, type Hash } from "viem";
 import {
   ContractActionsContext,
@@ -227,9 +228,10 @@ const PayFlow = ({ invoiceId }: { invoiceId: bigint }) => {
       let storageRef = "0x";
       const trimmedNote = paymentNote.trim();
       if (trimmedNote) {
-        const keys = noteKeys.keys ?? (await noteKeys.unlock());
+        const { keys, rejected } = await noteKeys.unlockWithResult();
         if (!keys) {
-          toast.error("Enable messaging to attach a note.");
+          if (rejected) toast(WALLET_CANCELLED);
+          else toast.error("Enable messaging to attach a note.");
           return false;
         }
 
@@ -264,6 +266,10 @@ const PayFlow = ({ invoiceId }: { invoiceId: bigint }) => {
       return success;
     } catch (err) {
       paymentSubmittedRef.current = false;
+      if (isUserRejection(err)) {
+        toast(WALLET_CANCELLED);
+        return false;
+      }
       console.error("Payment failed:", err);
       toast.error("Payment failed. Please try again.");
       return false;

@@ -30,6 +30,7 @@ import { formatEther, parseEther, parseUnits } from "viem";
 import { Loader2, ShieldCheck } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { toast } from "sonner";
+import { isUserRejection, WALLET_CANCELLED } from "@/lib/walletErrors";
 import { usePayLink } from "@/hooks/usePayLink";
 import { sealNote } from "@/lib/noteCrypto";
 import { useNoteKeys } from "@/hooks/useNoteKeys";
@@ -161,9 +162,10 @@ export default function CreateInvoiceDialog() {
       let storageRef = "0x";
       const trimmedNote = note.trim();
       if (trimmedNote) {
-        const keys = noteKeys.keys ?? (await noteKeys.unlock());
+        const { keys, rejected } = await noteKeys.unlockWithResult();
         if (!keys) {
-          toast.error("Enable messaging to attach a note.");
+          if (rejected) toast(WALLET_CANCELLED);
+          else toast.error("Enable messaging to attach a note.");
           setIsCreating(false);
           return;
         }
@@ -185,11 +187,13 @@ export default function CreateInvoiceDialog() {
         setOpenCreate(false);
         setOpenQR(true);
         toast.success("Invoice created successfully!");
-      } else {
-        toast.error("Failed to create invoice");
       }
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
+      if (isUserRejection(error)) {
+        toast(WALLET_CANCELLED);
+        return;
+      }
       console.error("Create invoice error:", error);
       toast.error(error?.message || "Transaction failed");
     } finally {

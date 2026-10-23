@@ -78,7 +78,12 @@ export const createInvoice = async (
         (log: Log) => log.address.toLowerCase() === contractAddress,
       );
 
-      if (!createdLog) return undefined;
+      if (!createdLog) {
+        toast.error(
+          "The invoice was created, but its details could not be read. Refresh your dashboard to see it.",
+        );
+        return undefined;
+      }
 
       const decoded = decodeEventLog({
         abi: paymentProcessor,

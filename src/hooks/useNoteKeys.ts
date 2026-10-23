@@ -9,7 +9,13 @@ import {
 } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAccount, useChainId, usePublicClient, useSignMessage } from "wagmi";
-import { BaseError, ContractFunctionRevertedError, type Address, type Hex } from "viem";
+import {
+  BaseError,
+  ContractFunctionRevertedError,
+  type Address,
+  type Hex,
+} from "viem";
+import { isUserRejection } from "@/lib/walletErrors";
 import { BASE_SEPOLIA, NOTES_CONTRACT } from "@/constants";
 import { Notes } from "@/abis/Notes";
 import { useHintedWalletClient } from "@/components/wallet-hint/useHintedWalletClient";
@@ -31,7 +37,8 @@ const NOTE_KEY_STALE_TIME_MS = 5 * 60_000;
 // Shared by every mounted copy of the hook (one per invoice card), so a key
 // unlocked in one place shows up in all of them.
 const sessionKeys = new Map<string, NoteKeyPair>();
-const pendingUnlocks = new Map<string, Promise<NoteKeyPair | null>>();
+type UnlockResult = { keys: NoteKeyPair | null; rejected: boolean };
+const pendingUnlocks = new Map<string, Promise<UnlockResult>>();
 const keyListeners = new Set<() => void>();
 const sessionKey = (address: string, version: number) =>
   `${address.toLowerCase()}:${version}`;
@@ -134,9 +141,6 @@ const transportReason = (error: unknown): string | undefined => {
   if (text.includes("nonce too low") || text.includes("nonce too high")) {
     return "Your wallet's nonce does not match the node, which usually means the local chain was restarted. Clear this account's activity data in your wallet and try again.";
   }
-  if (text.includes("user rejected") || text.includes("denied")) {
-    return "Signature rejected.";
-  }
   return error.shortMessage || undefined;
 };
 
@@ -225,12 +229,12 @@ export const useNoteKeys = (options?: {
     () => null,
   );
 
-  const unlock = useCallback(async (): Promise<NoteKeyPair | null> => {
-    if (!address) return null;
+  const unlockWithResult = useCallback(async (): Promise<UnlockResult> => {
+    if (!address) return { keys: null, rejected: false };
     const key = sessionKey(address, version);
 
     const cached = sessionKeys.get(key);
-    if (cached) return cached;
+    if (cached) return { keys: cached, rejected: false };
 
     let pending = pendingUnlocks.get(key);
     if (!pending) {
@@ -238,11 +242,12 @@ export const useNoteKeys = (options?: {
         .then((signature) => {
           const derived = deriveNoteKeys(signature as Hex);
           setSessionKey(key, derived);
-          return derived;
+          return { keys: derived, rejected: false };
         })
         .catch((error) => {
-          console.error("Failed to unlock note keys", error);
-          return null;
+          const rejected = isUserRejection(error);
+          if (!rejected) console.error("Failed to unlock note keys", error);
+          return { keys: null, rejected };
         })
         .finally(() => pendingUnlocks.delete(key));
       pendingUnlocks.set(key, pending);
@@ -256,17 +261,29 @@ export const useNoteKeys = (options?: {
     }
   }, [address, version, signMessageAsync]);
 
+  const unlock = useCallback(
+    async () => (await unlockWithResult()).keys,
+    [unlockWithResult],
+  );
+
   // Sent from the user's own wallet: the registry is keyed by msg.sender.
   const register = useCallback(async (): Promise<{
     ok: boolean;
     reason?: string;
+    /** The user turned down the signature or the transaction. */
+    rejected?: boolean;
   }> => {
     const contractAddress = NOTES_CONTRACT[chainId];
     if (!address || !walletClient || !publicClient || !contractAddress) {
       return { ok: false, reason: "Wallet is not connected." };
     }
 
-    const derived = keys ?? (await unlock());
+    let derived = keys;
+    if (!derived) {
+      const result = await unlockWithResult();
+      if (result.rejected) return { ok: false, rejected: true };
+      derived = result.keys;
+    }
     if (!derived) return { ok: false, reason: "Messaging key is locked." };
 
     setIsBusy(true);
@@ -291,6 +308,7 @@ export const useNoteKeys = (options?: {
       });
       return { ok: true };
     } catch (error) {
+      if (isUserRejection(error)) return { ok: false, rejected: true };
       const name = revertReason(error);
       console.error("Failed to register note public key", name ?? "", error);
       return {
@@ -308,17 +326,21 @@ export const useNoteKeys = (options?: {
     publicClient,
     publicKeyQueryKey,
     queryClient,
-    unlock,
+    unlockWithResult,
     version,
     walletClient,
   ]);
 
-  const enable = useCallback(async () => {
-    if (!address) return false;
+  const enable = useCallback(async (): Promise<{
+    ok: boolean;
+    rejected: boolean;
+  }> => {
+    if (!address) return { ok: false, rejected: false };
     writeOptIn(address, true);
     setEnabled(true);
-    return Boolean(await unlock());
-  }, [address, unlock]);
+    const { keys: unlocked, rejected } = await unlockWithResult();
+    return { ok: Boolean(unlocked), rejected };
+  }, [address, unlockWithResult]);
 
   const disable = useCallback(() => {
     if (!address) return;
@@ -344,6 +366,8 @@ export const useNoteKeys = (options?: {
       needsRegistration: Boolean(keys && !registeredKey),
       keyMismatch,
       unlock,
+      /** Like `unlock`, but also says whether the user rejected the signature. */
+      unlockWithResult,
       register,
       enable,
       disable,
@@ -357,6 +381,7 @@ export const useNoteKeys = (options?: {
       registeredKeyLoaded,
       keyMismatch,
       unlock,
+      unlockWithResult,
       register,
       enable,
       disable,

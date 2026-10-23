@@ -8,6 +8,9 @@ import { useNoteKeys } from "@/hooks/useNoteKeys";
 import { formatAddress } from "@/utils";
 import { signsInAnotherApp } from "@/lib/walletApp";
 
+const SIGNATURE_CANCELLED =
+  "Signature cancelled. Your messaging key wasn't created.";
+
 export const MessagingKey = () => {
   const {
     isBusy,
@@ -32,8 +35,9 @@ export const MessagingKey = () => {
   const handleCreate = useCallback(async () => {
     setIsWorking(true);
     try {
-      const ok = await enable();
-      if (!ok) toast.error("Could not create your messaging key.");
+      const { ok, rejected } = await enable();
+      if (rejected) toast(SIGNATURE_CANCELLED);
+      else if (!ok) toast.error("Could not create your messaging key.");
     } finally {
       setIsWorking(false);
     }
@@ -42,11 +46,25 @@ export const MessagingKey = () => {
   const handlePublish = useCallback(async () => {
     setIsWorking(true);
     try {
-      if (!keys && !(await enable())) {
-        toast.error("Could not create your messaging key.");
+      if (!keys) {
+        const created = await enable();
+        if (created.rejected) {
+          toast(SIGNATURE_CANCELLED);
+          return;
+        }
+        if (!created.ok) {
+          toast.error("Could not create your messaging key.");
+          return;
+        }
+      }
+      const { ok, reason, rejected } = await register();
+      // The key is kept for this tab, so trying again is one transaction.
+      if (rejected) {
+        toast(
+          "Publishing cancelled. Your key is created, so trying again only needs the transaction.",
+        );
         return;
       }
-      const { ok, reason } = await register();
       if (ok) {
         toast.success(
           "Your messaging key is published. Others can now send you notes.",

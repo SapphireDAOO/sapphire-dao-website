@@ -11,6 +11,7 @@ import type { Invoice } from "@/model/model";
 import { appendHistoryEntry, nowInSeconds } from "@/lib/invoiceHistory";
 
 import { toast } from "sonner";
+import { isUserRejection, WALLET_CANCELLED } from "@/lib/walletErrors";
 
 interface CancelInvoiceProps {
   invoiceId: bigint;
@@ -42,6 +43,10 @@ const CancelInvoice = ({ invoiceId, invoice }: CancelInvoiceProps) => {
         toast.success("Invoice successfully canceled");
       }
     } catch (err) {
+      if (isUserRejection(err)) {
+        toast(WALLET_CANCELLED);
+        return;
+      }
       console.error("Cancel invoice failed:", err);
       toast.error("Unable to cancel the invoice. Please retry.");
     } finally {

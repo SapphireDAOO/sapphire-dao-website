@@ -8,6 +8,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { isUserRejection, WALLET_CANCELLED } from "@/lib/walletErrors";
 
 interface SellersActionProps {
   invoiceId: bigint;
@@ -32,6 +33,10 @@ const SellersAction = ({ invoiceId, state, text }: SellersActionProps) => {
         );
       }
     } catch (err) {
+      if (isUserRejection(err)) {
+        toast(WALLET_CANCELLED);
+        return;
+      }
       console.error("Seller action failed:", err);
       toast.error("Action failed. Please try again.");
     } finally {

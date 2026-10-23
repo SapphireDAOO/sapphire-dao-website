@@ -4,6 +4,7 @@ import { errorMessages, LOCAL_CHAIN_ENABLED } from "@/constants";
 import { Address, Chain, encodeFunctionData, erc20Abi } from "viem";
 import { baseSepolia, hardhat } from "viem/chains";
 import { beginWalletMoment } from "@/components/wallet-hint/walletMomentStore";
+import { isUserRejection, WALLET_CANCELLED } from "@/lib/walletErrors";
 
 // LOCAL_CHAIN_ENABLED, not NODE_ENV: a
 // static export always builds as production.
@@ -36,10 +37,8 @@ export const fetchGasPrice = async (
 };
 
 export const getError = (error: any) => {
-  if (
-    error.message.includes("user rejected transaction") ||
-    error.message.includes("User denied transaction.")
-  ) {
+  if (isUserRejection(error)) {
+    toast(WALLET_CANCELLED);
     return;
   }
   const errorData = error.error?.data || error?.data;

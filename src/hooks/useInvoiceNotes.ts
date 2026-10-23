@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAccount, usePublicClient } from "wagmi";
 import { toast } from "sonner";
+import { WALLET_CANCELLED } from "@/lib/walletErrors";
 import { notesClient } from "@/services/graphql/notes-client";
 import { NOTES_BY_ORDER_QUERY } from "@/services/graphql/queries";
 import {
@@ -592,9 +593,10 @@ export const useInvoiceNotes = (
       setIsCreating(true);
 
       try {
-        const keys = noteKeys.keys ?? (await noteKeys.unlock());
+        const { keys, rejected } = await noteKeys.unlockWithResult();
         if (!keys) {
-          toast.error("Enable messaging to write notes.");
+          if (rejected) toast(WALLET_CANCELLED);
+          else toast.error("Enable messaging to write notes.");
           setNotes((prev) => prev.filter((n) => n.noteId !== localId));
           return false;
         }
@@ -734,7 +736,7 @@ export const useInvoiceNotes = (
     pendingNoteIds,
     unreadableCount,
     isUnlocked: Boolean(noteKeys.keys),
-    unlockNotes: noteKeys.unlock,
+    unlockNotes: noteKeys.unlockWithResult,
     createNote,
     setNoteOpen,
     refresh,

@@ -11,7 +11,8 @@ import {
 } from "react";
 import { toast } from "sonner";
 import { useAccount, useSignMessage } from "wagmi";
-import { BaseError, UserRejectedRequestError, type Address } from "viem";
+import { BaseError, type Address } from "viem";
+import { isUserRejection } from "@/lib/walletErrors";
 import { signsInAnotherApp } from "@/lib/walletApp";
 import {
   SessionRejectedError,
@@ -40,10 +41,6 @@ type SignInContextValue = {
 };
 
 const SignInContext = createContext<SignInContextValue | null>(null);
-
-const isUserRejection = (error: unknown) =>
-  error instanceof BaseError &&
-  Boolean(error.walk((cause) => cause instanceof UserRejectedRequestError));
 
 const describe = (error: unknown) => {
   if (isUserRejection(error)) return "Sign-in was declined.";

@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader } from "@/components/ui/card";
 import { ChevronLeft, ChevronRight, Loader2, Lock } from "lucide-react";
 import { toast } from "sonner";
+import { WALLET_CANCELLED } from "@/lib/walletErrors";
 import { useInvoiceNotes, ThreadNote } from "@/hooks/useInvoiceNotes";
 import { Invoice } from "@/model/model";
 import { getLastActionTime } from "@/lib/invoiceHistory";
@@ -273,8 +274,9 @@ export function NotesThread({
                   e.stopPropagation();
                   setIsRevealing(true);
                   try {
-                    const keys = await unlockNotes();
-                    if (!keys) toast.error("Could not unlock your notes.");
+                    const { keys, rejected } = await unlockNotes();
+                    if (rejected) toast(WALLET_CANCELLED);
+                    else if (!keys) toast.error("Could not unlock your notes.");
                   } finally {
                     setIsRevealing(false);
                   }
