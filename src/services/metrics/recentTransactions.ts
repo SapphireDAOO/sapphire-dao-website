@@ -107,11 +107,9 @@ export const fetchRecentTransactions = async (
   first = 5,
 ): Promise<RecentTransaction[]> => {
   const result = await client(chainId)
-    // network-only: react-query owns caching for this fetcher.
     .query<{ invoiceEvents: InvoiceEventRow[] }>(
       RECENT_TRANSACTIONS_QUERY,
       { first },
-      { requestPolicy: "network-only" },
     )
     .toPromise();
 
@@ -138,7 +136,6 @@ const fetchPaginatedEvents = async (
         first: pageSize + 1,
         skip: page * pageSize,
       },
-      { requestPolicy: "network-only" },
     )
     .toPromise();
 

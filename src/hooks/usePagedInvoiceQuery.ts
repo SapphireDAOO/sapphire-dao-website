@@ -99,16 +99,10 @@ export function usePagedInvoiceQuery({
       sellerSkip,
       buyerSkip,
       append,
-      requestPolicy,
     }: {
       sellerSkip: number | null; // null = skip this category
       buyerSkip: number | null; // null = skip this category
       append: boolean;
-      requestPolicy?:
-        | "cache-first"
-        | "cache-and-network"
-        | "network-only"
-        | "cache-only";
     }) => {
       if (!enabled) {
         setSellerInvoices([]);
@@ -157,7 +151,6 @@ export function usePagedInvoiceQuery({
                 includeIssued: isIntermediated,
                 includeReceived: isIntermediated,
               },
-              requestPolicy ? { requestPolicy } : undefined,
             )
             .toPromise();
 
@@ -186,7 +179,6 @@ export function usePagedInvoiceQuery({
                       includeIssued: isIntermediated,
                       includeReceived: false,
                     },
-                    requestPolicy ? { requestPolicy } : undefined,
                   )
                   .toPromise()
               : Promise.resolve({ data: null, error: null }),
@@ -203,7 +195,6 @@ export function usePagedInvoiceQuery({
                       includeIssued: false,
                       includeReceived: isIntermediated,
                     },
-                    requestPolicy ? { requestPolicy } : undefined,
                   )
                   .toPromise()
               : Promise.resolve({ data: null, error: null }),
@@ -317,7 +308,6 @@ export function usePagedInvoiceQuery({
       sellerSkip: 0,
       buyerSkip: 0,
       append: false,
-      requestPolicy: "network-only",
     });
   }, [doFetch, enabled]);
 

@@ -85,13 +85,12 @@ export const useMultiSigData = () => {
     return message;
   }, []);
 
-  const fetchWallet = useCallback(async (force: boolean) => {
+  const fetchWallet = useCallback(async () => {
     if (!walletId) return null;
     const result = await client(chainId)
       .query(
         MULTISIG_WALLET_QUERY,
         { id: walletId },
-        force ? { requestPolicy: "network-only" } : undefined,
       )
       .toPromise();
 
@@ -103,7 +102,7 @@ export const useMultiSigData = () => {
   }, [chainId, walletId]);
 
   const fetchTransactions = useCallback(
-    async (skip: number, force: boolean) => {
+    async (skip: number) => {
       if (!walletId) return [];
       const result = await client(chainId)
         .query(
@@ -113,7 +112,6 @@ export const useMultiSigData = () => {
             first: PAGE_SIZE + 1,
             skip,
           },
-          force ? { requestPolicy: "network-only" } : undefined,
         )
         .toPromise();
 
@@ -128,8 +126,7 @@ export const useMultiSigData = () => {
     [chainId, walletId],
   );
 
-  /** `force` bypasses the client's cache-first default. */
-  const refresh = useCallback(async (force = false) => {
+  const refresh = useCallback(async () => {
     if (!walletId) {
       setData({
         wallet: null,
@@ -153,8 +150,8 @@ export const useMultiSigData = () => {
     const skip = page * PAGE_SIZE;
     try {
       const [wallet, txs] = await Promise.all([
-        fetchWallet(force),
-        fetchTransactions(skip, force),
+        fetchWallet(),
+        fetchTransactions(skip),
       ]);
 
       const hasNext = txs.length > PAGE_SIZE;
@@ -235,7 +232,7 @@ export const useMultiSigData = () => {
   const wasVisibleRef = useRef(isWindowVisible);
   useEffect(() => {
     if (isWindowVisible && !wasVisibleRef.current) {
-      void refreshRef.current(true);
+      void refreshRef.current();
     }
     wasVisibleRef.current = isWindowVisible;
   }, [isWindowVisible]);

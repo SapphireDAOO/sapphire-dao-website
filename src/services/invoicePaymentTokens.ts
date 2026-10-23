@@ -49,7 +49,6 @@ export const fetchRegisteredPaymentTokens = async (
     .query(
       CREATION_TX_QUERIES[isMetaInvoice ? "meta" : "single"],
       { id: invoiceId.toString() },
-      { requestPolicy: "network-only" },
     )
     .toPromise();
   if (error) throw new Error(error.message);

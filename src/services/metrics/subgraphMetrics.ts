@@ -421,10 +421,8 @@ const queryMetrics = async <T>(
   query: string,
   variables: Record<string, unknown>,
 ): Promise<T> => {
-  // network-only: react-query is the caching layer, and
-  // time-derived variables would pile entries into urql's cache.
   const result = await client(chainId)
-    .query<T>(query, variables, { requestPolicy: "network-only" })
+    .query<T>(query, variables)
     .toPromise();
 
   if (result.error) throwSubgraphError(result.error);
@@ -581,7 +579,6 @@ export const fetchFeeReceiverChangedAt = async (
     .query<{ storageConfiguration: { updatedAt: string | null } | null }>(
       STORAGE_CONFIG_QUERY,
       {},
-      { requestPolicy: "network-only" },
     )
     .toPromise();
 

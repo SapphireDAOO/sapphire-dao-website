@@ -42,7 +42,6 @@ export const fetchFeesPaid = async (
         first: pageSize + 1,
         skip: page * pageSize,
       },
-      { requestPolicy: "network-only" },
     )
     .toPromise();
 

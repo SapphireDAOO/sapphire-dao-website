@@ -346,9 +346,6 @@ export const useInvoiceData = () => {
                     lastSmartInvoiceId: lastId,
                     includeSmartInvoices: list === "smartInvoices",
                   },
-                  // The TTL cache decides freshness; urql's
-                  // cache-first would serve the first fetch forever.
-                  { requestPolicy: "network-only" },
                 )
                 .toPromise();
 

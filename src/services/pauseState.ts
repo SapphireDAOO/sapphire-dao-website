@@ -57,7 +57,6 @@ export const fetchPauseSnapshot = async (
     .query<{ pauseState: PauseState | null; pauseActions: PauseAction[] }>(
       PAUSE_STATE_QUERY,
       {},
-      { requestPolicy: "network-only" },
     )
     .toPromise();
 

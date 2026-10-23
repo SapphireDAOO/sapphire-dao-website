@@ -272,7 +272,7 @@ export const useInvoiceNotes = (
     [chainId, publicClient]
   );
 
-  const fetchNotes = useCallback(async (force = false) => {
+  const fetchNotes = useCallback(async () => {
     if (!isEnabled) return;
 
     if (normalizedinvoiceId === undefined) {
@@ -316,7 +316,6 @@ export const useInvoiceNotes = (
             invoiceId: normalizedinvoiceId.toString(),
             user: openStateUser,
           },
-          force ? { requestPolicy: "network-only" } : undefined,
         )
         .toPromise();
 
@@ -510,14 +509,14 @@ export const useInvoiceNotes = (
 
   const refresh = useCallback(async () => {
     if (!isEnabled) return;
-    await fetchNotes(true);
+    await fetchNotes();
   }, [fetchNotes, isEnabled]);
 
   const scheduleRefresh = useCallback(() => {
     if (!isEnabled) return;
     if (refreshTimeoutRef.current) return;
     refreshTimeoutRef.current = setTimeout(() => {
-      void fetchNotes(true);
+      void fetchNotes();
       refreshTimeoutRef.current = null;
     }, NOTE_REFRESH_DELAY_MS);
   }, [fetchNotes, isEnabled]);

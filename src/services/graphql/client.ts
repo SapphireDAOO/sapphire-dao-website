@@ -27,7 +27,6 @@ export const expiringClients = <C extends Client | null>(
   };
 };
 
-// Cache-first; pass `{ requestPolicy: "network-only" }` to see changes since.
 export const client = expiringClients((chainId) =>
   createClient({
     url: THE_GRAPH_API_URL[chainId] ?? THE_GRAPH_API_URL[BASE_SEPOLIA],

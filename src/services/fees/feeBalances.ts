@@ -43,7 +43,6 @@ export const fetchFeeReceiverBalances = async (
       .query<{ feeReceiverTokenBalances: FeeReceiverTokenBalanceRow[] }>(
         FEE_RECEIVER_BALANCES_QUERY,
         { first: PAGE_SIZE, skip: page * PAGE_SIZE },
-        { requestPolicy: "network-only" },
       )
       .toPromise();
 
@@ -106,7 +105,6 @@ export const fetchRecentSweeps = async (
     .query<{ feeSweeps: FeeSweepRow[] }>(
       FEE_SWEEPS_QUERY,
       { first },
-      { requestPolicy: "network-only" },
     )
     .toPromise();
 
