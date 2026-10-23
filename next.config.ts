@@ -1,13 +1,15 @@
 import type { NextConfig } from "next";
+import { PHASE_DEVELOPMENT_SERVER } from "next/constants";
 
 const nextConfig: NextConfig = {
   output: "export",
   images: {
     unoptimized: true,
   },
-  assetPrefix: "../",
   reactStrictMode: false,
   trailingSlash: true,
+  // Lets a phone on the same network load the dev server; dev only.
+  allowedDevOrigins: ["10.*.*.*"],
   // Pinned to the commit so builds are reproducible; the default id is random.
   generateBuildId: async () => process.env.SOURCE_COMMIT || "dev",
   experimental: {
@@ -41,6 +43,13 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+
+  turbopack: {
+    resolveAlias: {
+      "@react-native-async-storage/async-storage": "./src/lib/emptyModule.ts",
+      "pino-pretty": "./src/lib/emptyModule.ts",
+    },
+  },
   webpack: (config) => {
     config.resolve.fallback = { fs: false, net: false, tls: false };
     // Optional deps of the wallet SDKs that never run in a browser.
@@ -59,4 +68,9 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+export default (phase: string): NextConfig => ({
+  ...nextConfig,
+  // Relative asset URLs let the export be served from any path. Builds only:
+  // with a relative prefix, Turbopack's dev client never hydrates.
+  ...(phase === PHASE_DEVELOPMENT_SERVER ? {} : { assetPrefix: "../" }),
+});
