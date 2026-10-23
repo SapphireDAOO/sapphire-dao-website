@@ -12,6 +12,7 @@ import {
 import { toast } from "sonner";
 import { useAccount, useSignMessage } from "wagmi";
 import { BaseError, UserRejectedRequestError, type Address } from "viem";
+import { signsInAnotherApp } from "@/lib/walletApp";
 import {
   SessionRejectedError,
   clearSession,
@@ -67,20 +68,6 @@ const prompted = new Set<string>();
 // A wallet app's answer can be lost while a phone browser is in the
 // background; after this long the gate offers to connect again.
 const WALLET_WAIT_MS = 4_000;
-
-// On a phone with no in-browser wallet, signing opens the wallet app. Opened
-// without a tap, the browser asks first and the user bounces between apps, so
-// there the gate's Sign in button starts it.
-const signsInAnotherApp = () => {
-  if (typeof window === "undefined") return false;
-  if ((window as { ethereum?: unknown }).ethereum) return false;
-  const agent = navigator.userAgent;
-  return (
-    /Android|iPhone|iPad|iPod/i.test(agent) ||
-    // iPadOS reports itself as a Mac.
-    (/Macintosh/.test(agent) && navigator.maxTouchPoints > 1)
-  );
-};
 
 const SignInProvider = ({
   children,
@@ -194,6 +181,7 @@ const SignInProvider = ({
 
   useEffect(() => {
     if (!promptOnConnect || !canSignIn || !address || !chainId) return;
+    // There the gate's Sign in button starts it instead.
     if (signsInAnotherApp()) return;
     const key = address.toLowerCase();
     if (prompted.has(key) || readSession(address)) return;

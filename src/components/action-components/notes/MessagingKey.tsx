@@ -1,20 +1,19 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { KeyRound, Loader2, ShieldCheck, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNoteKeys } from "@/hooks/useNoteKeys";
 import { formatAddress } from "@/utils";
+import { signsInAnotherApp } from "@/lib/walletApp";
 
 export const MessagingKey = () => {
   const {
-    enabled,
     isBusy,
     keys,
     publicKey,
     registeredKey,
-    needsRegistration,
     keyMismatch,
     enable,
     register,
@@ -23,19 +22,30 @@ export const MessagingKey = () => {
   const [isWorking, setIsWorking] = useState(false);
   const busy = isBusy || isWorking;
 
-  const handleEnable = useCallback(async () => {
+  // Creating the key is a signature and publishing it a transaction. One click
+  // does both, except where the second prompt would reopen a phone's wallet
+  // app without a tap; there each gets its own button.
+  const [twoStep, setTwoStep] = useState(false);
+  useEffect(() => setTwoStep(signsInAnotherApp()), []);
+  const showCreate = twoStep && !keys;
+
+  const handleCreate = useCallback(async () => {
     setIsWorking(true);
     try {
       const ok = await enable();
-      if (!ok) toast.error("Could not unlock your messaging key.");
+      if (!ok) toast.error("Could not create your messaging key.");
     } finally {
       setIsWorking(false);
     }
   }, [enable]);
 
-  const handleRegister = useCallback(async () => {
+  const handlePublish = useCallback(async () => {
     setIsWorking(true);
     try {
+      if (!keys && !(await enable())) {
+        toast.error("Could not create your messaging key.");
+        return;
+      }
       const { ok, reason } = await register();
       if (ok) {
         toast.success(
@@ -49,7 +59,7 @@ export const MessagingKey = () => {
     } finally {
       setIsWorking(false);
     }
-  }, [register]);
+  }, [enable, keys, register]);
 
   if (registeredKey && !keyMismatch) {
     return (
@@ -81,34 +91,27 @@ export const MessagingKey = () => {
     <div className="flex flex-wrap items-center gap-2 rounded-md border border-dashed p-2">
       <KeyRound className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
       <p className="min-w-0 flex-1 text-[11px] text-muted-foreground">
-        {enabled && keys
-          ? "Publish your key so the other party can send you notes. One transaction, once per account."
-          : "Notes are encrypted to you. Enable messaging to derive your key, then publish it so others can write to you."}
+        {keys
+          ? "Publish your key so others can send you notes. One transaction, once per account."
+          : showCreate
+            ? "Notes are encrypted to you. Create your key, then publish it so others can write to you."
+            : "Publish your messaging key so others can send you notes. One signature creates it, then one transaction publishes it."}
       </p>
 
-      {enabled && keys ? (
-        <Button
-          size="sm"
-          onClick={handleRegister}
-          disabled={busy || !needsRegistration}
-          aria-busy={busy}
-        >
-          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Publish key"}
-        </Button>
-      ) : (
-        <Button
-          size="sm"
-          onClick={handleEnable}
-          disabled={busy}
-          aria-busy={busy}
-        >
-          {busy ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            "Enable messaging"
-          )}
-        </Button>
-      )}
+      <Button
+        size="sm"
+        onClick={showCreate ? handleCreate : handlePublish}
+        disabled={busy || Boolean(registeredKey)}
+        aria-busy={busy}
+      >
+        {busy ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : showCreate ? (
+          "Create key"
+        ) : (
+          "Publish key"
+        )}
+      </Button>
 
       {publicKey && !registeredKey && (
         <span className="w-full font-mono text-[10px] text-muted-foreground">
