@@ -1,6 +1,7 @@
 import { client } from "../graphql/client";
 import { ADMIN_TRANSACTIONS_QUERY } from "../graphql/metricsQueries";
 import { throwSubgraphError } from "./errors";
+import { fetchPauseActions, type PauseAction } from "../pauseState";
 
 export type MultisigStatus =
   | "PROPOSED"
@@ -55,4 +56,43 @@ export const fetchAdminTransactions = async (
     data: t.data,
     timestamp: Number(t.executedAt ?? t.proposedAt),
   }));
+};
+
+export type AdminActivityItem =
+  | { kind: "multisig"; timestamp: number; tx: AdminTransaction }
+  | { kind: "pause"; timestamp: number; action: PauseAction };
+
+/**
+ * One page of multisig transactions and pause actions, newest first.
+ * The two feeds are merged by time, so each is read up to the end of
+ * the page; one item more says whether another page follows.
+ */
+export const fetchAdminActivity = async (
+  chainId: number,
+  page: number,
+  pageSize: number,
+): Promise<{ items: AdminActivityItem[]; hasNext: boolean }> => {
+  const end = (page + 1) * pageSize;
+  const [transactions, actions] = await Promise.all([
+    fetchAdminTransactions(chainId, end + 1),
+    fetchPauseActions(chainId, end + 1),
+  ]);
+
+  const merged: AdminActivityItem[] = [
+    ...transactions.map((tx) => ({
+      kind: "multisig" as const,
+      timestamp: tx.timestamp,
+      tx,
+    })),
+    ...actions.map((action) => ({
+      kind: "pause" as const,
+      timestamp: Number(action.timestamp),
+      action,
+    })),
+  ].sort((a, b) => b.timestamp - a.timestamp);
+
+  return {
+    items: merged.slice(page * pageSize, end),
+    hasNext: merged.length > end,
+  };
 };

@@ -1,5 +1,8 @@
 import { client } from "@/services/graphql/client";
-import { PAUSE_STATE_QUERY } from "@/services/graphql/pauseQueries";
+import {
+  PAUSE_ACTIONS_QUERY,
+  PAUSE_STATE_QUERY,
+} from "@/services/graphql/pauseQueries";
 
 export type PauseActionType =
   | "PAUSED"
@@ -66,4 +69,18 @@ export const fetchPauseSnapshot = async (
     state: result.data?.pauseState ?? null,
     actions: result.data?.pauseActions ?? [],
   };
+};
+
+/** The newest `first` pause actions, newest first. */
+export const fetchPauseActions = async (
+  chainId: number,
+  first: number,
+): Promise<PauseAction[]> => {
+  const result = await client(chainId)
+    .query<{ pauseActions: PauseAction[] }>(PAUSE_ACTIONS_QUERY, { first })
+    .toPromise();
+
+  if (result.error) throw new Error(result.error.message);
+
+  return result.data?.pauseActions ?? [];
 };

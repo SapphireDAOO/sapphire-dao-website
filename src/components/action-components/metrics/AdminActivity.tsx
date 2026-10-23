@@ -1,23 +1,27 @@
 "use client";
 
-import { useMemo } from "react";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useAccount } from "wagmi";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { ShieldCheck, ExternalLink } from "lucide-react";
 import { formatAddress } from "@/lib/formatUtils";
-import type { MultisigStatus } from "@/services/metrics/adminTransactions";
+import {
+  BASE_SEPOLIA,
+  DEFAULT_QUERY_GC_TIME_MS,
+  DEFAULT_QUERY_STALE_TIME_MS,
+} from "@/constants";
+import {
+  fetchAdminActivity,
+  type MultisigStatus,
+} from "@/services/metrics/adminTransactions";
 import type { PauseActionType } from "@/services/pauseState";
 import { decodeMultiSigCalldata } from "@/components/action-components/multisig/decodeCalldata";
-import { useAdminTransactions } from "@/hooks/useAdminTransactions";
-import { usePauseState } from "@/hooks/usePauseState";
 import { unixToGMT } from "@/utils";
 
-const FEED_SIZE = 20;
+const PAGE_SIZE = 10;
 
 const explorerTxUrl = (txHash: string): string =>
   `https://sepolia.basescan.org/tx/${txHash}`;
@@ -63,49 +67,62 @@ const timeAgo = (unixSeconds: number): string => {
 };
 
 export function AdminActivity() {
-  const { transactions, isLoading, error } = useAdminTransactions(FEED_SIZE);
-  const { actions, isLoading: pausesLoading } = usePauseState();
+  const { chain } = useAccount();
+  const chainId = chain?.id ?? BASE_SEPOLIA;
+  const [page, setPage] = useState(0);
 
-  const rows = useMemo<FeedRow[]>(() => {
-    const multisig: FeedRow[] = transactions.map((tx) => {
-      const call = decodeMultiSigCalldata(tx.data);
-      const args = call?.params.map((p) => `${p.label} ${p.value}`).join(", ");
+  const { data, isLoading, isFetching, error } = useQuery({
+    queryKey: ["admin-activity", chainId, page],
+    queryFn: () => fetchAdminActivity(chainId, page, PAGE_SIZE),
+    staleTime: DEFAULT_QUERY_STALE_TIME_MS,
+    gcTime: DEFAULT_QUERY_GC_TIME_MS,
+  });
 
-      return {
-        key: `tx-${tx.id}`,
-        txHash: tx.id,
-        title: call ? call.functionLabel : `Tx #${tx.nonce}`,
-        badge: STATUS_META[tx.status],
-        subtitle: call
-          ? [`Tx #${tx.nonce}`, call.contractLabel, args]
-              .filter(Boolean)
-              .join(" · ")
-          : `Unrecognised call to ${formatAddress(tx.target)}`,
-        account: tx.proposer,
-        timestamp: tx.timestamp,
-        detail: `${tx.approvalCount} approvals`,
-      };
-    });
+  const rows = useMemo<FeedRow[]>(
+    () =>
+      (data?.items ?? []).map((item): FeedRow => {
+        if (item.kind === "pause") {
+          const { action } = item;
+          return {
+            key: `pause-${action.id}`,
+            txHash: action.txHash,
+            title: PAUSE_LABEL[action.type] ?? "Pause control",
+            badge: STATUS_META.EXECUTED,
+            subtitle: "Pause control · PaymentProcessorStorage",
+            account: action.account,
+            timestamp: item.timestamp,
+            detail: action.expiry
+              ? `Lapses ${unixToGMT(Number(action.expiry))} UTC`
+              : null,
+          };
+        }
 
-    const pauses: FeedRow[] = actions.map((action) => ({
-      key: `pause-${action.id}`,
-      txHash: action.txHash,
-      title: PAUSE_LABEL[action.type] ?? "Pause control",
-      badge: STATUS_META.EXECUTED,
-      subtitle: "Pause control · PaymentProcessorStorage",
-      account: action.account,
-      timestamp: Number(action.timestamp),
-      detail: action.expiry
-        ? `Lapses ${unixToGMT(Number(action.expiry))} UTC`
-        : null,
-    }));
+        const { tx } = item;
+        const call = decodeMultiSigCalldata(tx.data);
+        const args = call?.params
+          .map((p) => `${p.label} ${p.value}`)
+          .join(", ");
 
-    return [...multisig, ...pauses]
-      .sort((a, b) => b.timestamp - a.timestamp)
-      .slice(0, FEED_SIZE);
-  }, [transactions, actions]);
+        return {
+          key: `tx-${tx.id}`,
+          txHash: tx.id,
+          title: call ? call.functionLabel : `Tx #${tx.nonce}`,
+          badge: STATUS_META[tx.status],
+          subtitle: call
+            ? [`Tx #${tx.nonce}`, call.contractLabel, args]
+                .filter(Boolean)
+                .join(" · ")
+            : `Unrecognised call to ${formatAddress(tx.target)}`,
+          account: tx.proposer,
+          timestamp: item.timestamp,
+          detail: `${tx.approvalCount} approvals`,
+        };
+      }),
+    [data],
+  );
 
-  const loading = isLoading || pausesLoading;
+  const hasNext = data?.hasNext ?? false;
+  const loading = isLoading || isFetching;
 
   return (
     <Card className="bg-card border-border">
@@ -117,7 +134,7 @@ export function AdminActivity() {
       </CardHeader>
       <CardContent className="space-y-2">
         {loading ? (
-          Array.from({ length: 5 }).map((_, i) => (
+          Array.from({ length: PAGE_SIZE }).map((_, i) => (
             <div
               key={i}
               className="h-[72px] w-full animate-pulse rounded-lg bg-muted"
@@ -125,7 +142,7 @@ export function AdminActivity() {
           ))
         ) : error ? (
           <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-            {error}
+            {(error as Error).message}
           </div>
         ) : rows.length === 0 ? (
           <div className="py-6 text-center text-sm text-muted-foreground">
@@ -169,6 +186,32 @@ export function AdminActivity() {
               </div>
             </a>
           ))
+        )}
+
+        {!error && (
+          <div className="flex items-center justify-between pt-1">
+            <span className="text-xs text-muted-foreground">
+              Page {page + 1}
+            </span>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page === 0 || loading}
+                onClick={() => setPage((p) => Math.max(0, p - 1))}
+              >
+                Previous
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={!hasNext || loading}
+                onClick={() => setPage((p) => p + 1)}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
         )}
       </CardContent>
     </Card>

@@ -24,3 +24,17 @@ export const PAUSE_STATE_QUERY = `
     }
   }
 `;
+
+export const PAUSE_ACTIONS_QUERY = `
+  query PauseActions($first: Int!) {
+    pauseActions(orderBy: timestamp, orderDirection: desc, first: $first) {
+      id
+      type
+      account
+      expiry
+      timestamp
+      block
+      txHash
+    }
+  }
+`;
