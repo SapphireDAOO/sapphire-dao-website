@@ -79,6 +79,28 @@ const request = async <T>(
   return data;
 };
 
+export type SignInNonce = {
+  nonce: string;
+  /** Unix ms. */
+  expiresAt?: number;
+};
+
+// A nonce lasts five minutes on the API; this leaves time to sign it.
+const NONCE_MARGIN_MS = 60_000;
+
+export const fetchNonce = async (): Promise<SignInNonce> => {
+  const { nonce, expiresAt } = await request<{
+    nonce: string;
+    expiresAt: string;
+  }>("/v1/auth/nonce");
+  if (!nonce) throw new Error("no nonce was issued");
+  return { nonce, expiresAt: expiresAt ? Date.parse(expiresAt) : undefined };
+};
+
+/** Ms until a nonce is too close to expiry to sign; at most 0 once it is. */
+export const nonceStaleIn = ({ expiresAt }: SignInNonce) =>
+  expiresAt === undefined ? 0 : expiresAt - NONCE_MARGIN_MS - Date.now();
+
 /**
  * The message names this page's host, which
  * must be in the API's `auth.domains`.
@@ -87,12 +109,13 @@ export const signIn = async (params: {
   address: Address;
   chainId: number;
   signMessage: (message: string) => Promise<Hex>;
+  /** Fetched ahead; replaced when missing or about to expire. */
+  nonce?: SignInNonce | null;
 }): Promise<SignInSession> => {
-  const { nonce, expiresAt: nonceExpiresAt } = await request<{
-    nonce: string;
-    expiresAt: string;
-  }>("/v1/auth/nonce");
-  if (!nonce) throw new Error("no nonce was issued");
+  const { nonce, expiresAt: nonceExpiresAt } =
+    params.nonce && nonceStaleIn(params.nonce) > 0
+      ? params.nonce
+      : await fetchNonce();
 
   const message = createSiweMessage({
     domain: window.location.host,
@@ -103,7 +126,8 @@ export const signIn = async (params: {
     statement: STATEMENT,
     version: "1",
     issuedAt: new Date(),
-    expirationTime: nonceExpiresAt ? new Date(nonceExpiresAt) : undefined,
+    expirationTime:
+      nonceExpiresAt === undefined ? undefined : new Date(nonceExpiresAt),
   });
 
   const signature = await params.signMessage(message);
