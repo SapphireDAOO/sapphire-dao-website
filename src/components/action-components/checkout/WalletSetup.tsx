@@ -195,15 +195,16 @@ const WalletSetup = ({
                     {wrongNetwork ? (
                       <>
                         Your wallet is on another network.{" "}
+                        {/* Stays enabled: a phone can lose the request, and a tap resends it. */}
                         <button
                           type="button"
                           onClick={onSwitchNetwork}
-                          disabled={isSwitching}
                           className={actionClass}
                         >
-                          {isSwitching
-                            ? "Switching…"
-                            : `Switch to ${networkName}`}
+                          {isSwitching && (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          )}
+                          Switch to {networkName}
                         </button>
                       </>
                     ) : (

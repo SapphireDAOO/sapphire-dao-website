@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
-import { useConfig } from "wagmi";
+import { useConfig, useSwitchChain } from "wagmi";
 import { Loader2 } from "lucide-react";
 import Container from "@/components/Container";
 import { Button } from "@/components/ui/button";
@@ -31,8 +31,8 @@ const GatePanel = ({
 /** Renders the app only for a wallet signed in with Ethereum. */
 const SignInGate = ({ children }: { children: ReactNode }) => {
   const { status, signIn } = useSignIn();
-  const config = useConfig();
-  const network = config.chains[0]?.name ?? "a supported network";
+  const [network] = useConfig().chains;
+  const { switchChain, isPending: isSwitching } = useSwitchChain();
 
   switch (status) {
     case "signedIn":
@@ -74,9 +74,13 @@ const SignInGate = ({ children }: { children: ReactNode }) => {
       return (
         <GatePanel
           title="Switch network"
-          body={`Switch your wallet to ${network} to sign in.`}
+          body={`Switch your wallet to ${network.name} to sign in.`}
         >
-          <ConnectButton chainStatus="icon" showBalance={false} />
+          {/* Stays enabled: a phone can lose the request, and a tap resends it. */}
+          <Button onClick={() => switchChain({ chainId: network.id })}>
+            {isSwitching && <Loader2 className="h-4 w-4 animate-spin" />}
+            Switch to {network.name}
+          </Button>
         </GatePanel>
       );
     case "signingIn":
