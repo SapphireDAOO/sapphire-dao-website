@@ -8,8 +8,7 @@ const nextConfig: NextConfig = {
   },
   reactStrictMode: false,
   trailingSlash: true,
-  // Lets a phone on the same network load the dev server; dev only.
-  allowedDevOrigins: ["10.*.*.*"],
+  allowedDevOrigins: ["192.168.*.*", "10.*.*.*"],
   // Pinned to the commit so builds are reproducible; the default id is random.
   generateBuildId: async () => process.env.SOURCE_COMMIT || "dev",
   experimental: {
