@@ -8,6 +8,7 @@ import { ChevronDown, ChevronUp } from "lucide-react";
 import { Invoice } from "@/model/model";
 import { formatAddress, unixToGMT } from "@/utils";
 import { toast } from "sonner";
+import { copyText } from "@/lib/clipboard";
 import { usePayLink } from "@/hooks/usePayLink";
 import { QRCodeSVG } from "qrcode.react";
 import SellersAction from "../invoices-components/SellersAction";
@@ -145,10 +146,10 @@ function InvoiceCardImpl({
     return deduped;
   }, [invoice.history, isSellerView]);
 
-  const handleCopyLink = useCallback(() => {
+  const handleCopyLink = useCallback(async () => {
     if (!paymentUrl) return;
-    navigator.clipboard.writeText(paymentUrl);
-    toast.success("Payment link copied!");
+    if (await copyText(paymentUrl)) toast.success("Payment link copied!");
+    else toast.error("Couldn't copy the payment link.");
   }, [paymentUrl]);
 
   const hasExpiryPassed = useHasPassed(

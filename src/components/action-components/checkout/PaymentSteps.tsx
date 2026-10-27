@@ -9,6 +9,7 @@ import type { Hash } from "viem";
 import { BASE_SEPOLIA } from "@/constants";
 import { formatAddress } from "@/utils";
 import { cn } from "@/lib/utils";
+import { copyText } from "@/lib/clipboard";
 import { getChainById } from "@/services/blockchain/utils";
 import { formatTokenAmount } from "@/hooks/useCheckoutQuote";
 import {
@@ -75,7 +76,7 @@ const CopyAddress = ({ address }: { address: string }) => {
     <button
       type="button"
       onClick={async () => {
-        await navigator.clipboard.writeText(address);
+        if (!(await copyText(address))) return;
         setCopied(true);
         setTimeout(() => setCopied(false), 1500);
       }}

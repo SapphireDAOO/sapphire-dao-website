@@ -33,6 +33,7 @@ import { toast } from "sonner";
 import { isUserRejection, WALLET_CANCELLED } from "@/lib/walletErrors";
 import { usePayLink } from "@/hooks/usePayLink";
 import { sealNote } from "@/lib/noteCrypto";
+import { copyText } from "@/lib/clipboard";
 import { useNoteKeys } from "@/hooks/useNoteKeys";
 import { MessagingKey } from "@/components/action-components/notes/MessagingKey";
 import React from "react";
@@ -53,9 +54,9 @@ const InvoiceQRLink = React.memo(
   ({ open, setOpen, invoiceId, contractAddress }: InvoiceQRLinkProps) => {
     const paymentUrl = usePayLink(invoiceId, "pay");
 
-    const handleCopyLink = useCallback(() => {
-      navigator.clipboard.writeText(paymentUrl);
-      toast.success("Payment link copied!");
+    const handleCopyLink = useCallback(async () => {
+      if (await copyText(paymentUrl)) toast.success("Payment link copied!");
+      else toast.error("Couldn't copy the payment link.");
     }, [paymentUrl]);
 
     return (

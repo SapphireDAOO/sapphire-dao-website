@@ -1,5 +1,6 @@
 "use client";
 import React, { useState } from "react";
+import { copyText } from "@/lib/clipboard";
 
 type Props = {
   fullValue: string;
@@ -10,7 +11,7 @@ const CopyableAddress = ({ fullValue }: Props) => {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async () => {
-    await navigator.clipboard.writeText(fullValue);
+    if (!(await copyText(fullValue))) return;
     setCopied(true);
     setTimeout(() => setCopied(false), 1000);
   };

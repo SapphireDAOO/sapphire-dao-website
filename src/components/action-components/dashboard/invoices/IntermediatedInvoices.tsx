@@ -8,6 +8,7 @@ import { ChevronDown, ChevronUp, Copy } from "lucide-react";
 import { Invoice } from "@/model/model";
 import { unixToGMT } from "@/utils";
 import { toast } from "sonner";
+import { copyText } from "@/lib/clipboard";
 import { usePayLink } from "@/hooks/usePayLink";
 import { QRCodeSVG } from "qrcode.react";
 import { formatUnits } from "viem";
@@ -235,10 +236,10 @@ function IntermediatedCardImpl({
     "checkout",
   );
 
-  const handleCopyLink = useCallback(() => {
+  const handleCopyLink = useCallback(async () => {
     if (!paymentUrl) return;
-    navigator.clipboard.writeText(paymentUrl);
-    toast.success("Payment link copied!");
+    if (await copyText(paymentUrl)) toast.success("Payment link copied!");
+    else toast.error("Couldn't copy the payment link.");
   }, [paymentUrl]);
 
   const formattedInvoiceId = useMemo(
@@ -251,21 +252,24 @@ function IntermediatedCardImpl({
   );
 
   const handleCopyInvoiceId = useCallback(
-    (event: React.MouseEvent<HTMLButtonElement>) => {
+    async (event: React.MouseEvent<HTMLButtonElement>) => {
       event.stopPropagation();
       if (!invoice.id) return;
-      navigator.clipboard.writeText(invoice.id);
-      toast.success("Invoice ID copied!");
+      if (await copyText(invoice.id)) toast.success("Invoice ID copied!");
+      else toast.error("Couldn't copy the invoice ID.");
     },
     [invoice.id],
   );
 
   const handleCopyinvoiceId = useCallback(
-    (event: React.MouseEvent<HTMLButtonElement>) => {
+    async (event: React.MouseEvent<HTMLButtonElement>) => {
       event.stopPropagation();
       if (!invoice.invoiceId) return;
-      navigator.clipboard.writeText(invoice.invoiceId.toString());
-      toast.success("Order ID copied!");
+      if (await copyText(invoice.invoiceId.toString())) {
+        toast.success("Order ID copied!");
+      } else {
+        toast.error("Couldn't copy the order ID.");
+      }
     },
     [invoice.invoiceId],
   );
