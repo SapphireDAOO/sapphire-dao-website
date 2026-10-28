@@ -48,8 +48,8 @@ const MOMENTS: Record<HintMoment, WalletHint> = {
   },
 };
 
-// Keyed by connector id or name: RainbowKit has renamed
-// ids across versions (metaMask -> metaMaskSDK).
+// Keyed by connector id or name: MetaMask Connect is metaMaskSDK,
+// while browser-announced wallets use their own names.
 const CONNECT_BY_WALLET: Record<string, WalletHint> = {
   phantom: {
     title: "Open Phantom to finish",
@@ -64,11 +64,6 @@ const CONNECT_BY_WALLET: Record<string, WalletHint> = {
   metamasksdk: {
     title: "Open MetaMask to finish",
     body: "MetaMask opened in the top-right of your browser. Choose an account, then click Connect.",
-    note: "Connecting only lets this site see your address and balance.",
-  },
-  walletconnect: {
-    title: "Check your phone",
-    body: "Approve the connection request in your wallet app to continue.",
     note: "Connecting only lets this site see your address and balance.",
   },
 };

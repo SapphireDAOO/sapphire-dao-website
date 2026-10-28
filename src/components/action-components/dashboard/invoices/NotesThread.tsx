@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useAccount } from "wagmi";
+import { useConnection } from "wagmi";
 import type { Address } from "viem";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -77,7 +77,7 @@ export function NotesThread({
   shareLabel: string;
   expanded: boolean;
 }) {
-  const { address } = useAccount();
+  const { address } = useConnection();
 
   const counterparty = useMemo(() => {
     const viewer = address?.toLowerCase();

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useAccount, useChainId, usePublicClient } from "wagmi";
+import { useConnection, useChainId, usePublicClient } from "wagmi";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -57,7 +57,7 @@ export default function TransactionDetail({
   onActionSuccess,
   onApplyLogs,
 }: Props) {
-  const { address } = useAccount();
+  const { address } = useConnection();
   const chainId = useChainId() || BASE_SEPOLIA;
   const { data: walletClient } = useHintedWalletClient();
   const publicClient = usePublicClient({ chainId });

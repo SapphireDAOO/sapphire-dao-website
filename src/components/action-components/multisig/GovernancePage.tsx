@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useAccount, useChainId, usePublicClient } from "wagmi";
+import { useConnection, useChainId, usePublicClient } from "wagmi";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -57,7 +57,7 @@ const fn1 = (name: string, type: string) =>
   [{ name, type: "function" as const, inputs: [{ name: "v", type, internalType: type }], outputs: [], stateMutability: "nonpayable" as const }] as const;
 
 export default function GovernancePage() {
-  const { address } = useAccount();
+  const { address } = useConnection();
   const chainId = useChainId() || BASE_SEPOLIA;
   const { data: walletClient } = useHintedWalletClient();
   const publicClient = usePublicClient({ chainId });

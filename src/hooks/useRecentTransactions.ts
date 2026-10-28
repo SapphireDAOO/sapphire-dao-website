@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useAccount } from "wagmi";
+import { useConnection } from "wagmi";
 import {
   BASE_SEPOLIA,
   DEFAULT_QUERY_GC_TIME_MS,
@@ -19,7 +19,7 @@ import type {
 } from "@/services/metrics/types";
 
 export const useRecentTransactions = (count = 5) => {
-  const { chain } = useAccount();
+  const { chain } = useConnection();
   const chainId = chain?.id ?? BASE_SEPOLIA;
 
   const { data, isLoading, error, refetch } = useQuery({

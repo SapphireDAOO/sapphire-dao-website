@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useAccount, usePublicClient } from "wagmi";
+import { useConnection, usePublicClient } from "wagmi";
 import { toast } from "sonner";
 import { WALLET_CANCELLED } from "@/lib/walletErrors";
 import { notesClient } from "@/services/graphql/notes-client";
@@ -94,7 +94,7 @@ export const useInvoiceNotes = (
 ) => {
   const isEnabled = options?.enabled ?? true;
   const counterparty = options?.counterparty;
-  const { address, chain } = useAccount();
+  const { address, chain } = useConnection();
   const chainId = chain?.id || BASE_SEPOLIA;
   const publicClient = usePublicClient({ chainId });
 

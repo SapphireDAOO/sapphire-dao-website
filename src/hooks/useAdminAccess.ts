@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { type Address } from "viem";
-import { useAccount, useChainId } from "wagmi";
+import { useConnection, useChainId } from "wagmi";
 import { BASE_SEPOLIA } from "@/constants";
 import { readAdminAccess, writeAdminAccess } from "@/lib/adminAccessCache";
 import { useGetOwner } from "./useGetOwner";
@@ -10,7 +10,7 @@ import { useGetEmergencyPauser } from "./useGetEmergencyPauser";
 import { useIsSigner } from "./useIsSigner";
 
 export const useAdminAccess = () => {
-  const { address, isConnected } = useAccount();
+  const { address, isConnected } = useConnection();
   const chainId = useChainId() || BASE_SEPOLIA;
   const { data: ownerAddress, isLoading: isOwnerLoading } = useGetOwner();
   const { data: isSigner, isLoading: isSignerLoading } = useIsSigner(

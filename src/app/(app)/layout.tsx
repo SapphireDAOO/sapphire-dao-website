@@ -1,4 +1,3 @@
-import "@rainbow-me/rainbowkit/styles.css";
 import Web3Provider from "@/components/Web3Provider";
 import Navbar from "@/components/Navigation";
 import Footer from "@/components/Footer";

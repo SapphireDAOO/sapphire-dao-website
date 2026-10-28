@@ -6,23 +6,20 @@ import {
   useContext,
   useEffect,
   useMemo,
-  useRef,
   useState,
   type ReactNode,
 } from "react";
 import { toast } from "sonner";
-import { useAccount, useSignMessage } from "wagmi";
+import { useConnection, useSignMessage } from "wagmi";
 import { BaseError, type Address } from "viem";
+import { useMountReconnectSettled } from "@/hooks/useMountReconnectSettled";
 import { isUserRejection } from "@/lib/walletErrors";
 import { signsInAnotherApp } from "@/lib/walletApp";
 import {
   SessionRejectedError,
   clearSession,
-  fetchNonce,
-  nonceStaleIn,
   readSession,
   signIn,
-  type SignInNonce,
   type SignInSession,
 } from "@/services/auth";
 
@@ -84,8 +81,9 @@ const SignInProvider = ({
     connector,
     isConnected,
     status: accountStatus,
-  } = useAccount();
-  const { signMessageAsync } = useSignMessage();
+  } = useConnection();
+  const { mutateAsync: signMessageAsync } = useSignMessage();
+  const reconnectSettled = useMountReconnectSettled();
 
   // `chain` is only set on a configured network;
   // the API would refuse any other chain id.
@@ -132,9 +130,6 @@ const SignInProvider = ({
 
   const session = current?.key === accountKey ? current?.session : undefined;
 
-  // Fetched before the Sign in tap, so the wallet app opens on the tap itself.
-  const nextNonce = useRef<Promise<SignInNonce | null> | null>(null);
-
   useEffect(() => {
     if (!session || !address) return;
     const timer = setTimeout(
@@ -151,17 +146,13 @@ const SignInProvider = ({
       const previous = pendingSignIn?.attempt.catch(() => undefined);
 
       setSigningInFor(key);
-      // Each nonce signs once.
-      const nonce = nextNonce.current;
-      nextNonce.current = null;
       const attempt: Promise<string> = Promise.resolve(previous)
         .then(
-          async () =>
+          () =>
             readSession(account)?.token ??
             signIn({
               address: account,
               chainId: onChain,
-              nonce: await nonce,
               signMessage: (message) => signMessageAsync({ account, message }),
             }).then((session) => session.token),
         )
@@ -237,7 +228,7 @@ const SignInProvider = ({
   );
 
   let status: SignInStatus;
-  if (!mounted) {
+  if (!mounted || !reconnectSettled) {
     status = "connecting";
   } else if (awaitingWallet) {
     status = waitedLong ? "walletPending" : "connecting";
@@ -256,25 +247,6 @@ const SignInProvider = ({
   } else {
     status = "signedOut";
   }
-
-  useEffect(() => {
-    if (status !== "signedOut") return;
-    let active = true;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const load = () => {
-      const next = fetchNonce().catch(() => null);
-      nextNonce.current = next;
-      void next.then((nonce) => {
-        const staleIn = nonce ? nonceStaleIn(nonce) : 0;
-        if (active && staleIn > 0) timer = setTimeout(load, staleIn);
-      });
-    };
-    load();
-    return () => {
-      active = false;
-      clearTimeout(timer);
-    };
-  }, [status]);
 
   const value = useMemo(
     () => ({ status, signIn: signInNow, withSession }),

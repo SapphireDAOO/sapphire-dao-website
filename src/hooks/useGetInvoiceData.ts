@@ -1,10 +1,10 @@
 import { paymentProcessor } from "@/abis/PaymentProcessor";
 import { BASE_SEPOLIA, SIMPLE_PAYMENT_PROCESSOR } from "@/constants";
-import { useAccount, useChainId } from "wagmi";
+import { useConnection, useChainId } from "wagmi";
 import { useViemReadContract } from "./useViemReadContract";
 
 export const useGetInvoiceData = (invoiceId: bigint | undefined) => {
-  const { address } = useAccount();
+  const { address } = useConnection();
 
   const chainId = useChainId() || BASE_SEPOLIA;
   const contractAddress = SIMPLE_PAYMENT_PROCESSOR[chainId];

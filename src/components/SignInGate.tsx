@@ -1,12 +1,12 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { useConfig, useSwitchChain } from "wagmi";
 import { Loader2 } from "lucide-react";
 import Container from "@/components/Container";
 import { Button } from "@/components/ui/button";
 import { useSignIn } from "@/components/SignInProvider";
+import ConnectWalletButton from "@/components/wallet/ConnectWalletButton";
 
 const GatePanel = ({
   title,
@@ -32,7 +32,7 @@ const GatePanel = ({
 const SignInGate = ({ children }: { children: ReactNode }) => {
   const { status, signIn } = useSignIn();
   const [network] = useConfig().chains;
-  const { switchChain, isPending: isSwitching } = useSwitchChain();
+  const { mutate: switchChain, isPending: isSwitching } = useSwitchChain();
 
   switch (status) {
     case "signedIn":
@@ -49,7 +49,7 @@ const SignInGate = ({ children }: { children: ReactNode }) => {
           title="Still waiting for your wallet"
           body="If you approved the connection in your wallet app, come back to this tab. Otherwise, connect again."
         >
-          <ConnectButton chainStatus="icon" showBalance={false} />
+          <ConnectWalletButton />
         </GatePanel>
       );
     case "disconnected":
@@ -58,7 +58,7 @@ const SignInGate = ({ children }: { children: ReactNode }) => {
           title="Connect your wallet"
           body="Sapphire DAO is only available to wallets that sign in."
         >
-          <ConnectButton chainStatus="icon" showBalance={false} />
+          <ConnectWalletButton />
         </GatePanel>
       );
     case "unsupported":
@@ -67,7 +67,7 @@ const SignInGate = ({ children }: { children: ReactNode }) => {
           title="This wallet can't sign in"
           body="Smart-contract wallets can't sign in yet. Connect an ordinary wallet instead."
         >
-          <ConnectButton chainStatus="icon" showBalance={false} />
+          <ConnectWalletButton />
         </GatePanel>
       );
     case "wrongNetwork":
@@ -76,10 +76,11 @@ const SignInGate = ({ children }: { children: ReactNode }) => {
           title="Switch network"
           body={`Switch your wallet to ${network.name} to sign in.`}
         >
-          {/* Stays enabled: a phone can lose the request, and a tap resends it. */}
-          <Button onClick={() => switchChain({ chainId: network.id })}>
-            {isSwitching && <Loader2 className="h-4 w-4 animate-spin" />}
-            Switch to {network.name}
+          <Button
+            disabled={isSwitching}
+            onClick={() => switchChain({ chainId: network.id })}
+          >
+            {isSwitching ? "Switching…" : `Switch to ${network.name}`}
           </Button>
         </GatePanel>
       );

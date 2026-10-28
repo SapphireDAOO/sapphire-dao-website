@@ -1,6 +1,5 @@
 "use client";
 
-import { ConnectButton } from "@rainbow-me/rainbowkit";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -11,6 +10,7 @@ import {
   Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import ConnectWalletButton from "@/components/wallet/ConnectWalletButton";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -283,7 +283,7 @@ const Navbar = () => {
               <AdminMenu activePath={path} links={adminLinks} />
             )}
             <div className="ml-2">
-              <ConnectButton chainStatus="icon" showBalance={false} />
+              <ConnectWalletButton />
             </div>
           </div>
         </div>

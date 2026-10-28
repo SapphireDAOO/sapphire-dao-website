@@ -1,11 +1,11 @@
 import { PAYMENT_PROCESSOR_STORAGE } from "@/constants";
-import { useAccount, useChainId } from "wagmi";
+import { useConnection, useChainId } from "wagmi";
 import { PaymentProcessorStorage } from "@/abis/PaymentProcessorStorage";
 import { useViemReadContract } from "./useViemReadContract";
 import { BASE_SEPOLIA } from "@/constants";
 
 export const useGetOwner = () => {
-  const { address } = useAccount();
+  const { address } = useConnection();
   const chainId = useChainId() || BASE_SEPOLIA;
 
   const { data, refetch, isLoading } = useViemReadContract<string>({

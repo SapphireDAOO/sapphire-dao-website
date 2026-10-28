@@ -1,5 +1,5 @@
 import { useCallback, useEffect } from "react";
-import { useAccount, useChainId } from "wagmi";
+import { useConnection, useChainId } from "wagmi";
 import type { Address } from "viem";
 import { BASE_SEPOLIA, PAYMENT_PROCESSOR_STORAGE } from "@/constants";
 import { PaymentProcessorStorage } from "@/abis/PaymentProcessorStorage";
@@ -14,7 +14,7 @@ const MAX_TIMEOUT_MS = 2_147_483_647;
 const PAUSER_STALE_TIME_MS = 60 * 60 * 1_000;
 
 export const useEmergencyPause = () => {
-  const { address } = useAccount();
+  const { address } = useConnection();
   const chainId = useChainId() || BASE_SEPOLIA;
   const address_ = PAYMENT_PROCESSOR_STORAGE[chainId];
   // No `account`: these are global views, and a sender both splits the

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useAccount, useChainId } from "wagmi";
+import { useConnection, useChainId } from "wagmi";
 import { erc20Abi, formatUnits, type Abi, type Address } from "viem";
 import { intermediatedPaymentProcessor } from "@/abis/IntermediatedPaymentProcessor";
 import {
@@ -44,7 +44,7 @@ export const useCheckoutQuote = (
   isMetaInvoice: boolean,
 ) => {
   const chainId = useChainId() || BASE_SEPOLIA;
-  const { address } = useAccount();
+  const { address } = useConnection();
 
   const {
     tokens,

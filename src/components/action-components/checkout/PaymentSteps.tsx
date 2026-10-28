@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
-import { useAccount, useChainId, useConfig, useSwitchChain } from "wagmi";
-import { useConnectModal } from "@rainbow-me/rainbowkit";
+import { useConnection, useChainId, useConfig, useSwitchChain } from "wagmi";
 import { QRCodeSVG } from "qrcode.react";
 import { CircleCheck, Loader2 } from "lucide-react";
 import type { Hash } from "viem";
@@ -20,6 +19,7 @@ import {
   TextLink,
 } from "./CheckoutLayout";
 import WalletSetup from "./WalletSetup";
+import { useConnectWalletModal } from "@/components/wallet/ConnectWalletProvider";
 
 type TokenOption = { id: string; name: string };
 
@@ -136,11 +136,11 @@ const PaymentSteps = ({
   selectedTokenId,
   onTokenChange,
 }: PaymentStepsProps) => {
-  const { address, chain, isConnected } = useAccount();
+  const { address, chain, isConnected } = useConnection();
   const chainId = useChainId() || BASE_SEPOLIA;
   const network = useConfig().chains[0];
-  const { switchChain, isPending: isSwitching } = useSwitchChain();
-  const { openConnectModal } = useConnectModal();
+  const { mutate: switchChain, isPending: isSwitching } = useSwitchChain();
+  const { openConnectModal } = useConnectWalletModal();
 
   const [txHash, setTxHash] = useState<Hash>();
   const [paid, setPaid] = useState(false);
@@ -180,7 +180,7 @@ const PaymentSteps = ({
     else setTxHash(undefined);
   };
 
-  const connect = () => openConnectModal?.();
+  const connect = () => openConnectModal();
   // Offered once a wallet is connected, when there's a balance to pay from.
   const tokenChooser = isConnected && tokens.length > 1 && onTokenChange && (
     <TokenChooser

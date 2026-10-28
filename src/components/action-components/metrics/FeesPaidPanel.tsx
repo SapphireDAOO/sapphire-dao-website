@@ -2,7 +2,7 @@
 
 import { useMemo, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useAccount } from "wagmi";
+import { useConnection } from "wagmi";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -31,7 +31,7 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 }
 
 export function FeesPaidPanel() {
-  const { chain } = useAccount();
+  const { chain } = useConnection();
   const chainId = chain?.id ?? BASE_SEPOLIA;
 
   const [page, setPage] = useState(0);

@@ -2,7 +2,7 @@
 
 import { useMemo, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useAccount } from "wagmi";
+import { useConnection } from "wagmi";
 import {
   Card,
   CardContent,
@@ -133,7 +133,7 @@ export function TransactionsPanel({
   sinceSeconds,
   showType = true,
 }: TransactionsPanelProps) {
-  const { chain } = useAccount();
+  const { chain } = useConnection();
   const chainId = chain?.id ?? BASE_SEPOLIA;
 
   const [page, setPage] = useState(0);

@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useAccount } from "wagmi";
+import { useConnection } from "wagmi";
 import { formatEther, type Address } from "viem";
 
 import {
@@ -40,7 +40,7 @@ const formatEth = (wei: bigint): string =>
   })} ETH`;
 
 export const useWalletBalances = () => {
-  const { chain } = useAccount();
+  const { chain } = useConnection();
   const chainId = chain?.id ?? BASE_SEPOLIA;
   const storage = PAYMENT_PROCESSOR_STORAGE[chainId];
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { useAccount, useChainId, usePublicClient } from "wagmi";
+import { useConnection, useChainId, usePublicClient } from "wagmi";
 import {
   Card,
   CardContent,
@@ -33,7 +33,7 @@ const truncateAddress = (address: string | undefined) =>
   address ? `${address.slice(0, 6)}...${address.slice(-4)}` : "Loading...";
 
 const EmergencyPause = () => {
-  useAccount();
+  useConnection();
   const chainId = useChainId() || BASE_SEPOLIA;
   const { data: walletClient } = useHintedWalletClient();
   const publicClient = usePublicClient({ chainId });

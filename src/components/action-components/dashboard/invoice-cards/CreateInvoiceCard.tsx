@@ -1,6 +1,6 @@
 "use client";
 
-import { useAccount } from "wagmi";
+import { useConnection } from "wagmi";
 import { useContext, useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -25,7 +25,7 @@ import {
   ContractActionsContext,
   ContractLoadingContext,
 } from "@/context/contract-context";
-import { ConnectButton } from "@rainbow-me/rainbowkit";
+import ConnectWalletButton from "@/components/wallet/ConnectWalletButton";
 import { formatEther, parseEther, parseUnits } from "viem";
 import { Loader2, ShieldCheck } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
@@ -111,7 +111,7 @@ export default function CreateInvoiceDialog() {
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
   const noteKeys = useNoteKeys();
-  const { chainId, address } = useAccount();
+  const { chainId, address } = useConnection();
   const { data: formatedFee } = useGetFeeRate();
 
   const [openCreate, setOpenCreate] = useState(false);
@@ -334,7 +334,7 @@ export default function CreateInvoiceDialog() {
               </Button>
             ) : (
               <div className="w-full sm:w-auto flex justify-center">
-                <ConnectButton chainStatus="icon" showBalance={false} />
+                <ConnectWalletButton />
               </div>
             )}
           </DialogFooter>

@@ -1,6 +1,6 @@
 import { ReactNode, useCallback, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useAccount, usePublicClient } from "wagmi";
+import { useConnection, usePublicClient } from "wagmi";
 import {
   ContractActionsContext,
   ContractLoadingContext,
@@ -31,7 +31,7 @@ type Props = {
 };
 
 const WalletProvider = ({ children }: Props) => {
-  const { chain, address } = useAccount();
+  const { chain, address } = useConnection();
   const chainId = chain?.id || BASE_SEPOLIA;
   const { data: walletClient } = useHintedWalletClient();
   const publicClient = usePublicClient();

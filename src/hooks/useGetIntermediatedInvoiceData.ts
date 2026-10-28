@@ -1,12 +1,12 @@
 import { intermediatedPaymentProcessor } from "@/abis/IntermediatedPaymentProcessor";
 import { INTERMEDIATED_PAYMENT_PROCESSOR } from "@/constants";
 
-import { useAccount, useChainId } from "wagmi";
+import { useConnection, useChainId } from "wagmi";
 import { useViemReadContract } from "./useViemReadContract";
 import { BASE_SEPOLIA } from "@/constants";
 
 export const useGetIntermediatedInvoiceData = (invoiceId: bigint | undefined) => {
-  const { address } = useAccount();
+  const { address } = useConnection();
 
   const chainId = useChainId() || BASE_SEPOLIA;
   const contractAddress = INTERMEDIATED_PAYMENT_PROCESSOR[chainId];

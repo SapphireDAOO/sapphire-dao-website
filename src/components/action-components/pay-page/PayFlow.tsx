@@ -1,7 +1,7 @@
 "use client";
 
 import { useContext, useEffect, useMemo, useRef, useState } from "react";
-import { useAccount, useChainId, usePublicClient } from "wagmi";
+import { useConnection, useChainId, usePublicClient } from "wagmi";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { isUserRejection, WALLET_CANCELLED } from "@/lib/walletErrors";
@@ -79,7 +79,7 @@ const toWei = (price: InvoiceLike["price"]): bigint | undefined => {
 };
 
 const PayFlow = ({ invoiceId }: { invoiceId: bigint }) => {
-  const { address } = useAccount();
+  const { address } = useConnection();
   const chainId = useChainId() || BASE_SEPOLIA;
   const publicClient = usePublicClient();
   const router = useRouter();

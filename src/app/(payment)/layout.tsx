@@ -1,4 +1,3 @@
-import "@rainbow-me/rainbowkit/styles.css";
 import Web3Provider from "@/components/Web3Provider";
 import WalletHint from "@/components/wallet-hint/WalletHint";
 import { Toaster } from "sonner";

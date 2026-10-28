@@ -8,7 +8,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useAccount, useChainId, usePublicClient, useSignMessage } from "wagmi";
+import { useConnection, useChainId, usePublicClient, useSignMessage } from "wagmi";
 import {
   BaseError,
   ContractFunctionRevertedError,
@@ -155,12 +155,12 @@ export const useNoteKeys = (options?: {
   enabled?: boolean;
 }) => {
   const readsEnabled = options?.enabled ?? true;
-  const { address } = useAccount();
+  const { address } = useConnection();
   const chainId = useChainId() || BASE_SEPOLIA;
   const publicClient = usePublicClient({ chainId });
   const queryClient = useQueryClient();
   const { data: walletClient } = useHintedWalletClient();
-  const { signMessageAsync } = useSignMessage();
+  const { mutateAsync: signMessageAsync } = useSignMessage();
 
   const [enabled, setEnabled] = useState(false);
   const [isBusy, setIsBusy] = useState(false);

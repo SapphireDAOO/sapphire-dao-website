@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { type Log } from "viem";
-import { useAccount, useChainId } from "wagmi";
+import { useConnection, useChainId } from "wagmi";
 import { usePublicClient } from "wagmi";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,7 +27,7 @@ interface ProposeFormProps {
 }
 
 export default function ProposeForm({ onSuccess, onApplyLogs }: ProposeFormProps) {
-  const { address } = useAccount();
+  const { address } = useConnection();
   const chainId = useChainId() || BASE_SEPOLIA;
   const { data: walletClient } = useHintedWalletClient();
   const publicClient = usePublicClient({ chainId });

@@ -1,12 +1,12 @@
 import { BASE_SEPOLIA, PAYMENT_PROCESSOR_STORAGE } from "@/constants";
-import { useAccount, useChainId } from "wagmi";
+import { useConnection, useChainId } from "wagmi";
 import { Address, formatEther } from "viem";
 import { PaymentProcessorStorage } from "@/abis/PaymentProcessorStorage";
 import { useViemReadContract } from "./useViemReadContract";
 import { useViemBalance } from "./useViemBalance";
 
 export const useGetBalance = () => {
-  const { address } = useAccount();
+  const { address } = useConnection();
 
   const chainId = useChainId() || BASE_SEPOLIA;
 

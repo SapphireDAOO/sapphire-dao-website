@@ -1,95 +1,31 @@
 "use client";
 
 import {
-  getDefaultConfig,
-  getWalletConnectConnector,
-  type WalletList,
-} from "@rainbow-me/rainbowkit";
-import {
-  metaMaskWallet,
-  phantomWallet,
-  rainbowWallet,
-  safeWallet,
-  walletConnectWallet,
-  zerionWallet,
-} from "@rainbow-me/rainbowkit/wallets";
-import { http, webSocket, fallback } from "viem";
+  http,
+  webSocket,
+  fallback,
+  type Chain,
+  type Transport,
+} from "viem";
 import { baseSepolia, hardhat } from "viem/chains";
-import { createConnector } from "wagmi";
-import { injected } from "wagmi/connectors";
+import { createConfig, createConnector } from "wagmi";
+import { metaMask, safe, walletConnect } from "wagmi/connectors";
 import { LOCAL_CHAIN_ENABLED } from "@/constants";
+import { isMobileBrowser } from "@/lib/walletApp";
 
 const walletConnectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID!;
 
-type GlobalWithConfig = typeof globalThis & {
-  sapphireWagmiConfig?: ReturnType<typeof getDefaultConfig>;
-};
+const APP_NAME = "Sapphire DAO Invoice";
 
-const globalForConfig = globalThis as GlobalWithConfig;
+// Wallets check a request against the page it came from, which varies by deploy.
+const APP_URL =
+  typeof window === "undefined"
+    ? "https://app.sapphiredaotesting.com"
+    : window.location.origin;
 
-type CreateWallet = WalletList[number]["wallets"][number];
-
-// Skips the MetaMask SDK: on a phone, WalletConnect's relay keeps the app's
-// answer while the browser is in the background, so it arrives on return.
-const metaMask: CreateWallet = (options) => {
-  const wallet = metaMaskWallet(options);
-  if (wallet.installed) {
-    return {
-      ...wallet,
-      createConnector: (details) =>
-        createConnector((config) => ({
-          ...injected({ target: "metaMask" })(config),
-          ...details,
-        })),
-    };
-  }
-  return {
-    ...wallet,
-    mobile: {
-      getUri: (uri) => `metamask://wc?uri=${encodeURIComponent(uri)}`,
-    },
-    createConnector: getWalletConnectConnector({
-      projectId: options.projectId,
-      walletConnectParameters: options.walletConnectParameters,
-    }),
-  };
-};
-
-// Connecting asks for the account only: a network switch chained onto it
-// reopens a phone's wallet app without a tap, which browsers block.
-const connectOnly =
-  (createWallet: CreateWallet): CreateWallet =>
-  (options) => {
-    const wallet = createWallet(options);
-    return {
-      ...wallet,
-      createConnector: (details) => (config) => {
-        const connector = wallet.createConnector(details)(config);
-        return {
-          ...connector,
-          connect: ((parameters) =>
-            connector.connect({
-              ...parameters,
-              chainId: undefined,
-            })) as typeof connector.connect,
-        };
-      },
-    };
-  };
-
-const wallets: WalletList = [
-  {
-    groupName: "Popular",
-    wallets: [
-      metaMask,
-      phantomWallet,
-      safeWallet,
-      rainbowWallet,
-      walletConnectWallet,
-      zerionWallet,
-    ].map(connectOnly),
-  },
-];
+// WalletConnect clients sharing a storage namespace share a relay identity,
+// and the relay then misroutes responses between them.
+const WALLETCONNECT_STORAGE_PREFIX = "sapphire";
 
 const withLocalChain = LOCAL_CHAIN_ENABLED;
 
@@ -123,21 +59,72 @@ const localTransport = fallback([webSocket(LOCAL_WS), http(LOCAL_HTTP)], {
   retryCount: 1,
 });
 
-const config =
-  globalForConfig.sapphireWagmiConfig ??
-  getDefaultConfig({
-    appName: "Sapphire DAO Invoice",
-    projectId: walletConnectId,
-    chains: withLocalChain ? [baseSepolia, hardhat] : [baseSepolia],
-    wallets,
+const chains: readonly [Chain, ...Chain[]] = withLocalChain
+  ? [baseSepolia, hardhat]
+  : [baseSepolia];
+
+const transports: Record<number, Transport> = withLocalChain
+  ? { [baseSepolia.id]: baseSepoliaTransport, [hardhat.id]: localTransport }
+  : { [baseSepolia.id]: baseSepoliaTransport };
+
+const walletConnectParameters = {
+  projectId: walletConnectId,
+  metadata: {
+    name: APP_NAME,
+    description: "Invoices and escrow payments on Base",
+    url: APP_URL,
+    icons: [`${APP_URL}/favicon.ico`],
+  },
+  telemetryEnabled: false,
+};
+
+/**
+ * WalletConnect for one wallet app on a phone without an extension. The
+ * picker opens the app with its own link, like Uniswap's own wallet.
+ */
+const walletAppConnector = (id: string, name: string) =>
+  createConnector((wagmiConfig) => ({
+    ...walletConnect({
+      ...walletConnectParameters,
+      showQrModal: false,
+      customStoragePrefix: `${WALLETCONNECT_STORAGE_PREFIX}-${id}`,
+    })(wagmiConfig),
+    id,
+    name,
+  }));
+
+// Wallets in this browser join through EIP-6963 discovery, which wagmi runs by
+// default; these cover a phone browser, a desktop without an extension, and Safe.
+const createWagmiConfig = () =>
+  createConfig({
+    chains,
+    connectors: [
+      metaMask({
+        dapp: { name: APP_NAME, url: APP_URL, iconUrl: `${APP_URL}/favicon.ico` },
+      }),
+      walletConnect({
+        ...walletConnectParameters,
+        customStoragePrefix: WALLETCONNECT_STORAGE_PREFIX,
+      }),
+      safe(),
+      ...(isMobileBrowser()
+        ? [
+            walletAppConnector("rainbowWalletConnect", "Rainbow"),
+            walletAppConnector("zerionWalletConnect", "Zerion"),
+          ]
+        : []),
+    ],
     ssr: false,
-    transports: withLocalChain
-      ? {
-          [baseSepolia.id]: baseSepoliaTransport,
-          [hardhat.id]: localTransport,
-        }
-      : { [baseSepolia.id]: baseSepoliaTransport },
+    transports,
   });
+
+type GlobalWithConfig = typeof globalThis & {
+  sapphireWagmiConfig?: ReturnType<typeof createWagmiConfig>;
+};
+
+const globalForConfig = globalThis as GlobalWithConfig;
+
+const config = globalForConfig.sapphireWagmiConfig ?? createWagmiConfig();
 
 if (process.env.NODE_ENV !== "production") {
   globalForConfig.sapphireWagmiConfig = config;

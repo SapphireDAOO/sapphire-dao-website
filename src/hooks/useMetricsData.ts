@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useAccount } from "wagmi";
+import { useConnection } from "wagmi";
 import { BASE_SEPOLIA, DEFAULT_QUERY_GC_TIME_MS } from "@/constants";
 import { fetchMetricsSnapshot } from "@/services/metrics/subgraphMetrics";
 import {
@@ -81,7 +81,7 @@ export interface UseMetricsDataResult {
 }
 
 export const useMetricsData = (): UseMetricsDataResult => {
-  const { chain } = useAccount();
+  const { chain } = useConnection();
   const chainId = chain?.id ?? BASE_SEPOLIA;
   const queryClient = useQueryClient();
 

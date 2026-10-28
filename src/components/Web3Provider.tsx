@@ -1,8 +1,10 @@
 "use client";
+import { useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { WagmiProvider } from "wagmi";
-import { RainbowKitProvider, darkTheme } from "@rainbow-me/rainbowkit";
+import { WagmiProvider, useConfig } from "wagmi";
 import config from "@/config";
+import ConnectWalletProvider from "@/components/wallet/ConnectWalletProvider";
+import { reconnectRecentWallet } from "@/lib/mountReconnect";
 import WalletProvider from "./WalletProvider";
 import SignInProvider from "./SignInProvider";
 import {
@@ -21,28 +23,13 @@ const queryClient = new QueryClient({
   },
 });
 
-const blackTheme = (() => {
-  const base = darkTheme({
-    accentColor: "#000000",
-    accentColorForeground: "#ffffff",
-    borderRadius: "large",
-  });
-
-  return {
-    ...base,
-    colors: {
-      ...base.colors,
-      accentColor: "#000000",
-      accentColorForeground: "#ffffff",
-      connectButtonBackground: "#000000",
-      connectButtonText: "#ffffff",
-      profileForeground: "#0a0a0a",
-      modalBackground: "#0a0a0a",
-      modalBorder: "#111111",
-      generalBorder: "#111111",
-    },
-  };
-})();
+const MountReconnect = () => {
+  const wagmiConfig = useConfig();
+  useEffect(() => {
+    void reconnectRecentWallet(wagmiConfig);
+  }, [wagmiConfig]);
+  return null;
+};
 
 const Web3Provider = ({
   children,
@@ -52,13 +39,15 @@ const Web3Provider = ({
   promptSignIn?: boolean;
 }) => {
   return (
-    <WagmiProvider config={config}>
+    // wagmi's own reconnect starts every wallet; MountReconnect starts the last one.
+    <WagmiProvider config={config} reconnectOnMount={false}>
       <QueryClientProvider client={queryClient}>
-        <RainbowKitProvider theme={blackTheme}>
+        <MountReconnect />
+        <ConnectWalletProvider>
           <SignInProvider promptOnConnect={promptSignIn}>
             <WalletProvider>{children}</WalletProvider>
           </SignInProvider>
-        </RainbowKitProvider>
+        </ConnectWalletProvider>
       </QueryClientProvider>
     </WagmiProvider>
   );

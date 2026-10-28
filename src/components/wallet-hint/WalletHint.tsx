@@ -3,14 +3,24 @@
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useMutationState } from "@tanstack/react-query";
-import { useAccount, useConfig } from "wagmi";
+import { useConnection, useConfig } from "wagmi";
 import { X } from "lucide-react";
 import { fillNetwork, getWalletHint, type HintMoment } from "./walletHints";
 import { useHintsDismissed } from "./useHintsDismissed";
 import { useWalletMoment } from "./walletMomentStore";
 
-// RainbowKit's modal sits at 2147483646.
+// Above the wallet picker dialog.
 const Z_INDEX = 2147483647;
+
+const hasMetaMaskExtension = () =>
+  Boolean(
+    (window as { ethereum?: { isMetaMask?: boolean } }).ethereum?.isMetaMask,
+  );
+
+// These show their own QR code, app prompt or Open button while connecting.
+const bringsOwnPrompt = (connector: PendingConnector) =>
+  connector?.type === "walletConnect" ||
+  (connector?.id === "metaMaskSDK" && !hasMetaMaskExtension());
 
 const PENDING_DELAY_MS = 600;
 
@@ -32,10 +42,12 @@ const PRIORITY: HintMoment[] = [
   "switchingChain",
 ];
 
-type PendingConnector = { id?: string; name?: string } | undefined;
+type PendingConnector =
+  | { id?: string; name?: string; type?: string }
+  | undefined;
 
 const WalletHint = () => {
-  const { isConnected, chain } = useAccount();
+  const { isConnected, chain } = useConnection();
   // Calls made straight through the wallet client
   // register no wagmi mutation; see walletMomentStore.
   const directMoment = useWalletMoment();
@@ -97,7 +109,15 @@ const WalletHint = () => {
     return () => clearTimeout(timer);
   }, [moment]);
 
-  if (!mounted || !ready || dismissed || !visible || closed || !moment) {
+  if (
+    !mounted ||
+    !ready ||
+    dismissed ||
+    !visible ||
+    closed ||
+    !moment ||
+    (moment === "connecting" && bringsOwnPrompt(connector))
+  ) {
     return null;
   }
 

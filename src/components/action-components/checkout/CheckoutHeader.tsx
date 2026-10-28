@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { useAccount, useDisconnect } from "wagmi";
+import { useConnection, useDisconnect } from "wagmi";
 import { ArrowLeft, ChevronDown } from "lucide-react";
 import { formatAddress } from "@/utils";
 import type { TokenData } from "@/model/model";
@@ -208,8 +208,8 @@ const AmountDue = ({
 };
 
 const AccountLinks = ({ links }: { links: ReactNode }) => {
-  const { address } = useAccount();
-  const { disconnect } = useDisconnect();
+  const { address } = useConnection();
+  const { mutate: disconnect } = useDisconnect();
 
   return (
     <nav aria-label="Account" className="flex flex-col items-start gap-2">

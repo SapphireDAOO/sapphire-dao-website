@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useAccount } from "wagmi";
+import { useConnection } from "wagmi";
 import { useIsWindowVisible } from "./useIsWindowVisible";
 import { client } from "@/services/graphql/client";
 import { userInvoicesPageQuery } from "@/services/graphql/userQueries";
@@ -55,7 +55,7 @@ export function usePagedInvoiceQuery({
   isIntermediated,
   enabled = true,
 }: Params): Result {
-  const { address, chain } = useAccount();
+  const { address, chain } = useConnection();
   const chainId = chain?.id ?? BASE_SEPOLIA;
   const isWindowVisible = useIsWindowVisible();
 

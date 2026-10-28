@@ -8,7 +8,7 @@ import {
   metaInvoiceQuery,
 } from "@/services/graphql/queries";
 
-import { useAccount, usePublicClient } from "wagmi";
+import { useConnection, usePublicClient } from "wagmi";
 import { unixToGMT } from "@/utils";
 import {
   INTERMEDIATED_PAYMENT_PROCESSOR,
@@ -109,7 +109,7 @@ const newestInvoices = (invoices: Invoice[]) =>
     .slice(0, LOCAL_INVOICE_CACHE_LIMIT);
 
 export const useInvoiceData = () => {
-  const { chain, address } = useAccount();
+  const { chain, address } = useConnection();
   const chainId = chain?.id || BASE_SEPOLIA;
 
   const publicClient = usePublicClient({

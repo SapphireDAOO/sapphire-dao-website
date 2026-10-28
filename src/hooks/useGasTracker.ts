@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { useAccount, usePublicClient } from "wagmi";
+import { useConnection, usePublicClient } from "wagmi";
 import { formatEther, formatGwei } from "viem";
 import {
   BASE_SEPOLIA,
@@ -34,7 +34,7 @@ const formatGweiLabel = (wei: bigint): string =>
   })} gwei`;
 
 export const useGasTracker = () => {
-  const { chain } = useAccount();
+  const { chain } = useConnection();
   const chainId = chain?.id ?? BASE_SEPOLIA;
   const publicClient = usePublicClient({ chainId });
 
