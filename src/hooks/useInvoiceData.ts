@@ -65,8 +65,9 @@ export const INTERMEDIATED_STATE_LABELS: Record<number, string> = {
   6: "DISPUTE_RESOLVED",
   7: "DISPUTE_DISMISSED",
   8: "DISPUTE_SETTLED",
-  9: "RELEASED",
-  10: "LOCKED",
+  9: "DISPUTE_EXPIRED",
+  10: "RELEASED",
+  11: "LOCKED",
 };
 
 const CHECKOUT_QUERIES = {
@@ -208,22 +209,23 @@ export const useInvoiceData = () => {
       const contractAddress = SIMPLE_PAYMENT_PROCESSOR[chainId];
       if (!contractAddress) return;
 
-      const createdAt = created.createdAt?.toString() ?? nowInSeconds();
+      // The receipt just landed, so now stands in for its block time.
+      const createdAt = nowInSeconds();
       const invoice: Invoice = {
-        id: created.invoiceNonce?.toString() ?? created.invoiceId.toString(),
+        id: created.invoiceNonce.toString(),
         invoiceId: created.invoiceId,
         createdAt: unixToGMT(Number(createdAt)),
         paidAt: "Not Paid",
         status: "AWAITING PAYMENT",
-        price: created.price ? formatEther(created.price) : null,
+        price: formatEther(created.price),
         amountPaid: "0",
         type: "Seller",
         contract: contractAddress,
-        seller: created.seller ?? address,
+        seller: created.seller,
         buyer: "",
         source: "Simple",
         creationTxHash: created.txHash,
-        expiresAt: created.expiresAt?.toString(),
+        expiresAt: created.expiresAt.toString(),
         history: appendHistoryEntry(undefined, "CREATED", createdAt),
       };
 
@@ -725,15 +727,15 @@ export const useInvoiceData = () => {
           invoiceObject?.sellerActionDeadline ??
             (invoiceArray?.[5] as bigint | number | undefined),
         );
-        const seller = readString(invoiceObject?.seller ?? invoiceArray?.[8]);
-        const buyer = readString(invoiceObject?.buyer ?? invoiceArray?.[9]);
+        const seller = readString(invoiceObject?.seller ?? invoiceArray?.[9]);
+        const buyer = readString(invoiceObject?.buyer ?? invoiceArray?.[10]);
         const price = readBigInt(
           invoiceObject?.price ??
-            (invoiceArray?.[11] as bigint | number | undefined),
+            (invoiceArray?.[13] as bigint | number | undefined),
         );
         const amountPaid = readBigInt(
           invoiceObject?.balance ??
-            (invoiceArray?.[12] as bigint | number | undefined),
+            (invoiceArray?.[14] as bigint | number | undefined),
         );
 
         const normalizedAddress = address.toLowerCase();

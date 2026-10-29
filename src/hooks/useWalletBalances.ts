@@ -49,7 +49,7 @@ export const useWalletBalances = () => {
       abi: PaymentProcessorStorage,
       chainId,
       address: storage,
-      functionName: "getFeeReceiver",
+      functionName: "FEE_RECEIVER",
     });
 
   const { data: gasWallet, isLoading: loadingGasWallet } =

@@ -12,7 +12,7 @@ export const Sweeper = [
   },
   {
     type: "function",
-    name: "ppStorage",
+    name: "PP_STORAGE",
     inputs: [],
     outputs: [
       {
@@ -29,11 +29,7 @@ export const Sweeper = [
     inputs: [
       { name: "_token", type: "address", internalType: "address" },
       { name: "_from", type: "address[]", internalType: "address[]" },
-      {
-        name: "_amounts",
-        type: "uint256[]",
-        internalType: "uint256[]",
-      },
+      { name: "_amounts", type: "uint256[]", internalType: "uint256[]" },
       { name: "_destination", type: "address", internalType: "address" },
     ],
     outputs: [{ name: "total", type: "uint256", internalType: "uint256" }],
@@ -59,12 +55,7 @@ export const Sweeper = [
         indexed: true,
         internalType: "address",
       },
-      {
-        name: "from",
-        type: "address",
-        indexed: true,
-        internalType: "address",
-      },
+      { name: "from", type: "address", indexed: true, internalType: "address" },
       {
         name: "destination",
         type: "address",

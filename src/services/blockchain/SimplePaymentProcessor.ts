@@ -25,11 +25,10 @@ const asStorageRefHex = (storageRef?: string): `0x${string}` => {
 
 export type CreatedSimpleInvoice = {
   invoiceId: bigint;
-  invoiceNonce?: bigint;
-  createdAt?: bigint;
-  expiresAt?: bigint;
-  price?: bigint;
-  seller?: Address;
+  invoiceNonce: bigint;
+  expiresAt: bigint;
+  price: bigint;
+  seller: Address;
   txHash: Hex;
 };
 
@@ -40,14 +39,8 @@ export const createInvoice = async (
   setIsLoading: (value: string) => void,
   storageRef?: string,
   share?: boolean,
-  holdPeriodSeconds: number = 0,
 ): Promise<CreatedSimpleInvoice | undefined> => {
   setIsLoading("createInvoice");
-  // The contract takes the hold period as a uint32 of seconds.
-  const holdPeriod = Math.min(
-    Math.max(Math.floor(holdPeriodSeconds) || 0, 0),
-    2 ** 32 - 1,
-  );
   const storageRefHex = asStorageRefHex(storageRef);
   const shareFlag = Boolean(share && storageRef?.trim());
   try {
@@ -58,7 +51,7 @@ export const createInvoice = async (
       data: encodeFunctionData({
         abi: paymentProcessor,
         functionName: "createInvoice",
-        args: [invoicePrice, holdPeriod, storageRefHex, shareFlag],
+        args: [invoicePrice, storageRefHex, shareFlag],
       }),
       gasPrice,
     });
@@ -85,37 +78,19 @@ export const createInvoice = async (
         return undefined;
       }
 
-      const decoded = decodeEventLog({
+      const { args } = decodeEventLog({
         abi: paymentProcessor,
         data: createdLog.data,
         topics: createdLog.topics,
         eventName: "InvoiceCreated",
-      }) as unknown as {
-        args: {
-          invoiceId: bigint;
-          invoice?: {
-            invoiceNonce?: bigint;
-            createdAt?: bigint | number;
-            expiresAt?: bigint | number;
-            price?: bigint;
-            seller?: Address;
-          };
-        };
-      };
-
-      const toBigInt = (value?: bigint | number) => {
-        if (typeof value === "bigint") return value;
-        if (typeof value === "number") return BigInt(value);
-        return undefined;
-      };
+      });
 
       return {
-        invoiceId: decoded.args.invoiceId,
-        invoiceNonce: decoded.args.invoice?.invoiceNonce,
-        createdAt: toBigInt(decoded.args.invoice?.createdAt),
-        expiresAt: toBigInt(decoded.args.invoice?.expiresAt),
-        price: decoded.args.invoice?.price,
-        seller: decoded.args.invoice?.seller,
+        invoiceId: args.invoiceId,
+        invoiceNonce: args.invoiceNonce,
+        expiresAt: BigInt(args.expiresAt),
+        price: args.price,
+        seller: args.seller,
         txHash: tx,
       };
     } else {

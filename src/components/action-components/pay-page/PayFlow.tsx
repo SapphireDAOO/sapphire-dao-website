@@ -15,6 +15,7 @@ import { BASE_SEPOLIA, MAX_NOTE_LENGTH, ZERO_ADDRESS } from "@/constants";
 import type { TokenData } from "@/model/model";
 import { formatDurationSeconds } from "@/utils";
 import { useGetInvoiceData } from "@/hooks/useGetInvoiceData";
+import { useEscrowHoldPeriod } from "@/hooks/useEscrowHoldPeriod";
 import { useInvoiceNotes, ThreadNote } from "@/hooks/useInvoiceNotes";
 import { fetchNotePublicKey, useNoteKeys } from "@/hooks/useNoteKeys";
 import { useViemBalance } from "@/hooks/useViemBalance";
@@ -49,7 +50,6 @@ type InvoiceLike = {
   amount?: string | number | bigint;
   invoiceNonce?: string | number | bigint;
   status?: string | number;
-  holdPeriod?: string | number | bigint | null;
 };
 
 const getInvoiceSeller = (invoice: unknown) => {
@@ -57,8 +57,8 @@ const getInvoiceSeller = (invoice: unknown) => {
     { seller?: unknown; [index: number]: unknown } | undefined;
   if (typeof item?.seller === "string" && item.seller) return item.seller;
 
-  // ISimplePaymentProcessor.Invoice tuple index 10 is seller.
-  const tupleSeller = item?.[10];
+  // ISimplePaymentProcessor.Invoice tuple index 9 is seller.
+  const tupleSeller = item?.[9];
   return typeof tupleSeller === "string" && tupleSeller
     ? tupleSeller
     : undefined;
@@ -90,6 +90,7 @@ const PayFlow = ({ invoiceId }: { invoiceId: bigint }) => {
   const { invoiceData } = useContext(InvoiceStateContext);
 
   const { data: fetchedInvoice } = useGetInvoiceData(invoiceId);
+  const { data: holdPeriodSeconds } = useEscrowHoldPeriod();
   const { notes: invoiceNotes } = useInvoiceNotes(invoiceId);
   const noteKeys = useNoteKeys();
   // Followed live only while the wallet is short, so the
@@ -147,19 +148,6 @@ const PayFlow = ({ invoiceId }: { invoiceId: bigint }) => {
     return nonce === undefined || nonce === null ? undefined : String(nonce);
   }, [fetchedInvoice, invoiceLike]);
 
-  const holdPeriodSeconds = useMemo(() => {
-    // holdPeriod is the field's pre-rename name.
-    const fetched = fetchedInvoice as
-      | { escrowHoldPeriod?: number | bigint; holdPeriod?: number | bigint }
-      | undefined;
-    const raw =
-      fetched?.escrowHoldPeriod ??
-      fetched?.holdPeriod ??
-      invoiceLike?.holdPeriod;
-    if (raw === undefined || raw === null) return undefined;
-    const seconds = Number(raw);
-    return Number.isFinite(seconds) ? seconds : undefined;
-  }, [fetchedInvoice, invoiceLike]);
 
   const sharedCreatorNote = useMemo(() => {
     const creator = invoiceSeller?.toLowerCase();

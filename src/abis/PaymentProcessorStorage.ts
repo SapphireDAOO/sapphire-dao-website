@@ -8,22 +8,13 @@ export const PaymentProcessorStorage = [
         internalType: "struct IPaymentProcessorStorage.Configuration",
         components: [
           { name: "owner", type: "address", internalType: "address" },
-          { name: "feeRate", type: "uint96", internalType: "uint96" },
-          {
-            name: "feeReceiver",
-            type: "address",
-            internalType: "address",
-          },
+          { name: "feeReceiver", type: "address", internalType: "address" },
           {
             name: "intermediatedPlatformsOperator",
             type: "address",
             internalType: "address",
           },
-          {
-            name: "gasThreshold",
-            type: "uint96",
-            internalType: "uint96",
-          },
+          { name: "weth", type: "address", internalType: "address" },
         ],
       },
     ],
@@ -48,6 +39,34 @@ export const PaymentProcessorStorage = [
     name: "EMERGENCY_PAUSE_DURATION",
     inputs: [],
     outputs: [{ name: "", type: "uint256", internalType: "uint256" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "FEE_RATE",
+    inputs: [],
+    outputs: [{ name: "", type: "uint96", internalType: "uint96" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "FEE_RECEIVER",
+    inputs: [],
+    outputs: [{ name: "", type: "address", internalType: "address" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "GAS_THRESHOLD",
+    inputs: [],
+    outputs: [{ name: "", type: "uint96", internalType: "uint96" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "WETH",
+    inputs: [],
+    outputs: [{ name: "", type: "address", internalType: "address" }],
     stateMutability: "view",
   },
   {
@@ -102,39 +121,10 @@ export const PaymentProcessorStorage = [
   },
   {
     type: "function",
-    name: "getFeeRate",
-    inputs: [],
-    outputs: [{ name: "feeRate", type: "uint256", internalType: "uint256" }],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    name: "getFeeReceiver",
-    inputs: [],
-    outputs: [
-      { name: "feeReceiver", type: "address", internalType: "address" },
-    ],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
     name: "getFeeSigner",
     inputs: [],
     outputs: [
-      {
-        name: "feeSignerAddress",
-        type: "address",
-        internalType: "address",
-      },
-    ],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    name: "getGasThreshold",
-    inputs: [],
-    outputs: [
-      { name: "gasThreshold", type: "uint256", internalType: "uint256" },
+      { name: "feeSignerAddress", type: "address", internalType: "address" },
     ],
     stateMutability: "view",
   },
@@ -142,13 +132,7 @@ export const PaymentProcessorStorage = [
     type: "function",
     name: "getIntermediatedPlatformsOperator",
     inputs: [],
-    outputs: [
-      {
-        name: "intermediatedPlatformsOperator",
-        type: "address",
-        internalType: "address",
-      },
-    ],
+    outputs: [{ name: "operator", type: "address", internalType: "address" }],
     stateMutability: "view",
   },
   {
@@ -166,14 +150,11 @@ export const PaymentProcessorStorage = [
   },
   {
     type: "function",
-    name: "getPaymentValidityDuration",
+    name: "getPauseState",
     inputs: [],
     outputs: [
-      {
-        name: "validDuration",
-        type: "uint256",
-        internalType: "uint256",
-      },
+      { name: "pausedState", type: "bool", internalType: "bool" },
+      { name: "expiry", type: "uint256", internalType: "uint256" },
     ],
     stateMutability: "view",
   },
@@ -225,11 +206,7 @@ export const PaymentProcessorStorage = [
     type: "function",
     name: "setEmergencyPauser",
     inputs: [
-      {
-        name: "_emergencyPauser",
-        type: "address",
-        internalType: "address",
-      },
+      { name: "_emergencyPauser", type: "address", internalType: "address" },
     ],
     outputs: [],
     stateMutability: "nonpayable",
@@ -238,19 +215,6 @@ export const PaymentProcessorStorage = [
     type: "function",
     name: "setFeeSigner",
     inputs: [{ name: "_feeSigner", type: "address", internalType: "address" }],
-    outputs: [],
-    stateMutability: "nonpayable",
-  },
-  {
-    type: "function",
-    name: "setGasThreshold",
-    inputs: [
-      {
-        name: "_newGasThreshold",
-        type: "uint96",
-        internalType: "uint96",
-      },
-    ],
     outputs: [],
     stateMutability: "nonpayable",
   },
@@ -272,11 +236,7 @@ export const PaymentProcessorStorage = [
     name: "totalInvoiceCreated",
     inputs: [],
     outputs: [
-      {
-        name: "totalInvoices",
-        type: "uint216",
-        internalType: "uint216",
-      },
+      { name: "totalInvoices", type: "uint216", internalType: "uint216" },
     ],
     stateMutability: "view",
   },
@@ -299,11 +259,7 @@ export const PaymentProcessorStorage = [
     name: "updateInvoiceNonce",
     inputs: [{ name: "_by", type: "uint216", internalType: "uint216" }],
     outputs: [
-      {
-        name: "totalInvoices",
-        type: "uint216",
-        internalType: "uint216",
-      },
+      { name: "totalInvoices", type: "uint216", internalType: "uint216" },
     ],
     stateMutability: "nonpayable",
   },
@@ -337,22 +293,13 @@ export const PaymentProcessorStorage = [
         internalType: "struct IPaymentProcessorStorage.Configuration",
         components: [
           { name: "owner", type: "address", internalType: "address" },
-          { name: "feeRate", type: "uint96", internalType: "uint96" },
-          {
-            name: "feeReceiver",
-            type: "address",
-            internalType: "address",
-          },
+          { name: "feeReceiver", type: "address", internalType: "address" },
           {
             name: "intermediatedPlatformsOperator",
             type: "address",
             internalType: "address",
           },
-          {
-            name: "gasThreshold",
-            type: "uint96",
-            internalType: "uint96",
-          },
+          { name: "weth", type: "address", internalType: "address" },
         ],
       },
     ],
@@ -405,32 +352,6 @@ export const PaymentProcessorStorage = [
   },
   {
     type: "event",
-    name: "FeeRateUpdated",
-    inputs: [
-      {
-        name: "feeRate",
-        type: "uint96",
-        indexed: false,
-        internalType: "uint96",
-      },
-    ],
-    anonymous: false,
-  },
-  {
-    type: "event",
-    name: "FeeReceiverUpdated",
-    inputs: [
-      {
-        name: "feeReceiver",
-        type: "address",
-        indexed: true,
-        internalType: "address",
-      },
-    ],
-    anonymous: false,
-  },
-  {
-    type: "event",
     name: "FeeSignerUpdated",
     inputs: [
       {
@@ -438,19 +359,6 @@ export const PaymentProcessorStorage = [
         type: "address",
         indexed: true,
         internalType: "address",
-      },
-    ],
-    anonymous: false,
-  },
-  {
-    type: "event",
-    name: "GasThresholdUpdated",
-    inputs: [
-      {
-        name: "gasThreshold",
-        type: "uint96",
-        indexed: false,
-        internalType: "uint96",
       },
     ],
     anonymous: false,
@@ -528,19 +436,6 @@ export const PaymentProcessorStorage = [
   },
   {
     type: "event",
-    name: "PaymentValidityDurationUpdated",
-    inputs: [
-      {
-        name: "validityDuration",
-        type: "uint256",
-        indexed: false,
-        internalType: "uint256",
-      },
-    ],
-    anonymous: false,
-  },
-  {
-    type: "event",
     name: "Unpaused",
     inputs: [
       {
@@ -556,6 +451,7 @@ export const PaymentProcessorStorage = [
   { type: "error", name: "AlreadyPaused", inputs: [] },
   { type: "error", name: "InvalidFeeRate", inputs: [] },
   { type: "error", name: "InvalidFeeSigner", inputs: [] },
+  { type: "error", name: "InvalidWeth", inputs: [] },
   { type: "error", name: "NewOwnerIsZeroAddress", inputs: [] },
   { type: "error", name: "NoActiveEmergencyPause", inputs: [] },
   { type: "error", name: "NoHandoverRequest", inputs: [] },

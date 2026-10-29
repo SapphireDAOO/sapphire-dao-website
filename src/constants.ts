@@ -11,9 +11,8 @@ export const DEFAULT_QUERY_GC_TIME_MS = ONE_DAY_MS;
 // How long a payment page shows one price quote before refreshing it.
 export const RATE_WINDOW_MS = 30 * ONE_SECOND_MS;
 
-// Fixed for every invoice: a per-invoice hold is a
-// term the payer can't see until opening the link.
-export const DEFAULT_HOLD_PERIOD_SECONDS = 5 * 60;
+// Mirrors the simple processor's MINIMUM_INVOICE_VALUE, which has no getter.
+export const MINIMUM_INVOICE_VALUE = BigInt("5000000000000000");
 
 export const MAX_NOTE_LENGTH = 20;
 export const DEFAULT_BLOCK_POLLING_INTERVAL_MS = 12 * ONE_SECOND_MS;
@@ -42,22 +41,22 @@ export const CONTRACT_API_URL = (
 export const MAX_FEE_RECEIVERS = 5;
 
 export const PAYMENT_PROCESSOR_STORAGE: Record<number, Address> = {
-  [BASE_SEPOLIA]: "0xa5a8d53D9138D17F6C94c56846D50a850aFd14c9",
+  [BASE_SEPOLIA]: "0x58422C5A8959502a2304b2AfF97dAebF30262CA6",
   [LOCALHOST]: "0x9209Fb3710015c3b4c780cef605322457c7C863c",
 };
 
 export const SIMPLE_PAYMENT_PROCESSOR: Record<number, Address> = {
-  [BASE_SEPOLIA]: "0x0741D5d919900c216Db4184e2cA0aaE6f88f21C3",
+  [BASE_SEPOLIA]: "0xbCd3f9AB4e0b09044053102A353C0B710106e08a",
   [LOCALHOST]: "0x75c0f4a0aF42101E64B493B71cEFEbC359B90F25",
 };
 
 export const INTERMEDIATED_PAYMENT_PROCESSOR: Record<number, Address> = {
-  [BASE_SEPOLIA]: "0x5ea98074A1779E1242feefB6df54C6c0a4b16423",
+  [BASE_SEPOLIA]: "0x72AD25c3AED936120842B4b2dBcD28744bb412Ed",
   [LOCALHOST]: "0xcDEf5a4084d380CAbf0AD88421843dCb1b1a1298",
 };
 
 export const MULTISIG_CONTRACT: Record<number, Address> = {
-  [BASE_SEPOLIA]: "0x2AEFE8BDd278fCF4b010111d7aDD8ab50d859419",
+  [BASE_SEPOLIA]: "0xf2EDEf709357e6587DC9600B58A34DA3d54369d1",
   [LOCALHOST]: "0xEE79d9E7EDBEf7c927A6A58EBc2a3b4c927C1384",
 };
 
@@ -65,7 +64,7 @@ export const MULTISIG_CONTRACT: Record<number, Address> = {
 export const CONTRACT_MINIMUM_THRESHOLD = 2;
 
 export const NOTES_CONTRACT: Record<number, Address> = {
-  [BASE_SEPOLIA]: "0xE818dA06Ceed4Ac6c6d4871a5Fc0226B8032834e",
+  [BASE_SEPOLIA]: "0x934fa7109ff129Cb70997B6be330401fa5946671",
   [LOCALHOST]: "0xce270FA8D222300a2148477f924669d4b3a0523e",
 };
 
@@ -81,7 +80,7 @@ export const WETH_CONTRACT: Record<number, Address> = {
 };
 
 export const SWEEPER_CONTRACT: Record<number, Address> = {
-  [BASE_SEPOLIA]: "0x23F53C2422AF06eb1B98f4B78f11F583a2435F5D",
+  [BASE_SEPOLIA]: "0xCa65Bbd11988Efe078fe98D127cab5145D5050BB",
   [LOCALHOST]: "0x0E078853ef04266c5d09F9cD21DFA761134B13f6",
 };
 

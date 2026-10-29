@@ -147,8 +147,6 @@ const transportReason = (error: unknown): string | undefined => {
 const REGISTER_HINTS: Record<string, string> = {
   PublicKeyAlreadySet: "This account already has a messaging key published.",
   InvalidPublicKey: "The derived key is not the 64 bytes the registry expects.",
-  PublicKeyMismatch:
-    "The registry only accepts a key whose hash matches your address, so it rejects derived messaging keys. The contract's setPublicKey check has to be relaxed before this can succeed.",
 };
 
 export const useNoteKeys = (options?: {
@@ -172,7 +170,7 @@ export const useNoteKeys = (options?: {
   const { data: version = 1 } = useViemReadContract<number>({
     abi: Notes,
     address: notesContract,
-    functionName: "getCurrentVersion",
+    functionName: "CURRENT_VERSION",
     chainId,
     enabled: readsEnabled,
     staleTime: NOTE_KEY_STALE_TIME_MS,

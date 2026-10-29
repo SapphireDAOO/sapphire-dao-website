@@ -74,7 +74,6 @@ const WalletProvider = ({ children }: Props) => {
         invoicePrice: bigint,
         storageRef?: string,
         share?: boolean,
-        holdPeriodSeconds?: number,
       ) => {
         const created = await createSimpleInvoice(
           wagmiClients,
@@ -83,7 +82,6 @@ const WalletProvider = ({ children }: Props) => {
           setIsLoading,
           storageRef,
           share,
-          holdPeriodSeconds,
         );
 
         if (created) {

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect } from "react";
 import { type AbiEvent } from "viem";
 import type { PublicClient } from "viem";
@@ -41,6 +40,7 @@ const statusFromEvent: Record<string, Invoice["status"]> = {
   DisputeResolved: "DISPUTE_RESOLVED",
   DisputeDismissed: "DISPUTE_DISMISSED",
   DisputeSettled: "DISPUTE_SETTLED",
+  DisputeExpired: "DISPUTE_EXPIRED",
   InvoiceCreated: "AWAITING PAYMENT",
 };
 
@@ -254,69 +254,30 @@ export function useIntermediatedInvoiceEvents({
           )?.toString();
 
           if (name === "InvoiceCreated") {
-            const invoice = (log.args as any)?.invoice as
-              | {
-                  invoiceNonce?: bigint;
-                  buyer?: string;
-                  seller?: string;
-                  price?: bigint;
-                  balance?: bigint;
-                  amountPaid?: bigint;
-                  createdAt?: bigint;
-                  paymentToken?: string;
-                  paidAt?: bigint;
-                  releaseAt?: bigint;
-                }
+            const created = log.args as
+              | { invoiceNonce?: bigint; seller?: string; price?: bigint }
               | undefined;
+            const seller = created?.seller;
 
-            const buyer = invoice?.buyer?.toLowerCase?.();
-            const seller = invoice?.seller?.toLowerCase?.();
-            const contractInvoiceId = invoiceId;
-            const displayId =
-              invoice?.invoiceNonce?.toString() ?? contractInvoiceId;
-            const historyTime = invoice?.createdAt
-              ? invoice.createdAt.toString()
-              : batchTime;
-
-            const isUserInvoice =
-              buyer === userAddress || seller === userAddress;
-
-            if (isUserInvoice && contractInvoiceId && invoice) {
-              const type =
-                seller === userAddress
-                  ? ("IssuedInvoice" as const)
-                  : ("ReceivedInvoice" as const);
-
+            // A new invoice has no buyer yet, so only its seller follows it.
+            if (invoiceId && seller?.toLowerCase() === userAddress) {
               ops.push({
                 kind: "created",
                 invoice: {
-                  id: displayId,
-                  invoiceId: BigInt(contractInvoiceId),
-                  createdAt: invoice.createdAt
-                    ? unixToGMT(Number(invoice.createdAt))
-                    : null,
-                  paidAt:
-                    invoice.paidAt && Number(invoice.paidAt) > 0
-                      ? unixToGMT(Number(invoice.paidAt))
-                      : "Not Paid",
+                  id: created?.invoiceNonce?.toString() ?? invoiceId,
+                  invoiceId: BigInt(invoiceId),
+                  createdAt: unixToGMT(Number(batchTime)),
+                  paidAt: "Not Paid",
                   status: "AWAITING PAYMENT",
-                  price: toRawString(invoice.price) ?? null,
-                  amountPaid:
-                    toRawString(invoice.amountPaid ?? invoice.balance) ?? "0",
-                  type,
+                  price: toRawString(created?.price) ?? null,
+                  amountPaid: "0",
+                  type: "IssuedInvoice",
                   contract: contractAddress,
-                  buyer: invoice.buyer ?? "",
-                  seller: invoice.seller ?? "",
+                  buyer: "",
+                  seller,
                   source: "Intermediated",
-                  paymentToken: invoice.paymentToken ?? "",
-                  releaseAt: invoice.releaseAt
-                    ? invoice.releaseAt.toString()
-                    : undefined,
-                  history: appendHistoryEntry(
-                    undefined,
-                    "CREATED",
-                    historyTime,
-                  ),
+                  paymentToken: "",
+                  history: appendHistoryEntry(undefined, "CREATED", batchTime),
                 } as Invoice,
               });
             }

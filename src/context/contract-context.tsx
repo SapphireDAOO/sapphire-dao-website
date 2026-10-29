@@ -9,8 +9,7 @@ export interface ContractActions {
   createInvoice: (
     invoicePrice: bigint,
     storageRef?: string,
-    share?: boolean,
-    holdPeriodSeconds?: number
+    share?: boolean
   ) => Promise<bigint | undefined>;
   makeInvoicePayment: (
     amount: bigint,

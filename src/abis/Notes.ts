@@ -19,9 +19,29 @@ export const Notes = [
   },
   {
     type: "function",
+    name: "CURRENT_VERSION",
+    inputs: [],
+    outputs: [{ name: "", type: "uint8", internalType: "uint8" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
     name: "NOT_ALLOWED",
     inputs: [],
     outputs: [{ name: "", type: "uint256", internalType: "uint256" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "PP_STORAGE",
+    inputs: [],
+    outputs: [
+      {
+        name: "",
+        type: "address",
+        internalType: "contract IPaymentProcessorStorage",
+      },
+    ],
     stateMutability: "view",
   },
   {
@@ -30,22 +50,11 @@ export const Notes = [
     inputs: [
       { name: "_invoiceId", type: "uint216", internalType: "uint216" },
       { name: "_author", type: "address", internalType: "address" },
-      {
-        name: "_encryptedContent",
-        type: "bytes",
-        internalType: "bytes",
-      },
+      { name: "_encryptedContent", type: "bytes", internalType: "bytes" },
       { name: "_share", type: "bool", internalType: "bool" },
     ],
     outputs: [{ name: "noteId", type: "uint256", internalType: "uint256" }],
     stateMutability: "nonpayable",
-  },
-  {
-    type: "function",
-    name: "getCurrentVersion",
-    inputs: [],
-    outputs: [{ name: "v", type: "uint8", internalType: "uint8" }],
-    stateMutability: "view",
   },
   {
     type: "function",
@@ -100,29 +109,6 @@ export const Notes = [
   },
   {
     type: "function",
-    name: "ppStorage",
-    inputs: [],
-    outputs: [
-      {
-        name: "",
-        type: "address",
-        internalType: "contract IPaymentProcessorStorage",
-      },
-    ],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    name: "setAuthorized",
-    inputs: [
-      { name: "_user", type: "address", internalType: "address" },
-      { name: "_enabled", type: "bool", internalType: "bool" },
-    ],
-    outputs: [],
-    stateMutability: "nonpayable",
-  },
-  {
-    type: "function",
     name: "setOpened",
     inputs: [
       { name: "_invoiceId", type: "uint216", internalType: "uint216" },
@@ -136,13 +122,6 @@ export const Notes = [
     type: "function",
     name: "setPublicKey",
     inputs: [{ name: "_publicKey", type: "bytes", internalType: "bytes" }],
-    outputs: [],
-    stateMutability: "nonpayable",
-  },
-  {
-    type: "function",
-    name: "updateVersion",
-    inputs: [{ name: "_newVersion", type: "uint8", internalType: "uint8" }],
     outputs: [],
     stateMutability: "nonpayable",
   },
@@ -168,12 +147,7 @@ export const Notes = [
         indexed: true,
         internalType: "address",
       },
-      {
-        name: "share",
-        type: "bool",
-        indexed: false,
-        internalType: "bool",
-      },
+      { name: "share", type: "bool", indexed: false, internalType: "bool" },
       {
         name: "encryptedContent",
         type: "bytes",
@@ -199,18 +173,8 @@ export const Notes = [
         indexed: true,
         internalType: "uint256",
       },
-      {
-        name: "user",
-        type: "address",
-        indexed: true,
-        internalType: "address",
-      },
-      {
-        name: "opened",
-        type: "bool",
-        indexed: false,
-        internalType: "bool",
-      },
+      { name: "user", type: "address", indexed: true, internalType: "address" },
+      { name: "opened", type: "bool", indexed: false, internalType: "bool" },
     ],
     anonymous: false,
   },
@@ -230,12 +194,7 @@ export const Notes = [
         indexed: false,
         internalType: "bytes",
       },
-      {
-        name: "version",
-        type: "uint8",
-        indexed: false,
-        internalType: "uint8",
-      },
+      { name: "version", type: "uint8", indexed: false, internalType: "uint8" },
     ],
     anonymous: false,
   },
@@ -243,6 +202,5 @@ export const Notes = [
   { type: "error", name: "InvalidPublicKey", inputs: [] },
   { type: "error", name: "NoteNotFound", inputs: [] },
   { type: "error", name: "PublicKeyAlreadySet", inputs: [] },
-  { type: "error", name: "PublicKeyMismatch", inputs: [] },
   { type: "error", name: "Unauthorized", inputs: [] },
 ] as const;

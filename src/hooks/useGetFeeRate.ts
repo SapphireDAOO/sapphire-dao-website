@@ -12,7 +12,7 @@ export const useGetFeeRate = () => {
     abi: PaymentProcessorStorage,
     chainId,
     address: PAYMENT_PROCESSOR_STORAGE[chainId],
-    functionName: "getFeeRate",
+    functionName: "FEE_RATE",
   });
 
   return { data, refetch, isLoading };

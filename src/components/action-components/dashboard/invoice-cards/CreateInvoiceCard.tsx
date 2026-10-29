@@ -17,10 +17,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { NoteLength } from "@/components/NoteLength";
-import { DEFAULT_HOLD_PERIOD_SECONDS, MAX_NOTE_LENGTH } from "@/constants";
+import { MAX_NOTE_LENGTH, MINIMUM_INVOICE_VALUE } from "@/constants";
 import { formatDurationSeconds } from "@/utils";
 import { useGetFeeRate } from "@/hooks/useGetFeeRate";
-import { useGetMinimumInvoiceValue } from "@/hooks/useGetMinimumInvoiceValue";
+import { useEscrowHoldPeriod } from "@/hooks/useEscrowHoldPeriod";
 import {
   ContractActionsContext,
   ContractLoadingContext,
@@ -124,17 +124,15 @@ export default function CreateInvoiceDialog() {
 
   const contractAddress = SIMPLE_PAYMENT_PROCESSOR[chainId || BASE_SEPOLIA];
 
-  const { data: minimumInvoiceValue } = useGetMinimumInvoiceValue();
-  const minimumEth = minimumInvoiceValue
-    ? formatEther(minimumInvoiceValue)
-    : undefined;
+  const { data: holdPeriodSeconds } = useEscrowHoldPeriod();
+  const minimumEth = formatEther(MINIMUM_INVOICE_VALUE);
 
   // parseEther throws on input Number() accepts (e.g.
   // " "); that's left to the amount validation.
   const isAboveMinimum = (() => {
-    if (minimumInvoiceValue === undefined || !amount) return true;
+    if (!amount) return true;
     try {
-      return parseEther(amount) >= minimumInvoiceValue;
+      return parseEther(amount) >= MINIMUM_INVOICE_VALUE;
     } catch {
       return true;
     }
@@ -175,12 +173,7 @@ export default function CreateInvoiceDialog() {
 
       // Always private: the payer is unknown at
       // creation, so there is no key to share to.
-      const response = await createInvoice(
-        amountValue,
-        storageRef,
-        false,
-        DEFAULT_HOLD_PERIOD_SECONDS,
-      );
+      const response = await createInvoice(amountValue, storageRef, false);
 
       if (response) {
         setinvoiceId(response);
@@ -237,17 +230,19 @@ export default function CreateInvoiceDialog() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="flex items-start gap-2 rounded-md bg-muted/60 px-3 py-2">
-            <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-gray-500" />
-            <p className="text-xs leading-snug text-gray-600">
-              Payments are held in escrow for{" "}
-              <span className="font-medium text-gray-900">
-                {formatDurationSeconds(DEFAULT_HOLD_PERIOD_SECONDS)}
-              </span>{" "}
-              after you accept an invoice, then released to you. The payer sees
-              this before paying.
-            </p>
-          </div>
+          {holdPeriodSeconds !== undefined && (
+            <div className="flex items-start gap-2 rounded-md bg-muted/60 px-3 py-2">
+              <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-gray-500" />
+              <p className="text-xs leading-snug text-gray-600">
+                Payments are held in escrow for{" "}
+                <span className="font-medium text-gray-900">
+                  {formatDurationSeconds(holdPeriodSeconds)}
+                </span>{" "}
+                after you accept an invoice, then released to you. The payer
+                sees this before paying.
+              </p>
+            </div>
+          )}
 
           {address &&
             noteKeys.registeredKeyLoaded &&

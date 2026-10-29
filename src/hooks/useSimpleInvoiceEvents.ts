@@ -68,7 +68,6 @@ type LogOp =
       status: Invoice["status"];
       txHash?: string;
       amountPaid?: bigint;
-      refundedAmountPaid?: bigint;
       buyer?: string;
       sellerActionDeadline?: bigint;
       fallback?: Invoice;
@@ -152,10 +151,6 @@ const applyOps = (
     }
 
     if (op.name === "InvoiceRejected" || op.name === "InvoiceRefunded") {
-      if (op.refundedAmountPaid !== undefined) {
-        updatedFields.amountPaid = formatEther(op.refundedAmountPaid);
-      }
-
       updatedFields.refundTxHash = op.txHash ?? existingInvoice.refundTxHash;
     }
 
@@ -218,63 +213,38 @@ export function useSimpleInvoiceEvents({
                 invoiceId?: bigint;
                 invoiceNonce?: bigint;
                 buyer?: string;
+                seller?: string;
+                price?: bigint;
+                expiresAt?: number;
                 amountPaid?: bigint;
                 sellerActionDeadline?: bigint;
-                invoice?: {
-                  invoiceNonce?: bigint;
-                  buyer?: string;
-                  seller?: string;
-                  price?: bigint;
-                  balance?: bigint;
-                  amountPaid?: bigint;
-                  createdAt?: bigint;
-                  paidAt?: bigint;
-                  expiresAt?: bigint;
-                  sellerActionDeadline?: bigint;
-                };
               }
             | undefined;
 
           if (name === "InvoiceCreated") {
-            const invoice = args?.invoice;
             const invoiceId = args?.invoiceId?.toString();
-            const displayId = invoice?.invoiceNonce?.toString() ?? invoiceId;
+            const seller = args?.seller;
 
-            if (!invoice || !invoiceId) continue;
-
-            const buyer = invoice.buyer?.toLowerCase?.();
-            const seller = invoice.seller?.toLowerCase?.();
-
-            const isUserInvoice =
-              buyer === userAddress || seller === userAddress;
-
-            if (!isUserInvoice) continue;
-
-            const type = seller === userAddress ? "Seller" : "Buyer";
-            const historyTime = invoice.createdAt
-              ? invoice.createdAt.toString()
-              : batchTime;
+            // A new invoice has no buyer yet, so only its seller follows it.
+            if (!invoiceId || seller?.toLowerCase() !== userAddress) continue;
 
             ops.push({
               kind: "created",
               invoice: {
-                id: displayId,
+                id: args?.invoiceNonce?.toString() ?? invoiceId,
                 invoiceId: BigInt(invoiceId),
-                createdAt: invoice.createdAt
-                  ? unixToGMT(Number(invoice.createdAt))
-                  : null,
+                createdAt: unixToGMT(Number(batchTime)),
                 paidAt: "Not Paid",
                 status: "AWAITING PAYMENT",
-                price: invoice.price ? formatEther(invoice.price) : null,
+                price: args?.price ? formatEther(args.price) : null,
                 amountPaid: "0",
-                type,
+                type: "Seller",
                 contract: contractAddress,
-                buyer: invoice.buyer ?? "",
-                seller: invoice.seller ?? "",
+                buyer: "",
+                seller,
                 source: "Simple",
-                expiresAt: invoice.expiresAt?.toString(),
-                sellerActionDeadline: invoice.sellerActionDeadline?.toString(),
-                history: appendHistoryEntry(undefined, "CREATED", historyTime),
+                expiresAt: args?.expiresAt?.toString(),
+                history: appendHistoryEntry(undefined, "CREATED", batchTime),
               } as Invoice,
             });
             continue;
@@ -324,7 +294,6 @@ export function useSimpleInvoiceEvents({
             status,
             txHash: log.transactionHash ?? undefined,
             amountPaid: args?.amountPaid,
-            refundedAmountPaid: args?.invoice?.amountPaid,
             buyer: args?.buyer,
             sellerActionDeadline: args?.sellerActionDeadline,
             fallback,
