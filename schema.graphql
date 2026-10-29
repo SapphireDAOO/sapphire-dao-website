@@ -16,6 +16,7 @@ enum AdvancedPaymentProcessorState {
   DISPUTE_DISMISSED
   DISPUTE_RESOLVED
   DISPUTE_SETTLED
+  DISPUTE_EXPIRED
   REFUNDED
   RELEASED
 }
@@ -23,6 +24,7 @@ enum AdvancedPaymentProcessorState {
 enum PaymentProcessorEventType {
   DISPUTE_CREATED
   DISPUTE_DISMISSED
+  DISPUTE_EXPIRED
   DISPUTE_RESOLVED
   DISPUTE_SETTLED
   ESCROW_CREATED
@@ -51,6 +53,16 @@ enum MultisigStatus {
   EXECUTED
 }
 
+enum InvoiceType {
+  SIMPLE
+  ADVANCED
+}
+
+enum UserRole {
+  CREATOR
+  PAYER
+}
+
 type InvoiceEvent @entity(immutable: true) {
   id: ID!
   eventType: PaymentProcessorEventType!
@@ -60,8 +72,12 @@ type InvoiceEvent @entity(immutable: true) {
   advancedInvoice: AdvancedPaymentProcessor
 }
 
-type User @entity {
+type User @entity(immutable: false) {
   id: ID!
+  publicKey: Bytes
+  publicKeyVersion: Int
+  countedAsNewUser: Boolean!
+  lastActiveDay: BigInt
   ownedSimpleInvoices: [SimplePaymentProcessor!]! @derivedFrom(field: "seller")
   paidSimpleInvoices: [SimplePaymentProcessor!]! @derivedFrom(field: "buyer")
   issuedAdvancedInvoices: [AdvancedPaymentProcessor!]!
@@ -72,7 +88,7 @@ type User @entity {
 }
 
 # commission url is
-type SimplePaymentProcessor @entity {
+type SimplePaymentProcessor @entity(immutable: false) {
   id: ID!
   invoiceNonce: BigInt!
   state: SimplePaymentProcessorState!
@@ -80,10 +96,13 @@ type SimplePaymentProcessor @entity {
   buyer: User
   price: BigInt!
   amountPaid: BigInt
-  invalidateAt: BigInt
   expiresAt: BigInt
+  sellerActionDeadline: BigInt
   releaseAt: BigInt
   fee: BigInt
+  feeReceiver: Bytes
+  # Tx in which the best-effort fee payout failed; the fee was not credited.
+  feeTransferFailedTx: Bytes
   contract: Bytes!
   events: [InvoiceEvent!]! @derivedFrom(field: "simpleInvoice")
   lastActionTime: BigInt
@@ -92,8 +111,10 @@ type SimplePaymentProcessor @entity {
 }
 
 # commission url is either in release or dispute
-type AdvancedPaymentProcessor @entity {
+type AdvancedPaymentProcessor @entity(immutable: false) {
   id: ID!
+  # Caller-supplied order identifier the on-chain invoice ID is derived from.
+  orderId: String!
   invoiceNonce: BigInt!
   state: AdvancedPaymentProcessorState!
   buyer: User
@@ -102,6 +123,9 @@ type AdvancedPaymentProcessor @entity {
   escrow: Bytes
   balance: BigInt
   paymentToken: PaymentToken
+  # Tokens the invoice may be paid in, registered at creation. The buyer pays
+  # with one of these, which then becomes `paymentToken`.
+  expectedPaymentTokens: [PaymentToken!]!
   releaseAt: BigInt
   amountReleased: BigInt
   amountRefunded: BigInt
@@ -111,13 +135,16 @@ type AdvancedPaymentProcessor @entity {
   contract: Bytes!
   events: [InvoiceEvent!]! @derivedFrom(field: "advancedInvoice")
   fee: BigInt
+  feeReceiver: Bytes
+  # Tx in which the best-effort fee payout failed; the fee was not credited.
+  feeTransferFailedTx: Bytes
   lastActionTime: BigInt
   metaInvoice: MetaInvoice
   buyerNote: String
   sellerNote: String
 }
 
-type MetaInvoice @entity {
+type MetaInvoice @entity(immutable: false) {
   id: ID!
   invoiceNonce: BigInt!
   buyer: User!
@@ -126,7 +153,7 @@ type MetaInvoice @entity {
   invoices: [AdvancedPaymentProcessor!]! @derivedFrom(field: "metaInvoice")
 }
 
-type PaymentToken @entity {
+type PaymentToken @entity(immutable: false) {
   id: ID!
   name: String
   decimal: Int
@@ -143,7 +170,7 @@ type Note @entity(immutable: true) {
   createdAtTx: Bytes!
 }
 
-type NoteOpenState @entity {
+type NoteOpenState @entity(immutable: false) {
   id: ID!
   invoiceId: BigInt!
   noteId: BigInt!
@@ -153,7 +180,7 @@ type NoteOpenState @entity {
   updatedAtTx: Bytes!
 }
 
-type MultiSigWallet @entity {
+type MultiSigWallet @entity(immutable: false) {
   id: ID! # contract address
   threshold: BigInt!
   signerCount: BigInt!
@@ -162,7 +189,7 @@ type MultiSigWallet @entity {
   transactions: [MultiSigTransaction!]! @derivedFrom(field: "wallet")
 }
 
-type MultiSigSigner @entity {
+type MultiSigSigner @entity(immutable: false) {
   id: ID! # wallet address + "-" + signer address
   wallet: MultiSigWallet!
   address: Bytes!
@@ -172,7 +199,7 @@ type MultiSigSigner @entity {
   approvals: [MultiSigApproval!]! @derivedFrom(field: "signer")
 }
 
-type MultiSigTransaction @entity {
+type MultiSigTransaction @entity(immutable: false) {
   id: Bytes! # txHash
   wallet: MultiSigWallet!
   target: Bytes!
@@ -188,11 +215,204 @@ type MultiSigTransaction @entity {
   approvals: [MultiSigApproval!]! @derivedFrom(field: "transaction")
 }
 
-type MultiSigApproval @entity {
+type MultiSigApproval @entity(immutable: false) {
   id: ID! # txHash + "-" + approver
   transaction: MultiSigTransaction!
   signer: MultiSigSigner
   approver: Bytes!
   approvalCount: BigInt!
   approvedAt: BigInt!
+}
+
+# Singleton (id: "global") mirroring the current PaymentProcessorStorage
+# configuration. Updated by every config-changing storage event.
+type StorageConfiguration @entity(immutable: false) {
+  id: ID!
+  owner: Bytes
+  feeReceiver: Bytes
+  intermediatedPlatformsOperator: Bytes
+  # Wrapped native token both processors pay platform fees in.
+  weth: Bytes
+  feeSigner: Bytes
+  emergencyPauser: Bytes
+  updatedAt: BigInt
+  updatedAtBlock: BigInt
+}
+
+enum PauseActionType {
+  PAUSED
+  UNPAUSED
+  EMERGENCY_PAUSED
+  EMERGENCY_PAUSE_APPROVED
+}
+
+
+type PauseAction @entity(immutable: true) {
+  id: ID!
+  type: PauseActionType!
+  account: Bytes!
+  expiry: BigInt
+  timestamp: BigInt!
+  block: BigInt!
+  txHash: Bytes!
+}
+
+# Singleton (id: "global") holding the current pause state.
+type PauseState @entity(immutable: false) {
+  id: ID!
+  ownerPaused: Boolean!
+  emergencyPauseExpiry: BigInt
+  emergencyPausedBy: Bytes
+  emergencyPausedAt: BigInt
+  lastAction: PauseActionType
+  lastActionBy: Bytes
+  lastActionAt: BigInt
+  lastActionTx: Bytes
+}
+
+# Per-account authorization state managed via setAuthorizedAddress
+# (id: account address).
+type AuthorizedAddress @entity(immutable: false) {
+  id: ID!
+  account: Bytes!
+  authorized: Boolean!
+  updatedAt: BigInt!
+  updatedAtBlock: BigInt!
+}
+
+type FeeReceiver @entity(immutable: false) {
+  id: ID!
+  address: Bytes!
+  balances: [FeeReceiverTokenBalance!]! @derivedFrom(field: "feeReceiver")
+  sweeps: [FeeSweep!]! @derivedFrom(field: "feeReceiver")
+  # Number of Swept transfers out of this receiver, across all tokens.
+  sweepCount: BigInt!
+  firstCreditedAt: BigInt
+  updatedAt: BigInt!
+  updatedAtBlock: BigInt!
+}
+
+type FeeReceiverTokenBalance @entity(immutable: false) {
+  id: ID!
+  feeReceiver: FeeReceiver!
+  token: PaymentToken!
+  # Cumulative fees credited to this receiver in this token.
+  accrued: BigInt!
+  # Cumulative amount swept out by the Sweeper.
+  swept: BigInt!
+  # accrued - swept: what the receiver still holds from platform fees.
+  balance: BigInt!
+  updatedAt: BigInt!
+  updatedAtBlock: BigInt!
+}
+
+# One Sweeper transfer moving a fee receiver's tokens to a destination.
+type FeeSweep @entity(immutable: true) {
+  id: ID!
+  feeReceiver: FeeReceiver!
+  token: PaymentToken!
+  destination: Bytes!
+  amount: BigInt!
+  timestamp: BigInt!
+  block: BigInt!
+  txHash: Bytes!
+}
+
+# Gas Tracker — cumulative platform-wallet gas spend (id: "global")
+type GasPaid @entity(immutable: false) {
+  id: ID!
+  amount: BigInt!
+  transactionCount: BigInt!
+  lastTimeStamp: BigInt!
+}
+
+type PaymentVolume @entity(timeseries: true) {
+  id: Int8!
+  timestamp: Timestamp!
+  token: PaymentToken!
+  amount: BigInt!
+}
+
+type VolumeStats @aggregation(intervals: ["day"], source: "PaymentVolume") {
+  id: Int8!
+  timestamp: Timestamp!
+  token: PaymentToken!
+  dailyVolume: BigInt! @aggregate(fn: "sum", arg: "amount")
+  invoicePaid: BigInt! @aggregate(fn: "count", cumulative: true)
+}
+
+type EscrowBalance @entity(timeseries: true) {
+  id: Int8!
+  timestamp: Timestamp!
+  token: PaymentToken!
+  balance: BigInt!
+  amountPaid: BigInt!
+}
+
+type EscrowStat
+  @aggregation(intervals: ["hour", "day"], source: "EscrowBalance") {
+  id: Int8!
+  timestamp: Timestamp!
+  token: PaymentToken!
+  totalBalance: BigInt! @aggregate(fn: "sum", arg: "balance")
+  totalAmountPaid: BigInt! @aggregate(fn: "sum", arg: "amountPaid")
+}
+
+type FeePaid @entity(timeseries: true) {
+  id: Int8!
+  timestamp: Timestamp!
+  token: PaymentToken!
+  amount: BigInt!
+  txHash: Bytes!
+}
+
+type FeePaidStats @aggregation(intervals: ["day"], source: "FeePaid") {
+  id: Int8!
+  timestamp: Timestamp!
+  token: PaymentToken!
+  totalFeePaid: BigInt! @aggregate(fn: "sum", arg: "amount")
+}
+
+type InvoiceActivity @entity(timeseries: true) {
+  id: Int8!
+  timestamp: Timestamp!
+  invoiceType: InvoiceType!
+}
+
+type InvoiceActivityStats
+  @aggregation(intervals: ["day"], source: "InvoiceActivity") {
+  id: Int8!
+  timestamp: Timestamp!
+  invoiceType: InvoiceType!
+  totalActivity: BigInt! @aggregate(fn: "count", cumulative: true)
+}
+
+type NewUser @entity(timeseries: true) {
+  id: Int8!
+  timestamp: Timestamp!
+  user: Bytes!
+  role: UserRole!
+}
+
+type NewUserStats @aggregation(intervals: ["day"], source: "NewUser") {
+  id: Int8!
+  timestamp: Timestamp!
+  role: UserRole!
+  # Per-day additions (sum the last 7 buckets for the dashboard's 7-day figure).
+  newUsers: BigInt! @aggregate(fn: "count")
+  # Cumulative running total of new users by role.
+  totalUsers: BigInt! @aggregate(fn: "count", cumulative: true)
+}
+
+type ActiveUser @entity(timeseries: true) {
+  id: Int8!
+  timestamp: Timestamp!
+  user: Bytes!
+  role: UserRole!
+}
+
+type ActiveUserStats @aggregation(intervals: ["day"], source: "ActiveUser") {
+  id: Int8!
+  timestamp: Timestamp!
+  activeUsers: BigInt! @aggregate(fn: "count")
 }
