@@ -62,6 +62,8 @@ const normalizeStatus = (status: string): string => {
       return "DISPUTE DISMISSED";
     case "DISPUTE SETTLED":
       return "DISPUTE SETTLED";
+    case "DISPUTE EXPIRED":
+      return "DISPUTE EXPIRED";
     case "RELEASED":
       return "RELEASED";
     default:
@@ -81,6 +83,8 @@ const statusColors: Record<string, string> = {
     "bg-yellow-100 text-yellow-800 ring-1 ring-inset ring-yellow-300",
   "DISPUTE SETTLED":
     "bg-purple-100 text-purple-800 ring-1 ring-inset ring-purple-300",
+  "DISPUTE EXPIRED":
+    "bg-amber-100 text-amber-800 ring-1 ring-inset ring-amber-300",
   RELEASED: "bg-green-100 text-green-800",
   "PARTIAL REFUND": "bg-gray-100 text-gray-600",
 };
@@ -179,7 +183,8 @@ function IntermediatedCardImpl({
     displayStatus === "DISPUTED" ||
     displayStatus === "DISPUTE RESOLVED" ||
     displayStatus === "DISPUTE DISMISSED" ||
-    displayStatus === "DISPUTE SETTLED";
+    displayStatus === "DISPUTE SETTLED" ||
+    displayStatus === "DISPUTE EXPIRED";
 
   const isPaid = Boolean(invoice.paidAt) && invoice.paidAt !== "Not Paid";
   const shouldTrackReleaseCountdown =
@@ -551,7 +556,8 @@ function IntermediatedCardImpl({
 
           {(displayStatus === "DISPUTE RESOLVED" ||
             displayStatus === "DISPUTE DISMISSED" ||
-            displayStatus === "DISPUTE SETTLED") && (
+            displayStatus === "DISPUTE SETTLED" ||
+            displayStatus === "DISPUTE EXPIRED") && (
             <InvoiceField
               label="Dispute Outcome"
               value={displayStatus}

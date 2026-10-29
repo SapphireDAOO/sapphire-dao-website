@@ -32,6 +32,7 @@ const intermediatedFilters = [
   "DISPUTE RESOLVED",
   "DISPUTE DISMISSED",
   "DISPUTE SETTLED",
+  "DISPUTE EXPIRED",
   "RELEASED",
 ];
 
