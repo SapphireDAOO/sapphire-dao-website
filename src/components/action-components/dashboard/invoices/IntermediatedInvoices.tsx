@@ -181,8 +181,11 @@ function IntermediatedCardImpl({
     displayStatus === "DISPUTE DISMISSED" ||
     displayStatus === "DISPUTE SETTLED";
 
+  const isPaid = Boolean(invoice.paidAt) && invoice.paidAt !== "Not Paid";
   const shouldTrackReleaseCountdown =
-    (displayStatus === "PAID" || displayStatus === "DISPUTE DISMISSED") &&
+    isPaid &&
+    displayStatus !== "REFUNDED" &&
+    displayStatus !== "RELEASED" &&
     Boolean(invoice.releaseAt);
 
   const releaseCountdown = useMemo(() => {
