@@ -44,24 +44,23 @@ export const useInvoicePaymentOptions = (
         return { invoiceIds: [] as bigint[], tokens: [] as TokenData[] };
       }
 
-      const [invoiceIds, registered] = await Promise.all([
-        isMetaInvoice
-          ? publicClient
-              .readContract({
-                ...shared,
-                functionName: "getMetaInvoice",
-                args: [invoiceId],
-              })
-              .then((meta) => [...(meta?.subInvoiceIds ?? [])])
-          : Promise.resolve([invoiceId]),
-        fetchRegisteredPaymentTokens(
-          publicClient,
-          chainId,
-          address,
-          invoiceId,
-          isMetaInvoice,
-        ),
-      ]);
+      const invoiceIds = isMetaInvoice
+        ? await publicClient
+            .readContract({
+              ...shared,
+              functionName: "getMetaInvoice",
+              args: [invoiceId],
+            })
+            .then((meta) => [...(meta?.subInvoiceIds ?? [])])
+        : [invoiceId];
+      const registered = await fetchRegisteredPaymentTokens(
+        publicClient,
+        chainId,
+        address,
+        invoiceId,
+        invoiceIds,
+        isMetaInvoice,
+      );
 
       return {
         invoiceIds,
