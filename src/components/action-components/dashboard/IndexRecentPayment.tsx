@@ -47,6 +47,29 @@ const simpleFilters = [
   "EXPIRED",
 ];
 
+const intermediatedStatusMeanings: Record<string, string> = {
+  "AWAITING PAYMENT": "Created and waiting for the buyer to pay.",
+  PAID: "The buyer has paid. The funds are held in escrow until release.",
+  REFUNDED: "Part or all of the payment was returned to the buyer.",
+  CANCELED: "Cancelled before anyone paid.",
+  DISPUTED: "The buyer raised a dispute. The funds stay in escrow until it's decided.",
+  "DISPUTE RESOLVED": "Decided in the seller's favour. The funds can be released.",
+  "DISPUTE DISMISSED": "Dismissed with no payout to either side. The funds can be released.",
+  "DISPUTE SETTLED": "Settled by splitting the funds between buyer and seller.",
+  "DISPUTE EXPIRED": "The dispute lapsed without a decision. The funds can be released.",
+  RELEASED: "The funds were paid out to the seller.",
+};
+
+const simpleStatusMeanings: Record<string, string> = {
+  "AWAITING PAYMENT": "Created and waiting for the buyer to pay.",
+  PAID: "The buyer has paid. Waiting for the seller to accept or reject it.",
+  ACCEPTED: "The seller accepted. The funds are held in escrow, then released.",
+  REFUNDED: "The buyer got their money back: the seller rejected it, or didn't respond in time.",
+  CANCELED: "The seller cancelled it before anyone paid.",
+  RELEASED: "The funds were paid out to the seller.",
+  EXPIRED: "Nobody paid before the payment window closed.",
+};
+
 export default function IndexRecentPayment({
   isIntermediatedTab,
   enabled = true,
@@ -351,6 +374,11 @@ export default function IndexRecentPayment({
                       isIntermediatedTab ? intermediatedFilters : simpleFilters
                     }
                     activeFilter={statusFilter}
+                    descriptions={
+                      isIntermediatedTab
+                        ? intermediatedStatusMeanings
+                        : simpleStatusMeanings
+                    }
                     onSelect={(value) => {
                       setStatusFilter(value);
                       setPage(1);
