@@ -89,12 +89,7 @@ const InvoiceQRLink = React.memo(
             )}
           </div>
 
-          <DialogFooter className="flex flex-col sm:flex-row gap-3 sm:justify-between">
-            <DialogClose asChild>
-              <Button variant="secondary" className="w-full sm:w-auto">
-                Close
-              </Button>
-            </DialogClose>
+          <DialogFooter className="flex flex-col sm:flex-row gap-3 sm:justify-end">
             <Button onClick={handleCopyLink} className="w-full sm:w-auto">
               Copy Link
             </Button>
