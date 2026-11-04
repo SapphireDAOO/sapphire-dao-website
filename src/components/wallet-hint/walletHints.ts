@@ -44,7 +44,7 @@ const MOMENTS: Record<HintMoment, WalletHint> = {
   wrongNetwork: {
     title: "You're on the wrong network",
     body: "Your wallet is connected to a network this app doesn't support. Switch it to {network} to continue.",
-    note: "Use the network button in the top bar, or your wallet's own network menu.",
+    note: "You can also switch from your wallet's own network menu.",
   },
 };
 

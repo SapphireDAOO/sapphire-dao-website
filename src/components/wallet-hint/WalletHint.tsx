@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useMutationState } from "@tanstack/react-query";
-import { useConnection, useConfig } from "wagmi";
+import { useConnection, useConfig, useSwitchChain } from "wagmi";
 import { X } from "lucide-react";
 import { fillNetwork, getWalletHint, type HintMoment } from "./walletHints";
 import { useHintsDismissed } from "./useHintsDismissed";
@@ -52,6 +52,7 @@ const WalletHint = () => {
   // register no wagmi mutation; see walletMomentStore.
   const directMoment = useWalletMoment();
   const config = useConfig();
+  const { mutate: switchChain } = useSwitchChain();
   const { dismissed, ready, dismissForever } = useHintsDismissed();
   const [visible, setVisible] = useState(false);
   const [closed, setClosed] = useState(false);
@@ -121,7 +122,8 @@ const WalletHint = () => {
     return null;
   }
 
-  const network = config.chains[0]?.name ?? "the supported network";
+  const [supported] = config.chains;
+  const network = supported?.name ?? "the supported network";
   const hint = getWalletHint(moment, connector);
 
   return createPortal(
@@ -159,6 +161,16 @@ const WalletHint = () => {
             loading="lazy"
             className="mx-auto mt-4 w-full max-w-[240px] rounded-lg border border-white/10"
           />
+        )}
+
+        {moment === "wrongNetwork" && supported && (
+          <button
+            type="button"
+            onClick={() => switchChain({ chainId: supported.id })}
+            className="mt-4 w-full rounded-lg bg-white px-4 py-2 text-sm font-medium text-neutral-950 transition-colors hover:bg-white/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
+          >
+            Switch to {network}
+          </button>
         )}
 
         {hint.note && (
