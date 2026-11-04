@@ -4,7 +4,7 @@ import { memo, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ChevronDown, ChevronUp, Copy } from "lucide-react";
+import { ArrowUpRight, ChevronDown, ChevronUp, Copy } from "lucide-react";
 import { Invoice } from "@/model/model";
 import { unixToGMT } from "@/utils";
 import { toast } from "sonner";
@@ -506,6 +506,7 @@ function IntermediatedCardImpl({
                   className="underline text-red-700 hover:text-red-800"
                 >
                   {`${invoice.seller.slice(0, 6)}...${invoice.seller.slice(-4)}`}
+                  <ArrowUpRight className="ml-0.5 inline h-3 w-3 align-[-1px]" />
                 </a>{" "}
                 — funds returned.
               </p>

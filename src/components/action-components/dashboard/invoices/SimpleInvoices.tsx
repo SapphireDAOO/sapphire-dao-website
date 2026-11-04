@@ -4,7 +4,7 @@ import { memo, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { ArrowUpRight, ChevronDown, ChevronUp } from "lucide-react";
 import { Invoice } from "@/model/model";
 import { formatAddress, unixToGMT } from "@/utils";
 import { toast } from "sonner";
@@ -354,6 +354,7 @@ function InvoiceCardImpl({
                         -4,
                       )}`
                     : "Unknown Contract"}
+                  <ArrowUpRight className="ml-0.5 inline h-3 w-3 align-[-1px]" />
                 </a>{" "}
                 — refund initiated.
               </p>

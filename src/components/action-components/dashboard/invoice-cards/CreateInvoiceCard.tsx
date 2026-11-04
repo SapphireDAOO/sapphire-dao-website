@@ -27,7 +27,7 @@ import {
 } from "@/context/contract-context";
 import ConnectWalletButton from "@/components/wallet/ConnectWalletButton";
 import { formatEther, parseEther, parseUnits } from "viem";
-import { Loader2, QrCode, ShieldCheck } from "lucide-react";
+import { ArrowUpRight, Loader2, QrCode, ShieldCheck } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { toast } from "sonner";
 import { isUserRejection, WALLET_CANCELLED } from "@/lib/walletErrors";
@@ -109,6 +109,7 @@ const InvoiceQRLink = React.memo(
                   className="text-blue-600 underline hover:text-blue-800"
                 >
                   {contractAddress.slice(0, 6)}...{contractAddress.slice(-4)}
+                  <ArrowUpRight className="ml-0.5 inline h-3 w-3 align-[-1px]" />
                 </a>
               </p>
             )}

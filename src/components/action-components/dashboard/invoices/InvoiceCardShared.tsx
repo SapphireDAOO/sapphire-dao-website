@@ -1,6 +1,6 @@
 "use client";
 
-import { ExternalLink } from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
 import { InfoTip } from "@/components/ui/info-tip";
 import { formatAddress } from "@/lib/formatUtils";
 import { timeLeft } from "@/lib/timeUtils";
@@ -20,6 +20,7 @@ export const renderContractLink = (address?: string) => {
       onMouseDown={stopProp}
     >
       {formatAddress(address)}
+      <ArrowUpRight className="ml-0.5 inline h-3 w-3 align-[-1px]" />
     </a>
   );
 };
@@ -38,7 +39,7 @@ export const renderTx = (txHash?: string, display?: string) => {
         onMouseDown={stopProp}
       >
         View transaction on Basescan
-        <ExternalLink className="h-3 w-3" />
+        <ArrowUpRight className="h-3 w-3" />
       </a>
     </span>
   );
@@ -79,6 +80,7 @@ export const InvoiceField = ({
           className="text-blue-600 underline hover:text-blue-800 mt-2 inline-block"
         >
           View Details
+          <ArrowUpRight className="ml-0.5 inline h-3 w-3 align-[-1px]" />
         </a>
       )}
     </InfoTip>
