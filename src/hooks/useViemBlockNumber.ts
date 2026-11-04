@@ -38,11 +38,17 @@ export const useViemBlockNumber = (
   useEffect(() => {
     if (!publicClient || !enabled || !isWindowVisible) return;
 
+    // A websocket subscription ignores pollingInterval and Base Sepolia makes a
+    // block every 0.2s, so updates are throttled to keep RPC use in budget.
+    let lastEmitAt = 0;
     const unwatch = publicClient.watchBlockNumber({
       emitMissed: true,
       emitOnBegin: true,
       pollingInterval,
       onBlockNumber: (nextBlockNumber) => {
+        const now = Date.now();
+        if (now - lastEmitAt < pollingInterval) return;
+        lastEmitAt = now;
         queryClient.setQueryData<bigint | undefined>(queryKey, (currentBlockNumber) => {
           if (
             currentBlockNumber !== undefined &&
