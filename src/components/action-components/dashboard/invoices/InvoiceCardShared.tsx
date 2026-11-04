@@ -1,5 +1,6 @@
 "use client";
 
+import { ExternalLink } from "lucide-react";
 import { InfoTip } from "@/components/ui/info-tip";
 import { formatAddress } from "@/lib/formatUtils";
 import { timeLeft } from "@/lib/timeUtils";
@@ -26,16 +27,20 @@ export const renderContractLink = (address?: string) => {
 export const renderTx = (txHash?: string, display?: string) => {
   if (!txHash) return <span className="text-gray-500">—</span>;
   return (
-    <a
-      href={`https://sepolia.basescan.org/tx/${txHash}`}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="text-blue-600 underline hover:text-blue-800"
-      onClick={stopProp}
-      onMouseDown={stopProp}
-    >
-      {display ?? txHash}
-    </a>
+    <span className="inline-flex flex-wrap items-center gap-2">
+      {display && <span>{display}</span>}
+      <a
+        href={`https://sepolia.basescan.org/tx/${txHash}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center gap-1 rounded-md border border-gray-300 px-2 py-0.5 text-[11px] font-medium text-gray-700 transition-colors hover:bg-gray-100"
+        onClick={stopProp}
+        onMouseDown={stopProp}
+      >
+        View transaction on Basescan
+        <ExternalLink className="h-3 w-3" />
+      </a>
+    </span>
   );
 };
 
