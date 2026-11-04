@@ -367,7 +367,8 @@ const PayFlow = ({ invoiceId }: { invoiceId: bigint }) => {
                     className="mt-0.5 h-3.5 w-3.5 shrink-0"
                   />
                   <span>
-                    Share it with the seller. Unchecked, only you can read it.
+                    Share the note with the seller. If left unchecked, only you
+                    can read it.
                   </span>
                 </label>
               </div>
