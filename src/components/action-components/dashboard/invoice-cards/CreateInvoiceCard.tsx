@@ -53,6 +53,7 @@ interface InvoiceQRLinkProps {
 const InvoiceQRLink = React.memo(
   ({ open, setOpen, invoiceId, contractAddress }: InvoiceQRLinkProps) => {
     const paymentUrl = usePayLink(invoiceId, "pay");
+    const { data: holdPeriodSeconds } = useEscrowHoldPeriod();
 
     const handleCopyLink = useCallback(async () => {
       if (await copyText(paymentUrl)) toast.success("Payment link copied!");
@@ -67,9 +68,33 @@ const InvoiceQRLink = React.memo(
               Invoice Created!
             </DialogTitle>
             <DialogDescription className="text-sm text-muted-foreground">
-              Scan the QR code or share the link to receive payment
+              Send it to the person paying you.
             </DialogDescription>
           </DialogHeader>
+
+          <ol className="list-decimal space-y-1.5 pl-5 text-sm text-gray-700">
+            <li>
+              Tap <span className="font-medium text-gray-900">Copy Link</span>{" "}
+              and send the link to your payer, or let them scan the QR code
+              with their phone&apos;s camera.
+            </li>
+            <li>
+              The link opens a page where they connect a wallet and pay in
+              ETH.
+            </li>
+            <li>
+              Once they&apos;ve paid, the invoice shows as{" "}
+              <span className="font-medium text-gray-900">Paid</span> on your
+              dashboard. Accept it there before its deadline, or the payer is
+              refunded.
+            </li>
+            <li>
+              After you accept, the payment is held in escrow
+              {holdPeriodSeconds !== undefined &&
+                ` for ${formatDurationSeconds(holdPeriodSeconds)}`}
+              , then released to you.
+            </li>
+          </ol>
 
           <div className="flex flex-col items-center justify-center py-6 space-y-4">
             <QRCodeSVG value={paymentUrl} size={180} level="H" includeMargin />
