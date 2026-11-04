@@ -273,6 +273,7 @@ const PaymentSteps = ({
             >
               {tokenChooser}
               <p>
+                Your wallet does not contain enough funds for this transaction.
                 You need to add{" "}
                 <strong className="font-semibold text-stone-900">
                   {amount !== undefined && balance !== undefined
@@ -293,6 +294,12 @@ const PaymentSteps = ({
               </dl>
               {address && (
                 <div className="space-y-2">
+                  <p className="text-stone-700">
+                    To add funds, send {symbol} to your wallet address below
+                    from an exchange such as Coinbase or Kraken, or from
+                    another wallet. Scan the QR code with that app, or copy the
+                    address and paste it there.
+                  </p>
                   <QRCodeSVG
                     value={address}
                     bgColor="transparent"
@@ -300,7 +307,8 @@ const PaymentSteps = ({
                   />
                   <CopyAddress address={address} />
                   <p className="text-[11px] text-stone-500 sm:text-[13px]">
-                    Send {symbol} on {network.name} only.
+                    This is your own address. Send {symbol} on {network.name}{" "}
+                    only, or the funds won&apos;t arrive here.
                   </p>
                 </div>
               )}
@@ -313,7 +321,7 @@ const PaymentSteps = ({
           right={
             <StatusPanel
               tone="warning"
-              title="Your wallet has exchange options"
+              title="Your wallet has onboarding options"
               links={
                 exchangeHelpHref && (
                   <TextLink href={exchangeHelpHref}>Exchange help</TextLink>
@@ -321,7 +329,8 @@ const PaymentSteps = ({
               }
             >
               Most wallets let you buy {symbol} with a card or bank transfer.
-              Look for Buy in your wallet, or send it from an exchange.
+              Look for Buy in your wallet, or send it from an exchange such as
+              Coinbase or Kraken.
             </StatusPanel>
           }
         />
