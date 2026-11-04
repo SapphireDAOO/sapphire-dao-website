@@ -27,7 +27,7 @@ import {
 } from "@/context/contract-context";
 import ConnectWalletButton from "@/components/wallet/ConnectWalletButton";
 import { formatEther, parseEther, parseUnits } from "viem";
-import { Loader2, ShieldCheck } from "lucide-react";
+import { Loader2, QrCode, ShieldCheck } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { toast } from "sonner";
 import { isUserRejection, WALLET_CANCELLED } from "@/lib/walletErrors";
@@ -296,6 +296,14 @@ export default function CreateInvoiceDialog() {
                 <NoteLength value={note} />
               </div>
             </div>
+          </div>
+
+          <div className="flex items-start gap-2 rounded-md bg-muted/60 px-3 py-2">
+            <QrCode className="mt-0.5 h-4 w-4 shrink-0 text-gray-500" />
+            <p className="text-xs leading-snug text-gray-600">
+              Once the invoice is created, you&apos;ll get a payment link and a
+              QR code to send to the payer.
+            </p>
           </div>
 
           <DialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-between gap-2 sm:gap-3 mt-3">
