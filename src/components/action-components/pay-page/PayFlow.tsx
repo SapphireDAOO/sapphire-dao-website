@@ -298,7 +298,7 @@ const PayFlow = ({ invoiceId }: { invoiceId: bigint }) => {
     holdPeriodSeconds === undefined
       ? undefined
       : holdPeriodSeconds > 0
-        ? `Held in escrow for ${formatDurationSeconds(holdPeriodSeconds)} once the seller accepts, then released to them.`
+        ? `The payment is held in escrow for ${formatDurationSeconds(holdPeriodSeconds)} once the seller accepts, then released to them.`
         : "No hold period: your payment goes to the seller as soon as they accept it.";
 
   return (

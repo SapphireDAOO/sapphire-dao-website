@@ -95,8 +95,8 @@ const CheckoutFlow = ({
       payDetails={
         hold && (
           <p className="border-l-2 border-blue-900 pl-3">
-            Held in escrow for {hold}, then released to the seller unless you
-            raise a dispute.
+            The payment is held in escrow for {hold}, then released to the
+            seller unless you raise a dispute.
           </p>
         )
       }
