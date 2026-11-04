@@ -344,9 +344,7 @@ export default function IndexRecentPayment({
             <TabsContent key={tab} value={tab}>
               {activeTab === tab && (
                 <>
-                  {!isIntermediatedTab && (tab === "seller" || tab === "all") && (
-                    <CreateInvoiceCard />
-                  )}
+                  {!isIntermediatedTab && <CreateInvoiceCard />}
 
                   <FilterTabs
                     filters={
