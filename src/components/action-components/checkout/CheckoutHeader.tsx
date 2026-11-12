@@ -1,11 +1,12 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { useConnection, useDisconnect } from "wagmi";
-import { ArrowLeft, ChevronDown } from "lucide-react";
+import { useChainId, useConnection, useDisconnect } from "wagmi";
+import { ArrowLeft, ArrowUpRight, ChevronDown } from "lucide-react";
 import { formatAddress } from "@/utils";
 import type { TokenData } from "@/model/model";
-import { RATE_WINDOW_MS } from "@/constants";
+import { BASE_SEPOLIA, RATE_WINDOW_MS } from "@/constants";
+import { getChainById } from "@/services/blockchain/utils";
 import { useSharedSecondTicker } from "@/hooks/useSharedSecondTicker";
 import { formatTokenAmount } from "@/hooks/useCheckoutQuote";
 import {
@@ -89,6 +90,34 @@ export type AmountDueProps = {
   token?: TokenData;
   /** When the price behind the secondary amount was fetched; drives the countdown. */
   rateUpdatedAt?: number;
+  /** Who issued the invoice; a meta invoice can have several. */
+  sellers?: string[];
+};
+
+/** Who issued the invoice: shortened and linked so it can be checked, not copied. */
+const SellerAddress = ({ address }: { address: string }) => {
+  const chainId = useChainId() || BASE_SEPOLIA;
+  const explorer = getChainById(chainId).blockExplorers?.default;
+  const short = formatAddress(address);
+
+  return (
+    <li>
+      {explorer ? (
+        <a
+          href={`${explorer.url}/address/${address}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          title={`View ${address} on ${explorer.name}`}
+          className="inline-flex items-center font-mono text-stone-800 underline-offset-2 hover:underline"
+        >
+          {short}
+          <ArrowUpRight className="ml-0.5 h-3 w-3" />
+        </a>
+      ) : (
+        <span className="font-mono text-stone-800">{short}</span>
+      )}
+    </li>
+  );
 };
 
 const AmountDue = ({
@@ -98,6 +127,7 @@ const AmountDue = ({
   amount,
   token,
   rateUpdatedAt,
+  sellers,
 }: AmountDueProps) => {
   const rates = FIAT_RATES;
   const [currency, setCurrency] = useState<FiatCurrency>("USD");
@@ -202,6 +232,23 @@ const AmountDue = ({
             </p>
           </>
         )
+      )}
+
+      {sellers && sellers.length > 0 && (
+        <div className="mt-4 text-[11px] text-stone-500 sm:text-sm">
+          <div className="flex flex-wrap items-baseline gap-x-2">
+            <span>Invoice from</span>
+            <ul className="flex flex-wrap gap-x-2">
+              {sellers.map((seller) => (
+                <SellerAddress key={seller} address={seller} />
+              ))}
+            </ul>
+          </div>
+          <p className="mt-1">
+            Pay only through this page. Funds sent straight to this address
+            don&apos;t pay the invoice.
+          </p>
+        </div>
       )}
     </div>
   );

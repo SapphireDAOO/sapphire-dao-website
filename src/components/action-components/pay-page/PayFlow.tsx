@@ -375,6 +375,7 @@ const PayFlow = ({ invoiceId }: { invoiceId: bigint }) => {
           amount,
           token: ETH,
           rateUpdatedAt,
+          sellers: invoiceSeller ? [invoiceSeller] : undefined,
         }}
       />
       <main>

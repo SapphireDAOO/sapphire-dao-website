@@ -89,6 +89,7 @@ export const useInvoicePaymentOptions = (
           allowed: [] as string[],
           isPayable: false,
           states: [] as number[],
+          sellers: [] as Address[],
         };
       }
 
@@ -112,6 +113,7 @@ export const useInvoicePaymentOptions = (
 
       const invoices = results.slice(0, invoiceIds.length) as {
         state: number | bigint;
+        seller: Address;
       }[];
       const allowances = results.slice(invoiceIds.length) as boolean[];
 
@@ -120,6 +122,12 @@ export const useInvoicePaymentOptions = (
           (invoice) => Number(invoice?.state) === STATE_CREATED,
         ),
         states: invoices.map((invoice) => Number(invoice.state)),
+        // A meta invoice can gather invoices from several sellers.
+        sellers: [
+          ...new Map(
+            invoices.map(({ seller }) => [seller.toLowerCase(), seller]),
+          ).values(),
+        ],
         // Rechecked live, in case the contract has since stopped accepting one.
         allowed: candidates
           .filter((_, tokenIndex) =>
@@ -141,6 +149,7 @@ export const useInvoicePaymentOptions = (
     isPayable: live.data?.isPayable ?? false,
     /** Each invoice's on-chain state, as numbered in Intermediated.sol. */
     states: live.data?.states ?? [],
+    sellers: live.data?.sellers ?? [],
     // A meta invoice with no sub-invoices never runs the live check.
     isLoading: terms.isLoading || (invoiceIds.length > 0 && live.isPending),
     error: error instanceof Error ? error.message : null,

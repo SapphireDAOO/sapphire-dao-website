@@ -49,6 +49,7 @@ const InvoiceCheckout = ({
           amount: quote.amount,
           token: quote.token,
           rateUpdatedAt: quote.rateUpdatedAt,
+          sellers: quote.sellers,
         }}
       />
       <main>
