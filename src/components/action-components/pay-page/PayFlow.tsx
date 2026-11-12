@@ -343,10 +343,8 @@ const PayFlow = ({ invoiceId }: { invoiceId: bigint }) => {
                   ? `It's currently ${stateLabel}, so it can't be paid.`
                   : "It's no longer open for payment."}
               </p>
-              {redirectsWhenSettled ? (
+              {redirectsWhenSettled && (
                 <RedirectNotice destination="your dashboard" />
-              ) : (
-                <p>You can follow it from your dashboard.</p>
               )}
             </>
           ),
