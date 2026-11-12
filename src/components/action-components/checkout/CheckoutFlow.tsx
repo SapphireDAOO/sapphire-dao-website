@@ -9,6 +9,7 @@ import {
 import type { InvoiceDetails } from "@/model/model";
 import { formatDurationSeconds } from "@/utils";
 import { useGetIntermediatedInvoiceData } from "@/hooks/useGetIntermediatedInvoiceData";
+import { INTERMEDIATED_STATE_LABELS } from "@/hooks/useInvoiceData";
 import { isNativeToken, type useCheckoutQuote } from "@/hooks/useCheckoutQuote";
 import { TextLink } from "./CheckoutLayout";
 import PaymentSteps from "./PaymentSteps";
@@ -39,7 +40,7 @@ const CheckoutFlow = ({
   const { payIntermediatedInvoice } = useContext(ContractActionsContext);
   const isLoading = useContext(ContractLoadingContext);
   const holdPeriodSeconds = useHoldPeriodSeconds(invoice.invoiceId);
-  const { token, amount, balance, isPayable, isLoadingOptions } = quote;
+  const { token, amount, balance, isPayable, states, isLoadingOptions } = quote;
   const [paid, setPaid] = useState(false);
   const countdown = useRedirectCountdown(paid, () =>
     window.location.assign(MARKETPLACE_LINKS.home),
@@ -50,24 +51,45 @@ const CheckoutFlow = ({
       ? formatDurationSeconds(holdPeriodSeconds)
       : undefined;
 
-  const blocked =
-    isLoadingOptions || (isPayable && token)
-      ? undefined
-      : {
+  // The first invoice that isn't open says why the payment is closed.
+  const closedState = states.find((state) => state !== 1);
+  const stateLabel = (
+    (closedState !== undefined && INTERMEDIATED_STATE_LABELS[closedState]) ||
+    invoice.status ||
+    ""
+  )
+    .toLowerCase()
+    .replace(/_/g, " ");
+  const contactSeller =
+    "Contact the seller through the marketplace if you think this is a mistake.";
+
+  const blocked = isLoadingOptions
+    ? undefined
+    : !isPayable
+      ? {
           title: "This invoice can't be paid",
           body: (
             <p>
-              {!isPayable
-                ? "It has already been paid, or the seller has cancelled it."
-                : "The seller didn't choose a token you can pay with on this network."}{" "}
-              Contact the seller through the marketplace if you think this is a
-              mistake.
+              {stateLabel
+                ? `It's currently ${stateLabel}, so it can't be paid.`
+                : "It's no longer open for payment."}{" "}
+              {contactSeller}
             </p>
           ),
-          status: invoice.status
-            ? `Invoice ${invoice.status.toLowerCase().replace(/_/g, " ")}`
-            : "Not payable",
-        };
+          status: stateLabel ? `Invoice ${stateLabel}` : "Not payable",
+        }
+      : !token
+        ? {
+            title: "This invoice can't be paid",
+            body: (
+              <p>
+                The seller didn&apos;t choose a token you can pay with on this
+                network. {contactSeller}
+              </p>
+            ),
+            status: "Not payable",
+          }
+        : undefined;
 
   return (
     <PaymentSteps

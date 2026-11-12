@@ -26,8 +26,7 @@ export const useInvoicePaymentOptions = (
   const chainId = useChainId() || BASE_SEPOLIA;
   const publicClient = usePublicClient({ chainId });
   const address = INTERMEDIATED_PAYMENT_PROCESSOR[chainId] as
-    | Address
-    | undefined;
+    Address | undefined;
   const shared = address
     ? ({ address, abi: intermediatedPaymentProcessor } as const)
     : undefined;
@@ -86,7 +85,11 @@ export const useInvoicePaymentOptions = (
     gcTime: DEFAULT_QUERY_GC_TIME_MS,
     queryFn: async () => {
       if (!publicClient || !shared) {
-        return { allowed: [] as string[], isPayable: false };
+        return {
+          allowed: [] as string[],
+          isPayable: false,
+          states: [] as number[],
+        };
       }
 
       const results = (await publicClient.multicall({
@@ -107,15 +110,16 @@ export const useInvoicePaymentOptions = (
         ],
       })) as unknown[];
 
-      const states = results.slice(0, invoiceIds.length) as {
+      const invoices = results.slice(0, invoiceIds.length) as {
         state: number | bigint;
       }[];
       const allowances = results.slice(invoiceIds.length) as boolean[];
 
       return {
-        isPayable: states.every(
+        isPayable: invoices.every(
           (invoice) => Number(invoice?.state) === STATE_CREATED,
         ),
+        states: invoices.map((invoice) => Number(invoice.state)),
         // Rechecked live, in case the contract has since stopped accepting one.
         allowed: candidates
           .filter((_, tokenIndex) =>
@@ -135,6 +139,8 @@ export const useInvoicePaymentOptions = (
   return {
     tokens: candidates.filter((token) => allowed.has(token.id)),
     isPayable: live.data?.isPayable ?? false,
+    /** Each invoice's on-chain state, as numbered in Intermediated.sol. */
+    states: live.data?.states ?? [],
     // A meta invoice with no sub-invoices never runs the live check.
     isLoading: terms.isLoading || (invoiceIds.length > 0 && live.isPending),
     error: error instanceof Error ? error.message : null,

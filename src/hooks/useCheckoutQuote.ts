@@ -49,6 +49,7 @@ export const useCheckoutQuote = (
   const {
     tokens,
     isPayable,
+    states,
     isLoading: isLoadingOptions,
   } = useInvoicePaymentOptions(invoice.invoiceId, isMetaInvoice);
 
@@ -111,6 +112,7 @@ export const useCheckoutQuote = (
     rateUpdatedAt,
     balance,
     isPayable,
+    states,
     isLoadingOptions,
   };
 };

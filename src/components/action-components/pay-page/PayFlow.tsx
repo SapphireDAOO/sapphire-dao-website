@@ -30,6 +30,7 @@ import {
 } from "@/components/action-components/checkout/CheckoutHeader";
 import {
   PaymentShell,
+  ShellMessage,
   TextLink,
 } from "@/components/action-components/checkout/CheckoutLayout";
 import PaymentSteps from "@/components/action-components/checkout/PaymentSteps";
@@ -64,6 +65,36 @@ const getInvoiceSeller = (invoice: unknown) => {
     : undefined;
 };
 
+/** ISimplePaymentProcessor.Invoice as read from the contract. */
+type OnChainInvoice =
+  | {
+      state?: number | bigint;
+      buyer?: string;
+      [index: number]: unknown;
+    }
+  | undefined;
+
+// The struct's `state`, falling back to tuple index 6.
+const readState = (invoice: OnChainInvoice) => {
+  const raw = invoice?.state ?? (invoice?.[6] as number | bigint | undefined);
+  return raw === undefined ? undefined : Number(raw);
+};
+
+/** `CREATED` in Simple.sol, the only state the contract takes payment in. */
+const STATE_CREATED = 1;
+
+const STATE_LABELS: Record<number, string> = {
+  0: "not found",
+  1: "awaiting payment",
+  2: "paid",
+  3: "accepted",
+  4: "rejected",
+  5: "canceled",
+  6: "refunded",
+  7: "released",
+  8: "closed",
+};
+
 // Read from the contract the price is wei; the app's
 // own invoice records hold it as an ETH string.
 const toWei = (price: InvoiceLike["price"]): bigint | undefined => {
@@ -89,7 +120,10 @@ const PayFlow = ({ invoiceId }: { invoiceId: bigint }) => {
   const isLoading = useContext(ContractLoadingContext);
   const { invoiceData } = useContext(InvoiceStateContext);
 
-  const { data: fetchedInvoice } = useGetInvoiceData(invoiceId);
+  const { data: fetchedInvoice, isLoading: isLoadingInvoice } =
+    useGetInvoiceData(invoiceId);
+  const onChain = fetchedInvoice as OnChainInvoice;
+  const chainState = readState(onChain);
   const { data: holdPeriodSeconds } = useEscrowHoldPeriod();
   const { notes: invoiceNotes } = useInvoiceNotes(invoiceId);
   const noteKeys = useNoteKeys();
@@ -148,7 +182,6 @@ const PayFlow = ({ invoiceId }: { invoiceId: bigint }) => {
     return nonce === undefined || nonce === null ? undefined : String(nonce);
   }, [fetchedInvoice, invoiceLike]);
 
-
   const sharedCreatorNote = useMemo(() => {
     const creator = invoiceSeller?.toLowerCase();
     if (!creator) return undefined;
@@ -180,11 +213,15 @@ const PayFlow = ({ invoiceId }: { invoiceId: bigint }) => {
     [invoiceId, watchInvoiceStatus],
   );
 
-  const canPay =
-    liveStatus === "AWAITING PAYMENT" ||
-    liveStatus === "CREATED" ||
-    liveStatus === "1" ||
-    liveStatus === undefined;
+  // Live events can move the invoice on before the contract read refreshes.
+  const movedOn =
+    liveStatus !== undefined &&
+    liveStatus !== "AWAITING PAYMENT" &&
+    liveStatus !== "CREATED" &&
+    liveStatus !== "1";
+  // The contract is the source of truth: payable only while it's awaiting payment.
+  const stateKnown = chainState !== undefined;
+  const canPay = chainState === STATE_CREATED && !movedOn;
 
   const userIsCreator = Boolean(
     address &&
@@ -192,15 +229,30 @@ const PayFlow = ({ invoiceId }: { invoiceId: bigint }) => {
     address.toLowerCase() === invoiceSeller.toLowerCase(),
   );
 
+  const invoiceBuyer = onChain?.buyer ?? (onChain?.[10] as string | undefined);
+  const userIsBuyer = Boolean(
+    address &&
+    invoiceBuyer &&
+    address.toLowerCase() === invoiceBuyer.toLowerCase(),
+  );
+
   // A settled invoice has nothing to pay; its parties follow it on the dashboard.
-  const redirectsWhenSettled = Boolean(address && invoiceSeller);
+  const redirectsWhenSettled = userIsCreator || userIsBuyer;
   useEffect(() => {
-    if (canPay || paid || !redirectsWhenSettled) return;
+    if (!stateKnown || canPay || paid || !redirectsWhenSettled) return;
     if (isLoading === "makeInvoicePayment" || paymentSubmittedRef.current) {
       return;
     }
     router.push(`/dashboard?tab=${userIsCreator ? "seller" : "buyer"}`);
-  }, [canPay, paid, redirectsWhenSettled, isLoading, userIsCreator, router]);
+  }, [
+    stateKnown,
+    canPay,
+    paid,
+    redirectsWhenSettled,
+    isLoading,
+    userIsCreator,
+    router,
+  ]);
 
   const countdown = useRedirectCountdown(paid, () =>
     router.push("/dashboard?tab=buyer"),
@@ -264,6 +316,12 @@ const PayFlow = ({ invoiceId }: { invoiceId: bigint }) => {
     }
   };
 
+  const stateLabel = movedOn
+    ? liveStatus!.toLowerCase().replace(/_/g, " ")
+    : chainState !== undefined
+      ? STATE_LABELS[chainState]
+      : undefined;
+
   const blocked = userIsCreator
     ? {
         title: "This is your own invoice",
@@ -280,7 +338,11 @@ const PayFlow = ({ invoiceId }: { invoiceId: bigint }) => {
           title: "This invoice can't be paid",
           body: (
             <>
-              <p>It has already been paid or is closed.</p>
+              <p>
+                {stateLabel
+                  ? `It's currently ${stateLabel}, so it can't be paid.`
+                  : "It's no longer open for payment."}
+              </p>
               {redirectsWhenSettled ? (
                 <RedirectNotice destination="your dashboard" />
               ) : (
@@ -288,9 +350,7 @@ const PayFlow = ({ invoiceId }: { invoiceId: bigint }) => {
               )}
             </>
           ),
-          status: liveStatus
-            ? `Invoice ${liveStatus.toLowerCase()}`
-            : "Not payable",
+          status: stateLabel ? `Invoice ${stateLabel}` : "Not payable",
         }
       : undefined;
 
@@ -318,79 +378,88 @@ const PayFlow = ({ invoiceId }: { invoiceId: bigint }) => {
         }}
       />
       <main>
-        <PaymentSteps
-          symbol={ETH.name}
-          decimals={ETH.decimals}
-          isNative
-          amount={amount}
-          balance={balance}
-          blocked={blocked}
-          paying={isLoading === "makeInvoicePayment"}
-          onPay={pay}
-          payDetails={
-            <>
-              {holdNote && (
-                <p className="border-l-2 border-blue-900 pl-3">{holdNote}</p>
-              )}
-              {sharedCreatorNote && (
-                <div className="rounded-xl bg-white/70 p-3">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-500">
-                    Note from the seller
-                  </p>
-                  <p className="mt-1 text-stone-800">
-                    {sharedCreatorNote.message}
-                  </p>
-                </div>
-              )}
-              <div className="space-y-2">
-                <label
-                  htmlFor="paymentNote"
-                  className="block font-medium text-stone-900"
-                >
-                  Add a note <span className="text-stone-400">(optional)</span>
-                </label>
-                <MessagingKey />
-                <Textarea
-                  id="paymentNote"
-                  value={paymentNote}
-                  onChange={(e) => setPaymentNote(e.target.value)}
-                  placeholder="A note about this payment"
-                  className="min-h-20 border-stone-300 bg-white/70 text-xs sm:text-sm"
-                  maxLength={MAX_NOTE_LENGTH}
-                />
-                <NoteLength value={paymentNote} />
-                <label className="flex items-start gap-2 text-[11px] text-stone-500 sm:text-xs">
-                  <input
-                    type="checkbox"
-                    checked={shareNote}
-                    onChange={(e) => setShareNote(e.target.checked)}
-                    className="mt-0.5 h-3.5 w-3.5 shrink-0"
+        {!stateKnown && !paymentSubmittedRef.current ? (
+          <ShellMessage>
+            {isLoadingInvoice
+              ? "Checking the invoice…"
+              : "Couldn't load this invoice. Refresh the page to try again."}
+          </ShellMessage>
+        ) : (
+          <PaymentSteps
+            symbol={ETH.name}
+            decimals={ETH.decimals}
+            isNative
+            amount={amount}
+            balance={balance}
+            blocked={blocked}
+            paying={isLoading === "makeInvoicePayment"}
+            onPay={pay}
+            payDetails={
+              <>
+                {holdNote && (
+                  <p className="border-l-2 border-blue-900 pl-3">{holdNote}</p>
+                )}
+                {sharedCreatorNote && (
+                  <div className="rounded-xl bg-white/70 p-3">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-500">
+                      Note from the seller
+                    </p>
+                    <p className="mt-1 text-stone-800">
+                      {sharedCreatorNote.message}
+                    </p>
+                  </div>
+                )}
+                <div className="space-y-2">
+                  <label
+                    htmlFor="paymentNote"
+                    className="block font-medium text-stone-900"
+                  >
+                    Add a note{" "}
+                    <span className="text-stone-400">(optional)</span>
+                  </label>
+                  <MessagingKey />
+                  <Textarea
+                    id="paymentNote"
+                    value={paymentNote}
+                    onChange={(e) => setPaymentNote(e.target.value)}
+                    placeholder="A note about this payment"
+                    className="min-h-20 border-stone-300 bg-white/70 text-xs sm:text-sm"
+                    maxLength={MAX_NOTE_LENGTH}
                   />
-                  <span>
-                    Share the note with the seller. If left unchecked, only you
-                    can read it.
-                  </span>
-                </label>
-              </div>
-            </>
-          }
-          paidDetails={
-            <>
-              {holdNote && <p>{holdNote}</p>}
-              <RedirectNotice
-                destination="your dashboard"
-                seconds={countdown}
-              />
-            </>
-          }
-          exitLinks={
-            <TextLink
-              href={`/dashboard?tab=${userIsCreator ? "seller" : "buyer"}`}
-            >
-              Go to dashboard
-            </TextLink>
-          }
-        />
+                  <NoteLength value={paymentNote} />
+                  <label className="flex items-start gap-2 text-[11px] text-stone-500 sm:text-xs">
+                    <input
+                      type="checkbox"
+                      checked={shareNote}
+                      onChange={(e) => setShareNote(e.target.checked)}
+                      className="mt-0.5 h-3.5 w-3.5 shrink-0"
+                    />
+                    <span>
+                      Share the note with the seller. If left unchecked, only
+                      you can read it.
+                    </span>
+                  </label>
+                </div>
+              </>
+            }
+            paidDetails={
+              <>
+                {holdNote && <p>{holdNote}</p>}
+                <RedirectNotice
+                  destination="your dashboard"
+                  seconds={countdown}
+                />
+              </>
+            }
+            exitLinks={
+              <TextLink
+                href={`/dashboard?tab=${userIsCreator ? "seller" : "buyer"}`}
+              >
+                Go to dashboard
+              </TextLink>
+            }
+          />
+        )}
       </main>
     </PaymentShell>
   );
