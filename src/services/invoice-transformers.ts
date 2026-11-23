@@ -31,6 +31,7 @@ export const transformSimple = (
   amountPaid: inv.amountPaid ? formatEther(BigInt(inv.amountPaid)) : null,
   type,
   contract: inv.contract,
+  escrow: inv.escrow ?? undefined,
   paymentTxHash: inv.paymentTxHash,
   expiresAt: inv.expiresAt,
   sellerActionDeadline: inv.sellerActionDeadline,

@@ -17,7 +17,7 @@ import {
 } from "@/constants";
 import { AllInvoice, AdminAction, AllInvoicesData, Invoice } from "@/model/model";
 
-import { formatEther } from "viem";
+import { formatEther, zeroAddress } from "viem";
 import { client } from "@/services/graphql/client";
 import { paymentProcessor } from "@/abis/PaymentProcessor";
 import { intermediatedPaymentProcessor } from "@/abis/IntermediatedPaymentProcessor";
@@ -689,6 +689,7 @@ export const useInvoiceData = () => {
                 sellerActionDeadline?: bigint | number;
                 seller?: string;
                 buyer?: string;
+                escrow?: string;
                 price?: bigint | number;
                 balance?: bigint | number;
               })
@@ -729,6 +730,7 @@ export const useInvoiceData = () => {
         );
         const seller = readString(invoiceObject?.seller ?? invoiceArray?.[9]);
         const buyer = readString(invoiceObject?.buyer ?? invoiceArray?.[10]);
+        const escrow = readString(invoiceObject?.escrow ?? invoiceArray?.[11]);
         const price = readBigInt(
           invoiceObject?.price ??
             (invoiceArray?.[13] as bigint | number | undefined),
@@ -776,6 +778,7 @@ export const useInvoiceData = () => {
           amountPaid: amountPaid ? formatEther(amountPaid) : "0",
           type: isSeller ? "Seller" : "Buyer",
           contract: contractAddress,
+          escrow: escrow && escrow !== zeroAddress ? escrow : undefined,
           buyer: buyer ?? "",
           seller: seller ?? "",
           source: "Simple",
@@ -809,6 +812,7 @@ export const useInvoiceData = () => {
                 nextInvoice.status ?? "",
               ),
               amountPaid: nextInvoice.amountPaid ?? inv.amountPaid,
+              escrow: nextInvoice.escrow ?? inv.escrow,
               paymentTxHash: nextInvoice.paymentTxHash ?? inv.paymentTxHash,
               refundTxHash: nextInvoice.refundTxHash ?? inv.refundTxHash,
               releaseHash: nextInvoice.releaseHash ?? inv.releaseHash,

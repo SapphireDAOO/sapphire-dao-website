@@ -104,6 +104,8 @@ type SimplePaymentProcessor @entity(immutable: false) {
   # Tx in which the best-effort fee payout failed; the fee was not credited.
   feeTransferFailedTx: Bytes
   contract: Bytes!
+  # Per-invoice escrow, created when the buyer pays.
+  escrow: Bytes
   events: [InvoiceEvent!]! @derivedFrom(field: "simpleInvoice")
   lastActionTime: BigInt
   buyerNote: String

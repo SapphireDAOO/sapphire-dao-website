@@ -17,6 +17,7 @@ export const userInvoicesPageQuery = `
       ) @include(if: $includeOwned) {
         amountPaid
         contract
+        escrow
         fee
         id
         invoiceNonce
@@ -38,6 +39,7 @@ export const userInvoicesPageQuery = `
       ) @include(if: $includePaid) {
         amountPaid
         contract
+        escrow
         fee
         id
         invoiceNonce
@@ -117,6 +119,7 @@ export const invoiceQuery = `query (
     ) {
       amountPaid
       contract
+      escrow
       fee
       id
       invoiceId: invoiceNonce
@@ -138,6 +141,7 @@ export const invoiceQuery = `query (
     ) {
       amountPaid
       contract
+      escrow
       fee
       id
       invoiceId: invoiceNonce

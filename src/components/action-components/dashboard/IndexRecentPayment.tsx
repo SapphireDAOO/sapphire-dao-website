@@ -60,6 +60,17 @@ const canonicalStatus = (
   }
 };
 
+// Live copies are rebuilt from events and chain reads, so they can lack
+// fields only the subgraph has, like escrow; keep the fetched value for those.
+const withLive = (invoice: Invoice, live?: Invoice): Invoice => {
+  if (!live) return invoice;
+  const merged: Record<string, unknown> = { ...invoice };
+  for (const [key, value] of Object.entries(live)) {
+    if (value !== undefined) merged[key] = value;
+  }
+  return merged as Invoice;
+};
+
 const matchesQuery = (invoice: Invoice, query: string) =>
   [
     invoice.id,
@@ -189,23 +200,23 @@ export default function IndexRecentPayment({
   ]);
 
   const liveSellerInvoices = useMemo(() => {
-    const updated = sellerInvoices.map((invoice) => {
-      return (
-        liveOverlay.byKey.get(`${invoiceKey(invoice)}-${invoice.type}`) ??
-        invoice
-      );
-    });
+    const updated = sellerInvoices.map((invoice) =>
+      withLive(
+        invoice,
+        liveOverlay.byKey.get(`${invoiceKey(invoice)}-${invoice.type}`),
+      ),
+    );
 
     return [...liveOverlay.sellerOnly, ...updated];
   }, [invoiceKey, sellerInvoices, liveOverlay]);
 
   const liveBuyerInvoices = useMemo(() => {
-    const updated = buyerInvoices.map((invoice) => {
-      return (
-        liveOverlay.byKey.get(`${invoiceKey(invoice)}-${invoice.type}`) ??
-        invoice
-      );
-    });
+    const updated = buyerInvoices.map((invoice) =>
+      withLive(
+        invoice,
+        liveOverlay.byKey.get(`${invoiceKey(invoice)}-${invoice.type}`),
+      ),
+    );
 
     return [...liveOverlay.buyerOnly, ...updated];
   }, [buyerInvoices, invoiceKey, liveOverlay]);
