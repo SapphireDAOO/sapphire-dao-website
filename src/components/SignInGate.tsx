@@ -1,12 +1,14 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { usePathname } from "next/navigation";
 import { useConfig, useSwitchChain } from "wagmi";
 import { Loader2 } from "lucide-react";
 import Container from "@/components/Container";
 import { Button } from "@/components/ui/button";
 import { useSignIn } from "@/components/SignInProvider";
 import ConnectWalletButton from "@/components/wallet/ConnectWalletButton";
+import DashboardSkeleton from "@/components/action-components/dashboard/DashboardSkeleton";
 
 const GatePanel = ({
   title,
@@ -33,11 +35,16 @@ const SignInGate = ({ children }: { children: ReactNode }) => {
   const { status, signIn } = useSignIn();
   const [network] = useConfig().chains;
   const { mutate: switchChain, isPending: isSwitching } = useSwitchChain();
+  const pathname = usePathname() ?? "";
+  const isDashboard =
+    pathname.startsWith("/dashboard") ||
+    pathname.startsWith("/intermediated-dashboard");
 
   switch (status) {
     case "signedIn":
       return <>{children}</>;
     case "connecting":
+      if (isDashboard) return <DashboardSkeleton />;
       return (
         <GatePanel title="Checking your wallet" body="One moment…">
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
