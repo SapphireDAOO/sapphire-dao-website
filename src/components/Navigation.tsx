@@ -249,9 +249,6 @@ const Navbar = () => {
             aria-label="Go to home"
           >
             <BrandMark />
-            <span className="hidden text-sm font-semibold tracking-tight sm:inline">
-              Sapphire DAO
-            </span>
           </Link>
 
           <div className="flex min-w-0 items-center gap-0.5 sm:gap-2">

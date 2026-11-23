@@ -7,7 +7,6 @@ const HomeNavbar = () => (
     <div className="flex h-16 items-center justify-between gap-3 px-5 sm:px-8">
       <Link href="/" className="flex items-center gap-2.5" aria-label="Go to home">
         <BrandMark />
-        <span className="text-sm font-semibold tracking-tight">Sapphire DAO</span>
       </Link>
 
       <Link
