@@ -15,6 +15,7 @@ import {
 import { Loader2, RefreshCw } from "lucide-react";
 import { BASE_SEPOLIA, getKnownPaymentToken } from "@/constants";
 import { useFeeBalances } from "@/hooks/useFeeBalances";
+import { formatTokenAmount } from "@/lib/formatUtils";
 import {
   formatAddress,
   formatTimestamp,
@@ -105,10 +106,10 @@ export default function FeesCollected() {
                       )}
                     </TableCell>
                     <TableCell className="font-mono font-medium">
-                      {formatUnits(token.balance, token.decimals)}
+                      {formatTokenAmount(token.balance, token.decimals)}
                     </TableCell>
                     <TableCell className="font-mono text-muted-foreground">
-                      {formatUnits(token.accrued, token.decimals)}
+                      {formatTokenAmount(token.accrued, token.decimals)}
                     </TableCell>
                     <TableCell className="font-mono text-muted-foreground">
                       {formatUnits(token.swept, token.decimals)}
