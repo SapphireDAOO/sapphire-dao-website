@@ -249,17 +249,21 @@ export function NotesThread({
             </span>
           )}
         </div>
-        <button
-          type="button"
-          onClick={handleCreateClick}
-          disabled={!!noteBlockReason}
-          title={noteBlockReason ?? undefined}
-          className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline disabled:text-muted-foreground disabled:hover:no-underline"
-        >
-          <MessageSquarePlus className="size-3.5" aria-hidden="true" />
-          Create note
-        </button>
+        {!noteBlockReason && (
+          <button
+            type="button"
+            onClick={handleCreateClick}
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline"
+          >
+            <MessageSquarePlus className="size-3.5" aria-hidden="true" />
+            Create note
+          </button>
+        )}
       </div>
+
+      {noteBlockReason && (
+        <p className="text-xs text-muted-foreground">{noteBlockReason}</p>
+      )}
 
       {expanded && (
         <>
@@ -353,7 +357,7 @@ export function NotesThread({
         </>
       )}
 
-      {isComposerOpen && (
+      {isComposerOpen && !noteBlockReason && (
         <div
           className="space-y-2 rounded-lg border border-border bg-background p-3"
           onClick={(e) => e.stopPropagation()}
