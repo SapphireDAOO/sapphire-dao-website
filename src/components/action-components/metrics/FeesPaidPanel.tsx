@@ -102,7 +102,7 @@ export function FeesPaidPanel() {
                             href={explorerTxUrl(fee.txHash)}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="font-mono text-blue-600 underline hover:text-blue-800"
+                            className="font-mono text-primary underline hover:text-primary/80"
                           >
                             {formatAddress(fee.txHash)}
                           </a>

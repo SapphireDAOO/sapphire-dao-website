@@ -140,7 +140,7 @@ export default function SweepForm({
             <button
               type="button"
               onClick={handleSweepAll}
-              className="text-xs text-blue-500 hover:underline"
+              className="text-xs text-primary hover:underline"
             >
               Sweep all ({formatUnits(token.balance, token.decimals)}{" "}
               {token.symbol})
@@ -153,13 +153,13 @@ export default function SweepForm({
             onChange={(e) => setAmount(e.target.value)}
           />
           {amount.trim() && !requested && !exceedsBalance && (
-            <p className="text-xs text-red-600">
+            <p className="text-xs text-destructive">
               Enter a positive amount with at most {token.decimals} decimal
               places.
             </p>
           )}
           {exceedsBalance && (
-            <p className="text-xs text-red-600">
+            <p className="text-xs text-destructive">
               Only {formatUnits(token.balance, token.decimals)} {token.symbol} is
               held across all fee receivers.
             </p>
@@ -180,7 +180,7 @@ export default function SweepForm({
             Every selected receiver sends its share here in one transaction.
           </p>
           {destination.trim() && !destinationValid && (
-            <p className="text-xs text-red-600">Not a valid address.</p>
+            <p className="text-xs text-destructive">Not a valid address.</p>
           )}
         </div>
       )}
@@ -238,7 +238,7 @@ function SweepPreview({
       </div>
 
       {plan.shortfall > BigInt(0) && (
-        <p className="text-xs text-red-600">
+        <p className="text-xs text-destructive">
           The receivers can only cover {formatUnits(plan.total, token.decimals)}{" "}
           {token.symbol} — short by{" "}
           {formatUnits(plan.shortfall, token.decimals)}.
@@ -255,7 +255,7 @@ function SweepPreview({
               href={`https://sepolia.basescan.org/address/${source.address}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-blue-500 underline"
+              className="text-primary underline"
             >
               {formatAddress(source.address)}
             </a>

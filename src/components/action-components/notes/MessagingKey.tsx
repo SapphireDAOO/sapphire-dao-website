@@ -81,7 +81,7 @@ export const MessagingKey = () => {
 
   if (registeredKey && !keyMismatch) {
     return (
-      <div className="flex items-center gap-1.5 text-[11px] text-emerald-700 dark:text-emerald-400">
+      <div className="flex items-center gap-1.5 text-[11px] text-success-foreground">
         <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
         <span>Messaging key published</span>
         <span className="font-mono text-muted-foreground">
@@ -93,7 +93,7 @@ export const MessagingKey = () => {
 
   if (keyMismatch) {
     return (
-      <div className="flex items-start gap-1.5 rounded-md border border-amber-200 bg-amber-50 p-2 text-[11px] text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
+      <div className="flex items-start gap-1.5 rounded-md border border-warning/30 bg-warning/10 p-2 text-[11px] text-warning-foreground">
         <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
         <p>
           The key published for this account is not the one your signature

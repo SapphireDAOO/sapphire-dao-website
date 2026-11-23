@@ -78,7 +78,7 @@ const allIntermediatedInvoices: ColumnDef<AllInvoice>[] = [
               href={`https://sepolia.basescan.org/address/${sellersAddress}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-blue-500 underline"
+              className="text-primary underline"
             >
               {formatAddress(sellersAddress as string)}
             </a>
@@ -110,7 +110,7 @@ const allIntermediatedInvoices: ColumnDef<AllInvoice>[] = [
               href={`https://sepolia.basescan.org/tx/${commissionUrl}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-blue-500 underline"
+              className="text-primary underline"
             >
               {formatAddress(commissionUrl as string)}
             </a>
@@ -138,7 +138,7 @@ const allIntermediatedInvoices: ColumnDef<AllInvoice>[] = [
               href={`https://sepolia.basescan.org/tx/${paymentHash}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-blue-500 underline"
+              className="text-primary underline"
             >
               {formatAddress(paymentHash as string)}
             </a>
@@ -172,7 +172,7 @@ const allIntermediatedInvoices: ColumnDef<AllInvoice>[] = [
               href={`https://sepolia.basescan.org/address/${buyersAddress}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-blue-500 underline"
+              className="text-primary underline"
             >
               {formatAddress(buyersAddress as string)}
             </a>

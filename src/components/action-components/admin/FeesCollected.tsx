@@ -93,7 +93,7 @@ export default function FeesCollected() {
                         href={`https://sepolia.basescan.org/address/${token.sweepToken}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-xs font-mono text-blue-500 underline"
+                        className="text-xs font-mono text-primary underline"
                       >
                         {formatAddress(token.sweepToken)}
                       </a>
@@ -160,7 +160,7 @@ export default function FeesCollected() {
                           href={`https://sepolia.basescan.org/tx/${sweep.txHash}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-blue-500 underline"
+                          className="text-primary underline"
                         >
                           {formatAddress(sweep.txHash)}
                         </a>
@@ -170,7 +170,7 @@ export default function FeesCollected() {
                           href={`https://sepolia.basescan.org/address/${sweep.destination}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-blue-500 underline"
+                          className="text-primary underline"
                         >
                           {formatAddress(sweep.destination)}
                         </a>

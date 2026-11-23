@@ -4,7 +4,7 @@ import DashboardIndex from "@/components/action-components/dashboard/DashboardIn
 export default function DashboardPage() {
   return (
     <main>
-      <Suspense fallback={<div className="p-8 text-gray-500">Loading…</div>}>
+      <Suspense fallback={<div className="p-8 text-muted-foreground">Loading…</div>}>
         <DashboardIndex isIntermediatedTab={false} />
       </Suspense>
     </main>

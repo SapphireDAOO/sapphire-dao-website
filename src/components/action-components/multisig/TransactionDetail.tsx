@@ -29,10 +29,10 @@ import {
 import { useHintedWalletClient } from "@/components/wallet-hint/useHintedWalletClient";
 
 const STATUS_BADGE: Record<string, string> = {
-  PROPOSED: "bg-yellow-100 text-yellow-800",
-  APPROVED: "bg-blue-100 text-blue-800",
-  EXECUTED: "bg-green-100 text-green-800",
-  CANCELED: "bg-red-100 text-red-800",
+  PROPOSED: "bg-warning/10 text-warning-foreground",
+  APPROVED: "bg-primary/10 text-primary",
+  EXECUTED: "bg-success/10 text-success-foreground",
+  CANCELED: "bg-destructive/10 text-destructive",
 };
 
 const isTerminalStatus = (status?: string) =>
@@ -232,7 +232,7 @@ export default function TransactionDetail({
               href={`https://sepolia.basescan.org/address/${tx.target}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-blue-500 underline flex items-center gap-1 font-mono"
+              className="text-primary underline flex items-center gap-1 font-mono"
             >
               {formatAddress(tx.target)}
               <ExternalLink className="h-3 w-3" />
@@ -251,7 +251,7 @@ export default function TransactionDetail({
                       href={p.href}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-blue-500 underline flex items-center gap-1 font-mono"
+                      className="text-primary underline flex items-center gap-1 font-mono"
                     >
                       {p.value}
                       <ExternalLink className="h-3 w-3" />
@@ -284,7 +284,7 @@ export default function TransactionDetail({
               href={`https://sepolia.basescan.org/address/${tx.proposer}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-blue-500 underline flex items-center gap-1 font-mono"
+              className="text-primary underline flex items-center gap-1 font-mono"
             >
               {formatAddress(tx.proposer)}
               <ExternalLink className="h-3 w-3" />
@@ -301,7 +301,7 @@ export default function TransactionDetail({
                     href={`https://sepolia.basescan.org/address/${tx.executor}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-blue-500 underline flex items-center gap-1 font-mono"
+                    className="text-primary underline flex items-center gap-1 font-mono"
                   >
                     {formatAddress(tx.executor)}
                     <ExternalLink className="h-3 w-3" />
@@ -312,9 +312,9 @@ export default function TransactionDetail({
           )}
 
           {cancelProposal && !isTerminal && (
-            <div className="rounded-md border border-orange-200 bg-orange-50 p-3 space-y-2">
+            <div className="rounded-md border border-warning/30 bg-warning/10 p-3 space-y-2">
               <div className="flex items-center justify-between">
-                <p className="text-xs font-semibold text-orange-800 uppercase tracking-wide">
+                <p className="text-xs font-semibold text-warning-foreground uppercase tracking-wide">
                   Cancel Proposal
                 </p>
                 <Badge className={STATUS_BADGE[cancelProposal.status] ?? ""}>

@@ -89,9 +89,9 @@ const EmergencyPause = () => {
     : 0;
 
   return (
-    <Card className="w-full border-red-200 dark:border-red-900">
+    <Card className="w-full border-destructive/30">
       <CardHeader>
-        <CardTitle className="text-xl font-bold text-red-700 dark:text-red-400">
+        <CardTitle className="text-xl font-bold text-destructive">
           Emergency Pause
         </CardTitle>
         <CardDescription className="text-sm text-muted-foreground">
@@ -105,29 +105,29 @@ const EmergencyPause = () => {
         {isPaused === undefined ? (
           <p className="text-sm text-muted-foreground">Loading status...</p>
         ) : isPaused ? (
-          <div className="flex items-start gap-2.5 rounded-lg border border-red-300 bg-red-50 p-3 dark:border-red-900 dark:bg-red-950/30">
-            <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-red-700 dark:text-red-400" />
+          <div className="flex items-start gap-2.5 rounded-lg border border-destructive/30 bg-destructive/10 p-3">
+            <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
             <div className="space-y-1">
-              <p className="text-sm font-bold leading-tight text-red-900 dark:text-red-300">
+              <p className="text-sm font-bold leading-tight text-destructive">
                 Payments are paused
               </p>
               {secondsRemaining > 0 ? (
-                <p className="text-xs leading-snug text-red-800 dark:text-red-400">
+                <p className="text-xs leading-snug text-destructive">
                   Lapses on its own in {formatDurationSeconds(secondsRemaining)}{" "}
                   ({unixToGMT(expirySeconds)} UTC), or lift it now with the
                   button below.
                 </p>
               ) : (
-                <p className="text-xs leading-snug text-red-800 dark:text-red-400">
+                <p className="text-xs leading-snug text-destructive">
                   This pause holds until it is lifted.
                 </p>
               )}
             </div>
           </div>
         ) : (
-          <div className="flex items-start gap-2.5 rounded-lg border border-green-300 bg-green-50 p-3 dark:border-green-900 dark:bg-green-950/30">
-            <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-green-700 dark:text-green-400" />
-            <p className="text-sm font-medium leading-tight text-green-900 dark:text-green-300">
+          <div className="flex items-start gap-2.5 rounded-lg border border-success/30 bg-success/10 p-3">
+            <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-success-foreground" />
+            <p className="text-sm font-medium leading-tight text-success-foreground">
               Payments are running normally
             </p>
           </div>
@@ -143,7 +143,7 @@ const EmergencyPause = () => {
                 href={`https://sepolia.basescan.org/address/${pauseState.lastActionBy}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="font-mono text-blue-500 underline"
+                className="font-mono text-primary underline"
               >
                 {truncateAddress(pauseState.lastActionBy)}
               </a>
@@ -158,7 +158,7 @@ const EmergencyPause = () => {
                 href={`https://sepolia.basescan.org/tx/${pauseState.lastActionTx}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 text-xs text-blue-500 underline"
+                className="inline-flex items-center gap-1 text-xs text-primary underline"
               >
                 tx
                 <ExternalLink className="h-3 w-3" />
@@ -174,7 +174,7 @@ const EmergencyPause = () => {
                   href={`https://sepolia.basescan.org/address/${emergencyPauser}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-blue-500 underline"
+                  className="text-primary underline"
                 >
                   {truncateAddress(emergencyPauser)}
                 </a>
@@ -186,13 +186,13 @@ const EmergencyPause = () => {
         )}
 
         {confirming && !isPaused && (
-          <div className="flex items-start gap-2.5 rounded-lg border border-red-300 bg-red-50 p-3 dark:border-red-900 dark:bg-red-950/30">
-            <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-red-700 dark:text-red-400" />
+          <div className="flex items-start gap-2.5 rounded-lg border border-destructive/30 bg-destructive/10 p-3">
+            <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
             <div className="space-y-1">
-              <p className="text-sm font-bold leading-tight text-red-900 dark:text-red-300">
+              <p className="text-sm font-bold leading-tight text-destructive">
                 Pause all payment processing?
               </p>
-              <p className="text-xs leading-snug text-red-800 dark:text-red-400">
+              <p className="text-xs leading-snug text-destructive">
                 Every invoice action stops for
                 {pauseDuration
                   ? ` ${formatDurationSeconds(Number(pauseDuration))}`

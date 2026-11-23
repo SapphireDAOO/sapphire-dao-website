@@ -168,7 +168,7 @@ export default function GovernancePage() {
         <div className="flex items-start justify-between flex-wrap gap-4">
           <div>
             <div className="flex items-center gap-2">
-              <ShieldCheck className="h-6 w-6 text-green-600" />
+              <ShieldCheck className="h-6 w-6 text-success-foreground" />
               <h1 className="text-2xl font-bold">Governance</h1>
             </div>
             <p className="text-sm text-muted-foreground mt-1">
@@ -177,7 +177,7 @@ export default function GovernancePage() {
                 href={`https://sepolia.basescan.org/address/${contractAddress}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-blue-500 underline font-mono"
+                className="text-primary underline font-mono"
               >
                 {formatAddress(contractAddress)}
               </a>
@@ -233,7 +233,7 @@ export default function GovernancePage() {
                       href={`https://sepolia.basescan.org/address/${addr}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-xs font-mono text-blue-500 underline"
+                      className="text-xs font-mono text-primary underline"
                     >
                       {formatAddress(addr)}
                     </a>

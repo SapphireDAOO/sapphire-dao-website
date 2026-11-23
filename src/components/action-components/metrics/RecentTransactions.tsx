@@ -35,9 +35,9 @@ const KIND_META: Record<
 > = {
   paid: {
     label: "Paid",
-    icon: <ArrowDownLeft className="h-4 w-4 text-emerald-500" />,
+    icon: <ArrowDownLeft className="h-4 w-4 text-success" />,
     sign: "+",
-    amountClass: "text-emerald-500",
+    amountClass: "text-success",
     badge: "default",
   },
   released: {

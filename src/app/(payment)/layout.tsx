@@ -11,9 +11,11 @@ export default function PaymentLayout({
 }>) {
   return (
     <Web3Provider promptSignIn={false}>
-      {children}
-      <WalletHint />
-      <Toaster position="bottom-center" richColors />
+      <div className="classic-theme">
+        {children}
+        <WalletHint />
+        <Toaster position="bottom-center" richColors />
+      </div>
     </Web3Provider>
   );
 }

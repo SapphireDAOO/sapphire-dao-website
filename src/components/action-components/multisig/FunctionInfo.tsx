@@ -36,7 +36,7 @@ export const FunctionInfo = ({
         href={functionDocsUrl(contract, fn)}
         target="_blank"
         rel="noopener noreferrer"
-        className="mt-2 inline-flex items-center gap-1 text-blue-600 underline hover:text-blue-800"
+        className="mt-2 inline-flex items-center gap-1 text-primary underline hover:text-primary/80"
       >
         View Docs
         <ExternalLink className="h-3 w-3" />

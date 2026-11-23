@@ -10,6 +10,7 @@ import {
   Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import BrandMark from "@/components/BrandMark";
 import ConnectWalletButton from "@/components/wallet/ConnectWalletButton";
 import {
   DropdownMenu,
@@ -59,17 +60,17 @@ const NavLink = ({
     aria-label={ariaLabel}
     aria-current={active ? "page" : undefined}
     className={cn(
-      "relative rounded-md px-3 py-2 text-xs font-semibold uppercase tracking-wider transition-colors duration-200",
-      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40",
+      "relative px-3 py-2 text-xs font-medium uppercase tracking-wider transition-colors duration-200",
+      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
       active
-        ? "text-white"
-        : "text-white/60 hover:text-white hover:bg-white/10",
+        ? "text-primary"
+        : "text-muted-foreground hover:text-foreground",
     )}
   >
     {label}
     <span
       className={cn(
-        "pointer-events-none absolute inset-x-3 bottom-1 h-0.5 origin-center rounded-full bg-blue-400 transition-transform duration-200",
+        "pointer-events-none absolute inset-x-3 bottom-0.5 h-0.5 origin-center bg-primary transition-transform duration-200",
         active ? "scale-x-100" : "scale-x-0",
       )}
     />
@@ -136,12 +137,12 @@ const AdminMenu = ({
         onPointerEnter={handleEnter}
         onPointerLeave={handleLeave}
         className={cn(
-          "group relative flex items-center gap-1.5 rounded-md px-3 py-2 text-xs font-semibold uppercase tracking-wider transition-colors duration-200",
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40",
-          "data-[state=open]:bg-white/10 data-[state=open]:text-white",
+          "group relative flex items-center gap-1.5 px-3 py-2 text-xs font-medium uppercase tracking-wider transition-colors duration-200",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
+          "data-[state=open]:text-foreground",
           active
-            ? "text-white"
-            : "text-white/60 hover:text-white hover:bg-white/10",
+            ? "text-primary"
+            : "text-muted-foreground hover:text-foreground",
         )}
       >
         Admin
@@ -151,7 +152,7 @@ const AdminMenu = ({
         />
         <span
           className={cn(
-            "pointer-events-none absolute inset-x-3 bottom-1 h-0.5 origin-center rounded-full bg-blue-400 transition-transform duration-200",
+            "pointer-events-none absolute inset-x-3 bottom-0.5 h-0.5 origin-center bg-primary transition-transform duration-200",
             active ? "scale-x-100" : "scale-x-0",
           )}
         />
@@ -178,22 +179,22 @@ const AdminMenu = ({
               asChild
               aria-current={isActive ? "page" : undefined}
               className={cn(
-                "group relative cursor-pointer items-start gap-3 rounded-md px-2.5 py-2",
+                "group relative cursor-pointer items-start gap-3 px-2.5 py-2",
                 isActive && "bg-accent",
               )}
             >
               <Link href={path}>
                 <span
                   className={cn(
-                    "pointer-events-none absolute left-0 top-1/2 h-7 w-0.5 -translate-y-1/2 rounded-full bg-blue-500 transition-opacity duration-200",
+                    "pointer-events-none absolute left-0 top-1/2 h-7 w-0.5 -translate-y-1/2 bg-primary transition-opacity duration-200",
                     isActive ? "opacity-100" : "opacity-0",
                   )}
                 />
                 <span
                   className={cn(
-                    "mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md border transition-colors",
+                    "mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center border transition-colors",
                     isActive
-                      ? "border-blue-500/30 bg-blue-500/10 text-blue-600 dark:text-blue-400"
+                      ? "border-primary/30 bg-primary/10 text-primary"
                       : "border-transparent bg-muted text-muted-foreground group-focus:text-foreground",
                   )}
                 >
@@ -240,19 +241,20 @@ const Navbar = () => {
 
   return (
     <>
-      <nav className="bg-primary text-white p-4 shadow-md sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="text-xl font-semibold">
-            <Link
-              href="/"
-              className="text-destructive hover:text-gray-200"
-              aria-label="Go to home"
-            >
+      <nav className="sticky top-0 z-50 border-b border-border bg-background/90 backdrop-blur-xl">
+        <div className="flex h-16 items-center justify-between gap-2 px-4 sm:px-8">
+          <Link
+            href="/"
+            className="flex shrink-0 items-center gap-2.5"
+            aria-label="Go to home"
+          >
+            <BrandMark />
+            <span className="hidden text-sm font-semibold tracking-tight sm:inline">
               Sapphire DAO
-            </Link>
-          </div>
+            </span>
+          </Link>
 
-          <div className="flex items-center gap-1 sm:gap-2">
+          <div className="flex min-w-0 items-center gap-0.5 sm:gap-2">
             {isSignedIn && (isAdminSection ? (
               <>
                 <NavLink
@@ -282,8 +284,8 @@ const Navbar = () => {
             {isSignedIn && adminLinks.length > 0 && (
               <AdminMenu activePath={path} links={adminLinks} />
             )}
-            <div className="ml-2">
-              <ConnectWalletButton />
+            <div className="ml-1 sm:ml-2">
+              <ConnectWalletButton className="h-9" />
             </div>
           </div>
         </div>

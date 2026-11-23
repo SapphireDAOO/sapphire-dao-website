@@ -57,7 +57,7 @@ const ContractLink: React.FC<ContractLinkProps> = ({
           href={`https://sepolia.basescan.org/address/${address}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-blue-500 underline"
+          className="text-primary underline"
         >
           {formatAddress(address)}
         </a>

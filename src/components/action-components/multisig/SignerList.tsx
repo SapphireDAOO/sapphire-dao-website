@@ -21,7 +21,7 @@ export default function SignerList({ signers, threshold }: { signers: MultiSigSi
               href={`https://sepolia.basescan.org/address/${s.address}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-blue-500 hover:underline"
+              className="text-primary hover:underline"
             >
               {fmt(s.address)}
             </a>

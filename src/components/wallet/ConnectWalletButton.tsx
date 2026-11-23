@@ -8,7 +8,7 @@ import {
   useDisconnect,
   useSwitchChain,
 } from "wagmi";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -49,19 +49,21 @@ const ConnectWalletButton = ({ className }: { className?: string }) => {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        {/* Its own text colour: the nav sets white text on everything inside it. */}
         <Button
           variant="outline"
-          className={cn("gap-2 text-foreground", className)}
+          className={cn("gap-2 bg-background px-1.5 pr-2.5", className)}
         >
-          <span
-            aria-hidden
-            className={cn(
-              "h-2 w-2 rounded-full",
-              wrongNetwork ? "bg-red-500" : "bg-emerald-500",
-            )}
-          />
-          <span className="font-mono">{formatAddress(address)}</span>
+          <span className="relative grid size-6 place-items-center bg-primary/10 text-primary">
+            <Wallet className="size-3.5" aria-hidden />
+            <span
+              aria-hidden
+              className={cn(
+                "absolute -right-0.5 -top-0.5 size-2 rounded-full ring-2 ring-background",
+                wrongNetwork ? "bg-destructive" : "bg-success",
+              )}
+            />
+          </span>
+          <span className="font-mono text-xs">{formatAddress(address)}</span>
           <ChevronDown className="h-4 w-4 opacity-60" />
         </Button>
       </DropdownMenuTrigger>

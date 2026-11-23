@@ -24,11 +24,11 @@ export const PausedNotice = () => {
   return (
     <div
       role="status"
-      className="mt-6 flex items-start gap-3 rounded-lg border border-red-300 bg-red-50 p-4"
+      className="mt-6 flex items-start gap-3 rounded-lg border border-destructive/30 bg-destructive/10 p-4"
     >
-      <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-red-700" />
+      <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-destructive" />
       <div className="space-y-1">
-        <p className="text-sm font-bold leading-tight text-red-900">
+        <p className="text-sm font-bold leading-tight text-destructive">
           Payments are paused
           {secondsRemaining > 0 && (
             <span className="font-normal">
@@ -38,7 +38,7 @@ export const PausedNotice = () => {
             </span>
           )}
         </p>
-        <p className="text-xs leading-snug text-red-800">
+        <p className="text-xs leading-snug text-destructive">
           Creating an invoice, paying, accepting, rejecting, releasing and
           refunding all revert while the pause is in force. Funds already in
           escrow are unaffected and stay where they are. Cancelling an unpaid

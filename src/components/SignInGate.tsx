@@ -21,7 +21,7 @@ const GatePanel = ({
     <Container>
       <div className="mx-auto mt-16 flex max-w-md flex-col items-center gap-4 text-center">
         <h1 className="text-xl font-semibold">{title}</h1>
-        <p className="text-gray-600">{body}</p>
+        <p className="text-muted-foreground">{body}</p>
         {children}
       </div>
     </Container>
@@ -40,7 +40,7 @@ const SignInGate = ({ children }: { children: ReactNode }) => {
     case "connecting":
       return (
         <GatePanel title="Checking your wallet" body="One moment…">
-          <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
+          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
         </GatePanel>
       );
     case "walletPending":
@@ -90,7 +90,7 @@ const SignInGate = ({ children }: { children: ReactNode }) => {
           title="Sign in with your wallet"
           body="Sign the message in your wallet to continue."
         >
-          <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
+          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
         </GatePanel>
       );
     case "signedOut":

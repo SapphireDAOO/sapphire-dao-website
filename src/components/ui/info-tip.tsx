@@ -35,7 +35,7 @@ const InfoTip = ({
           }}
           onMouseDown={stopProp}
           className={cn(
-            "flex items-center rounded p-0.5 text-gray-500 transition-colors hover:text-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-300",
+            "flex items-center rounded p-0.5 text-muted-foreground transition-colors hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
             className
           )}
         >

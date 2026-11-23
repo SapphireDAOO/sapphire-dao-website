@@ -95,7 +95,7 @@ function TransactionCard({
             className={cn(
               "font-mono font-medium",
               showDirection &&
-                (inflow ? "text-emerald-500" : "text-destructive"),
+                (inflow ? "text-success" : "text-destructive"),
             )}
           >
             {sign}
@@ -114,7 +114,7 @@ function TransactionCard({
             href={explorerTxUrl(tx.txHash)}
             target="_blank"
             rel="noopener noreferrer"
-            className="font-mono text-blue-600 underline hover:text-blue-800"
+            className="font-mono text-primary underline hover:text-primary/80"
           >
             {formatAddress(tx.txHash)}
           </a>

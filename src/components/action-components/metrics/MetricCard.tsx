@@ -35,7 +35,7 @@ const trendIcon = (change?: number | null) => {
 const trendColor = (change?: number | null) => {
   if (change === undefined || change === null || change === 0)
     return "text-muted-foreground";
-  return change > 0 ? "text-emerald-500" : "text-destructive";
+  return change > 0 ? "text-success" : "text-destructive";
 };
 
 export function MetricCard({

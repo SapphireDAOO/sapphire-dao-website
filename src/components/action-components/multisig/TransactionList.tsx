@@ -19,16 +19,16 @@ import { useHintedWalletClient } from "@/components/wallet-hint/useHintedWalletC
 import { proposeCancelMultiSigTransaction } from "@/services/blockchain/MultiSig";
 
 const STATUS_BADGE: Record<string, string> = {
-  PROPOSED: "bg-yellow-100 text-yellow-800 border-yellow-200",
-  APPROVED: "bg-blue-100 text-blue-800 border-blue-200",
-  EXECUTED: "bg-green-100 text-green-800 border-green-200",
-  CANCELED: "bg-red-100 text-red-800 border-red-200",
+  PROPOSED: "bg-warning/10 text-warning-foreground border-warning/30",
+  APPROVED: "bg-primary/10 text-primary border-primary/30",
+  EXECUTED: "bg-success/10 text-success-foreground border-success/30",
+  CANCELED: "bg-destructive/10 text-destructive border-destructive/30",
 };
 
 const CANCEL_PROPOSAL_BADGE: Record<string, string> = {
-  PROPOSED: "bg-orange-50 text-orange-700 border-orange-200",
-  APPROVED: "bg-orange-100 text-orange-800 border-orange-300",
-  EXECUTED: "bg-red-50 text-red-700 border-red-200",
+  PROPOSED: "bg-warning/10 text-warning-foreground border-warning/30",
+  APPROVED: "bg-warning/10 text-warning-foreground border-warning/30",
+  EXECUTED: "bg-destructive/10 text-destructive border-destructive/30",
 };
 
 interface Props {
@@ -176,7 +176,7 @@ export default function TransactionList({
                         href={`https://sepolia.basescan.org/address/${tx.target}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="font-mono text-xs text-blue-500 underline"
+                        className="font-mono text-xs text-primary underline"
                         onClick={(e) => e.stopPropagation()}
                       >
                         {formatAddress(tx.target)}
@@ -197,7 +197,7 @@ export default function TransactionList({
                       {cancelProposal && (tx.status === "PROPOSED" || tx.status === "APPROVED") && (
                         <Badge
                           variant="outline"
-                          className={CANCEL_PROPOSAL_BADGE[cancelProposal.status] ?? "bg-orange-50 text-orange-700 border-orange-200"}
+                          className={CANCEL_PROPOSAL_BADGE[cancelProposal.status] ?? "bg-warning/10 text-warning-foreground border-warning/30"}
                         >
                           ↩ Cancel {cancelProposal.status}
                         </Badge>

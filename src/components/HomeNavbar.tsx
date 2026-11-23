@@ -1,25 +1,21 @@
 import Link from "next/link";
+import BrandMark from "./BrandMark";
 
 // Separate from Navigation so the home page doesn't pull in wallet code.
 const HomeNavbar = () => (
-  <nav className="bg-primary text-white p-4 shadow-md sticky top-0 z-50">
-    <div className="max-w-7xl mx-auto flex items-center justify-between">
-      <div className="text-xl font-semibold">
-        <Link
-          href="/"
-          className="text-destructive hover:text-gray-200"
-          aria-label="Go to home"
-        >
-          Sapphire DAO
-        </Link>
-      </div>
+  <nav className="sticky top-0 z-50 border-b border-border bg-background/90 backdrop-blur-xl">
+    <div className="flex h-16 items-center justify-between gap-3 px-5 sm:px-8">
+      <Link href="/" className="flex items-center gap-2.5" aria-label="Go to home">
+        <BrandMark />
+        <span className="text-sm font-semibold tracking-tight">Sapphire DAO</span>
+      </Link>
 
       <Link
         href="/dashboard"
-        className="bg-destructive text-primary px-4 py-2 rounded-lg shadow-md hover:bg-gray-200 transition"
+        className="inline-flex h-9 items-center bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
         aria-label="Open App"
       >
-        Open App
+        Open app
       </Link>
     </div>
   </nav>

@@ -32,7 +32,7 @@ const LiveIndicator = ({ status }: { status: string }) => {
       <span
         className={cn(
           "h-2 w-2 rounded-full",
-          isLive ? "bg-emerald-500 animate-pulse" : "bg-muted-foreground/40",
+          isLive ? "bg-success/100 animate-pulse" : "bg-muted-foreground/40",
         )}
       />
       {isLive ? "Live" : "Offline"}
