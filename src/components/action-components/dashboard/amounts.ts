@@ -14,9 +14,13 @@ export const formatEthTotal = (wei: bigint) =>
     maximumFractionDigits: 4,
   });
 
-/** Intermediated prices carry 8 decimals of USD. */
-export const formatUsdTotal = (raw: bigint) =>
-  Number(formatUnits(raw, 8)).toLocaleString("en-US", {
+/** A USD figure to two decimals, e.g. 1,234.50. */
+export const formatUsdAmount = (value: number) =>
+  value.toLocaleString("en-US", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
+
+/** Intermediated prices carry 8 decimals of USD. */
+export const formatUsdTotal = (raw: bigint) =>
+  formatUsdAmount(Number(formatUnits(raw, 8)));

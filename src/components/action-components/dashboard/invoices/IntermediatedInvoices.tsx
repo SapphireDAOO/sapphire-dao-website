@@ -23,6 +23,7 @@ import {
   TxLink,
 } from "./InvoiceCardFrame";
 import { normalizeStatus, statusLook } from "../statusGroups";
+import { formatUsdAmount } from "../amounts";
 
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 const isZeroAddress = (value?: string) => value?.toLowerCase() === ZERO_ADDRESS;
@@ -206,7 +207,7 @@ function IntermediatedCardImpl({
       idTitle={invoice.id}
       status={statusLook(displayStatus, true)}
       date={invoice.createdAt ? `${invoice.createdAt} UTC` : undefined}
-      amount={fmtAmount(amount)}
+      amount={formatUsdAmount(amount)}
       unit="USD"
       secondary={
         isPaid && invoice.amountPaid
