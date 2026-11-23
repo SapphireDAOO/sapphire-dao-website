@@ -12,6 +12,7 @@ import { createConfig, createConnector } from "wagmi";
 import { metaMask, safe, walletConnect } from "wagmi/connectors";
 import { LOCAL_CHAIN_ENABLED } from "@/constants";
 import { isMobileBrowser } from "@/lib/walletApp";
+import { captureRememberedAccount } from "@/lib/rememberedAccount";
 
 const walletConnectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID!;
 
@@ -149,6 +150,7 @@ type GlobalWithConfig = typeof globalThis & {
 
 const globalForConfig = globalThis as GlobalWithConfig;
 
+captureRememberedAccount(chains);
 const config = globalForConfig.sapphireWagmiConfig ?? createWagmiConfig();
 
 if (process.env.NODE_ENV !== "production") {

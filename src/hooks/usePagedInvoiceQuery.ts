@@ -45,6 +45,27 @@ type CachedPages = {
 };
 
 const pageCache = new Map<string, CachedPages>();
+
+// overfetch by 1 to detect hasMore
+const firstPageVariables = (address: string, isIntermediated: boolean) => ({
+  address: address.toLowerCase(),
+  first: INVOICE_FETCH_SIZE + 1,
+  skip: 0,
+  includeOwned: !isIntermediated,
+  includePaid: !isIntermediated,
+  includeIssued: isIntermediated,
+  includeReceived: isIntermediated,
+});
+
+/** Warms urql's cache with the first page, which the hook then reads. */
+export const prefetchInvoicePages = (
+  chainId: number,
+  address: string,
+  isIntermediated: boolean,
+) =>
+  client(chainId)
+    .query(userInvoicesPageQuery, firstPageVariables(address, isIntermediated))
+    .toPromise();
 const pageCacheKey = (
   chainId: number,
   address: string,
@@ -126,7 +147,7 @@ export function usePagedInvoiceQuery({
       setIsLoading(true);
       if (!append) setError(null);
 
-      const first = INVOICE_FETCH_SIZE + 1; // overfetch by 1 to detect hasMore
+      const first = INVOICE_FETCH_SIZE + 1;
 
       try {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -140,18 +161,10 @@ export function usePagedInvoiceQuery({
           sellerSkip === buyerSkip
         ) {
           const { data, error: gqlError } = await client(chainId)
-            .query(
-              userInvoicesPageQuery,
-              {
-                address: address.toLowerCase(),
-                first,
-                skip: sellerSkip,
-                includeOwned: !isIntermediated,
-                includePaid: !isIntermediated,
-                includeIssued: isIntermediated,
-                includeReceived: isIntermediated,
-              },
-            )
+            .query(userInvoicesPageQuery, {
+              ...firstPageVariables(address, isIntermediated),
+              skip: sellerSkip,
+            })
             .toPromise();
 
           if (id !== fetchIdRef.current) return;

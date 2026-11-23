@@ -75,6 +75,44 @@ const fetchPage = async (
 const nextSkip = (skip: number, received: number) =>
   received === TOTALS_PAGE_SIZE ? skip + TOTALS_PAGE_SIZE : null;
 
+export const invoiceTotalsQuery = (
+  chainId: number,
+  address: string | undefined,
+  isIntermediated: boolean,
+) => ({
+  queryKey: [
+    "invoice-totals",
+    chainId,
+    address?.toLowerCase(),
+    isIntermediated,
+  ] as const,
+  queryFn: async () => {
+    const rows: InvoiceTotalsRow[] = [];
+    let sellerSkip: number | null = 0;
+    let buyerSkip: number | null = 0;
+
+    while (sellerSkip !== null || buyerSkip !== null) {
+      const page = await fetchPage(
+        chainId,
+        address!.toLowerCase(),
+        isIntermediated,
+        sellerSkip,
+        buyerSkip,
+      );
+      if (sellerSkip !== null) {
+        rows.push(...toRows(page.seller, "seller"));
+        sellerSkip = nextSkip(sellerSkip, page.seller.length);
+      }
+      if (buyerSkip !== null) {
+        rows.push(...toRows(page.buyer, "buyer"));
+        buyerSkip = nextSkip(buyerSkip, page.buyer.length);
+      }
+    }
+
+    return rows;
+  },
+});
+
 /**
  * Every invoice the wallet created or paid, reduced to status and amount,
  * so the dashboard can total each status beyond the loaded page.
@@ -90,37 +128,7 @@ export const useInvoiceTotals = ({
   const chainId = chain?.id ?? BASE_SEPOLIA;
 
   return useQuery({
-    queryKey: [
-      "invoice-totals",
-      chainId,
-      address?.toLowerCase(),
-      isIntermediated,
-    ],
+    ...invoiceTotalsQuery(chainId, address, isIntermediated),
     enabled: enabled && Boolean(address),
-    queryFn: async () => {
-      const rows: InvoiceTotalsRow[] = [];
-      let sellerSkip: number | null = 0;
-      let buyerSkip: number | null = 0;
-
-      while (sellerSkip !== null || buyerSkip !== null) {
-        const page = await fetchPage(
-          chainId,
-          address!.toLowerCase(),
-          isIntermediated,
-          sellerSkip,
-          buyerSkip,
-        );
-        if (sellerSkip !== null) {
-          rows.push(...toRows(page.seller, "seller"));
-          sellerSkip = nextSkip(sellerSkip, page.seller.length);
-        }
-        if (buyerSkip !== null) {
-          rows.push(...toRows(page.buyer, "buyer"));
-          buyerSkip = nextSkip(buyerSkip, page.buyer.length);
-        }
-      }
-
-      return rows;
-    },
   });
 };
