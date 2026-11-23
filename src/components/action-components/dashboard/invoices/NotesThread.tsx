@@ -8,9 +8,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { MessagingKey } from "@/components/action-components/notes/MessagingKey";
 import { NoteLength } from "@/components/NoteLength";
 import { MAX_NOTE_LENGTH } from "@/constants";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardHeader } from "@/components/ui/card";
-import { ChevronLeft, ChevronRight, Loader2, Lock } from "lucide-react";
+import { cn } from "@/lib/utils";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
+  Lock,
+  MessageSquarePlus,
+} from "lucide-react";
 import { toast } from "sonner";
 import { WALLET_CANCELLED } from "@/lib/walletErrors";
 import { useInvoiceNotes, ThreadNote } from "@/hooks/useInvoiceNotes";
@@ -171,26 +176,40 @@ export function NotesThread({
       : getActionLabel(note);
 
     return (
-      <Card key={note.id} className="transition-shadow hover:shadow-sm">
-        <CardHeader className="py-2 px-3">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-1.5 min-w-0">
-              <span className="text-xs font-semibold text-gray-700 truncate">
-                {note.isAuthor ? "Created Note" : "Shared Note"}
+      <div
+        key={note.id}
+        className="rounded-lg border border-border bg-background px-3.5 py-3"
+      >
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5">
+              <span className="truncate text-sm font-medium">
+                {note.isAuthor ? "Created note" : "Shared note"}
               </span>
-              <Badge
-                className={
+              <span
+                className={cn(
+                  "rounded border px-1.5 py-px font-mono text-[10px] uppercase tracking-wider",
                   note.share
-                    ? "bg-blue-100 text-blue-800 text-[10px] px-1.5 py-0 cursor-default select-none hover:bg-blue-100"
-                    : "bg-gray-100 text-gray-600 text-[10px] px-1.5 py-0 cursor-default select-none hover:bg-gray-100"
-                }
+                    ? "border-info/30 bg-info/10 text-info-foreground"
+                    : "border-border bg-muted text-muted-foreground",
+                )}
               >
                 {note.share ? "Shared" : "Private"}
-              </Badge>
+              </span>
+              {!note.opened && !note.isAuthor && note.share && (
+                <span
+                  className="size-1.5 rounded-full bg-primary"
+                  aria-label="Unread"
+                />
+              )}
             </div>
-            <button
-              type="button"
-              className="text-[11px] text-blue-600 hover:underline disabled:text-gray-400 disabled:hover:no-underline shrink-0"
+            <p className="mt-0.5 font-mono text-[11px] text-muted-foreground">
+              {note.createdAtLabel}
+            </p>
+          </div>
+          <button
+            type="button"
+            className="shrink-0 text-xs font-medium text-primary hover:underline disabled:text-muted-foreground disabled:hover:no-underline"
               onClick={(e) => {
                 e.stopPropagation();
                 if (note.isPending || isUpdating) return;
@@ -199,68 +218,68 @@ export function NotesThread({
               onMouseDown={(e) => e.stopPropagation()}
               disabled={note.isPending || isUpdating}
             >
-              {actionLabel}
-            </button>
-          </div>
+            {actionLabel}
+          </button>
+        </div>
 
-          <p className="text-[10px] text-gray-400 mt-0.5">{note.createdAtLabel}</p>
-
-          {note.opened && (
-            <p className="mt-1.5 text-[11px] text-gray-700 leading-relaxed">
-              {note.message}
-            </p>
-          )}
-        </CardHeader>
-      </Card>
+        {note.opened && (
+          <p className="mt-2 whitespace-pre-wrap text-xs leading-relaxed">
+            {note.message}
+          </p>
+        )}
+      </div>
     );
   };
 
   return (
     <div
       ref={containerRef}
-      className="mt-3 space-y-2"
+      className="space-y-2.5"
       onClick={(e) => e.stopPropagation()}
       onMouseDown={(e) => e.stopPropagation()}
     >
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-1.5">
-          <span className="text-xs font-semibold text-gray-700">
-            Notes{notes.length > 0 ? ` (${notes.length})` : ""}
+        <div className="flex items-center gap-2">
+          <span className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
+            Notes ({notes.length})
           </span>
           {unreadCount > 0 && (
-            <Badge className="bg-red-500 text-white text-[10px] px-1.5 py-0 cursor-default select-none hover:bg-red-500">
+            <span className="rounded bg-primary px-1.5 py-px font-mono text-[10px] font-semibold uppercase text-primary-foreground">
               {unreadCount} new
-            </Badge>
+            </span>
           )}
         </div>
-        <Button
-          size="sm"
-          variant="ghost"
+        <button
+          type="button"
           onClick={handleCreateClick}
           disabled={!!noteBlockReason}
           title={noteBlockReason ?? undefined}
+          className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline disabled:text-muted-foreground disabled:hover:no-underline"
         >
-          Create Note
-        </Button>
+          <MessageSquarePlus className="size-3.5" aria-hidden="true" />
+          Create note
+        </button>
       </div>
 
       {expanded && (
         <>
           {isLoading ? (
-            <p className="text-[11px] text-gray-400">Loading notes...</p>
+            <p className="text-xs text-muted-foreground">Loading notes…</p>
           ) : notes.length === 0 ? (
             unreadableCount > 0 ? (
-              <p className="text-[11px] text-amber-700 dark:text-amber-400">
+              <p className="text-[11px] text-warning-foreground">
                 {unreadableCount} {unreadableCount === 1 ? "note" : "notes"} on
                 this invoice could not be opened with your messaging key. They
                 were sealed to a different key — usually one published before
                 the key was re-registered.
               </p>
             ) : (
-              <p className="text-[11px] text-gray-400">No notes yet.</p>
+              <p className="rounded-lg border border-dashed border-border px-3 py-4 text-center text-xs text-muted-foreground">
+                No notes on this invoice yet.
+              </p>
             )
           ) : !isUnlocked ? (
-            <div className="flex flex-wrap items-center gap-2 rounded-md border border-dashed p-2">
+            <div className="flex flex-wrap items-center gap-2 rounded-lg border border-dashed border-border p-3">
               <Lock className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
               <p className="min-w-0 flex-1 text-[11px] text-muted-foreground">
                 {notes.length} {notes.length === 1 ? "note is" : "notes are"}{" "}
@@ -310,7 +329,7 @@ export function NotesThread({
                     <ChevronLeft className="h-3 w-3 mr-0.5" />
                     Prev
                   </Button>
-                  <span className="text-[10px] text-gray-400">
+                  <span className="font-mono text-[10px] text-muted-foreground">
                     {notePage + 1} / {Math.ceil(notes.length / NOTES_PAGE_SIZE)}
                   </span>
                   <Button
@@ -336,7 +355,7 @@ export function NotesThread({
 
       {isComposerOpen && (
         <div
-          className="space-y-2 rounded-md border border-gray-200 bg-white p-2"
+          className="space-y-2 rounded-lg border border-border bg-background p-3"
           onClick={(e) => e.stopPropagation()}
           onMouseDown={(e) => e.stopPropagation()}
         >
@@ -349,7 +368,7 @@ export function NotesThread({
             maxLength={MAX_NOTE_LENGTH}
           />
           <NoteLength value={draft} />
-          <label className="flex items-center gap-2 text-[11px] text-gray-600">
+          <label className="flex items-center gap-2 text-xs text-muted-foreground">
             <input
               type="checkbox"
               checked={share}

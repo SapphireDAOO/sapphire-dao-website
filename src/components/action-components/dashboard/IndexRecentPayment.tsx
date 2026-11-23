@@ -2,111 +2,114 @@
 
 import { useContext, useState, useMemo, useCallback, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
+import { formatEther, parseEther } from "viem";
 import {
   ContractActionsContext,
   InvoiceStateContext,
 } from "@/context/contract-context";
-import { FilterTabs, CreateInvoiceCard } from "./invoice-cards/index";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Invoice } from "@/model/model";
-import { Button } from "@/components/ui/button";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { IntermediatedCard } from "./invoices/IntermediatedInvoices";
-import { InvoiceCard } from "./invoices/SimpleInvoices";
 import {
   usePagedInvoiceQuery,
   INVOICE_PAGE_SIZE,
   sortByLastAction,
 } from "@/hooks/usePagedInvoiceQuery";
-import { InvoiceFilterBar } from "./InvoiceFilterBar";
-import { InvoicePaginationControls } from "./InvoicePaginationControls";
+import { useInvoiceTotals, type InvoiceSide } from "@/hooks/useInvoiceTotals";
+import { useUsdPrice } from "@/hooks/useUsdPrice";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
+import DashboardView, { type RoleTab, type ViewMode } from "./DashboardView";
+import type { GroupStats } from "./DashboardOverview";
+import {
+  ALL_GROUP,
+  ALL_GROUP_ID,
+  AWAITING_ACCEPTANCE_GROUP,
+  groupsFor,
+  matchesGroup,
+} from "./statusGroups";
+import AwaitingAcceptancePanel from "./AwaitingAcceptancePanel";
+import { formatEthTotal, formatUsd, formatUsdTotal } from "./amounts";
 
-const intermediatedFilters = [
-  "All",
-  "AWAITING PAYMENT",
-  "PAID",
-  "REFUNDED",
-  "CANCELED",
-  "DISPUTED",
-  "DISPUTE RESOLVED",
-  "DISPUTE DISMISSED",
-  "DISPUTE SETTLED",
-  "DISPUTE EXPIRED",
-  "RELEASED",
-];
+const ROLE_TABS: RoleTab[] = ["all", "seller", "buyer"];
 
-const simpleFilters = [
-  "All",
-  "AWAITING PAYMENT",
-  "PAID",
-  "ACCEPTED",
-  "REFUNDED",
-  "CANCELED",
-  "RELEASED",
-  "EXPIRED",
-];
+const canonicalStatus = (
+  value?: string | null,
+  invoice?: Pick<Invoice, "expiresAt">,
+  nowMs = Date.now(),
+) => {
+  if (!value) return "";
+  const normalized = value.replace(/_/g, " ").toUpperCase().trim();
 
-const intermediatedStatusMeanings: Record<string, string> = {
-  "AWAITING PAYMENT": "Created and waiting for the buyer to pay.",
-  PAID: "The buyer has paid. The funds are held in escrow until release.",
-  REFUNDED: "Part or all of the payment was returned to the buyer.",
-  CANCELED: "Cancelled before anyone paid.",
-  DISPUTED: "The buyer raised a dispute. The funds stay in escrow until it's decided.",
-  "DISPUTE RESOLVED": "Decided in the seller's favour. The funds can be released.",
-  "DISPUTE DISMISSED": "Dismissed with no payout to either side. The funds can be released.",
-  "DISPUTE SETTLED": "Settled by splitting the funds between buyer and seller.",
-  "DISPUTE EXPIRED": "The dispute lapsed without a decision. The funds can be released.",
-  RELEASED: "The funds were paid out to the seller.",
+  if (
+    (normalized === "AWAITING PAYMENT" ||
+      normalized === "CREATED" ||
+      normalized === "INITIATED") &&
+    invoice?.expiresAt &&
+    nowMs > Number(invoice.expiresAt) * 1000
+  ) {
+    return "EXPIRED";
+  }
+
+  switch (normalized) {
+    case "CREATED":
+    case "INITIATED":
+      return "AWAITING PAYMENT";
+    case "REJECTED":
+      return "REFUNDED";
+    default:
+      return normalized;
+  }
 };
 
-const simpleStatusMeanings: Record<string, string> = {
-  "AWAITING PAYMENT": "Created and waiting for the buyer to pay.",
-  PAID: "The buyer has paid. Waiting for the seller to accept or reject it.",
-  ACCEPTED: "The seller accepted. The funds are held in escrow, then released.",
-  REFUNDED: "The buyer got their money back: the seller rejected it, or didn't respond in time.",
-  CANCELED: "The seller cancelled it before anyone paid.",
-  RELEASED: "The funds were paid out to the seller.",
-  EXPIRED: "Nobody paid before the payment window closed.",
-};
+const matchesQuery = (invoice: Invoice, query: string) =>
+  [
+    invoice.id,
+    invoice.invoiceId.toString(),
+    invoice.buyer,
+    invoice.seller,
+    invoice.contract,
+    invoice.paymentTxHash,
+    invoice.releaseHash,
+    invoice.refundTxHash,
+  ].some((value) => value?.toLowerCase().includes(query));
 
 export default function IndexRecentPayment({
   isIntermediatedTab,
+  kindSwitch,
+  primaryAction,
+  notice,
   enabled = true,
 }: {
   isIntermediatedTab: boolean;
+  kindSwitch: React.ReactNode;
+  primaryAction?: React.ReactNode;
+  notice?: React.ReactNode;
   enabled?: boolean;
 }) {
   const { liveInvoiceData } = useContext(InvoiceStateContext);
   const { trackInvoices } = useContext(ContractActionsContext);
 
-  const [statusFilter, setStatusFilter] = useState("All");
-  const [walletQuery, setWalletQuery] = useState("");
+  const [groupId, setGroupId] = useState(ALL_GROUP_ID);
+  const [query, setQuery] = useState("");
+  const [view, setView] = useState<ViewMode>("cards");
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [page, setPage] = useState(1);
 
   const params = useSearchParams();
-  const defaultTab = params.get("tab") || "all";
-  const [activeTab, setActiveTab] = useState(defaultTab);
-  const debouncedWalletQuery = useDebouncedValue(walletQuery, 250)
+  const paramTab = params.get("tab") as RoleTab | null;
+  const defaultTab: RoleTab =
+    paramTab && ROLE_TABS.includes(paramTab) ? paramTab : "all";
+  const [activeTab, setActiveTab] = useState<RoleTab>(defaultTab);
+  const debouncedQuery = useDebouncedValue(query, 250)
     .trim()
+    .replace(/^#/, "")
     .toLowerCase();
 
   useEffect(() => {
     setActiveTab(defaultTab);
   }, [defaultTab]);
 
-
   useEffect(() => {
     setPage(1);
-  }, [
-    statusFilter,
-    selectedDate,
-    isIntermediatedTab,
-    activeTab,
-    debouncedWalletQuery,
-  ]);
+  }, [groupId, isIntermediatedTab, activeTab, debouncedQuery]);
 
   const {
     sellerInvoices,
@@ -119,6 +122,12 @@ export default function IndexRecentPayment({
     error: pageError,
     refetch: refetchPage,
   } = usePagedInvoiceQuery({ isIntermediated: isIntermediatedTab, enabled });
+
+  const { data: totalsRows, isLoading: totalsLoading } = useInvoiceTotals({
+    isIntermediated: isIntermediatedTab,
+    enabled,
+  });
+  const { data: ethUsd } = useUsdPrice("ETH");
 
   const invoiceKey = useCallback(
     (invoice: Pick<Invoice, "invoiceId">) => invoice.invoiceId.toString(),
@@ -206,75 +215,123 @@ export default function IndexRecentPayment({
     return sortByLastAction([...liveSellerInvoices, ...liveBuyerInvoices]);
   }, [activeTab, liveSellerInvoices, liveBuyerInvoices]);
 
-  const canonicalStatus = useCallback(
-    (value?: string | null, invoice?: Invoice, nowMs = Date.now()) => {
-      if (!value) return "";
-      const normalized = value.replace(/_/g, " ").toUpperCase().trim();
-
-      if (
-        (normalized === "AWAITING PAYMENT" ||
-          normalized === "CREATED" ||
-          normalized === "INITIATED") &&
-        invoice?.expiresAt &&
-        nowMs > Number(invoice.expiresAt) * 1000
-      ) {
-        return "EXPIRED";
-      }
-
-      switch (normalized) {
-        case "CREATED":
-        case "INITIATED":
-          return "AWAITING PAYMENT";
-        case "REJECTED":
-          return "REFUNDED";
-        case "CANCELED":
-          return "CANCELED";
-        default:
-          return normalized;
-      }
-    },
-    [],
+  const groups = useMemo(
+    () => [ALL_GROUP, ...groupsFor(isIntermediatedTab)],
+    [isIntermediatedTab],
+  );
+  const selectedGroup =
+    groups.find((group) => group.id === groupId) ?? ALL_GROUP;
+  const statGroups = useMemo(
+    () => (isIntermediatedTab ? groups : [...groups, AWAITING_ACCEPTANCE_GROUP]),
+    [groups, isIntermediatedTab],
   );
 
-  const filteredInvoices = useMemo(() => {
-    let invoices = allForTab;
+  // Totals come from the full subgraph snapshot, with
+  // live status events laid over it so they stay current.
+  const stats = useMemo(() => {
+    const rows = new Map<
+      string,
+      { side: InvoiceSide; status: string; amount: bigint }
+    >();
+    for (const row of totalsRows ?? []) rows.set(`${row.id}-${row.side}`, row);
 
-    if (statusFilter !== "All") {
-      const targetStatus = canonicalStatus(statusFilter);
-      const nowMs = Date.now();
-      invoices = invoices.filter((invoice) => {
-        return canonicalStatus(invoice.status, invoice, nowMs) === targetStatus;
+    const nowMs = Date.now();
+    for (const invoice of liveInvoiceData) {
+      const side: InvoiceSide | null =
+        invoice.type === sellerType
+          ? "seller"
+          : invoice.type === buyerType
+            ? "buyer"
+            : null;
+      if (!side) continue;
+
+      const key = `${invoiceKey(invoice)}-${side}`;
+      let amount = rows.get(key)?.amount;
+      if (amount === undefined) {
+        try {
+          amount = isIntermediatedTab
+            ? BigInt(invoice.price ?? 0)
+            : parseEther(invoice.price ?? "0");
+        } catch {
+          amount = BigInt(0);
+        }
+      }
+      rows.set(key, {
+        side,
+        amount,
+        status: canonicalStatus(invoice.status, invoice, nowMs),
       });
     }
 
-    if (debouncedWalletQuery) {
-      invoices = invoices.filter(
-        (invoice) =>
-          invoice.buyer?.toLowerCase().includes(debouncedWalletQuery) ||
-          invoice.seller?.toLowerCase().includes(debouncedWalletQuery),
+    const result: Record<string, GroupStats> = {};
+    for (const group of statGroups) {
+      result[group.id] = { count: 0, total: BigInt(0) };
+    }
+
+    for (const row of rows.values()) {
+      if (activeTab !== "all" && row.side !== activeTab) continue;
+      const inPanel =
+        !isIntermediatedTab &&
+        matchesGroup(AWAITING_ACCEPTANCE_GROUP, row.status);
+      for (const group of statGroups) {
+        if (!matchesGroup(group, row.status)) continue;
+        if (inPanel && group.id === ALL_GROUP_ID) continue;
+        result[group.id].count += 1;
+        result[group.id].total += row.amount;
+      }
+    }
+    return result;
+  }, [
+    totalsRows,
+    liveInvoiceData,
+    sellerType,
+    buyerType,
+    invoiceKey,
+    isIntermediatedTab,
+    statGroups,
+    activeTab,
+  ]);
+
+  const heroSecondary = useMemo(() => {
+    if (isIntermediatedTab || !ethUsd) return undefined;
+    const total = stats[selectedGroup.id]?.total;
+    if (!total) return undefined;
+    return `≈ ${formatUsd(Number(formatEther(total)) * ethUsd)}`;
+  }, [isIntermediatedTab, ethUsd, stats, selectedGroup.id]);
+
+  const awaitingAcceptance = useMemo(() => {
+    if (isIntermediatedTab) return [];
+    const nowMs = Date.now();
+    return allForTab.filter((invoice) =>
+      matchesGroup(
+        AWAITING_ACCEPTANCE_GROUP,
+        canonicalStatus(invoice.status, invoice, nowMs),
+      ),
+    );
+  }, [isIntermediatedTab, allForTab]);
+
+  const filteredInvoices = useMemo(() => {
+    const nowMs = Date.now();
+    // Invoices awaiting acceptance live in the sidebar panel instead.
+    let invoices = allForTab.filter((invoice) => {
+      const status = canonicalStatus(invoice.status, invoice, nowMs);
+      if (
+        !isIntermediatedTab &&
+        matchesGroup(AWAITING_ACCEPTANCE_GROUP, status)
+      ) {
+        return false;
+      }
+      return matchesGroup(selectedGroup, status);
+    });
+
+    if (debouncedQuery) {
+      invoices = invoices.filter((invoice) =>
+        matchesQuery(invoice, debouncedQuery),
       );
     }
 
-    if (selectedDate) {
-      const startOfDay = new Date(selectedDate);
-      startOfDay.setHours(0, 0, 0, 0);
-      const endOfDay = new Date(selectedDate);
-      endOfDay.setHours(23, 59, 59, 999);
-      invoices = invoices.filter((i) => {
-        if (!i.createdAt) return false;
-        const created = new Date(i.createdAt).getTime();
-        return created >= startOfDay.getTime() && created <= endOfDay.getTime();
-      });
-    }
-
     return invoices;
-  }, [
-    allForTab,
-    statusFilter,
-    canonicalStatus,
-    selectedDate,
-    debouncedWalletQuery,
-  ]);
+  }, [allForTab, selectedGroup, debouncedQuery, isIntermediatedTab]);
 
   const displayInvoices = useMemo(
     () =>
@@ -323,23 +380,18 @@ export default function IndexRecentPayment({
     hasMoreBuyer,
   ]);
 
-  const handleTabChange = useCallback(
-    (value: string) => {
-      setActiveTab(value);
-      setStatusFilter("All");
-      setWalletQuery("");
-      setPage(1);
-      // Native history updates useSearchParams without remounting the page,
-      // which router.replace would do, refetching every list.
-      const path = window.location.pathname;
-      window.history.replaceState(
-        null,
-        "",
-        value === "all" ? path : `${path}?tab=${value}`,
-      );
-    },
-    [],
-  );
+  const handleTabChange = useCallback((value: RoleTab) => {
+    setActiveTab(value);
+    setPage(1);
+    // Native history updates useSearchParams without remounting the page,
+    // which router.replace would do, refetching every list.
+    const path = window.location.pathname;
+    window.history.replaceState(
+      null,
+      "",
+      value === "all" ? path : `${path}?tab=${value}`,
+    );
+  }, []);
 
   const handleToggle = useCallback(
     (invoiceId: bigint) => {
@@ -350,113 +402,44 @@ export default function IndexRecentPayment({
   );
 
   return (
-    <TooltipProvider delayDuration={150}>
-      <div className="container mx-auto mt-8">
-        <Tabs value={activeTab} onValueChange={handleTabChange}>
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="all">All</TabsTrigger>
-            <TabsTrigger value="seller">
-              {isIntermediatedTab ? "Issued" : "Created by me"}
-            </TabsTrigger>
-            <TabsTrigger value="buyer">
-              {isIntermediatedTab ? "Received" : "Paid by me"}
-            </TabsTrigger>
-          </TabsList>
-
-          {["all", "seller", "buyer"].map((tab) => (
-            <TabsContent key={tab} value={tab}>
-              {activeTab === tab && (
-                <>
-                  {!isIntermediatedTab && <CreateInvoiceCard />}
-
-                  <FilterTabs
-                    filters={
-                      isIntermediatedTab ? intermediatedFilters : simpleFilters
-                    }
-                    activeFilter={statusFilter}
-                    descriptions={
-                      isIntermediatedTab
-                        ? intermediatedStatusMeanings
-                        : simpleStatusMeanings
-                    }
-                    onSelect={(value) => {
-                      setStatusFilter(value);
-                      setPage(1);
-                    }}
-                  />
-
-                  <InvoiceFilterBar
-                    walletQuery={walletQuery}
-                    onWalletQueryChange={setWalletQuery}
-                    selectedDate={selectedDate}
-                    onDateChange={setSelectedDate}
-                  />
-
-                  <div className="flex flex-wrap gap-5">
-                    {pageIsLoading && displayInvoices.length === 0 ? (
-                      <div className="w-full text-center py-10 text-gray-500 border rounded-lg">
-                        <span className="animate-pulse">Loading...</span>
-                      </div>
-                    ) : pageError && displayInvoices.length === 0 ? (
-                      <div className="w-full text-center py-10 text-gray-500 border rounded-lg">
-                        <div className="flex flex-col items-center gap-3">
-                          <span className="text-sm text-gray-600">
-                            {pageError}
-                          </span>
-                          <Button variant="outline" size="sm" onClick={refetchPage}>
-                            Retry
-                          </Button>
-                        </div>
-                      </div>
-                    ) : displayInvoices.length > 0 ? (
-                      displayInvoices.map((invoice) => {
-                        const key = invoiceKey(invoice);
-
-                        return (
-                          <div
-                            key={`${key}-${invoice.type}`}
-                            className="w-full md:w-[48%] lg:w-[31%]"
-                          >
-                            {isIntermediatedTab ? (
-                              <IntermediatedCard
-                                invoice={invoice}
-                                isExpanded={expandedId === key}
-                                onToggle={handleToggle}
-                              />
-                            ) : (
-                              <InvoiceCard
-                                invoice={invoice}
-                                isExpanded={expandedId === key}
-                                onToggle={handleToggle}
-                              />
-                            )}
-                          </div>
-                        );
-                      })
-                    ) : (
-                      <div className="w-full text-center py-10 text-gray-500 border rounded-lg">
-                        <span>
-                          {selectedDate
-                            ? `No invoices found on ${selectedDate.toDateString()}`
-                            : "No invoices found"}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-
-                  <InvoicePaginationControls
-                    page={page}
-                    hasNextPage={hasNextPage}
-                    isLoading={pageIsLoading}
-                    onPrev={() => setPage((p) => Math.max(1, p - 1))}
-                    onNext={handleNext}
-                  />
-                </>
-              )}
-            </TabsContent>
-          ))}
-        </Tabs>
-      </div>
-    </TooltipProvider>
+    <DashboardView
+      isIntermediated={isIntermediatedTab}
+      kindSwitch={kindSwitch}
+      primaryAction={primaryAction}
+      notice={notice}
+      sidePanel={
+        isIntermediatedTab ? undefined : (
+          <AwaitingAcceptancePanel
+            invoices={awaitingAcceptance}
+            stats={stats[AWAITING_ACCEPTANCE_GROUP.id]}
+            isLoading={totalsLoading || (pageIsLoading && allForTab.length === 0)}
+          />
+        )
+      }
+      groups={groups}
+      selectedGroup={selectedGroup}
+      onSelectGroup={setGroupId}
+      stats={stats}
+      statsLoading={totalsLoading}
+      formatTotal={isIntermediatedTab ? formatUsdTotal : formatEthTotal}
+      unit={isIntermediatedTab ? "USD" : "ETH"}
+      heroSecondary={heroSecondary}
+      roleTab={activeTab}
+      onRoleTab={handleTabChange}
+      query={query}
+      onQuery={setQuery}
+      view={view}
+      onView={setView}
+      invoices={displayInvoices}
+      isLoading={pageIsLoading}
+      error={pageError}
+      onRetry={refetchPage}
+      expandedId={expandedId}
+      onToggle={handleToggle}
+      page={page}
+      hasNextPage={hasNextPage}
+      onPrev={() => setPage((p) => Math.max(1, p - 1))}
+      onNext={handleNext}
+    />
   );
 }

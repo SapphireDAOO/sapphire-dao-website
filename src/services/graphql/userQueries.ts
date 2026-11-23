@@ -248,3 +248,46 @@ export const invoiceOwnerQuery = `query Invoice($id: ID!) {
     seller { id }
   }
 }`;
+
+// Just enough per invoice to count and sum by status.
+export const userInvoiceTotalsQuery = `
+  query UserInvoiceTotals(
+    $address: String!
+    $first: Int!
+    $sellerSkip: Int!
+    $buyerSkip: Int!
+    $includeOwned: Boolean!
+    $includePaid: Boolean!
+    $includeIssued: Boolean!
+    $includeReceived: Boolean!
+  ) {
+    user(id: $address) {
+      ownedSimpleInvoices(first: $first, skip: $sellerSkip, orderBy: id)
+        @include(if: $includeOwned) {
+        id
+        state
+        price
+        expiresAt
+      }
+      paidSimpleInvoices(first: $first, skip: $buyerSkip, orderBy: id)
+        @include(if: $includePaid) {
+        id
+        state
+        price
+        expiresAt
+      }
+      issuedAdvancedInvoices(first: $first, skip: $sellerSkip, orderBy: id)
+        @include(if: $includeIssued) {
+        id
+        state
+        price
+      }
+      receivedAdvancedInvoices(first: $first, skip: $buyerSkip, orderBy: id)
+        @include(if: $includeReceived) {
+        id
+        state
+        price
+      }
+    }
+  }
+`;

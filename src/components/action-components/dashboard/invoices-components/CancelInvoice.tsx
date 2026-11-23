@@ -57,12 +57,13 @@ const CancelInvoice = ({ invoiceId, invoice }: CancelInvoiceProps) => {
   const isActionLoading = localLoading || isLoading === `cancelInvoice:${invoiceId.toString()}`;
 
   return (
-    <div className="flex flex-col items-end gap-2 mt-4">
+    <div className="flex flex-col items-end gap-2">
       <Button
         size="sm"
+        variant="outline"
         onClick={handleClick}
         disabled={isActionLoading}
-        className="min-w-[140px] justify-center bg-red-600 hover:bg-red-700 text-white font-medium shadow-sm hover:shadow-md transition-all duration-200 rounded-lg px-4 py-1.5"
+        className="min-w-[110px] justify-center rounded-none border-destructive/40 text-destructive hover:bg-destructive/5 hover:text-destructive"
       >
         {isActionLoading ? (
           <>
@@ -70,11 +71,11 @@ const CancelInvoice = ({ invoiceId, invoice }: CancelInvoiceProps) => {
             Canceling...
           </>
         ) : (
-          "Cancel"
+          "Cancel invoice"
         )}
       </Button>
       {isActionLoading && (
-        <p className="text-[11px] text-gray-500">
+        <p className="text-[11px] text-muted-foreground">
           Cancellation is processing. Keep this tab open.
         </p>
       )}

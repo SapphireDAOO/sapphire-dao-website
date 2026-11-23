@@ -2,9 +2,6 @@
 
 import { memo, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardHeader, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { ArrowUpRight, ChevronDown, ChevronUp, Copy } from "lucide-react";
 import { Invoice } from "@/model/model";
 import { unixToGMT } from "@/utils";
 import { toast } from "sonner";
@@ -14,11 +11,18 @@ import { QRCodeSVG } from "qrcode.react";
 import { formatUnits } from "viem";
 import { useGetPaymentTokenData } from "@/hooks/useGetPaymentTokenData";
 import {
-  renderContractLink,
-  renderTx,
-  InvoiceField,
+  AddressLink,
+  CopyValue,
   Countdown,
-} from "./InvoiceCardShared";
+  CountdownStrip,
+  DetailRow,
+  DetailRows,
+  HistoryList,
+  InvoiceCardFrame,
+  SectionLabel,
+  TxLink,
+} from "./InvoiceCardFrame";
+import { normalizeStatus, statusLook } from "../statusGroups";
 
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 const isZeroAddress = (value?: string) => value?.toLowerCase() === ZERO_ADDRESS;
@@ -41,53 +45,12 @@ const formatShortId = (value?: string) => {
   return `${trimmed.slice(0, 4)}...${trimmed.slice(-4)}`;
 };
 
-const normalizeStatus = (status: string): string => {
-  const normalized = status?.replace(/_/g, " ").toUpperCase();
-  switch (normalized) {
-    case "CREATED":
-    case "INITIATED":
-    case "AWAITING PAYMENT":
-      return "AWAITING PAYMENT";
-    case "PAID":
-      return "PAID";
-    case "REFUNDED":
-      return "REFUNDED";
-    case "CANCELED":
-      return "CANCELED";
-    case "DISPUTED":
-      return "DISPUTED";
-    case "DISPUTE RESOLVED":
-      return "DISPUTE RESOLVED";
-    case "DISPUTE DISMISSED":
-      return "DISPUTE DISMISSED";
-    case "DISPUTE SETTLED":
-      return "DISPUTE SETTLED";
-    case "DISPUTE EXPIRED":
-      return "DISPUTE EXPIRED";
-    case "RELEASED":
-      return "RELEASED";
-    default:
-      return "Unknown";
-  }
-};
-
-const statusColors: Record<string, string> = {
-  "AWAITING PAYMENT": "bg-blue-100 text-blue-800",
-  PAID: "bg-orange-100 text-orange-800",
-  REFUNDED: "bg-indigo-100 text-indigo-800",
-  CANCELED: "bg-gray-100 text-gray-800",
-  DISPUTED: "bg-red-100 text-red-800 ring-1 ring-inset ring-red-300",
-  "DISPUTE RESOLVED":
-    "bg-teal-100 text-teal-800 ring-1 ring-inset ring-teal-300",
-  "DISPUTE DISMISSED":
-    "bg-yellow-100 text-yellow-800 ring-1 ring-inset ring-yellow-300",
-  "DISPUTE SETTLED":
-    "bg-purple-100 text-purple-800 ring-1 ring-inset ring-purple-300",
-  "DISPUTE EXPIRED":
-    "bg-amber-100 text-amber-800 ring-1 ring-inset ring-amber-300",
-  RELEASED: "bg-green-100 text-green-800",
-  "PARTIAL REFUND": "bg-gray-100 text-gray-600",
-};
+const CLOSED_DISPUTES = new Set([
+  "DISPUTE RESOLVED",
+  "DISPUTE DISMISSED",
+  "DISPUTE SETTLED",
+  "DISPUTE EXPIRED",
+]);
 
 function IntermediatedCardImpl({
   invoice,
@@ -122,18 +85,20 @@ function IntermediatedCardImpl({
     tokenData?.name,
   ]);
 
-  const formatTokenAmount = useCallback(
+  const formatToken = useCallback(
     (raw: string | null | undefined): string => {
-      if (!raw) return "0";
-      try {
-        const n = Number(formatUnits(BigInt(raw), tokenDecimals));
-        return fmtAmount(n);
-      } catch {
-        const n = parseFloat(raw);
-        return fmtAmount(Number.isFinite(n) ? n : 0);
+      let value = 0;
+      if (raw) {
+        try {
+          value = Number(formatUnits(BigInt(raw), tokenDecimals));
+        } catch {
+          const n = parseFloat(raw);
+          value = Number.isFinite(n) ? n : 0;
+        }
       }
+      return `${fmtAmount(value)} ${paymentCurrency}`;
     },
-    [tokenDecimals],
+    [tokenDecimals, paymentCurrency],
   );
 
   // Invoice price is stored with 8 decimal places.
@@ -141,8 +106,6 @@ function IntermediatedCardImpl({
     const raw = invoice.price;
     if (!raw) return 0;
     try {
-      if (typeof raw === "bigint") return Number(formatUnits(raw, 8));
-      if (typeof raw === "number") return raw / 1e8;
       return Number(formatUnits(BigInt(String(raw)), 8));
     } catch {
       const n = parseFloat(String(raw));
@@ -150,42 +113,12 @@ function IntermediatedCardImpl({
     }
   }, [invoice.price]);
 
-  const paidAmountFormatted = useMemo(
-    () => formatTokenAmount(invoice.amountPaid),
-    [invoice.amountPaid, formatTokenAmount],
-  );
-
-  const releasedAmount = useMemo(() => {
-    if (invoice.amountReleased)
-      return formatTokenAmount(invoice.amountReleased);
-    if (invoice.amountPaid) return paidAmountFormatted;
-    return fmtAmount(amount * 0.95);
-  }, [
-    invoice.amountReleased,
-    invoice.amountPaid,
-    paidAmountFormatted,
-    amount,
-    formatTokenAmount,
-  ]);
-
-  const refundedAmount = useMemo(
-    () => formatTokenAmount(invoice.amountRefunded),
-    [invoice.amountRefunded, formatTokenAmount],
-  );
-
-  const displayStatus = normalizeStatus(invoice.status || "");
-  const badgeColor = statusColors[displayStatus] ?? statusColors["Unknown"];
-
+  const displayStatus = normalizeStatus(invoice.status) || "UNKNOWN";
   const isAwaitingPayment =
-    displayStatus === "AWAITING PAYMENT" || displayStatus === "CANCELED";
-
-  const isDisputed =
-    displayStatus === "DISPUTED" ||
-    displayStatus === "DISPUTE RESOLVED" ||
-    displayStatus === "DISPUTE DISMISSED" ||
-    displayStatus === "DISPUTE SETTLED" ||
-    displayStatus === "DISPUTE EXPIRED";
-
+    displayStatus === "AWAITING PAYMENT" ||
+    displayStatus === "CREATED" ||
+    displayStatus === "INITIATED";
+  const hasBuyer = Boolean(invoice.buyer) && !isZeroAddress(invoice.buyer);
   const isPaid = Boolean(invoice.paidAt) && invoice.paidAt !== "Not Paid";
   const shouldTrackReleaseCountdown =
     isPaid &&
@@ -193,45 +126,34 @@ function IntermediatedCardImpl({
     displayStatus !== "RELEASED" &&
     Boolean(invoice.releaseAt);
 
-  const releaseCountdown = useMemo(() => {
-    if (!shouldTrackReleaseCountdown || !invoice.releaseAt) return "—";
-    return (
-      <Countdown
-        startAt={invoice.paidAt ? Number(invoice.paidAt) : null}
-        endAtMs={Number(invoice.releaseAt) * 1000}
-      />
-    );
-  }, [shouldTrackReleaseCountdown, invoice.releaseAt, invoice.paidAt]);
-
-  const voidCountdown = useMemo(() => {
-    if (!isAwaitingPayment || !invoice.expiresAt) return "—";
-    return <Countdown startAt={Number(invoice.expiresAt)} />;
-  }, [isAwaitingPayment, invoice.expiresAt]);
+  const releasedAmount = invoice.amountReleased
+    ? formatToken(invoice.amountReleased)
+    : invoice.amountPaid
+      ? formatToken(invoice.amountPaid)
+      : `${fmtAmount(amount * 0.95)} ${paymentCurrency}`;
+  const hasRefund =
+    Boolean(invoice.amountRefunded) && Number(invoice.amountRefunded) > 0;
 
   const displayHistory = useMemo(() => {
     if (!invoice.history || invoice.history.length === 0) return [];
 
-    const normalizeHistoryStatus = (status?: string) => {
-      if (!status) return "";
-      const spaced = status.replace(/_/g, " ").toUpperCase().trim();
-      if (spaced === "AWAITING PAYMENT" || spaced === "INITIATED")
-        return "CREATED";
-      return spaced;
-    };
-
     const normalized = invoice.history
-      .map((entry) => ({
-        ...entry,
-        status: normalizeHistoryStatus(entry.status),
-      }))
+      .map((entry) => {
+        const spaced = normalizeStatus(entry.status);
+        return {
+          ...entry,
+          status:
+            spaced === "AWAITING PAYMENT" || spaced === "INITIATED"
+              ? "CREATED"
+              : spaced,
+        };
+      })
       .filter((entry) => entry.status);
 
-    const deduped = normalized.filter((entry, idx) => {
+    return normalized.filter((entry, idx) => {
       if (idx === 0) return true;
       return entry.status !== normalized[idx - 1].status;
     });
-
-    return deduped;
   }, [invoice.history]);
 
   const toggle = useCallback(
@@ -250,366 +172,158 @@ function IntermediatedCardImpl({
     else toast.error("Couldn't copy the payment link.");
   }, [paymentUrl]);
 
-  const formattedInvoiceId = useMemo(
-    () => formatShortId(invoice.id),
-    [invoice.id],
-  );
-  const formattedinvoiceId = useMemo(
-    () => formatShortId(invoice.invoiceId?.toString()),
-    [invoice.invoiceId],
-  );
+  const settledShare = isSellerView
+    ? invoice.sellerAmountReceivedAfterDispute
+    : isBuyerView
+      ? invoice.buyerAmountReceivedAfterDispute
+      : null;
+  const settlementTx =
+    invoice.releaseHash ?? invoice.refundTxHash ?? invoice.disputeSettledTxHash;
 
-  const handleCopyInvoiceId = useCallback(
-    async (event: React.MouseEvent<HTMLButtonElement>) => {
-      event.stopPropagation();
-      if (!invoice.id) return;
-      if (await copyText(invoice.id)) toast.success("Invoice ID copied!");
-      else toast.error("Couldn't copy the invoice ID.");
-    },
-    [invoice.id],
-  );
-
-  const handleCopyinvoiceId = useCallback(
-    async (event: React.MouseEvent<HTMLButtonElement>) => {
-      event.stopPropagation();
-      if (!invoice.invoiceId) return;
-      if (await copyText(invoice.invoiceId.toString())) {
-        toast.success("Order ID copied!");
-      } else {
-        toast.error("Couldn't copy the order ID.");
-      }
-    },
-    [invoice.invoiceId],
-  );
-
-  const withCurrencySuffix = useCallback(
-    (value: string) => `${value} ${paymentCurrency}`,
-    [paymentCurrency],
-  );
-
-  const amountDisplay = fmtAmount(amount);
-  const paidAmountDisplay = withCurrencySuffix(paidAmountFormatted);
-  const releasedAmountDisplay = withCurrencySuffix(releasedAmount);
-  const refundedAmountDisplay = withCurrencySuffix(refundedAmount);
+  const strip = shouldTrackReleaseCountdown ? (
+    <CountdownStrip
+      label="Release in"
+      hint="Time left before the payment is released to the seller."
+    >
+      <Countdown
+        startAt={Number(invoice.paidAt)}
+        endAtMs={Number(invoice.releaseAt) * 1000}
+      />
+    </CountdownStrip>
+  ) : isAwaitingPayment && invoice.expiresAt ? (
+    <CountdownStrip
+      label="Void in"
+      tone="muted"
+      hint="Time left for the buyer to pay before the invoice is void."
+    >
+      <Countdown startAt={Number(invoice.expiresAt)} />
+    </CountdownStrip>
+  ) : undefined;
 
   return (
-    <Card className="transition-shadow hover:shadow-md">
-      <CardHeader className="cursor-pointer select-none" onClick={toggle}>
-        <div className="flex items-start justify-between">
-          <div className="flex flex-col">
-            <div className="flex items-center gap-2">
-              <h3 className="text-sm font-semibold" title={invoice.id}>
-                #{formattedInvoiceId}
-              </h3>
-              <button
-                type="button"
-                aria-label="Copy invoice ID"
-                className="text-gray-400 hover:text-gray-600"
-                onClick={handleCopyInvoiceId}
-                onMouseDown={(event) => event.stopPropagation()}
-              >
-                <Copy className="h-3.5 w-3.5" />
-              </button>
-            </div>
-            <div className="mt-1 flex items-center gap-2 text-xs text-gray-500">
-              <span className="font-medium text-gray-700">Order</span>
-              <span>:</span>
-              <span
-                className="text-gray-800"
-                title={invoice.invoiceId?.toString()}
-              >
-                {formattedinvoiceId}
-              </span>
-              <button
-                type="button"
-                aria-label="Copy order ID"
-                className="text-gray-400 hover:text-gray-600"
-                onClick={handleCopyinvoiceId}
-                onMouseDown={(event) => event.stopPropagation()}
-              >
-                <Copy className="h-3.5 w-3.5" />
-              </button>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Badge
-              className={`${badgeColor} cursor-default select-none text-xs py-0.5 px-2 h-auto font-medium leading-tight hover:bg-inherit hover:text-inherit`}
-              onClick={(e) => e.stopPropagation()}
-              onMouseDown={(e) => e.stopPropagation()}
-            >
-              {displayStatus}
-            </Badge>
-            {isExpanded ? (
-              <ChevronUp className="h-4 w-4 text-gray-400" />
-            ) : (
-              <ChevronDown className="h-4 w-4 text-gray-400" />
-            )}
-          </div>
-        </div>
-
-        {shouldTrackReleaseCountdown && (
-          <InvoiceField
-            label="Release in"
-            value={releaseCountdown}
-            description="Time remaining before payment is released to the seller."
-          />
+    <InvoiceCardFrame
+      displayId={formatShortId(invoice.id)}
+      idTitle={invoice.id}
+      status={statusLook(displayStatus, true)}
+      date={invoice.createdAt ? `${invoice.createdAt} UTC` : undefined}
+      amount={fmtAmount(amount)}
+      unit="USD"
+      secondary={
+        isPaid && invoice.amountPaid
+          ? `paid ${formatToken(invoice.amountPaid)}`
+          : undefined
+      }
+      expanded={isExpanded}
+      onToggle={toggle}
+      strip={strip}
+    >
+      <DetailRows>
+        <DetailRow label="Invoice ID">
+          <CopyValue value={invoice.id} label="Invoice ID">
+            {formatShortId(invoice.id)}
+          </CopyValue>
+        </DetailRow>
+        <DetailRow label="Order ID">
+          <CopyValue value={invoice.invoiceId.toString()} label="Order ID">
+            {formatShortId(invoice.invoiceId.toString())}
+          </CopyValue>
+        </DetailRow>
+        <DetailRow label="Seller">
+          <AddressLink address={invoice.seller} />
+        </DetailRow>
+        {hasBuyer && !isAwaitingPayment && (
+          <DetailRow label="Buyer">
+            <AddressLink address={invoice.buyer} />
+          </DetailRow>
         )}
-
-        {(displayStatus === "PAID" || isDisputed) &&
-          invoice.paidAt &&
-          invoice.paidAt !== "Not Paid" && (
-            <InvoiceField
-              label="Paid At"
-              value={unixToGMT(invoice.paidAt)}
-              description="Timestamp when payment entered escrow."
-            />
-          )}
-
-        {invoice.price && (
-          <InvoiceField
-            label="Amount"
-            value={`$${amountDisplay}`}
-            description="Invoice total amount."
-          />
+        {isPaid && invoice.amountPaid && (
+          <DetailRow label="Amount paid">
+            {formatToken(invoice.amountPaid)}
+          </DetailRow>
         )}
-
+        {isPaid && (
+          <DetailRow label="Paid at">{unixToGMT(invoice.paidAt)} UTC</DetailRow>
+        )}
+        {invoice.paymentTxHash && (
+          <DetailRow label="Payment">
+            <TxLink hash={invoice.paymentTxHash} />
+          </DetailRow>
+        )}
+        {displayStatus === "RELEASED" && (
+          <DetailRow label="Amount released">{releasedAmount}</DetailRow>
+        )}
+        {(displayStatus === "REFUNDED" ||
+          (displayStatus === "RELEASED" && hasRefund)) && (
+          <DetailRow label="Amount refunded">
+            {formatToken(invoice.amountRefunded)}
+          </DetailRow>
+        )}
+        {displayStatus === "DISPUTE SETTLED" && settledShare && (
+          <DetailRow label="You received">{formatToken(settledShare)}</DetailRow>
+        )}
         {displayStatus === "PAID" && (
-          <InvoiceField
-            label="Amount Paid"
-            value={
-              invoice.paymentTxHash
-                ? renderTx(invoice.paymentTxHash, paidAmountDisplay)
-                : paidAmountDisplay
-            }
-            description="Amount deposited into escrow."
-          />
+          <DetailRow label="Dispute">
+            <span className="font-sans">No dispute raised</span>
+          </DetailRow>
         )}
-
-        {displayStatus === "RELEASED" &&
-          (invoice.amountPaid || invoice.price) && (
-            <InvoiceField
-              label="Amount Released"
-              value={
-                invoice.releaseHash
-                  ? renderTx(invoice.releaseHash, releasedAmountDisplay)
-                  : releasedAmountDisplay
-              }
-              description="Amount released to the seller."
-            />
-          )}
-
-        {displayStatus === "RELEASED" &&
-          invoice.amountRefunded &&
-          Number(invoice.amountRefunded) > 0 && (
-            <InvoiceField
-              label="Amount Refunded"
-              value={
-                invoice.refundTxHash
-                  ? renderTx(invoice.refundTxHash, refundedAmountDisplay)
-                  : refundedAmountDisplay
-              }
-              description="Amount returned to the buyer."
-            />
-          )}
-
-        {displayStatus === "DISPUTE SETTLED" &&
-          isSellerView &&
-          invoice.sellerAmountReceivedAfterDispute && (
-            <InvoiceField
-              label="You Received"
-              value={(() => {
-                const raw = invoice.sellerAmountReceivedAfterDispute!;
-                const display = withCurrencySuffix(formatTokenAmount(raw));
-                const txHash =
-                  invoice.disputeSettledTxHash ?? invoice.releaseHash;
-                return txHash ? renderTx(txHash, display) : display;
-              })()}
-              description="Amount released to you after dispute settlement."
-            />
-          )}
-        {displayStatus === "DISPUTE SETTLED" &&
-          isBuyerView &&
-          invoice.buyerAmountReceivedAfterDispute && (
-            <InvoiceField
-              label="You Received"
-              value={(() => {
-                const raw = invoice.buyerAmountReceivedAfterDispute!;
-                const display = withCurrencySuffix(formatTokenAmount(raw));
-                const txHash = invoice.disputeSettledTxHash;
-                return txHash ? renderTx(txHash, display) : display;
-              })()}
-              description="Amount returned to you after dispute settlement."
-            />
-          )}
-
-        {isAwaitingPayment && invoice.expiresAt && (
-          <InvoiceField
-            label="Void in"
-            value={voidCountdown}
-            description="Time left before the invoice is void."
-          />
+        {CLOSED_DISPUTES.has(displayStatus) && (
+          <DetailRow label="Dispute outcome">
+            <span className="font-sans">
+              {statusLook(displayStatus, true).label}
+            </span>
+          </DetailRow>
         )}
-
-        {(displayStatus === "PAID" || isDisputed) &&
-          isSellerView &&
-          invoice.buyer &&
-          !isZeroAddress(invoice.buyer) && (
-            <InvoiceField
-              label="Buyer"
-              value={renderContractLink(invoice.buyer)}
-              description={
-                isDisputed
-                  ? "Buyer who raised the dispute."
-                  : "Buyer who completed the payment."
-              }
-              link="https://sapphiredao.gitbook.io/sapphiredao-docs/user-docs/publish-your-docs#buyer"
-            />
-          )}
-
-        {displayStatus === "REFUNDED" && (
-          <>
-            <InvoiceField
-              label="Seller"
-              value={renderContractLink(invoice.seller)}
-              description="Seller who created this invoice."
-              link="https://sapphiredao.gitbook.io/sapphiredao-docs/user-docs/publish-your-docs#seller"
-            />
-
-            <InvoiceField
-              label="Amount Paid"
-              value={
-                invoice.paymentTxHash
-                  ? renderTx(invoice.paymentTxHash, paidAmountDisplay)
-                  : paidAmountDisplay
-              }
-              description="Amount deposited into escrow before refund."
-            />
-
-            <InvoiceField
-              label="Amount Refunded"
-              value={
-                invoice.refundTxHash
-                  ? renderTx(invoice.refundTxHash, refundedAmountDisplay)
-                  : refundedAmountDisplay
-              }
-              description="Amount returned to the buyer."
-            />
-
-            {isBuyerView && invoice.seller && (
-              <p className="text-xs text-red-600 font-medium mt-2">
-                Order refunded by{" "}
-                <a
-                  href={`https://sepolia.basescan.org/address/${invoice.seller}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="underline text-red-700 hover:text-red-800"
-                >
-                  {`${invoice.seller.slice(0, 6)}...${invoice.seller.slice(-4)}`}
-                  <ArrowUpRight className="ml-0.5 inline h-3 w-3 align-[-1px]" />
-                </a>{" "}
-                — funds returned.
-              </p>
+        {isPaid && (
+          <DetailRow label="Settlement">
+            {settlementTx ? (
+              <TxLink hash={settlementTx} />
+            ) : (
+              <span className="font-sans text-muted-foreground">
+                Not settled
+              </span>
             )}
-          </>
+          </DetailRow>
         )}
-      </CardHeader>
+        {invoice.contract && (
+          <DetailRow label="Contract">
+            <CopyValue value={invoice.contract} label="Contract address">
+              <AddressLink address={invoice.contract} />
+            </CopyValue>
+          </DetailRow>
+        )}
+      </DetailRows>
 
-      {isExpanded && (
-        <CardContent className="border-t pt-4 space-y-4 text-sm text-gray-800">
-          {invoice.contract && (
-            <InvoiceField
-              label="Contract"
-              value={renderContractLink(invoice.contract)}
-              description="Smart contract handling invoice logic."
-              link="https://sapphiredao.gitbook.io/sapphiredao-docs/technical-docs/core-contracts"
-            />
-          )}
-
-          {invoice.seller && displayStatus !== "REFUNDED" && (
-            <InvoiceField
-              label="Seller"
-              value={renderContractLink(invoice.seller)}
-              description="Seller who created this invoice."
-              link="https://sapphiredao.gitbook.io/sapphiredao-docs/user-docs/publish-your-docs#seller"
-            />
-          )}
-
-          {invoice.buyer &&
-            !isZeroAddress(invoice.buyer) &&
-            !isAwaitingPayment &&
-            displayStatus !== "REFUNDED" && (
-              <InvoiceField
-                label="Buyer"
-                value={renderContractLink(invoice.buyer)}
-                description="Buyer responsible for payment."
-                link="https://sapphiredao.gitbook.io/sapphiredao-docs/user-docs/publish-your-docs#buyer"
-              />
-            )}
-
-          {displayStatus === "PAID" && (
-            <InvoiceField
-              label="Dispute Status"
-              value="No dispute raised"
-              description="Buyer may raise a dispute before payment is automatically released to the seller."
-            />
-          )}
-
-          {(displayStatus === "DISPUTE RESOLVED" ||
-            displayStatus === "DISPUTE DISMISSED" ||
-            displayStatus === "DISPUTE SETTLED" ||
-            displayStatus === "DISPUTE EXPIRED") && (
-            <InvoiceField
-              label="Dispute Outcome"
-              value={displayStatus}
-              description="The final resolution reached for this dispute."
-            />
-          )}
-
-          {displayHistory.length > 0 && (
-            <InvoiceField
-              label="State History"
-              value={
-                <div className="flex flex-wrap items-center gap-2 text-xs">
-                  {displayHistory.map((entry, idx) => (
-                    <div key={idx} className="flex items-center gap-1">
-                      <span className="bg-gray-100 border border-gray-300 rounded-full px-3 py-1">
-                        {entry.status}
-                        <span className="ml-2 text-[10px] text-gray-500">
-                          {entry.time ? unixToGMT(entry.time) : ""}
-                        </span>
-                      </span>
-                      {idx < displayHistory.length - 1 && (
-                        <span className="text-gray-400">→</span>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              }
-              description="All state transitions this invoice has gone through with their timestamps."
-            />
-          )}
-
-          {paymentUrl && displayStatus === "AWAITING PAYMENT" && (
-            <div className="mt-4 flex flex-col items-center gap-3">
-              <div className="border border-dashed p-2 rounded-xl bg-gray-50">
-                <QRCodeSVG value={paymentUrl} size={120} level="H" />
-              </div>
-              <Button size="sm" variant="outline" onClick={handleCopyLink}>
-                Copy Payment Link
-              </Button>
-            </div>
-          )}
-        </CardContent>
+      {displayStatus === "REFUNDED" && isBuyerView && (
+        <p className="text-xs text-destructive">
+          Refunded by the seller. The funds were returned to you.
+        </p>
       )}
-    </Card>
+
+      {paymentUrl && isAwaitingPayment && (
+        <div className="flex flex-col items-center gap-3 border border-dashed border-border bg-background p-4">
+          <QRCodeSVG value={paymentUrl} size={120} level="H" />
+          <Button
+            size="sm"
+            variant="outline"
+            className="rounded-none border-primary text-primary hover:bg-primary/5 hover:text-primary"
+            onClick={handleCopyLink}
+          >
+            Copy payment link
+          </Button>
+        </div>
+      )}
+
+      {displayHistory.length > 0 && (
+        <div className="space-y-2">
+          <SectionLabel>History</SectionLabel>
+          <HistoryList
+            entries={displayHistory}
+            format={(time) => `${unixToGMT(time)} UTC`}
+          />
+        </div>
+      )}
+    </InvoiceCardFrame>
   );
 }
 
 export const IntermediatedCard = memo(IntermediatedCardImpl);
-
-export {
-  renderContractLink,
-  renderTx,
-  InvoiceField,
-} from "./InvoiceCardShared";

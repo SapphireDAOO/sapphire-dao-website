@@ -27,6 +27,7 @@ export function InvoicePaginationControls({
         <Button
           variant="outline"
           size="sm"
+          className="rounded-none"
           disabled={isLoading}
           onClick={onPrev}
         >
@@ -34,12 +35,13 @@ export function InvoicePaginationControls({
         </Button>
       )}
 
-      <span className="text-sm text-gray-600">Page {page}</span>
+      <span className="font-mono text-xs text-muted-foreground">Page {page}</span>
 
       {showNext && (
         <Button
           variant="outline"
           size="sm"
+          className="rounded-none"
           disabled={isLoading}
           onClick={onNext}
         >

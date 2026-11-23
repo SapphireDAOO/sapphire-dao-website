@@ -8,28 +8,25 @@ import {
   DialogClose,
   DialogContent,
   DialogDescription,
-  DialogFooter,
-  DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { NoteLength } from "@/components/NoteLength";
 import { MAX_NOTE_LENGTH, MINIMUM_INVOICE_VALUE } from "@/constants";
 import { formatDurationSeconds } from "@/utils";
 import { useGetFeeRate } from "@/hooks/useGetFeeRate";
 import { useEscrowHoldPeriod } from "@/hooks/useEscrowHoldPeriod";
+import { useUsdPrice } from "@/hooks/useUsdPrice";
 import {
   ContractActionsContext,
   ContractLoadingContext,
 } from "@/context/contract-context";
 import ConnectWalletButton from "@/components/wallet/ConnectWalletButton";
 import { formatEther, parseEther, parseUnits } from "viem";
-import { ArrowUpRight, Loader2, QrCode, ShieldCheck } from "lucide-react";
+import { Copy, Loader2, Plus, QrCode } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 import { isUserRejection, WALLET_CANCELLED } from "@/lib/walletErrors";
 import { usePayLink } from "@/hooks/usePayLink";
 import { sealNote } from "@/lib/noteCrypto";
@@ -39,9 +36,17 @@ import { MessagingKey } from "@/components/action-components/notes/MessagingKey"
 import React from "react";
 import { BASE_SEPOLIA, SIMPLE_PAYMENT_PROCESSOR } from "@/constants";
 import {
-  renderContractLink,
-  InvoiceField,
-} from "@/components/action-components/dashboard/invoices/InvoiceCardShared";
+  AddressLink,
+  DetailRow,
+  DetailRows,
+  SectionLabel,
+} from "../invoices/InvoiceCardFrame";
+import { formatUsd } from "../amounts";
+
+const dialogClass =
+  "flex max-h-[92dvh] w-[calc(100vw-2rem)] max-w-md flex-col gap-0 overflow-y-auto overflow-x-hidden rounded-none border-border bg-card p-0 text-foreground sm:rounded-none";
+
+const squareButton = "h-10 rounded-none";
 
 interface InvoiceQRLinkProps {
   open: boolean;
@@ -60,66 +65,93 @@ const InvoiceQRLink = React.memo(
       else toast.error("Couldn't copy the payment link.");
     }, [paymentUrl]);
 
+    const steps = [
+      <>
+        Copy the link and send it to your payer, or let them scan the QR code
+        with their phone&apos;s camera.
+      </>,
+      <>The link opens a page where they connect a wallet and pay in ETH.</>,
+      <>
+        Once they&apos;ve paid, the invoice shows as{" "}
+        <span className="font-medium text-foreground">Awaiting acceptance</span>{" "}
+        on your dashboard. Accept it before its deadline, or the payer is
+        refunded.
+      </>,
+      <>
+        After you accept, the payment is held in escrow
+        {holdPeriodSeconds !== undefined &&
+          ` for ${formatDurationSeconds(holdPeriodSeconds)}`}
+        , then released to you.
+      </>,
+    ];
+
     return (
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="w-[95vw] max-w-md sm:max-w-lg p-6 sm:p-8 rounded-xl">
-          <DialogHeader>
-            <DialogTitle className="text-2xl font-bold">
-              Invoice Created!
+        <DialogContent className={dialogClass}>
+          <div className="border-b border-border px-5 py-4 sm:px-6">
+            <span className="flex items-center gap-2">
+              <span
+                className="size-2 rounded-full bg-success"
+                aria-hidden="true"
+              />
+              <SectionLabel>Invoice created</SectionLabel>
+            </span>
+            <DialogTitle className="mt-1.5 text-xl font-semibold tracking-tight">
+              Send it to the person paying you
             </DialogTitle>
-            <DialogDescription className="text-sm text-muted-foreground">
-              Send it to the person paying you.
+            <DialogDescription className="sr-only">
+              Share the payment link or QR code with your payer.
             </DialogDescription>
-          </DialogHeader>
+          </div>
 
-          <ol className="list-decimal space-y-1.5 pl-5 text-sm text-gray-700">
-            <li>
-              Tap <span className="font-medium text-gray-900">Copy Link</span>{" "}
-              and send the link to your payer, or let them scan the QR code
-              with their phone&apos;s camera.
-            </li>
-            <li>
-              The link opens a page where they connect a wallet and pay in
-              ETH.
-            </li>
-            <li>
-              Once they&apos;ve paid, the invoice shows as{" "}
-              <span className="font-medium text-gray-900">Paid</span> on your
-              dashboard. Accept it there before its deadline, or the payer is
-              refunded.
-            </li>
-            <li>
-              After you accept, the payment is held in escrow
-              {holdPeriodSeconds !== undefined &&
-                ` for ${formatDurationSeconds(holdPeriodSeconds)}`}
-              , then released to you.
-            </li>
-          </ol>
+          <div className="space-y-5 px-5 py-5 sm:px-6">
+            <div className="flex flex-col items-center gap-3">
+              <div className="border border-border bg-card p-3">
+                <QRCodeSVG value={paymentUrl} size={168} level="H" />
+              </div>
+              <div className="flex w-full items-start gap-2 border border-border bg-background px-3 py-2">
+                <span className="min-w-0 flex-1 break-all font-mono text-xs leading-relaxed text-muted-foreground">
+                  {paymentUrl}
+                </span>
+                <button
+                  type="button"
+                  aria-label="Copy payment link"
+                  onClick={handleCopyLink}
+                  className="text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  <Copy className="size-3.5" />
+                </button>
+              </div>
+            </div>
 
-          <div className="flex flex-col items-center justify-center py-6 space-y-4">
-            <QRCodeSVG value={paymentUrl} size={180} level="H" includeMargin />
+            <ol className="space-y-3">
+              {steps.map((step, idx) => (
+                <li key={idx} className="flex gap-3 text-sm leading-snug">
+                  <span className="font-mono text-xs text-primary">
+                    {String(idx + 1).padStart(2, "0")}
+                  </span>
+                  <span className="text-muted-foreground">{step}</span>
+                </li>
+              ))}
+            </ol>
 
             {contractAddress && (
-              <p className="text-sm text-gray-700 text-center">
-                Contract:{" "}
-                <a
-                  href={`https://sepolia.basescan.org/address/${contractAddress}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-600 underline hover:text-blue-800"
-                >
-                  {contractAddress.slice(0, 6)}...{contractAddress.slice(-4)}
-                  <ArrowUpRight className="ml-0.5 inline h-3 w-3 align-[-1px]" />
-                </a>
-              </p>
+              <DetailRows>
+                <DetailRow label="Contract">
+                  <AddressLink address={contractAddress} />
+                </DetailRow>
+              </DetailRows>
             )}
           </div>
 
-          <DialogFooter className="flex flex-col sm:flex-row gap-3 sm:justify-end">
-            <Button onClick={handleCopyLink} className="w-full sm:w-auto">
-              Copy Link
+          <div className="border-t border-border px-5 py-4 sm:px-6">
+            <Button
+              onClick={handleCopyLink}
+              className={cn(squareButton, "w-full")}
+            >
+              Copy payment link
             </Button>
-          </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
     );
@@ -134,6 +166,7 @@ export default function CreateInvoiceDialog() {
   const noteKeys = useNoteKeys();
   const { chainId, address } = useConnection();
   const { data: formatedFee } = useGetFeeRate();
+  const { data: ethUsd } = useUsdPrice("ETH");
 
   const [openCreate, setOpenCreate] = useState(false);
   const [openQR, setOpenQR] = useState(false);
@@ -167,6 +200,11 @@ export default function CreateInvoiceDialog() {
     !isNaN(Number(amount)) &&
     Number(amount) > 0 &&
     isAboveMinimum;
+
+  const usdEstimate =
+    ethUsd && amount && Number(amount) > 0
+      ? `≈ ${formatUsd(Number(amount) * ethUsd)}`
+      : null;
 
   const handleClick = useCallback(async () => {
     if (!isAmountValid) return;
@@ -223,118 +261,133 @@ export default function CreateInvoiceDialog() {
     note,
   ]);
 
+  const isSubmitting = isCreating || isLoading === "createInvoice";
+
   return (
     <>
-      <Dialog
-        open={openCreate}
-        onOpenChange={(open) => {
-          setOpenCreate(open);
-        }}
-      >
+      <Dialog open={openCreate} onOpenChange={setOpenCreate}>
         <DialogTrigger asChild>
-          <div className="bg-black text-white rounded-xl p-5 shadow-md hover:shadow-xl transition cursor-pointer select-none">
-            <h3 className="text-lg font-bold">+ Request Payment</h3>
-            <p className="text-sm opacity-90">
-              Create a new invoice with note thread
-            </p>
-          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-9 gap-1.5 rounded-none border-primary bg-transparent text-primary hover:bg-primary/5 hover:text-primary"
+          >
+            <Plus className="size-4" aria-hidden="true" />
+            Request payment
+          </Button>
         </DialogTrigger>
 
-        <DialogContent className="w-full max-w-lg sm:max-w-md md:max-w-lg lg:w-1/2 px-4 sm:px-6 py-6 rounded-xl">
-          <DialogHeader>
-            <DialogTitle className="text-xl sm:text-2xl font-bold">
-              New Invoice
+        <DialogContent className={dialogClass}>
+          <div className="border-b border-border px-5 py-4 sm:px-6">
+            <SectionLabel>Request payment</SectionLabel>
+            <DialogTitle className="mt-1.5 text-xl font-semibold tracking-tight">
+              New invoice
             </DialogTitle>
-            <DialogDescription className="text-xs sm:text-sm text-muted-foreground mt-1">
-              A {Number(formatedFee) / 100}% fee is deducted from the payment
-              when it is released to you
+            <DialogDescription className="mt-1 text-sm text-muted-foreground">
+              Set the amount, then share the payment link with your payer.
             </DialogDescription>
-          </DialogHeader>
+          </div>
 
-          {holdPeriodSeconds !== undefined && (
-            <div className="flex items-start gap-2 rounded-md bg-muted/60 px-3 py-2">
-              <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-gray-500" />
-              <p className="text-xs leading-snug text-gray-600">
-                Payments are held in escrow for{" "}
-                <span className="font-medium text-gray-900">
-                  {formatDurationSeconds(holdPeriodSeconds)}
-                </span>{" "}
-                after you accept an invoice, then released to you. The payer
-                sees this before paying.
-              </p>
-            </div>
-          )}
+          <div className="space-y-6 px-5 py-5 sm:px-6">
+            {address &&
+              noteKeys.registeredKeyLoaded &&
+              !noteKeys.registeredKey && <MessagingKey />}
 
-          {address &&
-            noteKeys.registeredKeyLoaded &&
-            !noteKeys.registeredKey && <MessagingKey />}
-
-          {contractAddress && (
-            <InvoiceField
-              label="Contract"
-              value={renderContractLink(contractAddress)}
-              description="The deployed invoice smart contract that manages escrow and release logic."
-              link={`https://sepolia.basescan.org/address/${contractAddress}`}
-            />
-          )}
-
-          <div className="grid gap-5 py-4">
-            <div className="grid grid-cols-1 sm:grid-cols-4 items-start gap-3">
-              <Label htmlFor="amount" className="text-left sm:pt-2.5 sm:text-right">
-                Amount
-              </Label>
-              <div className="sm:col-span-3 w-full space-y-1">
-                <Input
+            <div>
+              <label htmlFor="amount">
+                <SectionLabel>Amount</SectionLabel>
+              </label>
+              <div
+                className={cn(
+                  "mt-2 flex items-baseline gap-2 border-b-2 pb-1 transition-colors focus-within:border-primary",
+                  isAboveMinimum ? "border-border" : "border-destructive",
+                )}
+              >
+                <input
                   id="amount"
                   type="number"
+                  inputMode="decimal"
                   value={amount}
                   placeholder="0.05"
                   onChange={(e) => setAmount(e.target.value)}
-                  className="w-full"
                   min="0"
                   step="any"
+                  autoComplete="off"
+                  className="w-full min-w-0 bg-transparent font-mono text-4xl font-semibold tracking-tight tabular-nums outline-none placeholder:text-muted-foreground/40"
                 />
-                <p className="text-[11px] text-gray-500">
-                  Amounts are in ETH.
-                  {minimumEth ? ` Minimum ${minimumEth} ETH.` : ""}
-                </p>
-                {!isAboveMinimum && minimumEth && (
-                  <p className="text-[11px] text-red-600">
-                    Below the {minimumEth} ETH minimum.
-                  </p>
+                <span className="text-base font-medium text-muted-foreground">
+                  ETH
+                </span>
+              </div>
+              <p className="mt-2 flex items-center justify-between gap-3 text-xs">
+                <span className="text-muted-foreground">{usdEstimate}</span>
+                {minimumEth && (
+                  <span
+                    className={
+                      isAboveMinimum
+                        ? "text-muted-foreground"
+                        : "text-destructive"
+                    }
+                  >
+                    {isAboveMinimum ? "Minimum" : "Below the minimum of"}{" "}
+                    {minimumEth} ETH
+                  </span>
                 )}
-              </div>
+              </p>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-4 items-start gap-3">
-              <Label htmlFor="note" className="text-left sm:pt-2.5 sm:text-right">
-                Note
-              </Label>
-              <div className="sm:col-span-3 space-y-2">
-                <Textarea
-                  id="note"
-                  value={note}
-                  placeholder="e.g. MacBook Pro, delivery in 3 days"
-                  onChange={(e) => setNote(e.target.value)}
-                  className="w-full h-24 resize-none"
-                  maxLength={MAX_NOTE_LENGTH}
-                />
-                <NoteLength value={note} />
-              </div>
+            <div>
+              <label htmlFor="note" className="flex items-baseline gap-2">
+                <SectionLabel>Note</SectionLabel>
+                <span className="text-xs text-muted-foreground">
+                  Optional, encrypted
+                </span>
+              </label>
+              <textarea
+                id="note"
+                value={note}
+                placeholder="e.g. MacBook Pro, delivery in 3 days"
+                onChange={(e) => setNote(e.target.value)}
+                maxLength={MAX_NOTE_LENGTH}
+                className="mt-2 h-24 w-full resize-none rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none transition-all placeholder:text-muted-foreground focus:border-primary/50 focus:ring-2 focus:ring-primary/10"
+              />
+              <NoteLength value={note} />
             </div>
+
+            <DetailRows>
+              {formatedFee !== undefined && (
+                <DetailRow label="Fee">
+                  {Number(formatedFee) / 100}%{" "}
+                  <span className="font-sans text-muted-foreground">
+                    on release
+                  </span>
+                </DetailRow>
+              )}
+              {holdPeriodSeconds !== undefined && (
+                <DetailRow label="Escrow hold">
+                  <span className="font-sans">
+                    {formatDurationSeconds(holdPeriodSeconds)} after you
+                    accept
+                  </span>
+                </DetailRow>
+              )}
+              {contractAddress && (
+                <DetailRow label="Contract">
+                  <AddressLink address={contractAddress} />
+                </DetailRow>
+              )}
+            </DetailRows>
           </div>
 
-          <div className="flex items-start gap-2 rounded-md bg-muted/60 px-3 py-2">
-            <QrCode className="mt-0.5 h-4 w-4 shrink-0 text-gray-500" />
-            <p className="text-xs leading-snug text-gray-600">
-              Once the invoice is created, you&apos;ll get a payment link and a
-              QR code to send to the payer.
-            </p>
+          <div className="flex items-start gap-2 bg-muted px-5 py-3 text-xs leading-snug text-muted-foreground sm:px-6">
+            <QrCode className="mt-px size-3.5 shrink-0" aria-hidden="true" />
+            Once it&apos;s created, you&apos;ll get a payment link and a QR
+            code to send to the payer.
           </div>
 
-          <DialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-between gap-2 sm:gap-3 mt-3">
+          <div className="flex flex-col-reverse gap-2 border-t border-border px-5 py-4 sm:flex-row sm:justify-end sm:px-6">
             <DialogClose asChild>
-              <Button variant="secondary" className="w-full sm:w-auto">
+              <Button variant="outline" className={squareButton}>
                 Cancel
               </Button>
             </DialogClose>
@@ -342,26 +395,21 @@ export default function CreateInvoiceDialog() {
             {address ? (
               <Button
                 onClick={handleClick}
-                disabled={
-                  !isAmountValid ||
-                  !hasPublishedKey ||
-                  isCreating ||
-                  isLoading === "createInvoice"
-                }
-                className="w-full sm:w-auto"
+                disabled={!isAmountValid || !hasPublishedKey || isSubmitting}
+                className={cn(squareButton, "sm:min-w-36")}
               >
-                {isCreating || isLoading === "createInvoice" ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                {isSubmitting ? (
+                  <Loader2 className="size-4 animate-spin" />
                 ) : (
-                  "Create Invoice"
+                  "Create invoice"
                 )}
               </Button>
             ) : (
-              <div className="w-full sm:w-auto flex justify-center">
+              <div className="flex justify-center">
                 <ConnectWalletButton />
               </div>
             )}
-          </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
 
