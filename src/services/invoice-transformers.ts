@@ -66,6 +66,7 @@ export const transformIntermediated = (
     buyerAmountReceivedAfterDispute: inv.buyerAmountReceivedAfterDispute ?? null,
     type,
     contract: inv.contract,
+    escrow: inv.escrow ?? undefined,
     paymentTxHash: inv.paymentTxHash,
     releaseHash: inv.releaseHash,
     seller: inv.seller?.id ?? "",

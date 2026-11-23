@@ -63,6 +63,7 @@ export const userInvoicesPageQuery = `
         sellerAmountReceivedAfterDispute
         buyerAmountReceivedAfterDispute
         contract
+        escrow
         id
         invoiceNonce
         price
@@ -86,6 +87,7 @@ export const userInvoicesPageQuery = `
         sellerAmountReceivedAfterDispute
         buyerAmountReceivedAfterDispute
         contract
+        escrow
         id
         invoiceNonce
         price

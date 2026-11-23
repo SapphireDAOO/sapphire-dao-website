@@ -30,6 +30,8 @@ import { formatUsd } from "../amounts";
 import { useHasPassed } from "@/hooks/useHasPassed";
 
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
+// Paying creates the invoice's escrow, so it exists from PAID on.
+const ESCROW_STATUSES = new Set(["PAID", "ACCEPTED", "RELEASED", "REFUNDED"]);
 const isZeroAddress = (value?: string) => value?.toLowerCase() === ZERO_ADDRESS;
 
 const formatAmountMax4 = (value?: string | null): string => {
@@ -274,6 +276,10 @@ function InvoiceCardImpl({
               </span>
             )}
           </DetailRow>
+        )}
+        {ESCROW_STATUSES.has(displayStatus) && (
+          // Empty until the subgraph indexes simple invoices' escrow.
+          <DetailRow label="Escrow">{""}</DetailRow>
         )}
         {invoice.contract && (
           <DetailRow label="Contract">

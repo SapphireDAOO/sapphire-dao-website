@@ -70,6 +70,7 @@ export type Invoice = {
   amountReleased?: string | null;
   amountRefunded?: string | null;
   disputeSettledTxHash?: string;
+  escrow?: string;
 };
 
 export interface History {

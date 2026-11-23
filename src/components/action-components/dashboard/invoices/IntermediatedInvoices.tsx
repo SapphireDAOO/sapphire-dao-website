@@ -284,6 +284,13 @@ function IntermediatedCardImpl({
             )}
           </DetailRow>
         )}
+        {invoice.escrow && !isZeroAddress(invoice.escrow) && (
+          <DetailRow label="Escrow">
+            <CopyValue value={invoice.escrow} label="Escrow address">
+              <AddressLink address={invoice.escrow} />
+            </CopyValue>
+          </DetailRow>
+        )}
         {invoice.contract && (
           <DetailRow label="Contract">
             <CopyValue value={invoice.contract} label="Contract address">
