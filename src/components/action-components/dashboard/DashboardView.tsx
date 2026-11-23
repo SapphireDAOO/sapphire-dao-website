@@ -197,8 +197,6 @@ export default function DashboardView({
             />
           </div>
 
-          {sidePanel && <div className="mt-4 md:hidden">{sidePanel}</div>}
-
           <div
             className={cn(
               "mt-3 grid grid-cols-1 items-start",

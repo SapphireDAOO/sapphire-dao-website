@@ -16,6 +16,7 @@ import {
 import { useInvoiceTotals, type InvoiceSide } from "@/hooks/useInvoiceTotals";
 import { useUsdPrice } from "@/hooks/useUsdPrice";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import DashboardView, { type RoleTab, type ViewMode } from "./DashboardView";
 import type { GroupStats } from "./DashboardOverview";
 import {
@@ -215,15 +216,21 @@ export default function IndexRecentPayment({
     return sortByLastAction([...liveSellerInvoices, ...liveBuyerInvoices]);
   }, [activeTab, liveSellerInvoices, liveBuyerInvoices]);
 
-  const groups = useMemo(
-    () => [ALL_GROUP, ...groupsFor(isIntermediatedTab)],
-    [isIntermediatedTab],
-  );
+  // Desktop lists invoices awaiting acceptance in the sidebar; phones keep them a tile.
+  const isDesktop = useMediaQuery("(min-width: 768px)");
+  const usesPanel = !isIntermediatedTab && isDesktop;
+
+  const groups = useMemo(() => {
+    const base = groupsFor(isIntermediatedTab);
+    if (isIntermediatedTab || isDesktop) return [ALL_GROUP, ...base];
+    const [awaitingPayment, ...rest] = base;
+    return [ALL_GROUP, awaitingPayment, AWAITING_ACCEPTANCE_GROUP, ...rest];
+  }, [isIntermediatedTab, isDesktop]);
   const selectedGroup =
     groups.find((group) => group.id === groupId) ?? ALL_GROUP;
   const statGroups = useMemo(
-    () => (isIntermediatedTab ? groups : [...groups, AWAITING_ACCEPTANCE_GROUP]),
-    [groups, isIntermediatedTab],
+    () => (usesPanel ? [...groups, AWAITING_ACCEPTANCE_GROUP] : groups),
+    [groups, usesPanel],
   );
 
   // Totals come from the full subgraph snapshot, with
@@ -271,8 +278,7 @@ export default function IndexRecentPayment({
     for (const row of rows.values()) {
       if (activeTab !== "all" && row.side !== activeTab) continue;
       const inPanel =
-        !isIntermediatedTab &&
-        matchesGroup(AWAITING_ACCEPTANCE_GROUP, row.status);
+        usesPanel && matchesGroup(AWAITING_ACCEPTANCE_GROUP, row.status);
       for (const group of statGroups) {
         if (!matchesGroup(group, row.status)) continue;
         if (inPanel && group.id === ALL_GROUP_ID) continue;
@@ -290,6 +296,7 @@ export default function IndexRecentPayment({
     isIntermediatedTab,
     statGroups,
     activeTab,
+    usesPanel,
   ]);
 
   const heroSecondary = useMemo(() => {
@@ -300,7 +307,7 @@ export default function IndexRecentPayment({
   }, [isIntermediatedTab, ethUsd, stats, selectedGroup.id]);
 
   const awaitingAcceptance = useMemo(() => {
-    if (isIntermediatedTab) return [];
+    if (!usesPanel) return [];
     const nowMs = Date.now();
     return allForTab.filter((invoice) =>
       matchesGroup(
@@ -308,17 +315,14 @@ export default function IndexRecentPayment({
         canonicalStatus(invoice.status, invoice, nowMs),
       ),
     );
-  }, [isIntermediatedTab, allForTab]);
+  }, [usesPanel, allForTab]);
 
   const filteredInvoices = useMemo(() => {
     const nowMs = Date.now();
     // Invoices awaiting acceptance live in the sidebar panel instead.
     let invoices = allForTab.filter((invoice) => {
       const status = canonicalStatus(invoice.status, invoice, nowMs);
-      if (
-        !isIntermediatedTab &&
-        matchesGroup(AWAITING_ACCEPTANCE_GROUP, status)
-      ) {
+      if (usesPanel && matchesGroup(AWAITING_ACCEPTANCE_GROUP, status)) {
         return false;
       }
       return matchesGroup(selectedGroup, status);
@@ -331,7 +335,7 @@ export default function IndexRecentPayment({
     }
 
     return invoices;
-  }, [allForTab, selectedGroup, debouncedQuery, isIntermediatedTab]);
+  }, [allForTab, selectedGroup, debouncedQuery, usesPanel]);
 
   const displayInvoices = useMemo(
     () =>
@@ -408,7 +412,7 @@ export default function IndexRecentPayment({
       primaryAction={primaryAction}
       notice={notice}
       sidePanel={
-        isIntermediatedTab ? undefined : (
+        !usesPanel ? undefined : (
           <AwaitingAcceptancePanel
             invoices={awaitingAcceptance}
             stats={stats[AWAITING_ACCEPTANCE_GROUP.id]}
