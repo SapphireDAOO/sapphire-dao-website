@@ -106,6 +106,18 @@ export const StatusHero = ({
   );
 };
 
+// Long totals, like 1,234,567.00, step down a size to stay inside the tile.
+const TileAmount = ({ value }: { value: string }) => (
+  <span
+    className={cn(
+      "break-all font-mono font-semibold tracking-tight tabular-nums",
+      value.length >= 10 ? "text-base" : "text-xl",
+    )}
+  >
+    {value}
+  </span>
+);
+
 export const StatusTiles = ({
   groups,
   selectedId,
@@ -161,7 +173,7 @@ export const StatusTiles = ({
                   {isLoading || !stat ? "–" : stat.count}
                 </span>
               </div>
-              <div className="mt-3 flex min-h-7 items-baseline gap-1.5">
+              <div className="mt-3 flex min-h-7 flex-wrap items-baseline gap-x-1.5">
                 {isAll ? (
                   <>
                     <span className="font-mono text-xl font-semibold tracking-tight tabular-nums">
@@ -173,9 +185,9 @@ export const StatusTiles = ({
                   </>
                 ) : (
                   <>
-                    <span className="font-mono text-xl font-semibold tracking-tight tabular-nums">
-                      {isLoading || !stat ? "—" : formatTotal(stat.total)}
-                    </span>
+                    <TileAmount
+                      value={isLoading || !stat ? "—" : formatTotal(stat.total)}
+                    />
                     <span className="text-xs font-medium text-muted-foreground">
                       {unit}
                     </span>
