@@ -79,19 +79,44 @@ const walletConnectParameters = {
 };
 
 /**
+ * WalletConnect whose SDK loads when it's first used, not on every page:
+ * its own setup starts the provider just to attach listeners.
+ */
+const lazyWalletConnect = (
+  parameters: Parameters<typeof walletConnect>[0],
+  overrides: { id?: string; name?: string } = {},
+) =>
+  createConnector((wagmiConfig) => {
+    const connector = walletConnect(parameters)(wagmiConfig);
+    let listening = false;
+    return {
+      ...connector,
+      ...overrides,
+      async setup() {},
+      async getProvider(...args: Parameters<typeof connector.getProvider>) {
+        const provider = await connector.getProvider.apply(this, args);
+        if (!listening) {
+          listening = true;
+          await connector.setup?.call(this);
+        }
+        return provider;
+      },
+    };
+  });
+
+/**
  * WalletConnect for one wallet app on a phone without an extension. The
  * picker opens the app with its own link, like Uniswap's own wallet.
  */
 const walletAppConnector = (id: string, name: string) =>
-  createConnector((wagmiConfig) => ({
-    ...walletConnect({
+  lazyWalletConnect(
+    {
       ...walletConnectParameters,
       showQrModal: false,
       customStoragePrefix: `${WALLETCONNECT_STORAGE_PREFIX}-${id}`,
-    })(wagmiConfig),
-    id,
-    name,
-  }));
+    },
+    { id, name },
+  );
 
 // Wallets in this browser join through EIP-6963 discovery, which wagmi runs by
 // default; these cover a phone browser, a desktop without an extension, and Safe.
@@ -102,7 +127,7 @@ const createWagmiConfig = () =>
       metaMask({
         dapp: { name: APP_NAME, url: APP_URL, iconUrl: `${APP_URL}/favicon.ico` },
       }),
-      walletConnect({
+      lazyWalletConnect({
         ...walletConnectParameters,
         customStoragePrefix: WALLETCONNECT_STORAGE_PREFIX,
       }),
